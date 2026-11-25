@@ -2,7 +2,6 @@ import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
 import { ECO, ECO_FAMILIES } from './data/eco';
-import { ECO_LT } from './data/eco-lt';
 
 interface LineNode {
   readonly children: Map<string, LineNode>;
@@ -102,36 +101,5 @@ describe('ECO table', () => {
       ],
       key: 'rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -',
     });
-  });
-});
-
-describe('Lithuanian ECO coverage', () => {
-  it('names every code that the English data carries', () => {
-    const missing = ECO_FAMILIES.map((entry) => entry.code).filter(
-      (code) => !(code in ECO_LT),
-    );
-    // A non-empty list means the English generator introduced codes that the
-    // Lithuanian generator has not been re-run for. Those codes fall back to
-    // English rather than rendering blank, so this is a prompt to regenerate,
-    // not an outage.
-    expect(missing).toEqual([]);
-  });
-
-  it('carries no Lithuanian name for a code the English data does not have', () => {
-    const codes = new Set(ECO_FAMILIES.map((entry) => entry.code));
-    expect(Object.keys(ECO_LT).filter((code) => !codes.has(code))).toEqual([]);
-  });
-
-  it('has no blank names', () => {
-    expect(
-      Object.entries(ECO_LT).filter(([, name]) => name.trim() === ''),
-    ).toEqual([]);
-  });
-
-  it('keeps known names', () => {
-    expect(ECO_LT['A00']).toBe('Nepopuliarūs debiutai');
-    expect(ECO_LT['E99']).toBe(
-      'Karaliaus Indiška gynyba, Ortodoksinis variantas, Pagrindinis Aronino-Taimanovo variantas',
-    );
   });
 });

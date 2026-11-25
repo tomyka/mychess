@@ -8,7 +8,7 @@ import {
   graphOf,
   LONDON,
 } from '../../../../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../../../../i18n/locales';
+import { MESSAGES } from '../../../../../../i18n/catalogue';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import type { CoachNoteState } from '../../../../actions';
 import { SharedRepertoireView } from './shared-repertoire-view';
@@ -46,8 +46,7 @@ vi.mock('next/navigation', () => ({
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const D4 = moveKey(START_KEY, 'd4');
-const lt = MESSAGES.lt;
-const s = lt.coach.shared;
+const s = MESSAGES.coach.shared;
 
 /** Rokas's London as his coach sees it, with the coach's note on 1. d4. */
 const DATA: SharedRepertoirePage = {
@@ -60,7 +59,7 @@ const DATA: SharedRepertoirePage = {
 
 function renderView(data: SharedRepertoirePage = DATA): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <SharedRepertoireView data={data} />
     </NextIntlClientProvider>,
   );
@@ -68,12 +67,12 @@ function renderView(data: SharedRepertoirePage = DATA): void {
 
 const forward = () => {
   fireEvent.click(
-    screen.getByRole('button', { name: lt.repertoires.nav.forward }),
+    screen.getByRole('button', { name: MESSAGES.repertoires.nav.forward }),
   );
 };
 const back = () => {
   fireEvent.click(
-    screen.getByRole('button', { name: lt.repertoires.nav.back }),
+    screen.getByRole('button', { name: MESSAGES.repertoires.nav.back }),
   );
 };
 /** Plays a move on the (mocked) board, as chessground reports it. */
@@ -103,7 +102,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     ).toBeDefined();
     expect(screen.getByText(s.readOnly)).toBeDefined();
     expect(
-      screen.getByRole('link', { name: 'Atgal: Rokas' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Back to Rokas' }).getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-1');
     expect(screen.getByRole('application')).toBeDefined();
   });
@@ -113,7 +112,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     const header = screen.getByRole('banner');
     expect(
       within(header)
-        .getByRole('link', { name: lt.coach.progress.title })
+        .getByRole('link', { name: MESSAGES.coach.progress.title })
         .getAttribute('href'),
     ).toBe(`/treneris/zaidejai/p-1/pazanga/${ID}`);
   });
@@ -121,13 +120,13 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
   it('has none of the owner’s controls', () => {
     renderView();
     forward();
-    const header = lt.repertoires.header;
+    const header = MESSAGES.repertoires.header;
     for (const name of [
-      lt.repertoires.mode.toBuild,
+      MESSAGES.repertoires.mode.toBuild,
       header.rename,
       header.delete,
       header.importInto,
-      lt.repertoires.note.label,
+      MESSAGES.repertoires.note.label,
     ])
       expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.queryByRole('link', { name: header.download })).toBeNull();
@@ -175,7 +174,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
   it('marks the moves carrying the coach’s own note in the move list, a saved one too', async () => {
     renderView();
     const d4 = screen.getByRole('button', {
-      name: `1. d4, ${lt.repertoires.moves.hasComment}, ${lt.repertoires.moves.hasCoachNote}`,
+      name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}, ${MESSAGES.repertoires.moves.hasCoachNote}`,
     });
     expect(d4.querySelector('[data-note="coach"]')).not.toBeNull();
     expect(document.querySelector('[data-note="personal"]')).toBeNull();
@@ -187,7 +186,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     fireEvent.click(screen.getByRole('button', { name: s.saveNote }));
     expect(
       await screen.findByRole('button', {
-        name: `1... d5, ${lt.repertoires.moves.hasCoachNote}`,
+        name: `1... d5, ${MESSAGES.repertoires.moves.hasCoachNote}`,
       }),
     ).toBeDefined();
   });
@@ -197,7 +196,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     boardMove('d2', 'd4');
     expect(current()).toBe('d4');
     const field = screen.getByLabelText<HTMLInputElement>(
-      lt.board.moveInput.label,
+      MESSAGES.board.moveInput.label,
     );
     fireEvent.change(field, { target: { value: 'd5' } });
     fireEvent.submit(field);
@@ -208,12 +207,14 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     renderView();
     boardMove('e2', 'e4');
     // The repertoire is the player's; the coach cannot change it (R-42).
-    expect(screen.getByText(lt.coach.shared.notInChapter)).toBeDefined();
-    expect(screen.queryByText(lt.repertoires.board.notInRepertoire)).toBeNull();
+    expect(screen.getByText(MESSAGES.coach.shared.notInChapter)).toBeDefined();
+    expect(
+      screen.queryByText(MESSAGES.repertoires.board.notInRepertoire),
+    ).toBeNull();
     expect(current()).toBeUndefined();
     expect(screen.getByText('The London')).toBeDefined();
     const field = screen.getByLabelText<HTMLInputElement>(
-      lt.board.moveInput.label,
+      MESSAGES.board.moveInput.label,
     );
     fireEvent.change(field, { target: { value: 'c4' } });
     fireEvent.submit(field);
@@ -225,7 +226,9 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
 
   it('shows a repertoire without chapters as empty, with no note field', () => {
     renderView({ ...DATA, graph: { ...DATA.graph, chapters: [] } });
-    expect(screen.getByText(lt.repertoires.panel.emptyBrowse)).toBeDefined();
+    expect(
+      screen.getByText(MESSAGES.repertoires.panel.emptyBrowse),
+    ).toBeDefined();
     expect(noteField()).toBeNull();
   });
 });

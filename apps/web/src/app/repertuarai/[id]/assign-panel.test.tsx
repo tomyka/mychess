@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { CoachAssignment } from '@mychess/db';
 import type { AssignPanelData } from '../../../server/coach-assignments';
 import type { AssignmentActionState } from './assign-actions';
@@ -34,13 +34,12 @@ vi.mock('./assign-actions', () => ({
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const GROUP = '0b9e7a51-3c2d-4e6f-8a1b-2c3d4e5f6a7b';
-const lt = MESSAGES.lt;
-const p = lt.assignment.panel;
-const badge = lt.assignment.badge;
+const p = MESSAGES.assignment.panel;
+const badge = MESSAGES.assignment.badge;
 
-/** A day as the page writes it in Lithuanian. */
+/** A day as the page writes it. */
 const day = (iso: string): string =>
-  new Intl.DateTimeFormat('lt', {
+  new Intl.DateTimeFormat('en', {
     dateStyle: 'long',
     timeZone: 'Europe/Vilnius',
   }).format(new Date(`${iso}T12:00:00Z`));
@@ -95,12 +94,11 @@ const PEOPLE: Pick<AssignPanelData, 'players' | 'groups' | 'today'> = {
 
 function renderPanel(
   data: AssignPanelData = { ...PEOPLE, assignments: [] },
-  locale: 'lt' | 'en' = 'lt',
 ): void {
   render(
     <NextIntlClientProvider
-      locale={locale}
-      messages={MESSAGES[locale]}
+      locale="en"
+      messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
       <AssignPanel repertoireId={ID} data={data} />
@@ -179,7 +177,7 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
 
   it('still says it was assigned once the last target is taken', async () => {
     const panel = (data: AssignPanelData) => (
-      <NextIntlClientProvider locale="lt" messages={lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <AssignPanel repertoireId={ID} data={data} />
       </NextIntlClientProvider>
     );
@@ -216,7 +214,7 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: p.assign }));
     expect(
-      await screen.findByText(lt.assignment.alreadyAssigned),
+      await screen.findByText(MESSAGES.assignment.alreadyAssigned),
     ).toBeDefined();
     expect(screen.queryByText(p.assigned)).toBeNull();
   });
@@ -248,13 +246,6 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
     expect(screen.getByText(p.everyone)).toBeDefined();
     expect(screen.queryByRole('button', { name: p.assign })).toBeNull();
   });
-
-  it('speaks English on the English page', () => {
-    renderPanel(undefined, 'en');
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'Assign to players' }),
-    ).toBeDefined();
-  });
 });
 
 /** The list item of the assignment to `name`. */
@@ -272,7 +263,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     expect(within(group).getByText(p.group)).toBeDefined();
     expect(
       within(group).getByText(
-        lt.assignment.deadlineOn.replace('{date}', day('2026-11-30')),
+        MESSAGES.assignment.deadlineOn.replace('{date}', day('2026-11-30')),
       ),
     ).toBeDefined();
     const egle = within(group).getByText('Eglė').closest('li');
@@ -291,7 +282,9 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     expect(within(marta).queryByText(badge.paused)).toBeNull();
 
     const rokas = row('Rokas');
-    expect(within(rokas).getByText(lt.assignment.noDeadline)).toBeDefined();
+    expect(
+      within(rokas).getByText(MESSAGES.assignment.noDeadline),
+    ).toBeDefined();
     expect(within(rokas).getByText(badge.paused)).toBeDefined();
     expect(within(rokas).queryByText(badge.overdue)).toBeNull();
   });
@@ -361,7 +354,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
       within(group).getByRole('button', { name: p.changeDeadline }),
     );
     expect(
-      await within(group).findByText(lt.assignment.deadlinePast),
+      await within(group).findByText(MESSAGES.assignment.deadlinePast),
     ).toBeDefined();
   });
 
@@ -375,7 +368,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
       within(group).getByRole('button', { name: p.changeDeadline }),
     );
     expect(
-      await within(group).findByText(lt.assignment.deadlineInvalid),
+      await within(group).findByText(MESSAGES.assignment.deadlineInvalid),
     ).toBeDefined();
   });
 
@@ -385,7 +378,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     fireEvent.click(within(group).getByRole('button', { name: p.unassign }));
     expect(
       within(group).getByText(
-        'Panaikinti priskyrimą: Šeštadienio grupė? Repertuaras dings iš žaidėjų sąrašų, o per 30 dienų jie galės pasilikti asmeninę kopiją. Žaidėjai, kuriems jis priskirtas ir kitu būdu, jį pasiliks.',
+        'Unassign it from Šeštadienio grupė? The repertoire leaves the players’ lists, and they have 30 days to keep their own copy. Anyone who has it another way keeps it.',
       ),
     ).toBeDefined();
     expect(server.unassign).not.toHaveBeenCalled();
@@ -403,7 +396,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     fireEvent.click(within(rokas).getByRole('button', { name: p.unassign }));
     expect(
       within(rokas).getByText(
-        'Panaikinti priskyrimą: Rokas? Repertuaras dings iš žaidėjo sąrašo, o per 30 dienų jis galės pasilikti asmeninę kopiją.',
+        'Unassign it from Rokas? The repertoire leaves their list, and they have 30 days to keep their own copy.',
       ),
     ).toBeDefined();
   });
@@ -417,7 +410,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
       within(rokas).getByRole('button', { name: p.unassignConfirm }),
     );
     expect(
-      await within(rokas).findByText(lt.assignment.notFound),
+      await within(rokas).findByText(MESSAGES.assignment.notFound),
     ).toBeDefined();
   });
 });

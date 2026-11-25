@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { AssignedListItem } from '../../server/assignment-pages';
 import { RepertoireList, type RepertoireCard } from './repertoire-list';
 
@@ -60,13 +60,12 @@ const ITALIAN: AssignedListItem = {
 
 function renderList(
   items: readonly RepertoireCard[],
-  locale: 'lt' | 'en' = 'lt',
   assigned: readonly AssignedListItem[] = [],
 ): void {
   render(
     <NextIntlClientProvider
-      locale={locale}
-      messages={MESSAGES[locale]}
+      locale="en"
+      messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
       <RepertoireList items={items} assigned={assigned} now={NOW} />
@@ -74,7 +73,7 @@ function renderList(
   );
 }
 
-const l = MESSAGES.lt.repertoires.list;
+const l = MESSAGES.repertoires.list;
 
 const linksIn = (name: string) =>
   within(screen.getByRole('region', { name }))
@@ -88,33 +87,27 @@ describe('RepertoireList', () => {
       screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
     ).toEqual([l.white, l.black]);
     expect(linksIn(l.white)).toEqual([
-      [
-        '/repertuarai/r-1',
-        'Londono sistema2 skyriai · 21 ėjimasPakeista 15:00',
-      ],
+      ['/repertuarai/r-1', 'Londono sistema2 chapters · 21 movesChanged 15:00'],
       [
         '/repertuarai/r-2',
-        'Šiaurės gambitas10 skyrių · 12 ėjimųPakeista 15:00',
+        'Šiaurės gambitas10 chapters · 12 movesChanged 15:00',
       ],
-      ['/repertuarai/r-3', 'Žaibas1 skyrius · 1 ėjimasPakeista 15:00'],
+      ['/repertuarai/r-3', 'Žaibas1 chapter · 1 moveChanged 15:00'],
     ]);
     expect(linksIn(l.black)).toEqual([
-      ['/repertuarai/r-4', 'Taimanovas6 skyriai · 233 ėjimaiPakeista 15:00'],
+      ['/repertuarai/r-4', 'Taimanovas6 chapters · 233 movesChanged 15:00'],
     ]);
   });
 
-  it('sorts in Lithuanian order whatever the viewer’s language (R-160)', () => {
-    renderList(
-      [
-        card({ id: 'r-j', name: 'Jonas' }),
-        card({ id: 'r-y', name: 'Yra' }),
-        card({ id: 'r-i', name: 'Ieva' }),
-      ],
-      'en',
-    );
+  it('sorts by name in English order (R-160, #378)', () => {
+    renderList([
+      card({ id: 'r-j', name: 'Jonas' }),
+      card({ id: 'r-y', name: 'Yra' }),
+      card({ id: 'r-i', name: 'Ieva' }),
+    ]);
     expect(
-      linksIn(MESSAGES.en.repertoires.list.white).map(([href]) => href),
-    ).toEqual(['/repertuarai/r-i', '/repertuarai/r-y', '/repertuarai/r-j']);
+      linksIn(MESSAGES.repertoires.list.white).map(([href]) => href),
+    ).toEqual(['/repertuarai/r-i', '/repertuarai/r-j', '/repertuarai/r-y']);
   });
 
   it('names each card by its repertoire and describes it by its counts', () => {
@@ -133,7 +126,7 @@ describe('RepertoireList', () => {
   });
 
   it('lists the repertoires assigned to the player under their side, sorted with the own ones (#328)', () => {
-    renderList(ITEMS, 'lt', [CARO, ITALIAN]);
+    renderList(ITEMS, [CARO, ITALIAN]);
     expect(linksIn(l.white).map(([href]) => href)).toEqual([
       '/repertuarai/priskirti/a-2',
       '/repertuarai/r-1',
@@ -147,27 +140,24 @@ describe('RepertoireList', () => {
   });
 
   it('marks an assigned repertoire with its coach, deadline and badges, as home does', () => {
-    renderList([], 'lt', [CARO, ITALIAN]);
-    const a = MESSAGES.lt.assignment;
+    renderList([], [CARO, ITALIAN]);
+    const a = MESSAGES.assignment;
     const caro = screen.getByRole('link', { name: 'Karo-Kan gynyba' });
-    expect(within(caro).getByText('Priskyrė Jonas')).toBeDefined();
+    expect(within(caro).getByText('Assigned by Jonas')).toBeDefined();
     expect(within(caro).getByText(a.badge.updated)).toBeDefined();
     expect(within(caro).queryByText(a.badge.overdue)).toBeNull();
     const italian = screen.getByRole('link', { name: 'Itališkoji partija' });
     expect(within(italian).getByText(a.badge.overdue)).toBeDefined();
-    expect(within(italian).getByText(/^Terminas/u).textContent).toMatch(
+    expect(within(italian).getByText(/^Deadline/u).textContent).toMatch(
       /2026/u,
     );
   });
 
   it('labels the player’s own copy of an assignment with its coach, and nothing else (#328, R-135)', () => {
-    renderList(
-      [
-        card({ id: 'f-1', name: 'Itališkoji partija', forkCoachName: 'Jonas' }),
-        card({ id: 'r-1', name: 'Londono sistema' }),
-      ],
-      'lt',
-    );
+    renderList([
+      card({ id: 'f-1', name: 'Itališkoji partija', forkCoachName: 'Jonas' }),
+      card({ id: 'r-1', name: 'Londono sistema' }),
+    ]);
     const label = l.forkOf.replace('{coach}', 'Jonas');
     const fork = screen.getByRole('link', { name: 'Itališkoji partija' });
     expect(within(fork).getByText(label)).toBeDefined();
@@ -176,7 +166,7 @@ describe('RepertoireList', () => {
   });
 
   it('says a side is empty only when it has neither an own nor an assigned repertoire', () => {
-    renderList([], 'lt', [CARO]);
+    renderList([], [CARO]);
     expect(screen.queryByText(l.emptyBlack)).toBeNull();
     expect(screen.queryByText(l.empty)).toBeNull();
     expect(
@@ -193,30 +183,27 @@ describe('RepertoireList', () => {
   });
 
   it('shows older changes as a date, with the year when it is not this year', () => {
-    renderList(
-      [
-        card({
-          id: 'a',
-          name: 'A',
-          updatedAt: new Date('2026-10-12T09:00:00Z'),
-        }),
-        card({
-          id: 'b',
-          name: 'B',
-          updatedAt: new Date('2025-09-02T09:00:00Z'),
-        }),
-      ],
-      'en',
-    );
-    expect(linksIn(MESSAGES.en.repertoires.list.white)).toEqual([
+    renderList([
+      card({
+        id: 'a',
+        name: 'A',
+        updatedAt: new Date('2026-10-12T09:00:00Z'),
+      }),
+      card({
+        id: 'b',
+        name: 'B',
+        updatedAt: new Date('2025-09-02T09:00:00Z'),
+      }),
+    ]);
+    expect(linksIn(MESSAGES.repertoires.list.white)).toEqual([
       ['/repertuarai/a', 'A2 chapters · 148 movesChanged Oct 12'],
       ['/repertuarai/b', 'B2 chapters · 148 movesChanged Sep 2, 2025'],
     ]);
   });
 
-  it('shows a change today on a 24-hour clock in English too (#330 decision 6)', () => {
-    renderList([card({ id: 'a', name: 'A' })], 'en');
-    expect(linksIn(MESSAGES.en.repertoires.list.white)).toEqual([
+  it('shows a change today on a 24-hour clock (#330 decision 6)', () => {
+    renderList([card({ id: 'a', name: 'A' })]);
+    expect(linksIn(MESSAGES.repertoires.list.white)).toEqual([
       ['/repertuarai/a', 'A2 chapters · 148 movesChanged 15:00'],
     ]);
   });

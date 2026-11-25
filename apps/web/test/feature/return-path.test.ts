@@ -44,7 +44,6 @@ const landing = (response: Response): string =>
 function onboardingForm(next: string): FormData {
   const data = new FormData();
   data.set('displayName', 'Rūta');
-  data.set('locale', 'lt');
   data.set('next', next);
   return data;
 }

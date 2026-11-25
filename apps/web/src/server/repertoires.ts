@@ -203,7 +203,7 @@ export async function repertoirePageData(
     repertoire,
     graph,
     notes: await listPersonalNotes(getDb(), account.id, repertoire.id),
-    names: chapterNamesOf(graph, account.locale),
+    names: chapterNamesOf(graph),
     sharing: await sharingOf(account.id, repertoire.id),
     coachNotes: await ownerCoachNotes(account.id, repertoire.id),
     forkNotes: await forkCoachNotesOn(getDb(), account.id, repertoire.id),

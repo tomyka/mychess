@@ -5,12 +5,7 @@
 // (support/training-db.ts), as the suite has no clock to move.
 import { expect } from '@playwright/test';
 import { importRepertoire } from './support/assignments';
-import {
-  CATALOGUES,
-  format,
-  newOnboardedAccount,
-  test,
-} from './support/journey';
+import { en, format, newOnboardedAccount, test } from './support/journey';
 import { seedDue, storedReviews } from './support/training-db';
 import {
   answer,
@@ -34,8 +29,6 @@ import {
   startTodayReview,
   trainLink,
 } from './support/training-cast';
-
-const { en } = CATALOGUES;
 
 const HOUR = 3_600_000;
 
@@ -63,7 +56,7 @@ test('D-M1-3: Dovydas marks the Catalan chapters known: nothing to learn, review
     name: CATALAN,
   });
   await expect(trainLink(page, en, 'learn', 10)).toBeVisible();
-  const counts = await markChaptersKnown(page, en, 'en');
+  const counts = await markChaptersKnown(page, en);
   // Every own move, each counted once, confirmed with its count (R-147).
   expect(counts).toHaveLength(4);
   expect(counts.reduce((a, b) => a + b, 0)).toBe(ownKeys(catalan).length);

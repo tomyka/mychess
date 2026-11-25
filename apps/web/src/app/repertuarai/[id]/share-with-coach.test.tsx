@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { RepertoireSharing } from '../../../server/repertoires';
 import { ShareWithCoach } from './share-with-coach';
 import type { ShareState } from './sharing-actions';
@@ -14,7 +14,7 @@ const server = vi.hoisted(() => ({
 vi.mock('./sharing-actions', () => ({ setSharesAction: server.setShares }));
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const s = MESSAGES.lt.share;
+const s = MESSAGES.share;
 
 const TWO_COACHES: RepertoireSharing = {
   coaches: [
@@ -24,12 +24,9 @@ const TWO_COACHES: RepertoireSharing = {
   sharedWith: ['c-2'],
 };
 
-function renderShare(
-  sharing: RepertoireSharing,
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderShare(sharing: RepertoireSharing): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ShareWithCoach repertoireId={ID} sharing={sharing} />
     </NextIntlClientProvider>,
   );
@@ -62,9 +59,7 @@ describe('ShareWithCoach (R-42)', () => {
       'checked',
       true,
     );
-    expect(screen.getByRole('status').textContent).toBe(
-      'Bendrinama su 1 treneriu',
-    );
+    expect(screen.getByRole('status').textContent).toBe('Shared with 1 coach');
   });
 
   it('saves the ticked coaches for this repertoire and says how many', async () => {
@@ -74,7 +69,7 @@ describe('ShareWithCoach (R-42)', () => {
     fireEvent.click(screen.getByRole('button', { name: s.save }));
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(
-        'Bendrinama su 2 treneriais',
+        'Shared with 2 coaches',
       );
     });
     expect(sent()).toEqual({ repertoireId: ID, coachIds: ['c-1', 'c-2'] });
@@ -113,18 +108,5 @@ describe('ShareWithCoach (R-42)', () => {
     expect(screen.queryByRole('heading', { name: s.title })).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByRole('button', { name: s.save })).toBeNull();
-  });
-
-  it('speaks English on the English page', async () => {
-    renderShare(TWO_COACHES, 'en');
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'Share with a coach' }),
-    ).toBeDefined();
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => {
-      expect(screen.getByRole('status').textContent).toBe(
-        'Shared with 1 coach',
-      );
-    });
   });
 });

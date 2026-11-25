@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { GroupGrid } from '../../../../server/coach-pages';
 import type { CoachActionState, RenameGroupState } from '../../actions';
 import { GroupView, type CoachGroupPageData } from './group-view';
@@ -34,7 +34,7 @@ vi.mock('../../actions', () => ({
   deleteGroupAction: server.delete,
 }));
 
-const c = MESSAGES.lt.coach;
+const c = MESSAGES.coach;
 const g = c.group;
 
 const GROUP: CoachGroupPageData = {
@@ -62,12 +62,9 @@ const GRID: GroupGrid = {
   ],
 };
 
-function renderView(
-  group: CoachGroupPageData,
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderView(group: CoachGroupPageData): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <GroupView group={group} grid={GRID} />
     </NextIntlClientProvider>,
   );
@@ -147,7 +144,7 @@ describe('GroupView', () => {
     fireEvent.change(nameField(), { target: { value: ' ' } });
     fireEvent.click(screen.getByRole('button', { name: g.save }));
     await waitFor(() => {
-      expect(statuses()).toContain(MESSAGES.lt.groupName.blank);
+      expect(statuses()).toContain(MESSAGES.groupName.blank);
     });
     expect(nameField().value).toBe(' ');
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
@@ -254,8 +251,8 @@ describe('GroupView', () => {
     });
   });
 
-  it('speaks English on the English page', () => {
-    renderView(GROUP, 'en');
+  it('names each Remove by its member and words the confirm in full', () => {
+    renderView(GROUP);
     expect(
       screen.getByRole('heading', { level: 2, name: 'Players in the group' }),
     ).toBeDefined();

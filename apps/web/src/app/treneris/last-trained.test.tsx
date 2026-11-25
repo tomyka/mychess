@@ -1,14 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { LastTrained } from './last-trained';
 
-const p = MESSAGES.lt.coach.progress;
+const p = MESSAGES.coach.progress;
 
 const show = (days: number | null): void => {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <LastTrained days={days} />
     </NextIntlClientProvider>,
   );
@@ -25,17 +25,13 @@ describe('LastTrained (R-154)', () => {
     expect(screen.getByText(p.yesterday)).toBeTruthy();
   });
 
-  it.each([
-    [2, 'prieš 2 dienas'],
-    [10, 'prieš 10 dienų'],
-    [21, 'prieš 21 dieną'],
-  ])(
-    'says %i days ago, declined, on the repertoires the coach sees',
-    (days, words) => {
+  it.each([2, 10, 21])(
+    'says %i days ago on the repertoires the coach sees',
+    (days) => {
       show(days);
       expect(
         screen.getByText(
-          `Paskutinį kartą treniravosi ${words} su jums matomais repertuarais`,
+          `Last trained ${String(days)} days ago on the repertoires you can see`,
         ),
       ).toBeTruthy();
     },
@@ -44,15 +40,15 @@ describe('LastTrained (R-154)', () => {
   // Another coach's repertoires are not counted: a player who trained
   // yesterday elsewhere must not read as idle (R-154, #329).
   it.each([
-    [0, 'Paskutinį kartą treniravosi šiandien su jums matomais repertuarais'],
-    [1, 'Paskutinį kartą treniravosi vakar su jums matomais repertuarais'],
+    [0, 'Last trained today on the repertoires you can see'],
+    [1, 'Last trained yesterday on the repertoires you can see'],
   ])('scopes %i days to the repertoires the coach sees', (days, said) => {
     show(days);
     expect(screen.getByText(said)).toBeTruthy();
   });
 
   it('scopes every English line to the repertoires the coach sees', () => {
-    const en = MESSAGES.en.coach.progress;
+    const en = MESSAGES.coach.progress;
     for (const line of [en.today, en.yesterday, en.daysAgo])
       expect(line).toContain('on the repertoires you can see');
   });
@@ -65,10 +61,7 @@ describe('LastTrained (R-154)', () => {
   it('says only what holds: no training on the repertoires the coach sees, not none at all (R-154, #329)', () => {
     show(null);
     expect(
-      screen.getByText('Dar nesitreniravo su jums matomais repertuarais'),
+      screen.getByText('Not trained yet on the repertoires you can see'),
     ).toBeTruthy();
-    expect(MESSAGES.en.coach.progress.neverTrained).toBe(
-      'Not trained yet on the repertoires you can see',
-    );
   });
 });

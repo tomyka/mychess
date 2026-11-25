@@ -64,7 +64,7 @@ built, linted or tested.
   response is parsed with zod. Build-time generators over trusted, committed
   source data (for example `packages/chess/scripts/`) are exempt.
 - **No user-visible string in code:** all text goes through the message
-  catalogues; Lithuanian is the default locale, English the second.
+  catalogue (English only; Lithuanian was dropped, R-217).
 - Times are stored in UTC; display in the user's time zone
   (Europe/Vilnius by default).
 - Migrations: change the Drizzle schema, generate, review and commit the

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { CoachMode } from './coach-mode';
 import type { StopCoachingState } from './coaching-actions';
 
@@ -15,11 +15,11 @@ vi.mock('./coaching-actions', () => ({
   stopCoachingAction: server.stop,
 }));
 
-const c = MESSAGES.lt.settings.coachMode;
+const c = MESSAGES.settings.coachMode;
 
-function renderSwitch(isCoach: boolean, locale: 'lt' | 'en' = 'lt'): void {
+function renderSwitch(isCoach: boolean): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <CoachMode isCoach={isCoach} />
     </NextIntlClientProvider>,
   );
@@ -70,7 +70,7 @@ describe('CoachMode (R-11, R-100)', () => {
     fireEvent.click(screen.getByRole('button', { name: c.switchOff }));
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(
-        MESSAGES.lt.coach.stillLinked,
+        MESSAGES.coach.stillLinked,
       );
     });
     expect(screen.getByText(c.unlinkFirst)).toBeDefined();
@@ -82,12 +82,5 @@ describe('CoachMode (R-11, R-100)', () => {
       ['Gabija', '/treneris/zaidejai/p-1'],
       ['Rokas', '/treneris/zaidejai/p%2F2'],
     ]);
-  });
-
-  it('speaks English on the English page', () => {
-    renderSwitch(false, 'en');
-    expect(
-      screen.getByRole('button', { name: 'Switch Coach mode on' }),
-    ).toBeDefined();
   });
 });

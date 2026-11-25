@@ -8,10 +8,6 @@
     "repertoires": "My repertoires",
     "fideSearch": "Opponent's games"
   },
-  "language": {
-    "lt": "Lietuvių",
-    "en": "English"
-  },
   "signIn": {
     "title": "Sign in",
     "intro": "Enter your email address and we will send you a sign-in link.",
@@ -32,11 +28,9 @@
   },
   "onboarding": {
     "title": "Welcome!",
-    "intro": "Tell us what to call you and which language to show the site in.",
-    "introNameOnly": "Tell us what to call you.",
+    "intro": "Tell us what to call you.",
     "displayName": "Display name",
     "displayNameHint": "Others will see this name. You can change it later in settings.",
-    "language": "Language",
     "submit": "Save and continue",
     "deleteAccount": "Delete account"
   },
@@ -46,7 +40,6 @@
     "profile": {
       "title": "Profile",
       "displayName": "Display name",
-      "language": "Language",
       "submit": "Save",
       "saved": "Saved."
     },
@@ -114,8 +107,7 @@
   "account": {
     "emailInvalid": "Enter a valid email address.",
     "deleteNameMismatch": "The name you typed does not match your display name.",
-    "deleteEmailMismatch": "The address you typed does not match your email address.",
-    "localeInvalid": "Choose a language: Lithuanian or English."
+    "deleteEmailMismatch": "The address you typed does not match your email address."
   },
   "displayName": {
     "blank": "Enter a display name.",

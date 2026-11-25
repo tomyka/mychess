@@ -1,8 +1,8 @@
 import type { MessageKeys, NestedKeyOf } from 'next-intl';
 import { z } from 'zod';
-import type { MESSAGES } from './locales';
+import type { MESSAGES } from './catalogue';
 
-type Messages = (typeof MESSAGES)['lt'];
+type Messages = typeof MESSAGES;
 
 /** A dotted key of a message in the catalogue (what `t` takes). */
 export type MessageKey = MessageKeys<Messages, NestedKeyOf<Messages>>;

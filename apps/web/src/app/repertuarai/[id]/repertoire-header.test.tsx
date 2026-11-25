@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { DeleteState, RenameState } from './actions';
 import { RepertoireActions } from './repertoire-actions';
 import { RepertoireHeader } from './repertoire-header';
@@ -19,11 +19,11 @@ vi.mock('./actions', () => ({
 }));
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const h = MESSAGES.lt.repertoires.header;
+const h = MESSAGES.repertoires.header;
 
 function renderWith(element: React.ReactNode): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {element}
     </NextIntlClientProvider>,
   );
@@ -119,7 +119,7 @@ describe('RepertoireActions', () => {
     });
     fireEvent.click(button(h.renameSubmit));
     expect(
-      await screen.findByText(MESSAGES.lt.repertoire.nameBlank),
+      await screen.findByText(MESSAGES.repertoire.nameBlank),
     ).toBeDefined();
     expect(
       screen.getByLabelText(h.renameLabel).getAttribute('aria-invalid'),
@@ -156,7 +156,7 @@ describe('RepertoireActions', () => {
     fireEvent.click(button(h.delete));
     expect(
       screen.getByText(
-        'Šį repertuarą turi 3 žaidėjai. Per 30 dienų jie galės pasilikti asmeninę kopiją.',
+        '3 players have this repertoire; each has 30 days to keep their own copy.',
       ),
     ).toBeDefined();
   });
@@ -168,7 +168,7 @@ describe('RepertoireActions', () => {
     fireEvent.click(button(h.delete));
     expect(
       screen.getByText(
-        'Šį repertuarą turi 1 žaidėjas. Per 30 dienų jis galės pasilikti asmeninę kopiją.',
+        '1 player has this repertoire and has 30 days to keep their own copy.',
       ),
     ).toBeDefined();
   });
@@ -190,8 +190,6 @@ describe('RepertoireActions', () => {
     renderActions();
     fireEvent.click(button(h.delete));
     fireEvent.click(button(h.deleteConfirm));
-    expect(
-      await screen.findByText(MESSAGES.lt.repertoire.notFound),
-    ).toBeDefined();
+    expect(await screen.findByText(MESSAGES.repertoire.notFound)).toBeDefined();
   });
 });

@@ -66,7 +66,6 @@ const ROKAS: Account = {
   email: 'rokas@example.test',
   emailVerified: true,
   displayName: 'Rokas',
-  locale: 'lt',
   entitlement: 'free',
   admin: false,
   disabledAt: null,

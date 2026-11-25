@@ -1,13 +1,5 @@
-import type { Locale } from '@mychess/domain';
-import { useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
-import type { ProfileRefusalKey } from '../server/profile-input';
 import { FIELD } from './fields';
-
-/** Is the refusal about the display name (rather than the language)? */
-export const isNameRefusal = (
-  refusal: ProfileRefusalKey | undefined,
-): boolean => refusal?.startsWith('displayName.') === true;
 
 export interface NameFieldProps {
   readonly label: string;
@@ -56,48 +48,5 @@ export function NameField({
         </p>
       )}
     </div>
-  );
-}
-
-/**
- * One choice per offered language, each named in its own language. With
- * one language offered (R-180) nothing is asked: the stored language goes
- * back as it is, so saving the form never changes it.
- */
-export function LanguageField({
-  legend,
-  initial,
-  offered,
-}: {
-  readonly legend: string;
-  readonly initial: Locale;
-  /** The languages to choose from (OFFERED_LOCALES). */
-  readonly offered: readonly Locale[];
-}): JSX.Element {
-  const t = useTranslations('language');
-  if (offered.length < 2)
-    return <input type="hidden" name="locale" value={initial} />;
-  return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 font-medium">{legend}</legend>
-      <div className="grid grid-cols-2 gap-3">
-        {offered.map((option) => (
-          <label
-            key={option}
-            lang={option}
-            className="flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent"
-          >
-            <input
-              type="radio"
-              name="locale"
-              value={option}
-              defaultChecked={option === initial}
-              className="size-5 accent-accent"
-            />
-            {t(option)}
-          </label>
-        ))}
-      </div>
-    </fieldset>
   );
 }

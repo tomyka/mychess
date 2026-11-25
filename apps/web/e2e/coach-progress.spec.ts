@@ -31,7 +31,7 @@ import {
   importRepertoire,
 } from './support/assignments';
 import { createGroup } from './support/coaching';
-import { CATALOGUES, format, test } from './support/journey';
+import { en, format, test } from './support/journey';
 import {
   countsText,
   idIn,
@@ -77,21 +77,13 @@ const ROKAS_SKIPPED = KARO_KAN_KEYS.slice(2, 3);
 const FIRST_LINE_MOVES = 11;
 
 /**
- * The titles of the Caro-Kann's chapters 1 (B12) and 5 (B11). Lithuanian
- * names both openings the same, so each shows its ECO code and the first
- * move it parts from the others at (R-158); English names them apart.
+ * The titles of the Caro-Kann's chapters 1 (B12) and 5 (B11): the named
+ * line each chapter's main line reaches (R-216), which tells them apart.
  */
-const KARO_KAN_TITLES = {
-  lt: [
-    'Karo-Kano gynyba (B12, 3.\u00A0e5)',
-    'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
-  ],
-  // The named line each chapter's main line reaches (R-216).
-  en: [
-    'Caro-Kann Defense: Advance Variation, Short Variation',
-    'Caro-Kann Defense: Two Knights Attack, Mindeno Variation, Exchange Line',
-  ],
-} as const;
+const KARO_KAN_TITLES = [
+  'Caro-Kann Defense: Advance Variation, Short Variation',
+  'Caro-Kann Defense: Two Knights Attack, Mindeno Variation, Exchange Line',
+] as const;
 
 /** Each player's Caro-Kann counts, as seeded. */
 const SEEDED = {
@@ -136,14 +128,13 @@ async function playersList(coach: Page, cast: Cast): Promise<void> {
 
 /** A grid cell's link name: the player, the repertoire, % and due (WCAG 2.5.3). */
 function cellName(cast: Cast, name: Seeded): string {
-  const { locale } = cast;
   const t = cast.messages.coach.progress;
   const counts = SEEDED[name];
   return format(t.cellLabel, {
     name,
     repertoire: KARO_KAN,
-    percent: percentText(locale, counts),
-    due: plural(t.cellDue, locale, { due: counts.due }),
+    percent: percentText(counts),
+    due: plural(t.cellDue, { due: counts.due }),
   });
 }
 
@@ -191,20 +182,19 @@ const pageHeader = (page: Page): Locator =>
  * moves. Back to his player page by the header's link.
  */
 async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
-  const { locale } = cast;
   const t = cast.messages.coach.progress;
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(KARO_KAN);
   const header = pageHeader(coach);
   await expect(
-    header.getByText(countsText(locale, SEEDED[ROKAS]), { exact: true }),
+    header.getByText(countsText(SEEDED[ROKAS]), { exact: true }),
   ).toBeVisible();
   // The Advance variation is the first chapter and has the one line.
-  const counts = countsText(locale, {
+  const counts = countsText({
     ...SEEDED[ROKAS],
     notStarted: FIRST_LINE_MOVES - 3,
   });
   const chapters = coach.getByRole('region', { name: t.chapters, exact: true });
-  const [advance, twoKnights] = KARO_KAN_TITLES[locale];
+  const [advance, twoKnights] = KARO_KAN_TITLES;
   const titleOf = (index: number): Locator =>
     chapters.locator('details').nth(index).locator('summary');
   await expect(titleOf(0).getByText(advance, { exact: true })).toBeVisible();
@@ -246,18 +236,17 @@ async function rokasPage(
   cast: Cast,
   londonId: string,
 ): Promise<void> {
-  const { locale } = cast;
   const t = cast.messages.coach.progress;
   const section = progressSection(coach, cast);
   await expect(section.getByText(t.today, { exact: true })).toBeVisible();
   const row = progressRow(coach, cast, KARO_KAN);
   await expect(row.getByRole('link', { name: KARO_KAN })).toBeVisible();
-  const percent = percentText(locale, SEEDED[ROKAS]);
+  const percent = percentText(SEEDED[ROKAS]);
   await expect(
     row.getByText(`${t.assigned} · ${percent}`, { exact: true }),
   ).toBeVisible();
   await expect(
-    row.getByText(countsText(locale, SEEDED[ROKAS]), { exact: true }),
+    row.getByText(countsText(SEEDED[ROKAS]), { exact: true }),
   ).toBeVisible();
   await expect(section.getByRole('listitem')).toHaveCount(1);
   await expectNoPrivateName(coach);
@@ -301,19 +290,19 @@ async function dovydasPage(
  * her progress on it.
  */
 async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
-  const { locale, messages } = cast;
+  const { messages } = cast;
   const t = messages.coach.progress;
   await coach.goto('/treneris');
   await coach.getByRole('link', { name: GABIJA, exact: true }).click();
   const caroKann = progressRow(coach, cast, KARO_KAN);
   await expect(
-    caroKann.getByText(countsText(locale, SEEDED[GABIJA]), { exact: true }),
+    caroKann.getByText(countsText(SEEDED[GABIJA]), { exact: true }),
   ).toBeVisible();
   await expect(caroKann.getByText(t.mastered, { exact: true })).toBeVisible();
   const taimanov = notStarted(TAIMANOV_KEYS.length);
   await expect(
     progressRow(coach, cast, TAIMANOV).getByText(
-      `${t.shared} · ${percentText(locale, taimanov)}`,
+      `${t.shared} · ${percentText(taimanov)}`,
       { exact: true },
     ),
   ).toBeVisible();
@@ -328,7 +317,7 @@ async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
   await expect(coach).toHaveURL(/\/pazanga\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(TAIMANOV);
   await expect(
-    pageHeader(coach).getByText(countsText(locale, taimanov), { exact: true }),
+    pageHeader(coach).getByText(countsText(taimanov), { exact: true }),
   ).toBeVisible();
 }
 
@@ -364,53 +353,50 @@ async function repertoires(
   const forkId = await makeOwnCopy(dovydas.page, messages, ITALIAN);
   const londonId = await imported(rokas.page, LONDON_PGN, 'white', LONDON);
   await imported(gabija.page, TAIMANOV_PGN, 'black', TAIMANOV);
-  await shareWithCoach(gabija.page, messages, cast.locale);
+  await shareWithCoach(gabija.page, messages);
   return { karoKanId, italianId, londonId, forkId };
 }
 
-// English only for now (R-180); the journeys ran in Lithuanian too.
-for (const locale of ['en'] as const) {
-  test(`C-M1-5 (${locale}): the coach sees each player's progress as seeded, and never Rokas's private repertoire`, async ({
-    page: coach,
-    request,
-    browser,
-  }) => {
-    test.setTimeout(480_000);
-    const devices: BrowserContext[] = [];
-    const messages = CATALOGUES[locale];
-    const cast: Cast = { locale, messages, browser, request, devices };
-    try {
-      await coachReady(coach, cast);
-      // The group's own invite, made with it (R-204).
-      const link = await createGroup(coach, messages, GROUP);
-      const joins = (name: string): Promise<Player> =>
-        linkedPlayer(cast, { link, name, group: GROUP });
-      const players = {
-        rokas: await joins(ROKAS),
-        gabija: await joins(GABIJA),
-        dovydas: await joins(DOVYDAS),
-      };
-      const ids = await repertoires(coach, cast, players);
+test(`C-M1-5: the coach sees each player's progress as seeded, and never Rokas's private repertoire`, async ({
+  page: coach,
+  request,
+  browser,
+}) => {
+  test.setTimeout(480_000);
+  const devices: BrowserContext[] = [];
+  const messages = en;
+  const cast: Cast = { messages, browser, request, devices };
+  try {
+    await coachReady(coach, cast);
+    // The group's own invite, made with it (R-204).
+    const link = await createGroup(coach, messages, GROUP);
+    const joins = (name: string): Promise<Player> =>
+      linkedPlayer(cast, { link, name, group: GROUP });
+    const players = {
+      rokas: await joins(ROKAS),
+      gabija: await joins(GABIJA),
+      dovydas: await joins(DOVYDAS),
+    };
+    const ids = await repertoires(coach, cast, players);
 
-      // Gabija learned it all, Rokas 2 due and 1 "I know this"; Dovydas
-      // trained only his own copy, whose results the coach does not count.
-      await seedHistory(players.gabija.email, ids.karoKanId, {
-        learned: KARO_KAN_KEYS,
-      });
-      await seedHistory(players.rokas.email, ids.karoKanId, {
-        due: ROKAS_DUE,
-        skipped: ROKAS_SKIPPED,
-      });
-      await seedResult(players.dovydas.email, ids.forkId, 'seed');
+    // Gabija learned it all, Rokas 2 due and 1 "I know this"; Dovydas
+    // trained only his own copy, whose results the coach does not count.
+    await seedHistory(players.gabija.email, ids.karoKanId, {
+      learned: KARO_KAN_KEYS,
+    });
+    await seedHistory(players.rokas.email, ids.karoKanId, {
+      due: ROKAS_DUE,
+      skipped: ROKAS_SKIPPED,
+    });
+    await seedResult(players.dovydas.email, ids.forkId, 'seed');
 
-      await playersList(coach, cast);
-      await groupGrid(coach, cast);
-      await rokasProgress(coach, cast);
-      await rokasPage(coach, cast, ids.londonId);
-      await dovydasPage(coach, cast, ids.italianId);
-      await gabijaPage(coach, cast);
-    } finally {
-      for (const device of devices) await device.close();
-    }
-  });
-}
+    await playersList(coach, cast);
+    await groupGrid(coach, cast);
+    await rokasProgress(coach, cast);
+    await rokasPage(coach, cast, ids.londonId);
+    await dovydasPage(coach, cast, ids.italianId);
+    await gabijaPage(coach, cast);
+  } finally {
+    for (const device of devices) await device.close();
+  }
+});

@@ -19,7 +19,7 @@ import {
   seedRepertoire,
 } from './support/assignments';
 import {
-  LITHUANIAN_ORDER,
+  NAME_ORDER,
   openTransaction,
   seedCoach,
   seedGroup,
@@ -316,8 +316,8 @@ describe('coachPlayers and coachPlayer', () => {
   });
 });
 
-describe('linked accounts in Lithuanian order (R-160)', () => {
-  it("lists the coach's players, and each player's groups, by Lithuanian name", async () => {
+describe('linked accounts in name order (R-160)', () => {
+  it("lists the coach's players, and each player's groups, by name", async () => {
     await seedCoach(db, 'c', 'c@example.lt');
     const players = await seedNamedAccounts(db, 'p', UNSORTED_NAMES);
     for (const player of players) await seedLink(db, 'c', player);
@@ -326,14 +326,12 @@ describe('linked accounts in Lithuanian order (R-160)', () => {
       await seedMember(db, 'c', group, 'p-1');
     }
     const listed = await coachPlayers(db, 'c');
-    expect(listed.map((player) => player.displayName)).toEqual(
-      LITHUANIAN_ORDER,
-    );
+    expect(listed.map((player) => player.displayName)).toEqual(NAME_ORDER);
     const jonas = listed.find((player) => player.id === 'p-1');
-    expect(jonas?.groups.map((group) => group.name)).toEqual(LITHUANIAN_ORDER);
+    expect(jonas?.groups.map((group) => group.name)).toEqual(NAME_ORDER);
   });
 
-  it("lists the player's coaches by Lithuanian name", async () => {
+  it("lists the player's coaches by name", async () => {
     await seedPlayer(db, 'ruta', 'ruta@example.lt');
     const coaches = await seedNamedAccounts(db, 'c', UNSORTED_NAMES, {
       coach: true,
@@ -341,7 +339,7 @@ describe('linked accounts in Lithuanian order (R-160)', () => {
     for (const coach of coaches) await seedLink(db, coach, 'ruta');
     expect(
       (await playerCoaches(db, 'ruta')).map((coach) => coach.displayName),
-    ).toEqual(LITHUANIAN_ORDER);
+    ).toEqual(NAME_ORDER);
   });
 });
 

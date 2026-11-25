@@ -1,12 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import { coachProgressPath } from '../../../../lib/routes';
 import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { ProgressSection } from './progress-section';
 
-const p = MESSAGES.lt.coach.progress;
+const p = MESSAGES.coach.progress;
 const COUNTS = { notStarted: 2, skipped: 0, due: 1, learned: 1 };
 
 const PROGRESS: PlayerProgressSection = {
@@ -41,7 +41,7 @@ const PROGRESS: PlayerProgressSection = {
 
 function show(progress: PlayerProgressSection = PROGRESS): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ProgressSection
         player={{ id: 'p-1', displayName: 'Rokas' }}
         progress={progress}
@@ -73,9 +73,9 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
       '/treneris/zaidejai/p-1/pazanga/r-1',
     );
     const row = within(rowOf(link));
-    expect(row.getByText('Pradelsta')).toBeTruthy();
-    expect(row.getByText('Priskirtas · 25 % išmokta')).toBeTruthy();
-    expect(row.getByText(/1 išmokta · 1 kartotinas/)).toBeTruthy();
+    expect(row.getByText(MESSAGES.assignment.badge.overdue)).toBeTruthy();
+    expect(row.getByText('Assigned · 25% learned')).toBeTruthy();
+    expect(row.getByText(/1 learned · 1 due/)).toBeTruthy();
   });
 
   it('shows a shared repertoire with no badges, and Mastered', () => {
@@ -85,9 +85,9 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
       '/treneris/zaidejai/p-1/pazanga/r-3',
     );
     const row = within(rowOf(link));
-    expect(row.getByText('Bendrinamas · 100 % išmokta')).toBeTruthy();
+    expect(row.getByText('Shared · 100% learned')).toBeTruthy();
     expect(row.getByText(p.mastered)).toBeTruthy();
-    expect(row.queryByText('Pradelsta')).toBeNull();
+    expect(row.queryByText(MESSAGES.assignment.badge.overdue)).toBeNull();
   });
 
   it('says once that there is nothing to learn in a repertoire with no own move', () => {
@@ -119,10 +119,10 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
       screen.queryByRole('link', { name: /Itališkoji partija/ }),
     ).toBeNull();
     const row = within(rowOf(screen.getByText('Itališkoji partija')));
-    expect(row.getByText(MESSAGES.lt.assignment.badge.forked)).toBeTruthy();
+    expect(row.getByText(MESSAGES.assignment.badge.forked)).toBeTruthy();
     expect(row.getByText(p.forkedNote)).toBeTruthy();
     expect(row.getByText(p.assigned)).toBeTruthy();
-    expect(row.queryByText(/išmokta/)).toBeNull();
+    expect(row.queryByText(/learned/)).toBeNull();
   });
 
   it('says a forked assignment’s copy is shared with the coach, and links to its progress (#328)', () => {
@@ -140,23 +140,21 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
     expect(
       row.getByRole('link', { name: p.forkedSharedLink }).getAttribute('href'),
     ).toBe(coachProgressPath('p-1', 'r-3'));
-    expect(row.queryByText(/išmokta/)).toBeNull();
+    expect(row.queryByText(/learned/)).toBeNull();
   });
 
   it('says when the player last trained', () => {
     show();
     expect(
       screen.getByText(
-        'Paskutinį kartą treniravosi prieš 4 dienas su jums matomais repertuarais',
+        'Last trained 4 days ago on the repertoires you can see',
       ),
     ).toBeTruthy();
   });
 
   it('says when the coach can see no repertoire of the player', () => {
     show({ rows: [], lastTrainedDays: null });
-    expect(
-      screen.getByText('Rokas dar neturi jums matomų repertuarų.'),
-    ).toBeTruthy();
+    expect(screen.getByText(p.empty.replace('{name}', 'Rokas'))).toBeTruthy();
     expect(screen.getByText(p.neverTrained)).toBeTruthy();
     expect(screen.queryByRole('list')).toBeNull();
   });

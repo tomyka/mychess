@@ -1,9 +1,7 @@
 export {
   ACCOUNT_REFUSALS,
   DEFAULT_ENTITLEMENT,
-  DEFAULT_LOCALE,
   ENTITLEMENTS,
-  LOCALES,
   accountSchema,
   canonicalEmail,
   entitlementLimits,
@@ -13,7 +11,6 @@ export {
   type AccountRefusal,
   type Entitlement,
   type EntitlementLimits,
-  type Locale,
   type Profile,
 } from './account';
 export {

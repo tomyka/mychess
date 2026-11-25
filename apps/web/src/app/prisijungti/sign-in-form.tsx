@@ -1,7 +1,7 @@
 'use client';
 
-import type { Locale, Provider } from '@mychess/domain';
-import { useLocale, useTranslations } from 'next-intl';
+import type { Provider } from '@mychess/domain';
+import { useTranslations } from 'next-intl';
 import { useEffect, useId, useState, type JSX, type SubmitEvent } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { offeredProviders } from '../../lib/providers';
@@ -67,14 +67,12 @@ function initialMessage(
 /** Mails a magic link; the message to show for the outcome. */
 async function requestMagicLink(
   email: string,
-  locale: Locale,
   urls: CallbackUrls,
 ): Promise<StatusMessage> {
   try {
     const { error } = await authClient.signIn.magicLink({
       email,
       ...urls,
-      metadata: { locale },
     });
     return error === null ? SENT : failed(clientErrorKey(error));
   } catch {
@@ -106,14 +104,12 @@ function EmailForm({
   readonly urls: CallbackUrls;
 }): JSX.Element {
   const t = useTranslations('signIn');
-  const locale = useLocale();
   const emailId = useId();
   const [email, setEmail] = useState('');
-  // noValidate: the server's refusal is shown in the page's language,
-  // not the browser's.
+  // noValidate: the server's refusal is shown, not the browser's.
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    run(() => requestMagicLink(email, locale, urls));
+    run(() => requestMagicLink(email, urls));
   };
   return (
     <form noValidate className="flex flex-col gap-3" onSubmit={submit}>

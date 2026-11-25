@@ -36,7 +36,7 @@ session that reviews, gates and commits it.
   gate config is protected from agent edits by a hook. This is the "rigid
   architecture, mechanically enforced" pattern.
 - **LLM sensors**: architect (`mp-code-review` per task), security-reviewer,
-  ux-designer and i18n-content sign-offs, `improve-codebase-architecture` per
+  ux-designer sign-offs, `improve-codebase-architecture` per
   slice.
 - **Continuous deployment with automatic rollback** (R-166, R-192): trunk-based,
   a green `main` reaches production, failed gate or E2E rolls back.

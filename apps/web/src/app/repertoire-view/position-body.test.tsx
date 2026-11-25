@@ -2,7 +2,7 @@ import { moveKey, type RepertoireMove } from '@mychess/chess';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { CommentEditor } from './comment';
 import type { FieldOutcome } from './field-save';
 import { PersonalNote } from './personal-note';
@@ -20,12 +20,12 @@ const BF4: RepertoireMove = {
   chapters: ['c1'],
 };
 
-const en = MESSAGES.en.repertoires;
+const en = MESSAGES.repertoires;
 const p = en.panel;
 
 function renderBody(over: Partial<PositionBodyProps> = {}): void {
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PositionBody intro="Solid and quick." move={null} {...over} />
     </NextIntlClientProvider>,
   );
@@ -111,7 +111,7 @@ function renderOwner(
 ): void {
   const { intro = 'The London: solid and quick.', move = null } = over;
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PositionBody
         intro={intro}
         move={move}
@@ -196,7 +196,7 @@ describe('PositionBody in builder mode', () => {
     fireEvent.click(
       screen.getByRole('button', { name: en.builder.commentSave }),
     );
-    expect(await screen.findByText(MESSAGES.en.comment.tooLong)).toBeDefined();
+    expect(await screen.findByText(MESSAGES.comment.tooLong)).toBeDefined();
     expect(commentField().getAttribute('aria-invalid')).toBe('true');
   });
 

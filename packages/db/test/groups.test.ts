@@ -25,7 +25,7 @@ import {
   seedRepertoire,
 } from './support/assignments';
 import {
-  LITHUANIAN_ORDER,
+  NAME_ORDER,
   openTransaction,
   seedCoach,
   seedGroup,
@@ -575,7 +575,7 @@ describe('coachGroups and coachGroup', () => {
     expect(await coachGroup(db, 'c', 'not-a-uuid')).toBeUndefined();
   });
 
-  it('lists the groups, and a group its members, by Lithuanian name (R-160)', async () => {
+  it('lists the groups, and a group its members, by name (R-160)', async () => {
     await seedCoach(db, 'c', 'c@example.lt');
     for (const name of UNSORTED_NAMES) await seedGroup(db, 'c', name);
     const group = await seedGroup(db, 'c', 'Šeštadienis');
@@ -585,15 +585,15 @@ describe('coachGroups and coachGroup', () => {
       await seedMember(db, 'c', group, player);
     }
     expect((await coachGroups(db, 'c')).map(({ name }) => name)).toEqual([
-      ...LITHUANIAN_ORDER.slice(0, 3),
+      ...NAME_ORDER.slice(0, 2),
       'Šeštadienis',
-      ...LITHUANIAN_ORDER.slice(3),
+      ...NAME_ORDER.slice(2),
     ]);
     expect(
       (await coachGroup(db, 'c', group))?.members.map(
         (member) => member.displayName,
       ),
-    ).toEqual(LITHUANIAN_ORDER);
+    ).toEqual(NAME_ORDER);
   });
 });
 

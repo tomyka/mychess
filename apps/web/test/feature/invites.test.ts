@@ -507,10 +507,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     vi.stubGlobal('fetch', fetch);
     rebuildAuth({ fetch });
     const cookie = cookieFrom(await oauthRoundTrip(built(), 'google'));
-    await onboard(built(), testDb(), cookie, {
-      displayName: 'Gabija',
-      locale: 'lt',
-    });
+    await onboard(built(), testDb(), cookie, { displayName: 'Gabija' });
     request.cookie = cookie;
     expect(await accept({ token })).toEqual({
       redirectedTo: MY_COACHES(jonas.id),

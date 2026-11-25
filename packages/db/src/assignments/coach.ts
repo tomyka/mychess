@@ -163,7 +163,7 @@ function targetOf(row: Row): CoachAssignment['target'] {
     : { kind: 'group', id: row.groupId, name: row.groupName ?? '' };
 }
 
-/** Players by name in Lithuanian order, then id. */
+/** Players by name in English order, then id. */
 const byPlayerName = byName((one: CoachAssignmentPlayer) => ({
   name: one.displayName,
   id: one.playerId,

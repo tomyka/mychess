@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { Providers, type ProvidersProps } from './providers';
 
 interface ClientAnswer {
@@ -31,19 +31,14 @@ vi.mock('next/navigation', () => ({
 }));
 
 const OK: ClientAnswer = { data: { status: true }, error: null };
-const lt = MESSAGES.lt;
-const en = MESSAGES.en;
-const p = lt.settings.providers;
+const p = MESSAGES.settings.providers;
 
 const label = (template: string, provider: string) =>
   template.replace('{provider}', provider);
 
-function renderProviders(
-  props: Partial<ProvidersProps> = {},
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderProviders(props: Partial<ProvidersProps> = {}): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <Providers links={[]} googleEnabled email="ruta@example.lt" {...props} />
     </NextIntlClientProvider>,
   );
@@ -204,11 +199,5 @@ describe('Providers', () => {
   ])('translates the error code %s it was sent back with', (error, text) => {
     renderProviders({ error });
     expect(status().textContent).toBe(text);
-  });
-
-  it('speaks English on the English page', () => {
-    renderProviders({ links: [{ id: 'pa-1', provider: 'google' }] }, 'en');
-    expect(button(label(en.settings.providers.unlink, 'Google'))).toBeDefined();
-    expect(screen.getByText(en.settings.providers.linked)).toBeDefined();
   });
 });

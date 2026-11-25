@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import SignInPage from './page';
 
 /** The error the mocked `redirect` throws, naming where it sends. */
@@ -54,13 +54,13 @@ const page = (search: Search = {}): Promise<JSX.Element> =>
 async function renderPage(search: Search = {}): Promise<void> {
   const element = await page(search);
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {element}
     </NextIntlClientProvider>,
   );
 }
 
-const lt = MESSAGES.lt;
+const lt = MESSAGES;
 
 beforeEach(() => {
   server.account = null;

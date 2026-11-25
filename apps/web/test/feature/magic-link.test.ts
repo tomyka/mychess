@@ -9,6 +9,7 @@ import {
   requestMagicLink,
   signInByMagicLink,
 } from './support/auth';
+import { MESSAGES } from '../../src/i18n/catalogue';
 import { sqlOn } from './support/rows';
 
 const { db, client } = useTestDatabase();
@@ -33,13 +34,12 @@ describe('magic-link sign-in', () => {
     expect(session?.user.email).toBe('ruta@example.lt');
     expect(
       await rows(
-        'select email, display_name, locale, entitlement, admin from accounts',
+        'select email, display_name, entitlement, admin from accounts',
       ),
     ).toEqual([
       {
         email: 'ruta@example.lt',
         display_name: '',
-        locale: 'lt',
         entitlement: 'free',
         admin: false,
       },
@@ -163,95 +163,12 @@ describe('magic-link sign-in', () => {
     }
   });
 
-  it('mails in the locale the sign-in page asked for', async () => {
-    const built = buildTestAuth(db);
-    await requestMagicLink(built, {
-      email: 'ruta@example.lt',
-      metadata: { locale: 'en' },
-    });
-    expect(built.sent[0]?.subject).toBe('Sign in to MyChess');
-  });
-
-  it('mails in English when no locale or Lithuanian was asked for (R-180)', async () => {
+  it('mails the link in English, naming no language', async () => {
     const built = buildTestAuth(db);
     await requestMagicLink(built, { email: 'ruta@example.lt' });
-    await requestMagicLink(built, {
-      email: 'jonas@example.lt',
-      metadata: { locale: 'lt' },
-    });
     expect(built.sent.map((m) => m.subject)).toEqual([
-      'Sign in to MyChess',
-      'Sign in to MyChess',
+      MESSAGES.mail.magicLink.subject,
     ]);
-  });
-});
-
-// The language a new account starts in (R-85).
-describe('a new account from a magic link', () => {
-  const localeRows = () => rows('select locale from accounts');
-
-  // Follows the last link mailed, from a browser carrying `cookie`.
-  const follow = (built: BuiltAuth, cookie = '') =>
-    built.auth.handler(new Request(lastLink(built), { headers: { cookie } }));
-
-  it('starts in the language the sign-in page was in when it asked', async () => {
-    const built = buildTestAuth(db);
-    await requestMagicLink(built, {
-      email: 'ruta@example.lt',
-      callbackURL: '/',
-      metadata: { locale: 'en' },
-    });
-    // Opened on another device: no locale cookie there.
-    await follow(built);
-    expect(await localeRows()).toEqual([{ locale: 'en' }]);
-  });
-
-  it('starts in the locale cookie of the browser that opens the link when the request named none', async () => {
-    const built = buildTestAuth(db);
-    await requestMagicLink(built, {
-      email: 'ruta@example.lt',
-      callbackURL: '/',
-    });
-    await follow(built, 'NEXT_LOCALE=en');
-    expect(await localeRows()).toEqual([{ locale: 'en' }]);
-  });
-
-  it.each([
-    ['no cookie', ''],
-    ['an unknown language', 'NEXT_LOCALE=de'],
-  ])('starts in Lithuanian with %s', async (_, cookie) => {
-    const built = buildTestAuth(db);
-    await requestMagicLink(built, {
-      email: 'ruta@example.lt',
-      callbackURL: '/',
-    });
-    await follow(built, cookie);
-    expect(await localeRows()).toEqual([{ locale: 'lt' }]);
-  });
-
-  it('falls back to the locale cookie when the link names an unknown language', async () => {
-    const built = buildTestAuth(db);
-    await requestMagicLink(built, {
-      email: 'ruta@example.lt',
-      callbackURL: '/',
-    });
-    const link = new URL(lastLink(built));
-    link.searchParams.set('lang', 'de');
-    await built.auth.handler(
-      new Request(link, { headers: { cookie: 'NEXT_LOCALE=en' } }),
-    );
-    expect(await localeRows()).toEqual([{ locale: 'en' }]);
-  });
-
-  it('leaves an existing account in its own language', async () => {
-    const built = buildTestAuth(db);
-    await signInByMagicLink(built, 'ruta@example.lt');
-    await requestMagicLink(built, {
-      email: 'ruta@example.lt',
-      callbackURL: '/',
-      metadata: { locale: 'en' },
-    });
-    await follow(built, 'NEXT_LOCALE=en');
-    expect(await localeRows()).toEqual([{ locale: 'lt' }]);
+    expect(new URL(lastLink(built)).searchParams.has('lang')).toBe(false);
   });
 });

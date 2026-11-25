@@ -8,7 +8,6 @@ const NOW = new Date('2026-10-22T08:00:00Z');
 
 const server = vi.hoisted(() => ({
   complete: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-  remember: vi.fn<(locale: string) => Promise<void>>(),
 }));
 
 /** The error the mocked `redirect` throws, naming where it sends. */
@@ -31,10 +30,6 @@ vi.mock('@mychess/db', () => ({ completeOnboarding: server.complete }));
 
 vi.mock('../../server/db', () => ({ getDb: () => DB }));
 
-vi.mock('../../server/locale-cookie', () => ({
-  rememberLocale: server.remember,
-}));
-
 // The session account as the request read it: not onboarded yet, so the
 // action asks the domain again on the locked row.
 vi.mock('../../server/session', () => ({
@@ -46,7 +41,6 @@ vi.mock('../../server/session', () => ({
 function formOf(next?: string): FormData {
   const form = new FormData();
   form.set('displayName', 'Rūta');
-  form.set('locale', 'en');
   if (next !== undefined) form.set('next', next);
   return form;
 }
@@ -56,51 +50,45 @@ const refused = (reason: string) => ({ ok: false, refusal: { reason } });
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
   server.complete.mockReset().mockResolvedValue({ ok: true, value: undefined });
-  server.remember.mockReset().mockResolvedValue(undefined);
   return () => {
     vi.useRealTimers();
   };
 });
 
 describe('completeOnboardingAction (R-80, R-81)', () => {
-  it('saves the profile, remembers the language and goes home', async () => {
+  it('saves the profile and goes home', async () => {
     await expect(completeOnboardingAction({}, formOf())).rejects.toEqual(
       new Redirected('/'),
     );
     expect(server.complete).toHaveBeenCalledWith(
       DB,
       'a1',
-      { displayName: 'Rūta', locale: 'en' },
+      { displayName: 'Rūta' },
       NOW,
     );
-    expect(server.remember).toHaveBeenCalledWith('en');
   });
 
   it('goes on to the invite in next once saved', async () => {
     await expect(completeOnboardingAction({}, formOf(NEXT))).rejects.toEqual(
       new Redirected(NEXT),
     );
-    expect(server.remember).toHaveBeenCalledWith('en');
+    expect(server.complete).toHaveBeenCalledOnce();
   });
 
   it.each([
     [undefined, '/'],
     [NEXT, NEXT],
-  ])(
-    'sends a submit that lost the race (next %j) to %j, remembering nothing',
-    async (next, to) => {
-      server.complete.mockResolvedValue(
-        refused(LIFECYCLE_REFUSALS.alreadyOnboarded),
-      );
-      await expect(completeOnboardingAction({}, formOf(next))).rejects.toEqual(
-        new Redirected(to),
-      );
-      expect(server.remember).not.toHaveBeenCalled();
-    },
-  );
+  ])('sends a submit that lost the race (next %j) to %j', async (next, to) => {
+    server.complete.mockResolvedValue(
+      refused(LIFECYCLE_REFUSALS.alreadyOnboarded),
+    );
+    await expect(completeOnboardingAction({}, formOf(next))).rejects.toEqual(
+      new Redirected(to),
+    );
+  });
 
   it.each([undefined, NEXT])(
-    'sends an account closed meanwhile (next %j) to sign-in, remembering nothing',
+    'sends an account closed meanwhile (next %j) to sign-in',
     async (next) => {
       server.complete.mockResolvedValue(
         refused(LIFECYCLE_REFUSALS.accountClosed),
@@ -108,7 +96,6 @@ describe('completeOnboardingAction (R-80, R-81)', () => {
       await expect(completeOnboardingAction({}, formOf(next))).rejects.toEqual(
         new Redirected('/prisijungti'),
       );
-      expect(server.remember).not.toHaveBeenCalled();
     },
   );
 
@@ -119,6 +106,5 @@ describe('completeOnboardingAction (R-80, R-81)', () => {
       refusal: DISPLAY_NAME_ISSUES.blank,
     });
     expect(server.complete).not.toHaveBeenCalled();
-    expect(server.remember).not.toHaveBeenCalled();
   });
 });

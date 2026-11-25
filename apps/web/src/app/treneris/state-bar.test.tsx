@@ -3,14 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { MasteredBadge, StateBar, usePercentLearned } from './state-bar';
 
-const p = MESSAGES.lt.coach.progress;
+const p = MESSAGES.coach.progress;
 
 function renderBar(counts: ProgressCounts, mastered = false): HTMLElement {
   const { container } = render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <StateBar counts={counts} mastered={mastered} />
     </NextIntlClientProvider>,
   );
@@ -36,15 +36,8 @@ describe('StateBar (R-151)', () => {
   it('says every count in words, never colour alone', () => {
     renderBar({ notStarted: 2, skipped: 3, due: 1, learned: 4 });
     expect(
-      screen.getByText(
-        '4 išmokta · 1 kartotinas · 3 pažymėta „Žinau“ · 2 liko išmokti',
-      ),
+      screen.getByText('4 learned · 1 due · 3 marked as known · 2 to learn'),
     ).toBeTruthy();
-  });
-
-  it('declines the due count in Lithuanian', () => {
-    renderBar({ notStarted: 0, skipped: 0, due: 3, learned: 0 });
-    expect(screen.getByText(/3 kartotini /)).toBeTruthy();
   });
 
   it('hides the bar from screen readers, which read the words', () => {
@@ -84,9 +77,9 @@ describe('StateBar (R-151)', () => {
   });
 });
 
-function renderLt(node: ReactNode): HTMLElement {
+function renderIn(node: ReactNode): HTMLElement {
   const { container } = render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {node}
     </NextIntlClientProvider>,
   );
@@ -95,14 +88,14 @@ function renderLt(node: ReactNode): HTMLElement {
 
 describe('MasteredBadge', () => {
   it('is the Mastered pill', () => {
-    renderLt(<MasteredBadge />);
+    renderIn(<MasteredBadge />);
     const badge = screen.getByText(p.mastered);
     expect(badge.className).toContain('rounded-pill');
     expect(badge.className).toContain('bg-success-subtle');
   });
 
   it('is the same pill the state bar draws', () => {
-    const own = renderLt(<MasteredBadge />).innerHTML;
+    const own = renderIn(<MasteredBadge />).innerHTML;
     const bar = renderBar(
       { notStarted: 0, skipped: 0, due: 0, learned: 1 },
       true,
@@ -119,16 +112,16 @@ function Probe({ counts }: { readonly counts: ProgressCounts }): ReactNode {
 
 describe('usePercentLearned', () => {
   it('says the share learned', () => {
-    renderLt(
+    renderIn(
       <Probe counts={{ notStarted: 1, skipped: 0, due: 1, learned: 2 }} />,
     );
-    expect(screen.getByText('50 % išmokta').getAttribute('data-empty')).toBe(
+    expect(screen.getByText('50% learned').getAttribute('data-empty')).toBe(
       'false',
     );
   });
 
   it('says there is nothing to learn for an empty repertoire', () => {
-    renderLt(
+    renderIn(
       <Probe counts={{ notStarted: 0, skipped: 0, due: 0, learned: 0 }} />,
     );
     expect(screen.getByText(p.nothing).getAttribute('data-empty')).toBe('true');

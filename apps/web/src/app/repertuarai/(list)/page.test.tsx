@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import RepertoiresLoading from './loading';
 import RepertoiresPage from './page';
 
@@ -38,13 +38,13 @@ vi.mock('../../../server/assignment-pages', () => ({
 
 vi.mock('../actions', () => ({ createRepertoireAction: vi.fn() }));
 
-const l = MESSAGES.lt.repertoires.list;
+const l = MESSAGES.repertoires.list;
 
 async function renderPage(params: Record<string, string> = {}): Promise<void> {
   render(
     <NextIntlClientProvider
-      locale="lt"
-      messages={MESSAGES.lt}
+      locale="en"
+      messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
       {await RepertoiresPage({ searchParams: Promise.resolve(params) })}
@@ -75,29 +75,27 @@ describe('Mano repertuarai', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: MESSAGES.lt.repertoires.create.title,
+        name: MESSAGES.repertoires.create.title,
       }),
     ).toBeDefined();
     expect(
       screen.getByRole('link', { name: l.import }).getAttribute('href'),
     ).toBe('/repertuarai/importuoti');
-    expect(
-      screen.queryByText(MESSAGES.lt.repertoires.header.deleted),
-    ).toBeNull();
+    expect(screen.queryByText(MESSAGES.repertoires.header.deleted)).toBeNull();
   });
 
   it('says the repertoire was deleted after a delete', async () => {
     await renderPage({ deleted: '1' });
     expect(
       screen
-        .getByText(MESSAGES.lt.repertoires.header.deleted)
+        .getByText(MESSAGES.repertoires.header.deleted)
         .getAttribute('role'),
     ).toBe('status');
   });
 
   it('shows the header and card skeletons while it loads', () => {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <RepertoiresLoading />
       </NextIntlClientProvider>,
     );

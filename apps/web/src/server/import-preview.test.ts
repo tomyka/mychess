@@ -27,19 +27,18 @@ vi.mock('@mychess/db', () => ({
 vi.mock('./db', () => ({ getDb: () => DB }));
 vi.mock('./repertoires', () => ({ ownRepertoire: server.own }));
 
-const account = (locale: 'lt' | 'en'): Account => ({
+const ACCOUNT: Account = {
   id: 'rokas',
   email: 'rokas@example.test',
   emailVerified: true,
   displayName: 'Rokas',
-  locale,
   entitlement: 'free',
   admin: false,
   disabledAt: null,
   onboardedAt: NOW,
   coachSince: null,
   createdAt: NOW,
-});
+};
 
 const ADVANCE = '1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 *';
 const CLASSICAL = '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *';
@@ -53,13 +52,9 @@ const BISHOP = '1. e4 c6 2. d4 d5 3. Bd3 dxe4 4. Bxe4 Nf6 *';
 const WING = '1. e4 c6 2. a3 d5 *';
 
 /** The preview of `text`, or a thrown error with the refusal's reason. */
-async function preview(
-  locale: 'lt' | 'en',
-  text: string,
-  into?: string,
-): Promise<ImportPreview> {
+async function preview(text: string, into?: string): Promise<ImportPreview> {
   const outcome: PreviewOutcome = await previewImport(
-    account(locale),
+    ACCOUNT,
     { text, side: 'black', into },
     NOW,
   );
@@ -69,10 +64,9 @@ async function preview(
 
 /** The chapter titles a preview of `text` shows. */
 const titles = async (
-  locale: 'lt' | 'en',
   text: string,
   into?: string,
-): Promise<readonly string[]> => (await preview(locale, text, into)).chapters;
+): Promise<readonly string[]> => (await preview(text, into)).chapters;
 
 const graphOf = (text: string): RepertoireGraph => {
   const imported = importPgn(text, 'black');
@@ -109,30 +103,27 @@ describe('previewImport chapter titles (R-158)', () => {
 
   it('tells apart the chapters a file brings that share a name', async () => {
     const shared = [BISHOP, CLASSICAL, WING].join('\n\n');
-    expect(await titles('en', shared)).toEqual([
+    expect(await titles(shared)).toEqual([
       'Caro-Kann Defense (B12, 3.\u00A0Bd3)',
       'Caro-Kann Defense: Classical Variation',
       'Caro-Kann Defense (B10, 2.\u00A0a3)',
     ]);
   });
 
-  it.each(['lt', 'en'] as const)(
-    'keeps them plain where the served language names them apart (a %s account, R-180)',
-    async (locale) => {
-      expect(await titles(locale, upload)).toEqual([
-        'Caro-Kann Defense: Advance Variation, Short Variation',
-        'Caro-Kann Defense: Classical Variation',
-        'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
-      ]);
-    },
-  );
+  it('keeps them plain where their names tell them apart', async () => {
+    expect(await titles(upload)).toEqual([
+      'Caro-Kann Defense: Advance Variation, Short Variation',
+      'Caro-Kann Defense: Classical Variation',
+      'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
+    ]);
+  });
 
   it('titles a merge’s new chapters as the merged repertoire names them', async () => {
     ownsRepertoireOf(BISHOP);
     // Alone, the 2. a3 line would be plain; beside the repertoire's
     // 3. Bd3 line it is told apart.
-    expect(await titles('en', WING)).toEqual(['Caro-Kann Defense']);
-    expect(await titles('en', WING, INTO)).toEqual([
+    expect(await titles(WING)).toEqual(['Caro-Kann Defense']);
+    expect(await titles(WING, INTO)).toEqual([
       'Caro-Kann Defense (B10, 2.\u00A0a3)',
     ]);
   });
@@ -147,7 +138,7 @@ describe('previewImport renamed chapters (R-159)', () => {
 
   it('lists an existing chapter a merge gives a namesake, old title and new', async () => {
     ownsRepertoireOf(BISHOP);
-    expect((await preview('en', WING, INTO)).renamed).toEqual([
+    expect((await preview(WING, INTO)).renamed).toEqual([
       bishopRenamed('2.\u00A0d4'),
     ]);
   });
@@ -156,19 +147,19 @@ describe('previewImport renamed chapters (R-159)', () => {
     // The Classical keeps its own name; the 3. Bd3 line's move is where it
     // parts from every other chapter, the Classical's 3. Nc3 included.
     ownsRepertoireOf([CLASSICAL, BISHOP].join('\n\n'));
-    expect((await preview('en', WING, INTO)).renamed).toEqual([
+    expect((await preview(WING, INTO)).renamed).toEqual([
       bishopRenamed('3.\u00A0Bd3'),
     ]);
   });
 
-  it('lists none when the language already names them apart', async () => {
+  it('lists none when their names already tell them apart', async () => {
     ownsRepertoireOf(ADVANCE);
-    expect((await preview('en', TWO_KNIGHTS, INTO)).renamed).toEqual([]);
+    expect((await preview(TWO_KNIGHTS, INTO)).renamed).toEqual([]);
   });
 
   it('lists none for a new repertoire', async () => {
     const upload = [ADVANCE, TWO_KNIGHTS].join('\n\n');
-    expect((await preview('lt', upload)).renamed).toEqual([]);
+    expect((await preview(upload)).renamed).toEqual([]);
   });
 });
 
@@ -180,9 +171,9 @@ describe('previewImport within the repertoire limits (R-162)', () => {
     };
     server.mayAdd.mockResolvedValue(atLimit);
     expect(
-      await previewImport(account('lt'), { text: ADVANCE, side: 'black' }, NOW),
+      await previewImport(ACCOUNT, { text: ADVANCE, side: 'black' }, NOW),
     ).toEqual(atLimit);
-    expect(server.mayAdd).toHaveBeenCalledWith(DB, account('lt'));
+    expect(server.mayAdd).toHaveBeenCalledWith(DB, ACCOUNT);
   });
 
   // A 5,000-move file takes seconds to generate and import, longer with the
@@ -193,7 +184,7 @@ describe('previewImport within the repertoire limits (R-162)', () => {
     async () => {
       expect(
         await previewImport(
-          account('lt'),
+          ACCOUNT,
           { text: pgnWithMoves(5001), side: 'white' },
           NOW,
         ),
@@ -209,7 +200,7 @@ describe('previewImport within the repertoire limits (R-162)', () => {
     { timeout: 120_000 },
     async () => {
       const outcome = await previewImport(
-        account('lt'),
+        ACCOUNT,
         { text: pgnWithMoves(5000), side: 'white' },
         NOW,
       );
@@ -224,7 +215,7 @@ describe('previewImport added comments and NAGs (R-175, R-176)', () => {
 
   it('lists the comments and NAGs a file adds to the moves already there, and takes it', async () => {
     ownsRepertoireOf(ADVANCE);
-    const p = await preview('en', ANNOTATED_ADVANCE, INTO);
+    const p = await preview(ANNOTATED_ADVANCE, INTO);
     expect(p.refusal).toBeNull();
     expect(p.chapters).toEqual([]);
     expect(p.target?.added).toEqual({ chapters: 0, moves: 0, annotated: 3 });
@@ -238,7 +229,6 @@ describe('previewImport added comments and NAGs (R-175, R-176)', () => {
   it('leaves out a move that gains only a NAG with no glyph, yet takes the file (R-175, #335)', async () => {
     ownsRepertoireOf(ADVANCE);
     const p = await preview(
-      'en',
       '1. e4 c6 2. d4 d5 3. e5 $146 Bf5 $14 4. Nf3 e6 *',
       INTO,
     );
@@ -247,7 +237,7 @@ describe('previewImport added comments and NAGs (R-175, R-176)', () => {
     // The count says what the list shows.
     expect(p.target?.added).toEqual({ chapters: 0, moves: 0, annotated: 1 });
     expect(p.refusal).toBeNull();
-    const only = await preview('en', '1. e4 c6 2. d4 d5 3. e5 $146 *', INTO);
+    const only = await preview('1. e4 c6 2. d4 d5 3. e5 $146 *', INTO);
     expect(only.annotations).toEqual([]);
     expect(only.target?.added.annotated).toBe(0);
     // Still something to add: Import stays enabled (R-115).
@@ -256,14 +246,14 @@ describe('previewImport added comments and NAGs (R-175, R-176)', () => {
 
   it('lists none when the repertoire already has them, and refuses the file (R-115)', async () => {
     ownsRepertoireOf(ANNOTATED_ADVANCE);
-    const p = await preview('en', ANNOTATED_ADVANCE, INTO);
+    const p = await preview(ANNOTATED_ADVANCE, INTO);
     expect(p.refusal).toBe('pgn.nothingToAdd');
     expect(p.annotations).toEqual([]);
     expect(p.target?.added).toEqual({ chapters: 0, moves: 0, annotated: 0 });
   });
 
   it('lists none for a new repertoire: its comments come with its moves', async () => {
-    expect((await preview('en', ANNOTATED_ADVANCE)).annotations).toEqual([]);
+    expect((await preview(ANNOTATED_ADVANCE)).annotations).toEqual([]);
   });
 });
 
@@ -275,7 +265,7 @@ describe('previewImport side check (#364, R-214)', () => {
 
   const suggestedFor = async (side: 'white' | 'black', into?: string) => {
     const outcome = await previewImport(
-      account('en'),
+      ACCOUNT,
       { text: BLACK_FILE, side, into },
       NOW,
     );

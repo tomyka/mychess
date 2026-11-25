@@ -38,7 +38,7 @@ All three players are in the coach's group "Šeštadienio grupė" and share the 
 
 - Repertoire lines live in ```` ```pgn ```` fences, one line per row, with a `{label}` prefix. Every line was checked for legality with chess.js (1.0.0) on 2026-10-16; keep them legal when editing (any SAN parser that replays each row from the start position will do).
 - Late moves in the 2000+ lines (after about move 15) are representative, not engine-verified theory; chess-dev reviews them before any of them become starter content.
-- Lithuanian opening titles here are working names; the product uses the šachmatai.lt taxonomy (Q1).
+- Lithuanian opening titles here are working names; the product names openings in English from lichess-org/chess-openings (R-216, R-217).
 - External identities (FIDE, Lichess, Chess.com, chess-results.com) are placeholders served by local fixtures. No real person's account or rating data is used.
 
 ## Open dependencies

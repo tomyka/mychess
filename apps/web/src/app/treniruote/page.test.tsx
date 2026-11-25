@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingData } from '../../lib/training-data';
 import TrainingLoading from './loading';
 import TrainingNotFound from './not-found';
@@ -13,7 +13,6 @@ const ACCOUNT = {
   id: 'a1',
   email: 'ruta@example.lt',
   displayName: 'Rūta Jonaitė',
-  locale: 'lt',
   entitlement: 'free',
   admin: false,
   disabledAt: null,
@@ -59,9 +58,9 @@ vi.mock('./training-screen', () => ({
   ),
 }));
 
-const renderLt = (node: ReactNode) =>
+const renderIn = (node: ReactNode) =>
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {node}
     </NextIntlClientProvider>,
   );
@@ -74,7 +73,7 @@ beforeEach(() => {
 describe('the training page', () => {
   it('loads the session account’s training at the asked scope', async () => {
     loader.load.mockResolvedValue({ mode: 'learn' });
-    renderLt(
+    renderIn(
       await TrainingPage({
         searchParams: Promise.resolve({ mode: 'learn', r: ID }),
       }),
@@ -90,7 +89,7 @@ describe('the training page', () => {
 
   it('loads one chapter’s line to learn when the URL names it (R-206)', async () => {
     loader.load.mockResolvedValue({ mode: 'learn' });
-    renderLt(
+    renderIn(
       await TrainingPage({
         searchParams: Promise.resolve({
           mode: 'learn',
@@ -110,7 +109,7 @@ describe('the training page', () => {
 
   it('trains every repertoire without a scope', async () => {
     loader.load.mockResolvedValue({ mode: 'review' });
-    renderLt(await TrainingPage({ searchParams: Promise.resolve({}) }));
+    renderIn(await TrainingPage({ searchParams: Promise.resolve({}) }));
     expect(loader.load).toHaveBeenCalledWith(
       ACCOUNT,
       'review',
@@ -131,16 +130,16 @@ describe('the training page', () => {
 
 describe('the training page when it is not the player’s', () => {
   it('says so and leads home', () => {
-    renderLt(<TrainingNotFound />);
+    renderIn(<TrainingNotFound />);
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: MESSAGES.lt.training.notFound,
+        name: MESSAGES.training.notFound,
       }),
     ).toBeDefined();
     expect(
       screen
-        .getByRole('link', { name: MESSAGES.lt.training.home })
+        .getByRole('link', { name: MESSAGES.training.home })
         .getAttribute('href'),
     ).toBe('/');
   });
@@ -148,7 +147,7 @@ describe('the training page when it is not the player’s', () => {
 
 describe('the training page while it loads', () => {
   it('shows a busy frame with the board’s squares and no board', () => {
-    renderLt(<TrainingLoading />);
+    renderIn(<TrainingLoading />);
     expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
     expect(screen.queryByRole('application')).toBeNull();
   });
@@ -156,13 +155,13 @@ describe('the training page while it loads', () => {
   it('says it is loading only after about a second', () => {
     vi.useFakeTimers();
     try {
-      renderLt(<TrainingLoading />);
+      renderIn(<TrainingLoading />);
       const line = screen.getByRole('status');
       expect(line.textContent).toBe('');
       act(() => {
         vi.advanceTimersByTime(1000);
       });
-      expect(line.textContent).toBe(MESSAGES.lt.training.loading);
+      expect(line.textContent).toBe(MESSAGES.training.loading);
     } finally {
       vi.useRealTimers();
     }

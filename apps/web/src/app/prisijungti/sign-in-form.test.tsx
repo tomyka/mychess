@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { queueKey } from '../treniruote/result-queue';
 import { SignInForm, type SignInFormProps } from './sign-in-form';
 
@@ -33,15 +33,11 @@ const URLS = {
   errorCallbackURL: '/prisijungti',
 };
 
-const lt = MESSAGES.lt;
-const en = MESSAGES.en;
+const s = MESSAGES.signIn;
 
-function renderForm(
-  props: Partial<SignInFormProps> = {},
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderForm(props: Partial<SignInFormProps> = {}): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <SignInForm googleEnabled deleted={false} {...props} />
     </NextIntlClientProvider>,
   );
@@ -49,11 +45,11 @@ function renderForm(
 
 const status = () => screen.getByRole('status');
 
-async function submitEmail(email: string, button = lt.signIn.submit) {
-  fireEvent.change(screen.getByLabelText(lt.signIn.email), {
+async function submitEmail(email: string) {
+  fireEvent.change(screen.getByLabelText(s.email), {
     target: { value: email },
   });
-  fireEvent.click(screen.getByRole('button', { name: button }));
+  fireEvent.click(screen.getByRole('button', { name: s.submit }));
   await waitFor(() => {
     expect(client.magicLink).toHaveBeenCalledTimes(1);
   });
@@ -68,44 +64,21 @@ describe('SignInForm', () => {
   it('names the page and starts with an empty status line', () => {
     renderForm();
     expect(
-      screen.getByRole('heading', { level: 1, name: lt.signIn.title }),
+      screen.getByRole('heading', { level: 1, name: s.title }),
     ).toBeDefined();
     expect(status().textContent).toBe('');
   });
 
-  it('offers no language choice (R-180)', () => {
-    renderForm({}, 'en');
-    expect(screen.queryByRole('radio')).toBeNull();
-    expect(screen.queryByRole('combobox')).toBeNull();
-    for (const name of [en.language.lt, en.language.en])
-      expect(screen.queryByText(name)).toBeNull();
-  });
-
-  it('mails a magic link to the email as typed, in the page language, then says to check the email', async () => {
+  it('mails a magic link to the email as typed, with no locale metadata, then says to check the email', async () => {
     renderForm();
     await submitEmail('Ruta@Example.lt');
     expect(client.magicLink).toHaveBeenCalledWith({
       email: 'Ruta@Example.lt',
       ...URLS,
-      metadata: { locale: 'lt' },
     });
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.signIn.sent);
+      expect(status().textContent).toBe(s.sent);
     });
-  });
-
-  it('asks for the magic link in English on the English page', async () => {
-    renderForm({}, 'en');
-    fireEvent.change(screen.getByLabelText(en.signIn.email), {
-      target: { value: 'ruta@example.lt' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: en.signIn.submit }));
-    await waitFor(() => {
-      expect(status().textContent).toBe(en.signIn.sent);
-    });
-    expect(client.magicLink).toHaveBeenCalledWith(
-      expect.objectContaining({ metadata: { locale: 'en' } }),
-    );
   });
 
   it('says the email is not valid when the server refuses it', async () => {
@@ -120,7 +93,7 @@ describe('SignInForm', () => {
     renderForm();
     await submitEmail('ruta@');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.account.emailInvalid);
+      expect(status().textContent).toBe(MESSAGES.account.emailInvalid);
     });
   });
 
@@ -132,7 +105,7 @@ describe('SignInForm', () => {
     renderForm();
     await submitEmail('ruta@example.lt');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.signIn.error.tooManyRequests);
+      expect(status().textContent).toBe(s.error.tooManyRequests);
     });
   });
 
@@ -144,7 +117,7 @@ describe('SignInForm', () => {
     renderForm();
     await submitEmail('ruta@example.lt');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.signIn.error.generic);
+      expect(status().textContent).toBe(s.error.generic);
     });
   });
 
@@ -153,7 +126,7 @@ describe('SignInForm', () => {
     renderForm();
     await submitEmail('ruta@example.lt');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.signIn.error.generic);
+      expect(status().textContent).toBe(s.error.generic);
     });
   });
 
@@ -166,7 +139,7 @@ describe('SignInForm', () => {
     );
     renderForm();
     await submitEmail('ruta@example.lt');
-    const submit = screen.getByRole('button', { name: lt.signIn.submit });
+    const submit = screen.getByRole('button', { name: s.submit });
     expect(submit.hasAttribute('disabled')).toBe(true);
     answer(OK);
     await waitFor(() => {
@@ -175,8 +148,8 @@ describe('SignInForm', () => {
   });
 
   it.each([
-    ['google', lt.signIn.google],
-    ['lichess', lt.signIn.lichess],
+    ['google', s.google],
+    ['lichess', s.lichess],
   ] as const)('signs in with %s', async (provider, label) => {
     renderForm();
     fireEvent.click(screen.getByRole('button', { name: label }));
@@ -192,31 +165,29 @@ describe('SignInForm', () => {
       error: { status: 404, message: 'Provider not found' },
     });
     renderForm();
-    fireEvent.click(screen.getByRole('button', { name: lt.signIn.lichess }));
+    fireEvent.click(screen.getByRole('button', { name: s.lichess }));
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.signIn.error.generic);
+      expect(status().textContent).toBe(s.error.generic);
     });
   });
 
   it('offers no Google button when Google is not set up', () => {
     renderForm({ googleEnabled: false });
-    expect(screen.queryByRole('button', { name: lt.signIn.google })).toBeNull();
-    expect(
-      screen.getByRole('button', { name: lt.signIn.lichess }),
-    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: s.google })).toBeNull();
+    expect(screen.getByRole('button', { name: s.lichess })).toBeDefined();
   });
 
   it.each([
-    ['lichess_email_in_use', lt.signIn.error.lichessEmailInUse],
-    ['account_not_linked', lt.signIn.error.lichessEmailInUse],
-    ['account.emailInvalid', lt.account.emailInvalid],
-    ['state_mismatch', lt.signIn.error.generic],
-    ['state_not_found', lt.signIn.error.generic],
-    ['unable_to_create_user', lt.signIn.error.generic],
-    ['INVALID_TOKEN', lt.signIn.error.linkExpired],
-    ['invalid_token', lt.signIn.error.generic],
-    ['anything', lt.signIn.error.generic],
-    ['constructor', lt.signIn.error.generic],
+    ['lichess_email_in_use', s.error.lichessEmailInUse],
+    ['account_not_linked', s.error.lichessEmailInUse],
+    ['account.emailInvalid', MESSAGES.account.emailInvalid],
+    ['state_mismatch', s.error.generic],
+    ['state_not_found', s.error.generic],
+    ['unable_to_create_user', s.error.generic],
+    ['INVALID_TOKEN', s.error.linkExpired],
+    ['invalid_token', s.error.generic],
+    ['anything', s.error.generic],
+    ['constructor', s.error.generic],
   ])('translates the error code %s', (error, text) => {
     renderForm({ error });
     expect(status().textContent).toBe(text);
@@ -224,7 +195,7 @@ describe('SignInForm', () => {
 
   it('says the account was deleted', () => {
     renderForm({ deleted: true });
-    expect(status().textContent).toBe(lt.signIn.deleted);
+    expect(status().textContent).toBe(s.deleted);
   });
 
   it('removes every queued training result once the account was deleted, and keeps them otherwise', () => {
@@ -254,13 +225,12 @@ describe('SignInForm with a return path (R-81)', () => {
     expect(client.magicLink).toHaveBeenCalledWith({
       email: 'ruta@example.lt',
       ...BACK,
-      metadata: { locale: 'lt' },
     });
   });
 
   it.each([
-    ['google', lt.signIn.google],
-    ['lichess', lt.signIn.lichess],
+    ['google', s.google],
+    ['lichess', s.lichess],
   ] as const)(
     'sends a %s sign-in back to the invite',
     async (provider, label) => {
@@ -274,12 +244,12 @@ describe('SignInForm with a return path (R-81)', () => {
 
   it('says the person signs in to accept a coach’s invite, naming no one (#329)', () => {
     renderForm({ next: NEXT });
-    expect(screen.getByText(lt.signIn.forInvite)).toBeDefined();
+    expect(screen.getByText(s.forInvite)).toBeDefined();
   });
 
   it('keeps the plain destinations with no return path', async () => {
     renderForm({ next: null });
-    expect(screen.queryByText(lt.signIn.forInvite)).toBeNull();
+    expect(screen.queryByText(s.forInvite)).toBeNull();
     await submitEmail('ruta@example.lt');
     expect(client.magicLink).toHaveBeenCalledWith(
       expect.objectContaining(URLS),

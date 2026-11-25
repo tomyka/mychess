@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import AssignedRepertoireNotFound from '../not-found';
 import AssignedRepertoirePageView from './page';
@@ -56,7 +56,7 @@ vi.mock('./actions', () => ({
 
 const renderLt = (node: ReactNode) =>
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {node}
     </NextIntlClientProvider>,
   );
@@ -115,9 +115,9 @@ describe('the assigned repertoire page', () => {
     );
     expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
-      screen.getByRole('link', { name: 'Kartoti (3)' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Review (3)' }).getAttribute('href'),
     ).toBe(`/treniruote?mode=review&r=${ID}`);
-    expect(screen.getByRole('link', { name: 'Mokytis (5)' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Learn (5)' })).toBeDefined();
   });
 
   it('hides the train buttons and "I know this" while paused (R-46)', async () => {
@@ -125,13 +125,13 @@ describe('the assigned repertoire page', () => {
     renderLt(
       await AssignedRepertoirePageView({ params: Promise.resolve({ id: ID }) }),
     );
-    expect(screen.queryByRole('link', { name: /Kartoti/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: /Mokytis/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Review/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Learn/ })).toBeNull();
     expect(
-      screen.queryByRole('button', { name: /Žinau arba mokytis iš naujo/ }),
+      screen.queryByRole('button', { name: /I know this or learn again/ }),
     ).toBeNull();
     expect(
-      screen.getByText(MESSAGES.lt.assignment.pause.pausedHint),
+      screen.getByText(MESSAGES.assignment.pause.pausedHint),
     ).toBeDefined();
   });
 });
@@ -142,12 +142,12 @@ describe('the assigned repertoire page when it is not the player’s', () => {
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: MESSAGES.lt.assignment.page.notFound,
+        name: MESSAGES.assignment.page.notFound,
       }),
     ).toBeDefined();
     expect(
       screen
-        .getByRole('link', { name: MESSAGES.lt.assignment.page.home })
+        .getByRole('link', { name: MESSAGES.assignment.page.home })
         .getAttribute('href'),
     ).toBe('/');
   });

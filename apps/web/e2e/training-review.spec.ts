@@ -5,7 +5,7 @@
 // the suite has no clock to move; the repertoire is a generated White file
 // (fixtures/backlog.pgn), large enough for both backlogs.
 import { expect } from '@playwright/test';
-import { CATALOGUES, newOnboardedAccount, test } from './support/journey';
+import { en, newOnboardedAccount, test } from './support/journey';
 import { plural } from './support/repertoires';
 import { loggedResults, seedDue } from './support/training-db';
 import {
@@ -28,8 +28,6 @@ import {
   today,
 } from './support/training-cast';
 import { importRepertoire } from './support/assignments';
-
-const { en } = CATALOGUES;
 
 /** The End session link of a drill. */
 const endSession = (drill: Drill) =>
@@ -55,7 +53,7 @@ test(
     await seedDue(email, due);
     const drill: Drill = { page, messages: en, books: [backlog], isMobile };
     await page.goto('/');
-    await expect(today(page, en)).toContainText(dueLine('en', 85));
+    await expect(today(page, en)).toContainText(dueLine(85));
     await startTodayReview(page, en);
     await expectCounter(page, 0, 60);
     const first = await answer(drill);
@@ -66,7 +64,7 @@ test(
     await endSession(drill).click();
     await expect(page).toHaveURL(/\/$/);
     await page.reload();
-    await expect(today(page, en)).toContainText(dueLine('en', 55));
+    await expect(today(page, en)).toContainText(dueLine(55));
     await startTodayReview(page, en);
     await expectCounter(page, 0, 55);
     expect(await drillToDone(drill)).toHaveLength(55);
@@ -93,7 +91,7 @@ test('D-M1-5: Dovydas reviews from a backlog of 150: sessions of 20, every answe
   await seedDue(email, ownKeys(backlog).slice(0, 150));
   const drill: Drill = { page, messages: en, books: [backlog], isMobile };
   await page.goto('/');
-  await expect(today(page, en)).toContainText(dueLine('en', 150));
+  await expect(today(page, en)).toContainText(dueLine(150));
   await startTodayReview(page, en);
   // The default session is 20 of the 150 (R-62).
   await expectCounter(page, 0, 20);
@@ -153,7 +151,7 @@ test('a dropped connection loses no result: 3 answers wait offline, then sync (R
   for (let i = 0; i < 3; i += 1) await answer(drill);
   await expectCounter(page, 4, 5);
   const banner = page.getByText(
-    plural(en.training.sync.unsynced, 'en', { count: 3 }),
+    plural(en.training.sync.unsynced, { count: 3 }),
     { exact: true },
   );
   const retry = page.getByRole('button', { name: en.training.sync.retry });

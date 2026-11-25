@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { AcceptState } from './actions';
 import { InviteView, type InvitePreviewResult } from './invite-view';
 
@@ -12,7 +12,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ acceptInviteAction: server.accept }));
 
-const i = MESSAGES.lt.invite;
+const i = MESSAGES.invite;
 const TOKEN = 'A'.repeat(42) + '_';
 
 const GROUP_INVITE: InvitePreviewResult = {
@@ -29,12 +29,9 @@ const refused = (
   reason: Extract<InvitePreviewResult, { ok: false }>['refusal']['reason'],
 ): InvitePreviewResult => ({ ok: false, refusal: { reason } });
 
-function renderView(
-  preview: InvitePreviewResult,
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderView(preview: InvitePreviewResult): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <InviteView token={TOKEN} preview={preview} />
     </NextIntlClientProvider>,
   );
@@ -50,8 +47,8 @@ describe('InviteView', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: i.title }),
     ).toBeDefined();
-    expect(screen.getByText('Treneris: Jonas')).toBeDefined();
-    expect(screen.getByText('Grupė: Šeštadienio grupė')).toBeDefined();
+    expect(screen.getByText('Coach: Jonas')).toBeDefined();
+    expect(screen.getByText('Group: Šeštadienio grupė')).toBeDefined();
     expect(screen.getByText(i.explain)).toBeDefined();
     expect(screen.getByRole('button', { name: i.accept })).toBeDefined();
     expect(
@@ -60,12 +57,9 @@ describe('InviteView', () => {
   });
 
   it('says what the coach will see: assigned repertoires and imported games, not just the name (R-39, #329)', () => {
-    const en = MESSAGES.en.invite.explain;
-    expect(en).toContain('repertoires they assign you');
-    expect(en).toContain('imported games');
-    expect(en).toContain('stay private unless you share them');
-    expect(i.explain).toContain('priskirtus repertuarus');
-    expect(i.explain).toContain('importuotas partijas');
+    expect(i.explain).toContain('repertoires they assign you');
+    expect(i.explain).toContain('imported games');
+    expect(i.explain).toContain('stay private unless you share them');
   });
 
   it('names no group for a personal invite without one', () => {
@@ -78,8 +72,8 @@ describe('InviteView', () => {
         kind: 'personal',
       },
     });
-    expect(screen.getByText('Treneris: Jonas')).toBeDefined();
-    expect(screen.queryByText(/^Grupė:/u)).toBeNull();
+    expect(screen.getByText('Coach: Jonas')).toBeDefined();
+    expect(screen.queryByText(/^Group:/u)).toBeNull();
   });
 
   it('says an invite this account already accepted links it with the coach and group, with no Accept (#329)', () => {
@@ -94,7 +88,7 @@ describe('InviteView', () => {
     expect(
       screen.getByText(i.accepted.replace('{coach}', 'Jonas')),
     ).toBeDefined();
-    expect(screen.getByText('Grupė: Šeštadienio grupė')).toBeDefined();
+    expect(screen.getByText('Group: Šeštadienio grupė')).toBeDefined();
     expect(screen.queryByRole('button', { name: i.accept })).toBeNull();
     expect(screen.queryByText(i.explain)).toBeNull();
     expect(
@@ -103,13 +97,10 @@ describe('InviteView', () => {
   });
 
   it('names no group on an accepted personal invite without one', () => {
-    renderView(
-      {
-        ok: true,
-        value: { state: 'accepted', coachDisplayName: 'Ona', groupName: null },
-      },
-      'en',
-    );
+    renderView({
+      ok: true,
+      value: { state: 'accepted', coachDisplayName: 'Ona', groupName: null },
+    });
     expect(screen.getByText('You are linked with Ona.')).toBeDefined();
     expect(screen.queryByText(/^Group:/u)).toBeNull();
   });
@@ -150,11 +141,5 @@ describe('InviteView', () => {
     expect(
       screen.getByRole('link', { name: i.home }).getAttribute('href'),
     ).toBe('/');
-  });
-
-  it('speaks English on the English page', () => {
-    renderView(GROUP_INVITE, 'en');
-    expect(screen.getByText('Coach: Jonas')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Accept invite' })).toBeDefined();
   });
 });

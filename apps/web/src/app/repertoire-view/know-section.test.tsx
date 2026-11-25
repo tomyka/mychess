@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { KnowSection } from './know-section';
 
 vi.mock('../repertuarai/know-actions', () => ({
@@ -13,14 +13,14 @@ vi.mock('../repertuarai/know-actions', () => ({
 }));
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const lt = MESSAGES.lt.training.know;
+const know = MESSAGES.training.know;
 const london = graphOf(LONDON);
 const chapterId = london.chapters[0]?.id ?? 'c1';
 const [, c5 = []] = lines(london, chapterId);
 
 function renderSection(depth: number, learnedToday = 10): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <KnowSection
         training={{
           repertoireId: ID,
@@ -42,31 +42,31 @@ function renderSection(depth: number, learnedToday = 10): void {
 
 const toggleFor = (subject: string) =>
   screen.queryByRole('button', {
-    name: lt.toggle.replace('{subject}', subject),
+    name: know.toggle.replace('{subject}', subject),
   });
 
 describe('KnowSection (R-58)', () => {
   it('offers the selected own move and the line it is on', () => {
     // 1. d4 d5 2. Bf4 Nf6 3. e3: White's own move.
     renderSection(5);
-    expect(screen.getByText('Šis ėjimas: 3. e3')).toBeDefined();
-    expect(toggleFor('Šis ėjimas: 3. e3')).not.toBeNull();
-    expect(toggleFor(lt.line)).not.toBeNull();
+    expect(screen.getByText('This move: 3. e3')).toBeDefined();
+    expect(toggleFor('This move: 3. e3')).not.toBeNull();
+    expect(toggleFor(know.line)).not.toBeNull();
   });
 
   it('has no move menu on an opponent move, only the line', () => {
     // 3...c5 is Black's: not a move the White player trains.
     renderSection(6);
-    expect(screen.queryByText(/Šis ėjimas/)).toBeNull();
+    expect(screen.queryByText(/This move/)).toBeNull();
     expect(screen.getAllByRole('button').length).toBe(1);
-    expect(toggleFor(lt.line)).not.toBeNull();
+    expect(toggleFor(know.line)).not.toBeNull();
   });
 
   it('shows nothing at the chapter root', () => {
     renderSection(0, 0);
     expect(screen.queryAllByRole('button')).toEqual([]);
     expect(screen.queryAllByRole('link')).toEqual([]);
-    expect(screen.queryByText(lt.section)).toBeNull();
+    expect(screen.queryByText(know.section)).toBeNull();
   });
 });
 
@@ -74,7 +74,7 @@ describe('KnowSection’s Learn on the current line (R-206)', () => {
   it('links to learning the line the current move is on', () => {
     renderSection(6, 0);
     const link = screen.getByRole('link', {
-      name: /^Mokytis \d+ naujų ėjimų šiame variante$/,
+      name: /^Learn \d+ new moves in this line$/,
     });
     expect(link.getAttribute('href')).toBe(
       `/treniruote?mode=learn&r=${ID}&chapter=${chapterId}&line=1`,

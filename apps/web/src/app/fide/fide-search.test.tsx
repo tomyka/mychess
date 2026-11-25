@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { broadcastMonthSchema, fideIdSchema } from '@mychess/domain';
 import type { FidePlayer } from '@mychess/integrations';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type {
   FidePollState,
   FideSearchState,
@@ -13,7 +13,7 @@ import type {
 import { FideSearch } from './fide-search';
 import { POLL_MS } from './use-search-progress';
 
-const en = MESSAGES.en.fide;
+const en = MESSAGES.fide;
 
 const server = vi.hoisted(() => ({
   start:
@@ -76,7 +76,7 @@ const started = (search: Partial<StartedSearch> = {}): FideSearchState => ({
 
 function renderPage(): void {
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <FideSearch truncatedLimit={1000} />
     </NextIntlClientProvider>,
   );

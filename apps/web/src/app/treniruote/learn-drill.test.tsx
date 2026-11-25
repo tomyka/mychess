@@ -14,15 +14,15 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, TAIMANOV } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingData } from '../../lib/training-data';
 import type { DrillClock } from './drill-input';
 import type { FrameParts } from './drill';
 import { LearnDrill } from './learn-drill';
 import { dayOf } from '../../lib/training-day';
 
-const T = MESSAGES.lt.training;
-const MOVE_INPUT = MESSAGES.lt.board.moveInput.label;
+const T = MESSAGES.training;
+const MOVE_INPUT = MESSAGES.board.moveInput.label;
 const NOW = new Date('2026-10-25T08:00:00Z');
 const DAY = 86_400_000;
 const REP_ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -132,8 +132,8 @@ function frame(parts: FrameParts): JSX.Element {
 function renderDrill(d: TrainingData = data()) {
   return render(
     <NextIntlClientProvider
-      locale="lt"
-      messages={MESSAGES.lt}
+      locale="en"
+      messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
       <LearnDrill
@@ -314,7 +314,7 @@ describe('the learn drill, arrows round', () => {
   it('says a typed move that is not legal', () => {
     renderDrill();
     type('Ke5');
-    expect(panel()).toContain(MESSAGES.lt.board.moveInput.unknown);
+    expect(panel()).toContain(MESSAGES.board.moveInput.unknown);
   });
 });
 
@@ -386,7 +386,7 @@ describe('the learn drill’s done summary', () => {
     play('d4');
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
     expect(screen.getByRole('main').dataset['finished']).toBe('yes');
-    expect(screen.getByText(/^1 išmokta · 0 kartotinų · 1 liko/)).toBeDefined();
+    expect(screen.getByText(/^1 learned · 0 due · 1 to learn/)).toBeDefined();
     expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
     expect(screen.queryByRole('link', { name: T.done.learn })).toBeNull();
     const done = screen.getByRole('link', { name: T.done.done });
@@ -407,7 +407,7 @@ describe('the learn drill’s done summary', () => {
     );
     play('d4');
     play('d4');
-    expect(screen.getByText('Dar 1 kartotinas ėjimas.')).toBeDefined();
+    expect(screen.getByText('1 more move is due.')).toBeDefined();
     const review = screen.getByRole('link', { name: T.done.review });
     expect(review.getAttribute('href')).toBe(
       `/treniruote?mode=review&r=${REP_ID}`,
@@ -481,7 +481,7 @@ describe('the learn drill in a Black repertoire', () => {
     expect(lastWith('lastMove')).toEqual(['e2', 'e4']);
     wait(150);
     expect(arrows()).toEqual(['c7c5']);
-    expect(panel()).toContain(MESSAGES.lt.training.drill.toMove.black);
+    expect(panel()).toContain(MESSAGES.training.drill.toMove.black);
     type('c5');
     expect(panel()).toContain(T.learn.correct);
   });
@@ -512,7 +512,7 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
     expect(arrows()).toEqual(['d2d4']);
     // Named with the assigning coach (R-107, #338).
     expect(note()).toBe(
-      `${MESSAGES.lt.coachNote.byCoach.replace('{name}', 'Rasa')}Take the centre first.`,
+      `${MESSAGES.coachNote.byCoach.replace('{name}', 'Rasa')}Take the centre first.`,
     );
     play('d4');
     // 2. Bf4 has no note.
@@ -553,7 +553,7 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
     });
     expect(arrows()).toEqual(['d2d4']);
     expect(note()).toBe(
-      `${MESSAGES.lt.coachNote.byCoach.replace('{name}', 'Ona')}Mine.`,
+      `${MESSAGES.coachNote.byCoach.replace('{name}', 'Ona')}Mine.`,
     );
     play('d4');
     expect(note()).toBeNull();

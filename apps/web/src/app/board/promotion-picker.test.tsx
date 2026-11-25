@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { PromotionPicker } from './promotion-picker';
 
 function renderPicker(color: 'white' | 'black' = 'white') {
   const onPick = vi.fn();
   const onCancel = vi.fn();
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PromotionPicker color={color} onPick={onPick} onCancel={onCancel} />
     </NextIntlClientProvider>,
   );

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { CoachGroupPage } from '../../../../server/coach-pages';
 import CoachGroupPageView from './page';
 
@@ -24,8 +24,8 @@ vi.mock('../../actions', () => ({
   deleteGroupAction: vi.fn(),
 }));
 
-const g = MESSAGES.lt.coach.group;
-const p = MESSAGES.lt.coach.progress;
+const g = MESSAGES.coach.group;
+const p = MESSAGES.coach.progress;
 
 describe('the coach dashboard’s group page', () => {
   it('loads the group the path names once and shows its grid, members and who to add', async () => {
@@ -47,7 +47,7 @@ describe('the coach dashboard’s group page', () => {
       },
     });
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await CoachGroupPageView({
           params: Promise.resolve({ groupId: 'g-1' }),
         })}

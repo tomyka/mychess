@@ -11,7 +11,7 @@ Issue: [tomyka/mychess#245](https://github.com/tomyka/mychess/issues/245). Rulin
 | Location | Kaunas; runs a Saturday group at a local club and coaches some players online |
 | Titles | FIDE Master (FM), FIDE Trainer |
 | Ratings | FIDE 2205 (peak 2290). Lithuania rank from the FIDE-LTU list (#232). Lichess blitz 2310 (plays rarely) |
-| Language | Lithuanian; expects correct Lithuanian chess terminology and opening names from the šachmatai.lt taxonomy. Uses EN only when reading foreign material |
+| Language | Lithuanian; expects correct Lithuanian chess terminology and opening names from the šachmatai.lt taxonomy. Uses EN only when reading foreign material. The site is English only for now (R-217). |
 | Devices | Windows laptop (Chrome) for preparing and assigning material; Android phone for checking progress and replying to messages between lessons |
 | Students | Group "Šeštadienio grupė": [Rokas Petrauskas](u1400.md) (0-1400), [Gabija Navickaitė](1400-2000.md) (1400-2000), [Dovydas Jankauskas](2000plus.md) (2000+). About 15 more students outside the seed set in real life |
 

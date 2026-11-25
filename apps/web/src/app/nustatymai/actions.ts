@@ -16,7 +16,6 @@ import { ROUTES } from '../../lib/routes';
 import { getMailer } from '../../server/auth';
 import { getDb } from '../../server/db';
 import { forgetLichessUnlinked } from '../../server/lichess-unlinked';
-import { rememberLocale } from '../../server/locale-cookie';
 import { deletedMail } from '../../server/mail';
 import { refusalAt } from '../../server/parse-refusal';
 import {
@@ -32,13 +31,7 @@ export interface ProfileState {
   readonly saved?: boolean;
 }
 
-/**
- * Saves a new display name and language. A changed language is also kept in
- * the locale cookie, so the site stays in it after sign-out; the page is
- * refreshed so it shows in the language just chosen. Under R-180 no
- * language is offered to choose: the form sends the stored one back, and
- * rememberLocale writes no cookie.
- */
+/** Saves a new display name; the page is refreshed so it shows the name. */
 export async function updateProfileAction(
   _previous: ProfileState,
   form: FormData,
@@ -47,8 +40,6 @@ export async function updateProfileAction(
   const profile = parseProfileInput(form);
   if (!profile.ok) return { refusal: profile.refusal.reason };
   await updateProfile(getDb(), account.id, profile.value, new Date());
-  if (profile.value.locale !== account.locale)
-    await rememberLocale(profile.value.locale);
   refresh();
   return { saved: true };
 }
@@ -136,7 +127,7 @@ export async function deleteAccountAction(
   });
   if (!deletion.ok) return { refusal: deletion.refusal.reason };
   const mail = deletion.value.confirmationMail;
-  if (mail !== null) await mailDeleted(deletedMail(mail.locale, mail.to));
+  if (mail !== null) await mailDeleted(deletedMail(mail.to));
   await signOutHere();
   redirect(`${ROUTES.signIn}?deleted=1`);
 }

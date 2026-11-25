@@ -1,19 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { ForkState } from './actions';
 import { ForkCopy } from './fork-copy';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const f = MESSAGES.lt.assignment.fork;
+const f = MESSAGES.assignment.fork;
 
 const action =
   vi.fn<(previous: ForkState, form: FormData) => Promise<ForkState>>();
 
-function renderFork(locale: 'lt' | 'en' = 'lt'): void {
+function renderFork(): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ForkCopy repertoireId={ID} name="Londono sistema" action={action} />
     </NextIntlClientProvider>,
   );
@@ -60,29 +60,22 @@ describe('ForkCopy (R-20, R-128)', () => {
     fireEvent.click(screen.getByRole('button', { name: f.confirm }));
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(
-        MESSAGES.lt.assignment.notFound,
+        MESSAGES.assignment.notFound,
       );
     });
   });
 
   it('says the repertoire limit with its number (R-162, R-163)', async () => {
     action.mockResolvedValue({ refusal: 'repertoire.limit', limit: 50 });
-    renderFork('en');
+    renderFork();
     fireEvent.click(screen.getByRole('button', { name: 'Make my own copy' }));
     fireEvent.click(
-      screen.getByRole('button', { name: MESSAGES.en.assignment.fork.confirm }),
+      screen.getByRole('button', { name: MESSAGES.assignment.fork.confirm }),
     );
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(
         'You can have up to 50 repertoires. Delete one to add another.',
       );
     });
-  });
-
-  it('speaks English on the English page', () => {
-    renderFork('en');
-    expect(
-      screen.getByRole('button', { name: 'Make my own copy' }),
-    ).toBeDefined();
   });
 });

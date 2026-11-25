@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import ImportPage from './page';
 
 // requireOnboarded, inside myRepertoires, never returns for a signed-out or
@@ -40,12 +40,12 @@ vi.mock('./actions', () => ({
   confirmImportAction: vi.fn(),
 }));
 
-const i = MESSAGES.lt.repertoires.import;
-const c = MESSAGES.lt.repertoires.create;
+const i = MESSAGES.repertoires.import;
+const c = MESSAGES.repertoires.create;
 
 async function renderPage(params: Record<string, string> = {}): Promise<void> {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {await ImportPage({ searchParams: Promise.resolve(params) })}
     </NextIntlClientProvider>,
   );

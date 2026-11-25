@@ -21,15 +21,15 @@ import {
   pgnWithMoves,
   TAIMANOV,
 } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts } from './drill';
 import { ReviewDrill } from './review-drill';
 import { TrainingFrame } from './training-frame';
 import type { DrillClock } from './drill-input';
 
-const T = MESSAGES.lt.training;
-const MOVE_INPUT = MESSAGES.lt.board.moveInput.label;
+const T = MESSAGES.training;
+const MOVE_INPUT = MESSAGES.board.moveInput.label;
 const NOW = new Date('2026-10-25T08:00:00Z');
 const DAY = 86_400_000;
 const LONDON_ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -151,8 +151,8 @@ function renderDrill(
 ) {
   return render(
     <NextIntlClientProvider
-      locale="lt"
-      messages={MESSAGES.lt}
+      locale="en"
+      messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
       <ReviewDrill
@@ -332,7 +332,7 @@ describe('the review drill', () => {
       />
     ));
     const board = screen.getByRole('application', {
-      name: MESSAGES.lt.board.label,
+      name: MESSAGES.board.label,
     });
     board.focus();
     act(() => {
@@ -354,7 +354,7 @@ describe('the review drill', () => {
   it('says a typed move that is not legal, and records nothing', () => {
     renderDrill();
     type('Ke5');
-    expect(panel()).toContain(MESSAGES.lt.board.moveInput.unknown);
+    expect(panel()).toContain(MESSAGES.board.moveInput.unknown);
     expect(recorded).toEqual([]);
   });
 
@@ -464,7 +464,7 @@ describe('the review drill', () => {
     // Both passes moved their Reviews out of today: none is due.
     expect(
       screen.getByText(
-        new RegExp(`^2 išmokta · 0 kartotinų · ${String(left)}`),
+        new RegExp(`^2 learned · 0 due · ${String(left)} to learn`),
       ),
     ).toBeDefined();
     expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
@@ -592,8 +592,8 @@ describe('the review drill', () => {
     }
     expect(kinds()).toEqual(Array<string>(10).fill('pass'));
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
-    expect(screen.getByText('Dar 11 kartotinų ėjimų.')).toBeDefined();
-    expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
+    expect(screen.getByText('11 more moves are due.')).toBeDefined();
+    expect(screen.queryByText(/^Next review:/)).toBeNull();
     expect(screen.queryByText(T.done.dayDone)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: T.done.continue }));
     expect(counter()).toBe('0 / 10');
@@ -620,7 +620,7 @@ describe('the review drill on a promotion', () => {
       reviews: [dueReview(QUEEN, 1)],
       tracked: [QUEEN],
     });
-  const P = MESSAGES.lt.board.promotion;
+  const P = MESSAGES.board.promotion;
 
   it('asks for the piece, then takes the move', () => {
     renderDrill(promoting());
@@ -853,4 +853,4 @@ describe('the review drill and coach notes (#322, R-174)', () => {
 
 /** The label of a note marked with its coach's name. */
 const byCoach = (name: string) =>
-  MESSAGES.lt.coachNote.byCoach.replace('{name}', name);
+  MESSAGES.coachNote.byCoach.replace('{name}', name);

@@ -54,10 +54,9 @@ afterEach(() => {
 
 const idRows = z.array(z.object({ id: z.string() }));
 
-function profileForm(displayName: string, locale: string): FormData {
+function profileForm(displayName: string): FormData {
   const data = new FormData();
   data.set('displayName', displayName);
-  data.set('locale', locale);
   return data;
 }
 
@@ -69,43 +68,31 @@ function deleteForm(confirmation: string): FormData {
 
 async function storedProfiles(): Promise<unknown> {
   const { rows } = await client.query(
-    'select email, display_name as "displayName", locale from accounts order by email',
+    'select email, display_name as "displayName" from accounts order by email',
   );
   return rows;
 }
 
 describe('updateProfileAction', () => {
-  it('stores the new name and a posted language, leaves the locale cookie alone and refreshes the page (R-180)', async () => {
+  it('stores the new name, sets no cookie and refreshes the page', async () => {
     request.cookie = await onboarded(RUTA, 'Rūta');
     expect(
-      await outcomeOf(updateProfileAction({}, profileForm(' Rūta J ', 'en'))),
+      await outcomeOf(updateProfileAction({}, profileForm(' Rūta J '))),
     ).toEqual({ saved: true });
     expect(await storedProfiles()).toEqual([
-      { email: RUTA, displayName: 'Rūta J', locale: 'en' },
+      { email: RUTA, displayName: 'Rūta J' },
     ]);
-    // No language is offered to choose, so none is remembered.
     expect(request.set).toEqual([]);
     expect(request.refreshed).toBe(1);
-  });
-
-  it('leaves the locale cookie alone when the language stays', async () => {
-    request.cookie = await onboarded(RUTA, 'Rūta');
-    expect(
-      await outcomeOf(updateProfileAction({}, profileForm('Rūta J', 'lt'))),
-    ).toEqual({ saved: true });
-    expect(await storedProfiles()).toEqual([
-      { email: RUTA, displayName: 'Rūta J', locale: 'lt' },
-    ]);
-    expect(request.set).toEqual([]);
   });
 
   it('refuses a blank name and stores nothing', async () => {
     request.cookie = await onboarded(RUTA, 'Rūta');
     expect(
-      await outcomeOf(updateProfileAction({}, profileForm('   ', 'en'))),
+      await outcomeOf(updateProfileAction({}, profileForm('   '))),
     ).toEqual({ refusal: 'displayName.blank' });
     expect(await storedProfiles()).toEqual([
-      { email: RUTA, displayName: 'Rūta', locale: 'lt' },
+      { email: RUTA, displayName: 'Rūta' },
     ]);
     expect(request.set).toEqual([]);
     expect(request.refreshed).toBe(0);
@@ -114,16 +101,14 @@ describe('updateProfileAction', () => {
   it('sends an account that has not been through onboarding there first', async () => {
     request.cookie = await signIn(RUTA);
     expect(
-      await outcomeOf(updateProfileAction({}, profileForm('Rūta', 'en'))),
+      await outcomeOf(updateProfileAction({}, profileForm('Rūta'))),
     ).toEqual({ redirectedTo: '/pradzia' });
-    expect(await storedProfiles()).toEqual([
-      { email: RUTA, displayName: '', locale: 'lt' },
-    ]);
+    expect(await storedProfiles()).toEqual([{ email: RUTA, displayName: '' }]);
   });
 
   it('sends a signed-out visitor to sign-in', async () => {
     expect(
-      await outcomeOf(updateProfileAction({}, profileForm('Rūta', 'en'))),
+      await outcomeOf(updateProfileAction({}, profileForm('Rūta'))),
     ).toEqual({ redirectedTo: '/prisijungti' });
   });
 });
@@ -159,7 +144,7 @@ async function pendingMagicLink(email: string): Promise<void> {
 
 /**
  * Jonas, onboarded with a magic link pending; then Rūta, signed in now,
- * onboarded in English, with Lichess linked and a magic link pending.
+ * onboarded, with Lichess linked and a magic link pending.
  * Returns Jonas's session cookie.
  */
 async function twoAccounts(): Promise<string> {
@@ -170,7 +155,7 @@ async function twoAccounts(): Promise<string> {
   rebuildAuth({ fetch });
   const jonas = await onboarded(JONAS, 'Jonas');
   await pendingMagicLink(JONAS);
-  request.cookie = await onboarded(RUTA, 'Rūta Jonaitė', 'en');
+  request.cookie = await onboarded(RUTA, 'Rūta Jonaitė');
   await oauthRoundTrip(built(), 'lichess', {
     cookie: request.cookie,
     link: true,
@@ -205,7 +190,7 @@ describe('deleteAccountAction', () => {
     expect(request.set).toEqual([]);
   });
 
-  it('deletes everything of the account, mails it in its language, signs the browser out and says so (R-40, R-82)', async () => {
+  it('deletes everything of the account, mails it, signs the browser out and says so (R-40, R-82)', async () => {
     await twoAccounts();
     const jonasBefore = await rowsOf(JONAS);
     expect(
@@ -220,7 +205,7 @@ describe('deleteAccountAction', () => {
     expect(await sql.count('provider_accounts')).toBe(0);
     expect(await rowsOf(JONAS)).toEqual(jonasBefore);
     expect(jonasBefore).toMatchObject({ accounts: 1, sessions: 1 });
-    expect(request.mailed).toEqual([deletedMail('en', RUTA)]);
+    expect(request.mailed).toEqual([deletedMail(RUTA)]);
     expect(sessionCookieCleared()).toBe(true);
   });
 
@@ -276,7 +261,7 @@ describe('deleteAccountAction', () => {
       await outcomeOf(deleteAccountAction({}, deleteForm(' Ruta@Example.LT '))),
     ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
     expect(await rowsOf(RUTA)).toMatchObject({ accounts: 0, sessions: 0 });
-    expect(request.mailed).toEqual([deletedMail('lt', RUTA)]);
+    expect(request.mailed).toEqual([deletedMail(RUTA)]);
     expect(sessionCookieCleared()).toBe(true);
   });
 

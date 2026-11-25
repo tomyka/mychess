@@ -35,7 +35,7 @@ A Coach's named set of linked Players, used to assign to and message several Pla
 _Avoid_: Class, team, club (clubs are a separate, post-MVP concept)
 
 **Profile**:
-An Account's display name and language, the part a person edits in settings and on onboarding (R-91). Never the Account itself.
+An Account's display name, the part a person edits in settings and on onboarding (R-91). Never the Account itself.
 _Avoid_: Account settings (in domain talk), user profile
 
 **Provider link**:
@@ -57,7 +57,7 @@ The colour a Repertoire is played from: White or Black. Fixed per Repertoire.
 _Avoid_: Colour (in prose fine), perspective
 
 **Chapter**:
-A named part of a Repertoire covering one opening. A chapter named by the taxonomy takes, in English, the name of the deepest named line of lichess-org/chess-openings its main line reaches (by position, derived whenever titles are built; R-216), and in Lithuanian the šachmatai.lt name of that line's ECO code.
+A named part of a Repertoire covering one opening. A chapter named by the taxonomy takes, in English, the name of the deepest named line of lichess-org/chess-openings its main line reaches (by position, derived whenever titles are built; R-216). The site is English only (R-217).
 _Avoid_: Section, study chapter, folder
 
 **PGN game**:

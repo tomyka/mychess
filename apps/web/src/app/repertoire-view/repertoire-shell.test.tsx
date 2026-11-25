@@ -6,7 +6,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { RepertoireShell, useBrowseView } from '.';
 
 const ground = vi.hoisted(() => {
@@ -27,10 +27,9 @@ vi.mock('@lichess-org/chessground', () => ({
   },
 }));
 
-const lt = MESSAGES.lt;
-const r = lt.repertoires;
+const r = MESSAGES.repertoires;
 const D4 = moveKey(START_KEY, 'd4');
-const NOTE_LABEL = 'Trenerio pastaba';
+const NOTE_LABEL = 'Coach note';
 
 interface ViewOptions {
   readonly graph?: RepertoireGraph;
@@ -81,7 +80,7 @@ function View({
 
 function renderView(options: ViewOptions = {}): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <View {...options} />
     </NextIntlClientProvider>,
   );
@@ -137,7 +136,7 @@ describe('RepertoireShell', () => {
   it('takes no new move while browsing: a move the chapter lacks is refused', () => {
     renderView();
     const field = screen.getByLabelText<HTMLInputElement>(
-      lt.board.moveInput.label,
+      MESSAGES.board.moveInput.label,
     );
     fireEvent.change(field, { target: { value: 'e4' } });
     fireEvent.submit(field);

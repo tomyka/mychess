@@ -8,9 +8,6 @@ import { Chess } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { ChapterNameSource } from '../repertoire/graph';
 import { ECO, ECO_FAMILIES, type EcoEntry } from './data/eco';
-import { ECO_LT } from './data/eco-lt';
-
-export type Locale = 'en' | 'lt';
 
 /** What a chapter is called: a text to show, or a message key to translate. */
 export type ChapterName =
@@ -78,34 +75,21 @@ export function classify(sans: readonly string[]): EcoEntry | null {
 }
 
 /**
- * An ECO code's family name (its shortest line): Lithuanian for `lt`
- * (English when it has none), English otherwise, the code itself for a code
+ * An ECO code's family name (its shortest line), the code itself for a code
  * the table does not have.
  */
-export function ecoName(eco: string, locale: Locale): string {
-  const english = FAMILY_BY_CODE.get(eco)?.name ?? eco;
-  return locale === 'lt' ? (ECO_LT[eco] ?? english) : english;
+export function ecoName(eco: string): string {
+  return FAMILY_BY_CODE.get(eco)?.name ?? eco;
 }
 
-/**
- * A named line's name: in English as lichess names the line; in Lithuanian
- * by its ECO code (R-216), English when the code has no Lithuanian name.
- */
-export function openingName(entry: EcoEntry, locale: Locale): string {
-  return locale === 'lt' ? (ECO_LT[entry.code] ?? entry.name) : entry.name;
-}
-
-/** What to call a chapter in `locale`. */
-export function chapterName(
-  source: ChapterNameSource,
-  locale: Locale,
-): ChapterName {
+/** What to call a chapter. */
+export function chapterName(source: ChapterNameSource): ChapterName {
   switch (source.kind) {
     case 'custom':
     case 'header':
       return { kind: 'text', text: source.name };
     case 'eco':
-      return { kind: 'text', text: ecoName(source.eco, locale) };
+      return { kind: 'text', text: ecoName(source.eco) };
     case 'index':
       return { kind: 'key', key: 'chapter.untitled', number: source.number };
   }

@@ -1,7 +1,6 @@
 import 'server-only';
-import type { Locale } from '@mychess/domain';
 import { createTranslator } from 'next-intl';
-import { MESSAGES, resolveLocale } from '../i18n/locales';
+import { LOCALE, MESSAGES } from '../i18n/catalogue';
 import type { WebEnv } from './env';
 
 export interface MailMessage {
@@ -14,32 +13,27 @@ export interface Mailer {
   readonly send: (message: MailMessage) => Promise<void>;
 }
 
-/** The mail catalogue in the language served for `wanted` (R-180). */
-function mailText(wanted: Locale) {
-  const locale = resolveLocale(wanted);
-  return createTranslator({
-    locale,
-    messages: MESSAGES[locale],
-    namespace: 'mail',
-  });
-}
+/** The mail catalogue. */
+const mailText = createTranslator({
+  locale: LOCALE,
+  messages: MESSAGES,
+  namespace: 'mail',
+});
 
-export function magicLinkMail(
-  locale: Locale,
-  to: string,
-  url: string,
-): MailMessage {
-  const t = mailText(locale);
+export function magicLinkMail(to: string, url: string): MailMessage {
   return {
     to,
-    subject: t('magicLink.subject'),
-    text: t('magicLink.body', { url }),
+    subject: mailText('magicLink.subject'),
+    text: mailText('magicLink.body', { url }),
   };
 }
 
-export function deletedMail(locale: Locale, to: string): MailMessage {
-  const t = mailText(locale);
-  return { to, subject: t('deleted.subject'), text: t('deleted.body') };
+export function deletedMail(to: string): MailMessage {
+  return {
+    to,
+    subject: mailText('deleted.subject'),
+    text: mailText('deleted.body'),
+  };
 }
 
 type MailEnv = Pick<

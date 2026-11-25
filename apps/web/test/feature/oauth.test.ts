@@ -500,30 +500,3 @@ describe('Lichess', () => {
     expect(unlinkedNotice(owner)).toBe(await onlyAccountId());
   });
 });
-
-// The language a new account starts in: the one the browser was using (R-85).
-describe('a new account from a provider', () => {
-  const localeRows = () => rows('select locale from accounts');
-
-  it.each<[Provider, string, string]>([
-    ['google', 'NEXT_LOCALE=en', 'en'],
-    ['lichess', 'NEXT_LOCALE=en', 'en'],
-    ['google', '', 'lt'],
-    ['google', 'NEXT_LOCALE=de', 'lt'],
-  ])(
-    'from %s with the cookie %j starts in %s',
-    async (provider, cookie, locale) => {
-      const built = setup(BOTH);
-      const response = await oauthRoundTrip(built, provider, { cookie });
-      expect(errorCode(response)).toBeNull();
-      expect(await localeRows()).toEqual([{ locale }]);
-    },
-  );
-
-  it('leaves an existing account in its own language', async () => {
-    const built = setup({ google: GOOGLE });
-    await oauthRoundTrip(built, 'google');
-    await oauthRoundTrip(built, 'google', { cookie: 'NEXT_LOCALE=en' });
-    expect(await localeRows()).toEqual([{ locale: 'lt' }]);
-  });
-});

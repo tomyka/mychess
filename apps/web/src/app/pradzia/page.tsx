@@ -25,11 +25,7 @@ export default async function OnboardingPage({
   const next = returnPath(first((await searchParams)['next']));
   if (accountStage(account) === 'onboarded') redirect(next ?? ROUTES.home);
   return (
-    <OnboardingForm
-      displayName={account.displayName}
-      locale={account.locale}
-      next={next}
-    >
+    <OnboardingForm displayName={account.displayName} next={next}>
       <DeleteDisclosure
         account={deletableAccount(account)}
         canExport={await hasFreshSession()}

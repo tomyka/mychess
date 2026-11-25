@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { CoachHomeData } from '../../server/coach-pages';
 import CoachPage from './page';
 
@@ -46,12 +46,12 @@ vi.mock('./actions', () => ({
   unlinkPlayerAction: vi.fn(),
 }));
 
-const c = MESSAGES.lt.coach;
+const c = MESSAGES.coach;
 
 describe('the coach dashboard', () => {
   it('shows the players, groups and invites sections and a way home', async () => {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await CoachPage()}
       </NextIntlClientProvider>,
     );

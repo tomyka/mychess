@@ -13,13 +13,10 @@ const AFTERNOON = new Date('2026-10-16T13:18:00Z');
 const NOW = new Date('2026-10-10T09:00:00Z');
 
 describe('the shared date formats (#330 decision 6)', () => {
-  it.each(['en', 'lt'] as const)(
-    'writes a clock time on a 24-hour clock in %s',
-    (locale) => {
-      const text = createFormatter({ locale }).dateTime(AFTERNOON, CLOCK);
-      expect(text).toBe('16:18');
-    },
-  );
+  it('writes a clock time on a 24-hour clock', () => {
+    const text = createFormatter({ locale: 'en' }).dateTime(AFTERNOON, CLOCK);
+    expect(text).toBe('16:18');
+  });
 
   it('writes midnight as 00, not 24', () => {
     const midnight = new Date('2026-10-16T21:05:00Z');
@@ -56,16 +53,6 @@ describe('the shared date formats (#330 decision 6)', () => {
     );
     expect(text).toContain('2027');
     expect(text).toContain('00:30');
-  });
-
-  it('writes a Lithuanian date-time on a 24-hour clock', () => {
-    const text = createFormatter({ locale: 'lt' }).dateTime(
-      AFTERNOON,
-      dateTimeFormat(AFTERNOON, NOW),
-    );
-    expect(text).toContain('16:18');
-    expect(text).toContain('spalio 16');
-    expect(text).not.toContain('2026');
   });
 
   it('gives a short date this year without the year, in Vilnius time', () => {

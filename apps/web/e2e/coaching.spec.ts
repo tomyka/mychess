@@ -17,7 +17,7 @@ import {
   switchOnCoachMode,
 } from './support/coaching';
 import {
-  CATALOGUES,
+  en,
   freshEmail,
   newDevice,
   newOnboardedAccount,
@@ -25,8 +25,6 @@ import {
   signIn,
   test,
 } from './support/journey';
-
-const { en } = CATALOGUES;
 
 const GROUP = 'Šeštadienio grupė';
 const COACH = 'Rimantas Vaitkus';
@@ -114,7 +112,6 @@ async function unlinkEndsAccess(coach: Page, rokas: Page): Promise<void> {
   await expect(coach.getByText('Rokas Petrauskas')).toHaveCount(0);
 }
 
-// English only for now (R-180); the coach's side ran in Lithuanian too.
 test(
   'C-M1-1, U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access',
   { tag: '@mobile' },

@@ -1,11 +1,6 @@
 import { ok, refuse } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
-import {
-  ACCOUNT_REFUSALS,
-  type Account,
-  type Locale,
-  type Profile,
-} from './account';
+import { ACCOUNT_REFUSALS, type Account, type Profile } from './account';
 import {
   LIFECYCLE_REFUSALS,
   accountStage,
@@ -23,14 +18,13 @@ import {
 const ONBOARDED_AT = new Date('2026-10-16T08:00:00Z');
 const DISABLED_AT = new Date('2026-10-16T09:00:00Z');
 const NOW = new Date('2026-10-22T09:00:00Z');
-const PROFILE: Profile = { displayName: 'Rūta', locale: 'en' };
+const PROFILE: Profile = { displayName: 'Rūta' };
 
 const account = (over: Partial<Account> = {}): Account => ({
   id: 'a1',
   email: 'ruta@example.lt',
   emailVerified: true,
   displayName: 'Rūta',
-  locale: 'lt',
   entitlement: 'free',
   admin: false,
   disabledAt: null,
@@ -226,36 +220,34 @@ describe('decideDisable', () => {
 });
 
 describe('decideDeletion', () => {
-  const MAIL = { to: 'ruta@example.lt', locale: 'en' } as const;
-  const english = (over: Partial<Account> = {}): Account =>
-    account({ locale: 'en', ...over });
+  const MAIL = { to: 'ruta@example.lt' } as const;
 
   it('confirms by the display name and mails the proven address (R-82, R-87)', () => {
-    expect(decideDeletion(english(), '  Rūta ')).toEqual(
+    expect(decideDeletion(account(), '  Rūta ')).toEqual(
       ok({ confirmationMail: MAIL }),
     );
   });
 
   it('mails nobody when the address was never proven (R-87)', () => {
     expect(
-      decideDeletion(english({ emailVerified: false }), '  Rūta '),
+      decideDeletion(account({ emailVerified: false }), '  Rūta '),
     ).toEqual(ok({ confirmationMail: null }));
   });
 
   it('confirms a not-onboarded account by its email in any case (R-86)', () => {
     expect(
-      decideDeletion(english({ onboardedAt: null }), ' Ruta@Example.LT '),
+      decideDeletion(account({ onboardedAt: null }), ' Ruta@Example.LT '),
     ).toEqual(ok({ confirmationMail: MAIL }));
   });
 
   it('refuses an onboarded account confirmed by its email', () => {
-    expect(decideDeletion(english(), 'ruta@example.lt')).toEqual(
+    expect(decideDeletion(account(), 'ruta@example.lt')).toEqual(
       refuse('account.deleteNameMismatch'),
     );
   });
 
   it('refuses a not-onboarded account confirmed by its name', () => {
-    expect(decideDeletion(english({ onboardedAt: null }), 'Rūta')).toEqual(
+    expect(decideDeletion(account({ onboardedAt: null }), 'Rūta')).toEqual(
       refuse('account.deleteEmailMismatch'),
     );
   });
@@ -275,20 +267,11 @@ const STAMPS = [null, ONBOARDED_AT] as const;
 const DISABLES = [null, DISABLED_AT] as const;
 const PROOFS = [true, false] as const;
 const NAMES = ['Rūta', '', '   '] as const;
-const LOCALES_SEEN: readonly Locale[] = ['lt', 'en'];
 const EVERY_ACCOUNT: readonly Account[] = STAMPS.flatMap((onboardedAt) =>
   DISABLES.flatMap((disabledAt) =>
     PROOFS.flatMap((emailVerified) =>
-      NAMES.flatMap((displayName) =>
-        LOCALES_SEEN.map((locale) =>
-          account({
-            onboardedAt,
-            disabledAt,
-            emailVerified,
-            displayName,
-            locale,
-          }),
-        ),
+      NAMES.map((displayName) =>
+        account({ onboardedAt, disabledAt, emailVerified, displayName }),
       ),
     ),
   ),
@@ -309,8 +292,8 @@ const EVERY_CASE = EVERY_ACCOUNT.flatMap((subject) =>
 
 describe('the lifecycle over every account', () => {
   it('covers every combination', () => {
-    expect(EVERY_ACCOUNT).toHaveLength(48);
-    expect(EVERY_CASE).toHaveLength(384);
+    expect(EVERY_ACCOUNT).toHaveLength(24);
+    expect(EVERY_CASE).toHaveLength(192);
   });
 
   it.each(EVERY_ACCOUNT)(
@@ -331,9 +314,7 @@ describe('the lifecycle over every account', () => {
     'deletes as canDelete decides, mailing only a proven address (%#)',
     (subject, typed) => {
       const confirmed = canDelete(subject, typed);
-      const mail = subject.emailVerified
-        ? { to: subject.email, locale: subject.locale }
-        : null;
+      const mail = subject.emailVerified ? { to: subject.email } : null;
       expect(decideDeletion(subject, typed)).toEqual(
         confirmed.ok ? ok({ confirmationMail: mail }) : confirmed,
       );

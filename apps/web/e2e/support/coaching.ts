@@ -1,13 +1,7 @@
 // Coaching steps for the E2E journeys (S4 Task A18): Coach mode, groups,
 // invites, and accepting an invite.
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
-import {
-  CATALOGUES,
-  format,
-  freshEmail,
-  requestLink,
-  type Messages,
-} from './journey';
+import { en, format, freshEmail, requestLink, type Messages } from './journey';
 import { linkIn } from './mailpit';
 
 /** From home to settings, then Coach mode on; home then links the coach area. */
@@ -118,16 +112,14 @@ export async function signUpThroughInvite(
   await page.goto(link);
   await expect(page).toHaveURL(new RegExp(`/prisijungti\\?next=${next}$`));
   const email = freshEmail();
-  const mail = await requestLink(page, request, CATALOGUES.en, {
+  const mail = await requestLink(page, request, en, {
     typed: email,
     inbox: email,
   });
   await page.goto(linkIn(mail.Text));
   await expect(page).toHaveURL(new RegExp(`/pradzia\\?next=${next}$`));
-  // Only the name: no language is offered to choose (R-180).
+  // Only the name: no language is offered to choose.
   await page.getByRole('textbox').fill(name);
-  await page
-    .getByRole('button', { name: CATALOGUES.en.onboarding.submit })
-    .click();
+  await page.getByRole('button', { name: en.onboarding.submit }).click();
   await expect(page).toHaveURL(new RegExp(`/k/${token}$`));
 }

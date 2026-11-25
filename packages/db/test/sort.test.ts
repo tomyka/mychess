@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { byDisplayName } from '../src/sort';
 
 describe('byDisplayName', () => {
-  it('orders accounts by display name in Lithuanian order, then id', () => {
+  it('orders accounts by display name in English order, then id', () => {
     expect(
       [
         { id: 'b', displayName: 'Ona' },
@@ -12,6 +12,6 @@ describe('byDisplayName', () => {
       ]
         .toSorted(byDisplayName)
         .map((one) => one.id),
-    ).toEqual(['a', 'b', '2', '1']);
+    ).toEqual(['a', 'b', '1', '2']);
   });
 });

@@ -10,7 +10,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { FieldOutcome } from './field-save';
 
@@ -42,12 +42,12 @@ const CHAPTERS: readonly Chapter[] = [
 function renderList(chapterId = 'c2', chapters = CHAPTERS) {
   const onSelect = vi.fn<(chapterId: string) => void>();
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ChapterList
         chapters={chapters}
         chapterId={chapterId}
         names={{
-          taxonomyNames: { c1: 'Londono sistema' },
+          taxonomyNames: { c1: 'London System' },
           distinctions: {},
         }}
         onSelect={onSelect}
@@ -57,7 +57,7 @@ function renderList(chapterId = 'c2', chapters = CHAPTERS) {
   return onSelect;
 }
 
-const disclosure = () => screen.getByRole('button', { name: /Skyrius 2 iš 3/ });
+const disclosure = () => screen.getByRole('button', { name: /Chapter 2 of 3/ });
 
 describe('ChapterList', () => {
   it('shows the chosen chapter and where it is among them, closed', () => {
@@ -78,7 +78,7 @@ describe('ChapterList', () => {
       renderList('c1', CHAPTERS.slice(0, 1));
       expect(
         screen
-          .getByRole('button', { name: /Skyrius 1 iš 1/ })
+          .getByRole('button', { name: /Chapter 1 of 1/ })
           .getAttribute('aria-expanded'),
       ).toBe('false');
     } finally {
@@ -92,9 +92,9 @@ describe('ChapterList', () => {
     expect(disclosure().getAttribute('aria-expanded')).toBe('true');
     const rows = within(screen.getByRole('list')).getAllByRole('button');
     expect(rows.map((row) => row.textContent)).toEqual([
-      'Londono sistema',
+      'London System',
       'Prieš karaliaus indą',
-      'Skyrius 3',
+      'Chapter 3',
     ]);
     expect(rows[1]?.getAttribute('aria-current')).toBe('true');
     expect(rows[0]?.getAttribute('aria-current')).toBeNull();
@@ -102,7 +102,7 @@ describe('ChapterList', () => {
 
   it('tells apart chapters named after the same opening (R-158)', () => {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ChapterList
           chapters={[
             at('c1', { kind: 'eco', eco: 'B12' }),
@@ -111,7 +111,7 @@ describe('ChapterList', () => {
           ]}
           chapterId="c5"
           names={{
-            taxonomyNames: { c1: 'Karo-Kano gynyba', c5: 'Karo-Kano gynyba' },
+            taxonomyNames: { c1: 'Caro-Kann Defense', c5: 'Caro-Kann Defense' },
             distinctions: {
               c1: {
                 eco: 'B12',
@@ -131,23 +131,23 @@ describe('ChapterList', () => {
         />
       </NextIntlClientProvider>,
     );
-    const trigger = screen.getByRole('button', { name: /Skyrius 3 iš 3/ });
+    const trigger = screen.getByRole('button', { name: /Chapter 3 of 3/ });
     expect(trigger.textContent).toContain(
-      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+      'Caro-Kann Defense (B11, 2.\u00A0Nc3)',
     );
     fireEvent.click(trigger);
     const rows = within(screen.getByRole('list')).getAllByRole('button');
     expect(rows.map((row) => row.textContent)).toEqual([
-      'Karo-Kano gynyba (B12, 3.\u00A0e5)',
+      'Caro-Kann Defense (B12, 3.\u00A0e5)',
       'Mano',
-      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+      'Caro-Kann Defense (B11, 2.\u00A0Nc3)',
     ]);
   });
 
   it('selects a chapter, closes the list and returns focus to the disclosure', () => {
     const onSelect = renderList();
     fireEvent.click(disclosure());
-    fireEvent.click(screen.getByRole('button', { name: 'Skyrius 3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chapter 3' }));
     expect(onSelect).toHaveBeenCalledWith('c3');
     expect(screen.queryByRole('list')).toBeNull();
     expect(document.activeElement).toBe(disclosure());
@@ -165,7 +165,7 @@ describe('ChapterList', () => {
   });
 });
 
-const c = MESSAGES.lt.repertoires.chapters;
+const c = MESSAGES.repertoires.chapters;
 
 function renderBuilder(over: Partial<ChapterBuilder> = {}) {
   const builder: ChapterBuilder = {
@@ -178,12 +178,12 @@ function renderBuilder(over: Partial<ChapterBuilder> = {}) {
     ...over,
   };
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ChapterList
         chapters={CHAPTERS}
         chapterId="c2"
         names={{
-          taxonomyNames: { c1: 'Londono sistema' },
+          taxonomyNames: { c1: 'London System' },
           distinctions: {},
         }}
         onSelect={vi.fn()}
@@ -200,8 +200,8 @@ const named = (name: string) => screen.getByRole('button', { name });
 describe('ChapterList in builder mode', () => {
   it('names each row’s rename and delete after its chapter', () => {
     renderBuilder();
-    expect(named('Pervadinti skyrių „Londono sistema“')).toBeDefined();
-    expect(named('Ištrinti skyrių „Skyrius 3“')).toBeDefined();
+    expect(named('Rename chapter London System')).toBeDefined();
+    expect(named('Delete chapter Chapter 3')).toBeDefined();
   });
 
   it('adds a chapter from the end of the list and closes it', () => {
@@ -214,14 +214,14 @@ describe('ChapterList in builder mode', () => {
 
   it('renames in place, and Escape cancels back to the rename button', async () => {
     const builder = renderBuilder();
-    fireEvent.click(named('Pervadinti skyrių „Skyrius 3“'));
+    fireEvent.click(named('Rename chapter Chapter 3'));
     const field = screen.getByRole<HTMLInputElement>('textbox', {
       name: c.renameLabel,
     });
-    expect(field.value).toBe('Skyrius 3');
+    expect(field.value).toBe('Chapter 3');
     fireEvent.keyDown(field, { key: 'Escape' });
-    expect(document.activeElement).toBe(named('Pervadinti skyrių „Skyrius 3“'));
-    fireEvent.click(named('Pervadinti skyrių „Skyrius 3“'));
+    expect(document.activeElement).toBe(named('Rename chapter Chapter 3'));
+    fireEvent.click(named('Rename chapter Chapter 3'));
     fireEvent.change(screen.getByRole('textbox', { name: c.renameLabel }), {
       target: { value: 'Sistema su h3' },
     });
@@ -237,7 +237,7 @@ describe('ChapterList in builder mode', () => {
       .fn<(chapterId: string, name: string) => Promise<FieldOutcome>>()
       .mockResolvedValue({ ok: true });
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ChapterList
           chapters={[
             at('c1', { kind: 'eco', eco: 'B12' }),
@@ -245,7 +245,7 @@ describe('ChapterList in builder mode', () => {
           ]}
           chapterId="c1"
           names={{
-            taxonomyNames: { c1: 'Karo-Kano gynyba', c5: 'Karo-Kano gynyba' },
+            taxonomyNames: { c1: 'Caro-Kann Defense', c5: 'Caro-Kann Defense' },
             distinctions: {
               c1: {
                 eco: 'B12',
@@ -267,17 +267,17 @@ describe('ChapterList in builder mode', () => {
         />
       </NextIntlClientProvider>,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Skyrius 1 iš 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Chapter 1 of 2/ }));
     fireEvent.click(
-      named('Pervadinti skyrių „Karo-Kano gynyba (B12, 3.\u00A0e5)“'),
+      named('Rename chapter Caro-Kann Defense (B12, 3.\u00A0e5)'),
     );
     const field = screen.getByRole<HTMLInputElement>('textbox', {
       name: c.renameLabel,
     });
-    expect(field.value).toBe('Karo-Kano gynyba');
+    expect(field.value).toBe('Caro-Kann Defense');
     fireEvent.click(named(c.renameSubmit));
     await waitFor(() => {
-      expect(onRename).toHaveBeenCalledWith('c1', 'Karo-Kano gynyba');
+      expect(onRename).toHaveBeenCalledWith('c1', 'Caro-Kann Defense');
     });
   });
 
@@ -288,11 +288,9 @@ describe('ChapterList in builder mode', () => {
         refusal: 'chapter.nameBlank',
       }),
     });
-    fireEvent.click(named('Pervadinti skyrių „Skyrius 3“'));
+    fireEvent.click(named('Rename chapter Chapter 3'));
     fireEvent.click(named(c.renameSubmit));
-    expect(
-      await screen.findByText(MESSAGES.lt.chapter.nameBlank),
-    ).toBeDefined();
+    expect(await screen.findByText(MESSAGES.chapter.nameBlank)).toBeDefined();
     expect(
       screen
         .getByRole('textbox', { name: c.renameLabel })
@@ -302,19 +300,17 @@ describe('ChapterList in builder mode', () => {
 
   it('deletes only after an inline confirmation, Cancel focused', () => {
     const builder = renderBuilder();
-    fireEvent.click(named('Ištrinti skyrių „Londono sistema“'));
+    fireEvent.click(named('Delete chapter London System'));
     expect(
       screen.getByText(
-        'Ištrinti skyrių „Londono sistema“? Kartu bus ištrinti jo ėjimai, kurių nenaudoja joks kitas skyrius.',
+        'Delete chapter London System? Its moves that no other chapter uses are deleted with it.',
       ),
     ).toBeDefined();
     expect(document.activeElement).toBe(named(c.deleteCancel));
     fireEvent.click(named(c.deleteCancel));
     expect(builder.onDelete).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(
-      named('Ištrinti skyrių „Londono sistema“'),
-    );
-    fireEvent.click(named('Ištrinti skyrių „Londono sistema“'));
+    expect(document.activeElement).toBe(named('Delete chapter London System'));
+    fireEvent.click(named('Delete chapter London System'));
     fireEvent.click(named(c.deleteConfirm));
     expect(builder.onDelete).toHaveBeenCalledWith('c1');
   });
@@ -322,29 +318,23 @@ describe('ChapterList in builder mode', () => {
   it('disables every chapter edit while saving', () => {
     renderBuilder({ disabled: true });
     expect(named(c.add)).toHaveProperty('disabled', true);
-    expect(named('Ištrinti skyrių „Skyrius 3“')).toHaveProperty(
-      'disabled',
-      true,
-    );
-    expect(named('Pervadinti skyrių „Skyrius 3“')).toHaveProperty(
-      'disabled',
-      true,
-    );
+    expect(named('Delete chapter Chapter 3')).toHaveProperty('disabled', true);
+    expect(named('Rename chapter Chapter 3')).toHaveProperty('disabled', true);
   });
 });
 
 describe('ChapterList for a player who trains it (R-58, R-147)', () => {
   const toggles = () =>
-    screen.queryAllByRole('button', { name: /^Žinau arba mokytis iš naujo: / });
+    screen.queryAllByRole('button', { name: /^I know this or learn again: / });
 
   function renderTrained(training: boolean): void {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ChapterList
           chapters={CHAPTERS}
           chapterId="c2"
           names={{
-            taxonomyNames: { c1: 'Londono sistema' },
+            taxonomyNames: { c1: 'London System' },
             distinctions: {},
           }}
           onSelect={vi.fn()}
@@ -372,17 +362,17 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
     server.count.mockResolvedValue({ ok: true, know: 12, again: 0 });
     renderTrained(true);
     expect(toggles().map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Žinau arba mokytis iš naujo: Londono sistema',
-      'Žinau arba mokytis iš naujo: Prieš karaliaus indą',
-      'Žinau arba mokytis iš naujo: Skyrius 3',
+      'I know this or learn again: London System',
+      'I know this or learn again: Prieš karaliaus indą',
+      'I know this or learn again: Chapter 3',
     ]);
     fireEvent.click(toggles()[1] ?? disclosure());
     fireEvent.click(
       await screen.findByRole('button', {
-        name: MESSAGES.lt.training.know.knowChapter,
+        name: MESSAGES.training.know.knowChapter,
       }),
     );
-    expect(screen.getByText(/^Pažymėti, kad žinote 12 ėjimų?/u)).toBeDefined();
+    expect(screen.getByText(/^Mark 12 moves as known?/u)).toBeDefined();
     const form = server.count.mock.lastCall?.[0];
     expect(form === undefined ? {} : Object.fromEntries(form)).toEqual({
       kind: 'chapter',
@@ -403,7 +393,7 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
 
   function renderLearn(learnedToday: number): void {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ChapterList
           chapters={london.chapters}
           chapterId={first?.id ?? null}
@@ -423,13 +413,13 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
         />
       </NextIntlClientProvider>,
     );
-    fireEvent.click(screen.getByRole('button', { name: /Skyrius 1 iš/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Chapter 1 of/ }));
   }
 
   it('links each row to learning that chapter, with its count', () => {
     renderLearn(0);
     const links = screen.getAllByRole('link', {
-      name: /^Mokytis 2 naujų ėjimų: /,
+      name: /^Learn 2 new moves in /,
     });
     expect(links.map((a) => a.getAttribute('href'))).toEqual(
       london.chapters.map(
@@ -437,7 +427,7 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
       ),
     );
     expect(links.map((a) => a.textContent)).toEqual(
-      london.chapters.map(() => 'Mokytis (2)'),
+      london.chapters.map(() => 'Learn (2)'),
     );
   });
 

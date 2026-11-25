@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { CoachPlayerPage as PlayerPageData } from '../../../../server/coach-pages';
 import CoachNotFound from '../../not-found';
 import CoachPlayerPage from './page';
@@ -18,11 +18,11 @@ vi.mock('../../../../server/coach-pages', () => ({
 
 vi.mock('../../actions', () => ({ unlinkPlayerAction: vi.fn() }));
 
-const c = MESSAGES.lt.coach;
+const c = MESSAGES.coach;
 
 function renderIn(element: React.ReactNode): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {element}
     </NextIntlClientProvider>,
   );
@@ -52,7 +52,7 @@ describe('the coach dashboard’s player page', () => {
       screen.getByRole('link', { name: /^Taimanovas/ }).getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-1/repertuarai/r-1');
     expect(
-      screen.getByText('Rokas dar neturi jums matomų repertuarų.'),
+      screen.getByText(c.progress.empty.replace('{name}', 'Rokas')),
     ).toBeDefined();
     expect(screen.getByText(c.progress.neverTrained)).toBeDefined();
   });

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../i18n/locales';
+import { MESSAGES } from '../i18n/catalogue';
 import { SignOutButton } from './sign-out-button';
 import { queueKey } from './treniruote/result-queue';
 
@@ -37,7 +37,7 @@ const RESULT = {
 
 const signOutWith = (accountId: string) => {
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <SignOutButton accountId={accountId} />
     </NextIntlClientProvider>,
   );

@@ -13,9 +13,7 @@ first task.
 ## What you own
 
 `packages/chess` (pure TypeScript; imports only `chess.js`, `ts-fsrs` and
-`zod`); opening data and its generators live in `packages/chess/src/openings/data/` and `packages/chess/scripts/` (ECO data, Lithuanian names; starter repertoire PGNs later).
-Lithuanian opening names (`eco-lt.json`, regenerated, with the R-77 tidy) are reviewed by
-`i18n-content`; you own the code and the generators that load them.
+`zod`); opening data and its generators live in `packages/chess/src/openings/data/` and `packages/chess/scripts/` (ECO data; starter repertoire PGNs later). Opening names are English only (R-217).
 
 ## The model you implement (rulings Q6/Q15, Q27, Q29, Q30)
 

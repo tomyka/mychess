@@ -1,11 +1,9 @@
 'use client';
 
-import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX, type ReactNode } from 'react';
-import { OFFERED_LOCALES, OFFERS_LANGUAGE_CHOICE } from '../../i18n/locales';
 import { PRIMARY_BUTTON } from '../buttons';
-import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
+import { NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { completeOnboardingAction, type OnboardingState } from './actions';
@@ -13,8 +11,6 @@ import { completeOnboardingAction, type OnboardingState } from './actions';
 export interface OnboardingFormProps {
   /** The name Google or Lichess gave, or empty (R-81). */
   readonly displayName: string;
-  /** The account's stored language, sent back unchanged unless a choice is offered (R-180). */
-  readonly locale: Locale;
   /**
    * The invite to go on to once onboarded (R-81), sent back as a hidden
    * field; the action checks it again, as it is client input.
@@ -26,15 +22,9 @@ export interface OnboardingFormProps {
 
 const INITIAL: OnboardingState = {};
 
-/** The intro asks for a language only when one is offered to choose (R-180). */
-const INTRO = OFFERS_LANGUAGE_CHOICE
-  ? 'onboarding.intro'
-  : 'onboarding.introNameOnly';
-
-/** The one onboarding screen: a display name, and a language when offered (R-81, R-180). */
+/** The one onboarding screen: a display name (R-81). */
 export function OnboardingForm({
   displayName,
-  locale,
   next = null,
   children,
 }: OnboardingFormProps): JSX.Element {
@@ -52,15 +42,14 @@ export function OnboardingForm({
           <h1 className="text-2xl font-bold sm:text-3xl">
             {t('onboarding.title')}
           </h1>
-          <p className="text-fg-muted">{t(INTRO)}</p>
+          <p className="text-fg-muted">{t('onboarding.intro')}</p>
         </header>
         <StatusLine
           id={statusId}
           text={state.refusal === undefined ? null : t(state.refusal)}
           tone="error"
         />
-        {/* noValidate: the server's refusal is shown in the page's
-            language, not the browser's. */}
+        {/* noValidate: the server's refusal is shown, not the browser's. */}
         <form
           noValidate
           onSubmit={submitByHand(action)}
@@ -70,13 +59,8 @@ export function OnboardingForm({
             label={t('onboarding.displayName')}
             hint={t('onboarding.displayNameHint')}
             initial={displayName}
-            invalid={isNameRefusal(state.refusal)}
+            invalid={state.refusal !== undefined}
             statusId={statusId}
-          />
-          <LanguageField
-            legend={t('onboarding.language')}
-            initial={locale}
-            offered={OFFERED_LOCALES}
           />
           {next === null ? null : (
             <input type="hidden" name="next" value={next} />

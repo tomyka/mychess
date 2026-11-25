@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { MoveList, type MoveListProps } from './move-list';
 
 const LONDON_GRAPH = graphOf(LONDON);
@@ -11,7 +11,7 @@ const LONDON_GRAPH = graphOf(LONDON);
 function renderList(over: Partial<MoveListProps> = {}) {
   const onGoto = vi.fn<(path: readonly RepertoireMove[]) => void>();
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <MoveList
         graph={LONDON_GRAPH}
         chapterId="c1"
@@ -37,7 +37,7 @@ describe('MoveList', () => {
   it('shows the main line with move numbers and the variation as its own block', () => {
     renderList();
     const list = screen.getByRole('region', {
-      name: MESSAGES.en.repertoires.moves.title,
+      name: MESSAGES.repertoires.moves.title,
     });
     expect(text(list)).toBe(
       '1. d4 d5 2. Bf4 Nf6 3. e3 e6 3... c5 4. c3 4. Nf3',
@@ -62,7 +62,7 @@ describe('MoveList', () => {
     renderList({
       graph: graphOf('1. d4 d5 (1... e6 2. c4 d5) 2. c4 e6 3. Nc3 *'),
     });
-    const moves = MESSAGES.en.repertoires.moves;
+    const moves = MESSAGES.repertoires.moves;
     const transposing = chip(`2... d5, ${moves.transposes}`);
     expect(transposing.querySelector('[data-transposition]')).not.toBeNull();
     // A hover title says what the marker means (ux sign-off).
@@ -129,9 +129,7 @@ describe('MoveList', () => {
     ).not.toBeNull();
     cleanup();
     renderList({ notedMoves: notes, noteKind: 'coach' });
-    const coach = chip(
-      `1... d5, ${MESSAGES.en.repertoires.moves.hasCoachNote}`,
-    );
+    const coach = chip(`1... d5, ${MESSAGES.repertoires.moves.hasCoachNote}`);
     expect(coach.querySelector('[data-note="coach"]')).not.toBeNull();
     expect(coach.querySelector('[data-note="personal"]')).toBeNull();
   });
@@ -145,7 +143,7 @@ describe('MoveList', () => {
       keptNoteMoves: new Set([d5Key, moveKey(d4?.from ?? '', 'd4')]),
     });
     const both = chip(
-      `1... d5, has my note, ${MESSAGES.en.repertoires.moves.hasKeptCoachNote}`,
+      `1... d5, has my note, ${MESSAGES.repertoires.moves.hasKeptCoachNote}`,
     );
     expect(
       Array.from(both.querySelectorAll('[data-note]'), (mark) =>
@@ -153,7 +151,7 @@ describe('MoveList', () => {
       ),
     ).toEqual(['personal', 'kept']);
     const kept = chip(
-      `1. d4, has a comment, ${MESSAGES.en.repertoires.moves.hasKeptCoachNote}`,
+      `1. d4, has a comment, ${MESSAGES.repertoires.moves.hasKeptCoachNote}`,
     );
     expect(
       kept.querySelector('[data-note="kept"] path')?.getAttribute('d'),
@@ -164,7 +162,7 @@ describe('MoveList', () => {
   it('numbers Black’s moves after a nested variation', () => {
     renderList({ graph: graphOf(TAIMANOV, 'black'), chapterId: 'c1' });
     const list = screen.getByRole('region', {
-      name: MESSAGES.en.repertoires.moves.title,
+      name: MESSAGES.repertoires.moves.title,
     });
     expect(text(list)).toBe(
       '1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Be3 ' +
@@ -174,15 +172,13 @@ describe('MoveList', () => {
 
   it('says when the chapter has no moves', () => {
     renderList({ chapterId: 'c9' });
-    expect(
-      screen.getByText(MESSAGES.en.repertoires.panel.noMoves),
-    ).toBeDefined();
+    expect(screen.getByText(MESSAGES.repertoires.panel.noMoves)).toBeDefined();
   });
 
   it('asks for the first move of an empty chapter in builder mode', () => {
     renderList({ chapterId: 'c9', building: true });
     expect(
-      screen.getByText(MESSAGES.en.repertoires.builder.playFirst),
+      screen.getByText(MESSAGES.repertoires.builder.playFirst),
     ).toBeDefined();
   });
 });

@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../i18n/locales';
+import { MESSAGES } from '../i18n/catalogue';
 import type { HomeForkOffer } from '../server/assignment-pages';
 import type { ForkOfferState } from './fork-offer-actions';
 import { ForkOffers } from './fork-offers';
@@ -27,8 +27,7 @@ vi.mock('./fork-offer-actions', () => ({
   declineForkOfferAction: server.decline,
 }));
 
-const lt = MESSAGES.lt;
-const f = lt.forkOffer;
+const f = MESSAGES.forkOffer;
 
 const LONDON: HomeForkOffer = {
   id: 'o-london',
@@ -44,12 +43,9 @@ const CARO: HomeForkOffer = {
   daysLeft: 21,
 };
 
-function renderOffers(
-  offers: readonly HomeForkOffer[],
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderOffers(offers: readonly HomeForkOffer[]): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ForkOffers offers={offers} />
     </NextIntlClientProvider>,
   );
@@ -78,12 +74,12 @@ describe('ForkOffers (R-44, R-130)', () => {
     const london = item('Londono sistema');
     expect(
       within(london).getByText(
-        lt.assignment.page.assignedBy.replace('{name}', 'Jonas'),
+        MESSAGES.assignment.page.assignedBy.replace('{name}', 'Jonas'),
       ),
     ).toBeDefined();
-    expect(within(london).getByText('Liko 3 dienos')).toBeDefined();
+    expect(within(london).getByText('3 days left')).toBeDefined();
     expect(
-      within(item('Karo-Kan gynyba: pagrindai')).getByText('Liko 21 diena'),
+      within(item('Karo-Kan gynyba: pagrindai')).getByText('21 days left'),
     ).toBeDefined();
   });
 
@@ -124,7 +120,7 @@ describe('ForkOffers (R-44, R-130)', () => {
     fireEvent.click(screen.getByRole('button', { name: f.keep }));
     expect(
       await screen.findByText(
-        'Galite turėti ne daugiau kaip 50 repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.',
+        'You can have up to 50 repertoires. Delete one to add another.',
       ),
     ).toBeDefined();
   });
@@ -155,10 +151,8 @@ describe('ForkOffers (R-44, R-130)', () => {
     expect(document.body.textContent).toBe('');
   });
 
-  it('speaks English on the English page', () => {
-    renderOffers([{ ...LONDON, daysLeft: 1 }], 'en');
+  it('says one day in the singular', () => {
+    renderOffers([{ ...LONDON, daysLeft: 1 }]);
     expect(screen.getByText('1 day left')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Keep a copy' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'No, thanks' })).toBeDefined();
   });
 });

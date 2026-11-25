@@ -1,13 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page } from '@playwright/test';
-import { storedLocale, storeLocale } from './support/account-db';
 import { linkIn, nextMailTo } from './support/mailpit';
 import {
-  CATALOGUES,
+  en,
   expectGreeting,
   format,
   freshEmail,
-  LOCALE_COOKIE,
   newDevice,
   newOnboardedAccount,
   requestLink,
@@ -15,8 +13,7 @@ import {
   test,
 } from './support/journey';
 
-// The UI is English only for now and offers no language choice (R-180).
-const { en } = CATALOGUES;
+// The UI is English only and offers no language choice (#378).
 
 /** From the home page to settings. */
 async function openSettings(page: Page): Promise<void> {
@@ -37,41 +34,28 @@ async function rename(page: Page, name: string): Promise<void> {
   await expect(page.getByText(en.settings.profile.saved)).toBeVisible();
 }
 
-test('settings offer no language choice; a changed name shows at once and the page stays English despite a Lithuanian cookie', async ({
+test('settings offer no language choice; a changed name shows at once, in English', async ({
   page,
   request,
-  baseURL,
 }) => {
-  if (baseURL === undefined) throw new Error('playwright.config sets baseURL');
   await newOnboardedAccount(page, request, 'Gabija');
   await openSettings(page);
   await expect(page.getByRole('radio')).toHaveCount(0);
 
   await rename(page, 'Gabija N.');
   await page.getByRole('link', { name: en.settings.home }).click();
-  await expectGreeting(page, en, 'Gabija N.');
-
-  await page
-    .context()
-    .addCookies([{ name: LOCALE_COOKIE, value: 'lt', url: baseURL }]);
-  await page.reload();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expectGreeting(page, en, 'Gabija N.');
 });
 
-test('G-M1-5: an account stored in Lithuanian is served English on every device, and saving settings keeps its stored language', async ({
+test('G-M1-5: a name changed in settings greets the account on every device', async ({
   page,
   request,
   browser,
 }) => {
   const email = await newOnboardedAccount(page, request, 'Gabija');
-  await storeLocale(email, 'lt');
-  await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expectGreeting(page, en, 'Gabija');
   await openSettings(page);
   await rename(page, 'Gabija N.');
-  expect(await storedLocale(email)).toBe('lt');
 
   const other = await newDevice(browser);
   try {

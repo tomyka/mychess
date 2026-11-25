@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { PRIMARY_BUTTON } from '../buttons';
 import { TrainButtons } from './train-buttons';
 
@@ -13,14 +13,9 @@ const LEARN = {
   limits: { reviews: 20, newPerDay: 10 },
 };
 
-function renderButtons(
-  locale: 'lt' | 'en',
-  due: number,
-  toLearn: number,
-  limitReached = false,
-) {
+function renderButtons(due: number, toLearn: number, limitReached = false) {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainButtons
         training={{
           repertoireId: ID,
@@ -45,51 +40,51 @@ const mainActions = () =>
 
 describe('TrainButtons (R-142)', () => {
   it('reviews and learns this repertoire only, with the counts', () => {
-    renderButtons('lt', 7, 3);
-    expect(href('Kartoti (7)')).toBe(`/treniruote?mode=review&r=${ID}`);
-    expect(href('Mokytis (3)')).toBe(`/treniruote?mode=learn&r=${ID}`);
+    renderButtons(7, 3);
+    expect(href('Review (7)')).toBe(`/treniruote?mode=review&r=${ID}`);
+    expect(href('Learn (3)')).toBe(`/treniruote?mode=learn&r=${ID}`);
   });
 
-  it('says the same in English, a zero count included', () => {
-    renderButtons('en', 0, 12);
+  it('says a zero count too', () => {
+    renderButtons(0, 12);
     expect(href('Review (0)')).toBe(`/treniruote?mode=review&r=${ID}`);
     expect(href('Learn (12)')).toBe(`/treniruote?mode=learn&r=${ID}`);
   });
 
   it('makes Review the main action while moves are due', () => {
-    renderButtons('lt', 7, 3);
-    expect(mainActions()).toEqual(['Kartoti (7)']);
+    renderButtons(7, 3);
+    expect(mainActions()).toEqual(['Review (7)']);
   });
 
   it('makes Learn the main action when nothing is due', () => {
-    renderButtons('lt', 0, 3);
-    expect(mainActions()).toEqual(['Mokytis (3)']);
+    renderButtons(0, 3);
+    expect(mainActions()).toEqual(['Learn (3)']);
   });
 
   it('has no main action with nothing due and nothing to learn', () => {
-    renderButtons('lt', 0, 0);
+    renderButtons(0, 0);
     expect(mainActions()).toEqual([]);
     expect(screen.getAllByRole('link')).toHaveLength(2);
   });
 
   it('says the daily limit is reached instead of “Learn (0)” (decision 11)', () => {
-    renderButtons('en', 2, 0, true);
+    renderButtons(2, 0, true);
     expect(screen.queryByRole('link', { name: /Learn/ })).toBeNull();
     expect(
       screen.getByText(/Daily limit reached: 10 new moves a day\./),
     ).toBeDefined();
-    expect(href(MESSAGES.en.training.repertoire.limitSettings)).toBe(
+    expect(href(MESSAGES.training.repertoire.limitSettings)).toBe(
       '/nustatymai#treniruote',
     );
     expect(href('Review (2)')).toBe(`/treniruote?mode=review&r=${ID}`);
   });
 
-  it('says it in Lithuanian too', () => {
-    renderButtons('lt', 0, 0, true);
+  it('says the daily limit is reached with nothing due too', () => {
+    renderButtons(0, 0, true);
     expect(
-      screen.getByText(/Dienos riba pasiekta: 10 naujų ėjimų per dieną\./),
+      screen.getByText(/Daily limit reached: 10 new moves a day\./),
     ).toBeDefined();
-    expect(href(MESSAGES.lt.training.repertoire.limitSettings)).toBe(
+    expect(href(MESSAGES.training.repertoire.limitSettings)).toBe(
       '/nustatymai#treniruote',
     );
   });

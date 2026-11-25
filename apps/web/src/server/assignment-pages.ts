@@ -87,7 +87,7 @@ async function loadAssignedRepertoire(
     paused: assigned.paused,
     deadline: assigned.deadline,
     overdue: assigned.overdue,
-    names: chapterNamesOf(assigned.graph, player.locale),
+    names: chapterNamesOf(assigned.graph),
     changes: since.changes,
   };
 }

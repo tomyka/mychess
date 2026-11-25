@@ -1,14 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { ScreenMessage } from './screen-state';
 import { ScreenStatus } from './screen-status';
 
 function renderStatus(message: ScreenMessage | null, stale = false) {
   const onReload = vi.fn<() => void>();
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ScreenStatus message={message} stale={stale} onReload={onReload} />
     </NextIntlClientProvider>,
   );
@@ -19,9 +19,7 @@ describe('ScreenStatus', () => {
   it('says a message in its tone', () => {
     renderStatus({ key: 'repertoires.board.notInRepertoire', tone: 'info' });
     const line = screen.getByRole('status');
-    expect(line.textContent).toBe(
-      MESSAGES.lt.repertoires.board.notInRepertoire,
-    );
+    expect(line.textContent).toBe(MESSAGES.repertoires.board.notInRepertoire);
     expect(line.className).toContain('bg-sunken');
   });
 
@@ -31,15 +29,13 @@ describe('ScreenStatus', () => {
       tone: 'info',
       values: { move: '4. Nf3' },
     });
-    expect(screen.getByRole('status').textContent).toBe(
-      '4. Nf3, varianto pabaiga',
-    );
+    expect(screen.getByRole('status').textContent).toBe('4. Nf3, end of line');
   });
 
   it('says a request failed for a key the catalogue does not have', () => {
     renderStatus({ key: 'repertoire.somethingNew', tone: 'error' });
     expect(screen.getByRole('status').textContent).toBe(
-      MESSAGES.lt.repertoires.failed,
+      MESSAGES.repertoires.failed,
     );
   });
 
@@ -55,7 +51,7 @@ describe('ScreenStatus', () => {
       true,
     );
     const reload = screen.getByRole('button', {
-      name: MESSAGES.lt.repertoires.stale.reload,
+      name: MESSAGES.repertoires.stale.reload,
     });
     expect(document.activeElement).toBe(reload);
     fireEvent.click(reload);

@@ -8,10 +8,10 @@ import {
   vi,
   type MockInstance,
 } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import TrainingError from './error';
 
-const T = MESSAGES.lt.training;
+const T = MESSAGES.training;
 
 /** An error as Next hands it over: a message that may hold personal data, and maybe a digest. */
 function failure(digest?: string): Error & { digest?: string } {
@@ -31,7 +31,7 @@ beforeEach(() => {
 function renderError(error = failure('d1g3st')) {
   const retry = vi.fn();
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainingError error={error} retry={retry} />
     </NextIntlClientProvider>,
   );

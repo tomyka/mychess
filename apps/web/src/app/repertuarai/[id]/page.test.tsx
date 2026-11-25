@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { CoachAssignData } from '../../../server/coach-assignments';
 import type { RepertoirePageData } from '../../../server/repertoires';
 import RepertoireLoading from './loading';
@@ -100,7 +100,7 @@ const NO_QUERY = Promise.resolve({});
 
 function renderIn(element: React.ReactNode): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {element}
     </NextIntlClientProvider>,
   );
@@ -124,21 +124,21 @@ describe('the repertoire page', () => {
     loader.data.mockResolvedValue(LONDON_DATA);
     const open = async (chapter?: string | string[]) => {
       const { unmount } = render(
-        <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <NextIntlClientProvider locale="en" messages={MESSAGES}>
           {await RepertoirePage({
             params: Promise.resolve({ id: ID }),
             searchParams: Promise.resolve({ chapter }),
           })}
         </NextIntlClientProvider>,
       );
-      const said = screen.getByText(/^Skyrius \d iš 2$/u).textContent;
+      const said = screen.getByText(/^Chapter \d of 2$/u).textContent;
       unmount();
       return said;
     };
-    expect(await open('c2')).toBe('Skyrius 2 iš 2');
-    expect(await open('c9')).toBe('Skyrius 1 iš 2');
-    expect(await open(['c2', 'c1'])).toBe('Skyrius 1 iš 2');
-    expect(await open()).toBe('Skyrius 1 iš 2');
+    expect(await open('c2')).toBe('Chapter 2 of 2');
+    expect(await open('c9')).toBe('Chapter 1 of 2');
+    expect(await open(['c2', 'c1'])).toBe('Chapter 1 of 2');
+    expect(await open()).toBe('Chapter 1 of 2');
   });
 
   it('loads the repertoire of the id and shows it', async () => {
@@ -166,10 +166,10 @@ describe('the repertoire page', () => {
     );
     expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
-      screen.getByRole('link', { name: 'Kartoti (4)' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Review (4)' }).getAttribute('href'),
     ).toBe(`/treniruote?mode=review&r=${ID}`);
     expect(
-      screen.getByRole('link', { name: 'Mokytis (6)' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Learn (6)' }).getAttribute('href'),
     ).toBe(`/treniruote?mode=learn&r=${ID}`);
   });
 
@@ -180,9 +180,9 @@ describe('the repertoire page', () => {
         params: Promise.resolve({ id: ID }),
         searchParams: NO_QUERY,
       });
-    const title = MESSAGES.lt.assignment.panel.title;
+    const title = MESSAGES.assignment.panel.title;
     const { unmount } = render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await page()}
       </NextIntlClientProvider>,
     );
@@ -202,12 +202,12 @@ describe('the repertoire page', () => {
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: MESSAGES.lt.repertoire.notFound,
+        name: MESSAGES.repertoire.notFound,
       }),
     ).toBeDefined();
     expect(
       screen
-        .getByRole('link', { name: MESSAGES.lt.repertoires.header.back })
+        .getByRole('link', { name: MESSAGES.repertoires.header.back })
         .getAttribute('href'),
     ).toBe('/repertuarai');
   });
@@ -231,7 +231,7 @@ describe('the repertoire page', () => {
       act(() => {
         vi.advanceTimersByTime(1);
       });
-      expect(line.textContent).toBe(MESSAGES.lt.repertoires.loading);
+      expect(line.textContent).toBe(MESSAGES.repertoires.loading);
     } finally {
       vi.useRealTimers();
     }

@@ -5,7 +5,7 @@ const sorted = (list: readonly NameAndId[]): string[] =>
   list.toSorted(byNameAndId).map((one) => one.id);
 
 describe('byNameAndId', () => {
-  it('orders by name in Lithuanian order: y with i, before j', () => {
+  it('orders by name in English order, accents with their base letter', () => {
     expect(
       sorted([
         { id: '1', name: 'Jonas' },
@@ -14,7 +14,7 @@ describe('byNameAndId', () => {
         { id: '4', name: 'Žalias' },
         { id: '5', name: 'Zuikis' },
       ]),
-    ).toEqual(['3', '2', '1', '5', '4']);
+    ).toEqual(['3', '1', '2', '4', '5']);
   });
 
   it('orders equal names by id', () => {

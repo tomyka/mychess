@@ -35,11 +35,11 @@ export async function seedPlayer(
 }
 
 /**
- * Names out of Lithuanian order, and that order (R-160): y sorts with i,
- * before j, and Ž after Z. Neither the C nor an English collation gives it.
+ * Names out of order, and their English order (R-160): an accented letter
+ * sorts with its base letter, which the C collation does not do.
  */
 export const UNSORTED_NAMES = ['Jonas', 'Yra', 'Ieva', 'Žalias', 'Zuikis'];
-export const LITHUANIAN_ORDER = ['Ieva', 'Yra', 'Jonas', 'Zuikis', 'Žalias'];
+export const NAME_ORDER = ['Ieva', 'Jonas', 'Yra', 'Žalias', 'Zuikis'];
 
 /**
  * One onboarded account per name, ids `<prefix>-1` .. in the names' order,

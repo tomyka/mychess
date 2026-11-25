@@ -8,7 +8,7 @@
 // moves learned but not yet sent not taught again (decision 2), and the
 // daily limit notice (decision 11).
 import { expect, type Page } from '@playwright/test';
-import { CATALOGUES, test } from './support/journey';
+import { en, test } from './support/journey';
 import { allDue, loggedResults, storedReviews } from './support/training-db';
 import {
   answer,
@@ -33,8 +33,6 @@ import {
   today,
   trainLink,
 } from './support/training-cast';
-
-const { en } = CATALOGUES;
 
 /** The Pianissimo's eight White moves (1.e4 to 8.Bb3). */
 const PIANISSIMO = ['e4', 'Nf3', 'Bc4', 'c3', 'd3', 'O-O', 'Re1', 'Bb3'];
@@ -105,7 +103,7 @@ test(
     await allDue(email);
     await page.goto('/');
     // Shown before starting: eight due, about 2 minutes.
-    await expect(today(page, en)).toContainText(dueLine('en', 8));
+    await expect(today(page, en)).toContainText(dueLine(8));
     await startTodayReview(page, en);
     await expectCounter(page, 0, 8);
     await answer(drill);
@@ -221,7 +219,7 @@ test(
     await chip(page, '8... Ba7').click();
     await page
       .getByRole('link', {
-        name: plural(en.training.repertoire.learnLine, 'en', { count: 8 }),
+        name: plural(en.training.repertoire.learnLine, { count: 8 }),
         exact: true,
       })
       .click();
@@ -248,7 +246,7 @@ async function learnTwoKnights(drill: Drill): Promise<Asked[]> {
   if ((await trigger.getAttribute('aria-expanded')) === 'false')
     await trigger.click();
   // Its own new moves are 4.d3 and 5.c3; the only chapter with two.
-  const prefix = plural(en.training.repertoire.learnIn, 'en', {
+  const prefix = plural(en.training.repertoire.learnIn, {
     count: 2,
     subject: '',
   });
@@ -329,7 +327,7 @@ test('decision 11: with the day’s new moves used, the repertoire page says so 
   await openItalian(page);
   const t = en.training.repertoire;
   await expect(
-    page.getByText(plural(t.limitReached, 'en', { count: 1 })),
+    page.getByText(plural(t.limitReached, { count: 1 })),
   ).toBeVisible();
   await expect(trainLink(page, en, 'learn', 0)).toHaveCount(0);
   await page.getByRole('link', { name: t.limitSettings, exact: true }).click();

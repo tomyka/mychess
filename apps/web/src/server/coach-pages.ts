@@ -178,7 +178,7 @@ export async function sharedRepertoireData(
     notes: Object.fromEntries(
       shared.notes.map((note) => [note.moveKey, note.text]),
     ),
-    names: chapterNamesOf(shared.graph, coach.locale),
+    names: chapterNamesOf(shared.graph),
   };
 }
 

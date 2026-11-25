@@ -69,6 +69,8 @@ describe('the data export (R-40)', () => {
       ),
     );
     expect(body).toMatchObject({ account: { email: 'ruta@example.lt' } });
+    // The site has one language: the account stores none (#378).
+    expect(body).not.toHaveProperty('account.locale');
   });
 
   it('lists the requester’s active session, never its token (R-89)', async () => {
@@ -153,10 +155,7 @@ describe('the data export (R-40)', () => {
     expect(body.repertoires.map((r) => [r.name, r.side])).toEqual([
       ['Taimanovas', 'black'],
     ]);
-    // A Lithuanian account's export is titled in English (R-180).
-    expect(body.repertoires[0]?.pgn).toContain(
-      `[Event "${ecoName(eco, 'en')}"]`,
-    );
+    expect(body.repertoires[0]?.pgn).toContain(`[Event "${ecoName(eco)}"]`);
     expect(body.personalNotes).toEqual([
       expect.objectContaining({
         repertoire: 'Taimanovas',
@@ -166,14 +165,6 @@ describe('the data export (R-40)', () => {
     ]);
     expect(JSON.stringify(body)).not.toContain('Ne Roko');
     expect(JSON.stringify(body)).not.toContain('Londono sistema');
-
-    await client.query(
-      "update accounts set locale = 'en' where email = 'rokas@example.lt'",
-    );
-    const english = ExportedSchema.parse(await (await GET()).json());
-    expect(english.repertoires[0]?.pgn).toContain(
-      `[Event "${ecoName(eco, 'en')}"]`,
-    );
   });
 
   it('answers 401 for a disabled account', async () => {

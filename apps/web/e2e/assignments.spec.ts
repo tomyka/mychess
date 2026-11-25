@@ -35,7 +35,7 @@ import {
 } from './support/assignments';
 import { passGroupDeadline } from './support/assignment-db';
 import { createGroup, createInvite } from './support/coaching';
-import { CATALOGUES, format, test } from './support/journey';
+import { en, format, test } from './support/journey';
 import { chip, typeMove } from './support/repertoires';
 
 const KARO_KAN = 'Karo-Kan gynyba: pagrindai';
@@ -312,69 +312,62 @@ async function makeOwnCopy(
   await expect(badge(row, messages, 'forked')).toBeVisible();
 }
 
-// English only for now (R-180); the journeys ran in Lithuanian too.
-for (const locale of ['en'] as const) {
-  test(`C-M1-3, C-M1-4, C-M1-6 (${locale}): group and individual assignments, a later member's deadline, leaving and rejoining the group`, async ({
-    page: coach,
-    request,
-    browser,
-  }) => {
-    test.setTimeout(480_000);
-    const devices: BrowserContext[] = [];
-    const messages = CATALOGUES[locale];
-    const cast: Cast = { locale, messages, browser, request, devices };
-    try {
-      await coachReady(coach, cast);
-      // The group's own invite, made with it (R-204).
-      const link = await createGroup(coach, messages, GROUP);
-      const joins = (name: string): Promise<Page> =>
-        playerAccepts(cast, { link, name, group: GROUP });
-      const rokas = await joins(ROKAS);
-      const gabija = await joins(GABIJA);
-      const dovydas = await joins(DOVYDAS);
+test(`C-M1-3, C-M1-4, C-M1-6: group and individual assignments, a later member's deadline, leaving and rejoining the group`, async ({
+  page: coach,
+  request,
+  browser,
+}) => {
+  test.setTimeout(480_000);
+  const devices: BrowserContext[] = [];
+  const messages = en;
+  const cast: Cast = { messages, browser, request, devices };
+  try {
+    await coachReady(coach, cast);
+    // The group's own invite, made with it (R-204).
+    const link = await createGroup(coach, messages, GROUP);
+    const joins = (name: string): Promise<Page> =>
+      playerAccepts(cast, { link, name, group: GROUP });
+    const rokas = await joins(ROKAS);
+    const gabija = await joins(GABIJA);
+    const dovydas = await joins(DOVYDAS);
 
-      const deadline = await assignToGroup(coach, cast, [
-        rokas,
-        gabija,
-        dovydas,
-      ]);
-      await assignToRokas(coach, cast, { rokas, gabija });
-      await laterMember(coach, cast, { link, deadline });
-      await leaveAndRejoin(coach, cast, rokas);
-    } finally {
-      for (const device of devices) await device.close();
-    }
-  });
+    const deadline = await assignToGroup(coach, cast, [rokas, gabija, dovydas]);
+    await assignToRokas(coach, cast, { rokas, gabija });
+    await laterMember(coach, cast, { link, deadline });
+    await leaveAndRejoin(coach, cast, rokas);
+  } finally {
+    for (const device of devices) await device.close();
+  }
+});
 
-  test(`a coach edit shows as Updated once; pause, resume, then make my own copy (${locale})`, async ({
-    page: coach,
-    request,
-    browser,
-  }) => {
-    test.setTimeout(360_000);
-    const devices: BrowserContext[] = [];
-    const messages = CATALOGUES[locale];
-    const cast: Cast = { locale, messages, browser, request, devices };
-    try {
-      await coachReady(coach, cast);
-      const link = await createInvite(coach, messages, { kind: 'personal' });
-      const rokas = await playerAccepts(cast, { link, name: ROKAS });
-      await importRepertoire(coach, messages, {
-        file: ITALIAN_PGN,
-        side: 'white',
-        name: ITALIAN,
-      });
-      await assignTo(coach, messages, { target: ROKAS });
-      await rokas.reload();
-      const item = homeAssignment(rokas, messages, ITALIAN);
-      await expect(badge(item, messages, 'updated')).toHaveCount(0);
+test(`a coach edit shows as Updated once; pause, resume, then make my own copy`, async ({
+  page: coach,
+  request,
+  browser,
+}) => {
+  test.setTimeout(360_000);
+  const devices: BrowserContext[] = [];
+  const messages = en;
+  const cast: Cast = { messages, browser, request, devices };
+  try {
+    await coachReady(coach, cast);
+    const link = await createInvite(coach, messages, { kind: 'personal' });
+    const rokas = await playerAccepts(cast, { link, name: ROKAS });
+    await importRepertoire(coach, messages, {
+      file: ITALIAN_PGN,
+      side: 'white',
+      name: ITALIAN,
+    });
+    await assignTo(coach, messages, { target: ROKAS });
+    await rokas.reload();
+    const item = homeAssignment(rokas, messages, ITALIAN);
+    await expect(badge(item, messages, 'updated')).toHaveCount(0);
 
-      await coachAddsMove(coach, cast);
-      await updatedOnce(rokas, cast);
-      await pauseAndResume(rokas, coach, cast);
-      await makeOwnCopy(rokas, coach, cast);
-    } finally {
-      for (const device of devices) await device.close();
-    }
-  });
-}
+    await coachAddsMove(coach, cast);
+    await updatedOnce(rokas, cast);
+    await pauseAndResume(rokas, coach, cast);
+    await makeOwnCopy(rokas, coach, cast);
+  } finally {
+    for (const device of devices) await device.close();
+  }
+});

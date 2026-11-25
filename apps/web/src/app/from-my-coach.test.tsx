@@ -1,16 +1,16 @@
 import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../i18n/locales';
+import { MESSAGES } from '../i18n/catalogue';
 import type { AssignedListItem } from '../server/assignment-pages';
 import { FromMyCoach } from './from-my-coach';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const lt = MESSAGES.lt;
-const badge = lt.assignment.badge;
+const a = MESSAGES.assignment;
+const badge = a.badge;
 
-const day = (iso: string, locale: string): string =>
-  new Intl.DateTimeFormat(locale, {
+const day = (iso: string): string =>
+  new Intl.DateTimeFormat('en', {
     dateStyle: 'long',
     timeZone: 'Europe/Vilnius',
   }).format(new Date(`${iso}T12:00:00Z`));
@@ -33,14 +33,11 @@ const CARO: AssignedListItem = {
   badges: { overdue: false, paused: false, forked: false, updated: false },
 };
 
-function renderList(
-  assignments: readonly AssignedListItem[],
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderList(assignments: readonly AssignedListItem[]): void {
   render(
     <NextIntlClientProvider
-      locale={locale}
-      messages={MESSAGES[locale]}
+      locale="en"
+      messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
       <FromMyCoach assignments={assignments} />
@@ -58,7 +55,7 @@ describe('FromMyCoach (R-15, R-51, R-133)', () => {
   it('lists each assignment under its heading, linked to its page', () => {
     renderList([LONDON, CARO]);
     expect(
-      screen.getByRole('heading', { level: 2, name: lt.assignment.home.title }),
+      screen.getByRole('heading', { level: 2, name: a.home.title }),
     ).toBeDefined();
     expect(
       screen
@@ -67,7 +64,7 @@ describe('FromMyCoach (R-15, R-51, R-133)', () => {
     ).toBe(`/repertuarai/priskirti/${ID}`);
     expect(
       within(item('Karo-Kan gynyba: pagrindai')).getByText(
-        lt.assignment.page.assignedBy.replace('{name}', 'Rimantas'),
+        a.page.assignedBy.replace('{name}', 'Rimantas'),
       ),
     ).toBeDefined();
   });
@@ -76,16 +73,14 @@ describe('FromMyCoach (R-15, R-51, R-133)', () => {
     renderList([LONDON, CARO]);
     const london = item('Londono sistema');
     expect(
-      within(london).getByText(
-        lt.assignment.deadlineOn.replace('{date}', day('2026-11-30', 'lt')),
-      ),
+      within(london).getByText(`Deadline: ${day('2026-11-30')}`),
     ).toBeDefined();
     expect(within(london).getByText(badge.overdue)).toBeDefined();
     expect(within(london).getByText(badge.paused)).toBeDefined();
     expect(within(london).getByText(badge.updated)).toBeDefined();
 
     const caro = item('Karo-Kan gynyba: pagrindai');
-    expect(within(caro).queryByText(/Terminas/u)).toBeNull();
+    expect(within(caro).queryByText(/Deadline/u)).toBeNull();
     expect(within(caro).queryByRole('list')).toBeNull();
   });
 
@@ -93,16 +88,5 @@ describe('FromMyCoach (R-15, R-51, R-133)', () => {
     renderList([]);
     expect(screen.queryByRole('heading')).toBeNull();
     expect(document.body.textContent).toBe('');
-  });
-
-  it('speaks English on the English page', () => {
-    renderList([LONDON], 'en');
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'From my coach' }),
-    ).toBeDefined();
-    expect(
-      screen.getByText(`Deadline: ${day('2026-11-30', 'en')}`),
-    ).toBeDefined();
-    expect(screen.getByText('Overdue')).toBeDefined();
   });
 });

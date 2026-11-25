@@ -1,7 +1,6 @@
 // The people of the S5 journeys (plan Task C8): the coach and his players
-// (docs/personas/coach.md), each on a device of their own, in English (the
-// only language served, R-180), and the coach's group steps the journeys
-// repeat.
+// (docs/personas/coach.md), each on a device of their own, and the coach's
+// group steps the journeys repeat.
 import {
   expect,
   type APIRequestContext,
@@ -15,7 +14,6 @@ import {
   format,
   newDevice,
   newOnboardedAccount,
-  type Locale,
   type Messages,
 } from './journey';
 
@@ -27,9 +25,8 @@ export const DOVYDAS = 'Dovydas Jankauskas';
 /** The fourth, unseeded member who takes the group invite later. */
 export const FOURTH = 'Austėja Žukauskaitė';
 
-/** One journey's language and the devices it opened, closed at its end. */
+/** One journey's catalogue and the devices it opened, closed at its end. */
 export interface Cast {
-  readonly locale: Locale;
   readonly messages: Messages;
   readonly browser: Browser;
   readonly request: APIRequestContext;
@@ -93,7 +90,7 @@ export async function expectAssigned(
     const prefix = format(t.deadlineOn, { date: '' }).trim();
     await expect(item.getByText(prefix)).toHaveCount(0);
   } else {
-    const text = deadlineText(cast.messages, cast.locale, deadline);
+    const text = deadlineText(cast.messages, deadline);
     await expect(item.getByText(text, { exact: true })).toBeVisible();
   }
 }

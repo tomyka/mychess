@@ -1,11 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { GroupGrid } from '../../../../server/coach-pages';
 import { ProgressGrid } from './progress-grid';
 
-const p = MESSAGES.lt.coach.progress;
+const p = MESSAGES.coach.progress;
 
 const NONE = { overdue: false, paused: false, forked: false, updated: false };
 
@@ -55,9 +55,9 @@ const GRID: GroupGrid = {
   ],
 };
 
-function show(grid: GroupGrid = GRID, locale: 'lt' | 'en' = 'lt'): void {
+function show(grid: GroupGrid = GRID): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ProgressGrid grid={grid} />
     </NextIntlClientProvider>,
   );
@@ -91,23 +91,23 @@ describe('the group grid (R-153)', () => {
 
   it('shows % learned and due in a cell that opens the player’s progress', () => {
     show();
-    const cell = screen.getByRole('link', { name: /25 %/ });
+    const cell = screen.getByRole('link', { name: /25%/ });
     expect(cell.getAttribute('href')).toBe(
       '/treneris/zaidejai/p-1/pazanga/r-1',
     );
-    expect(within(cell).getByText('5 kartotini')).toBeTruthy();
-    expect(within(cell).getByText('25 % išmokta')).toBeTruthy();
+    expect(within(cell).getByText('5 due')).toBeTruthy();
+    expect(within(cell).getByText('25% learned')).toBeTruthy();
   });
 
   it('names the player and the repertoire in each cell link, around its visible text', () => {
     show();
     expect(
       screen
-        .getAllByRole('link', { name: /išmokta/ })
+        .getAllByRole('link', { name: /learned/ })
         .map((link) => link.getAttribute('aria-label')),
     ).toEqual([
-      'Gabija, Karo-Kan gynyba: 25 % išmokta, 5 kartotini',
-      'Rokas, Italų partija: 100 % išmokta, 0 kartotinų',
+      'Gabija, Karo-Kan gynyba: 25% learned, 5 due',
+      'Rokas, Italų partija: 100% learned, 0 due',
     ]);
   });
 
@@ -129,7 +129,7 @@ describe('the group grid (R-153)', () => {
     const rokas = rowOf(/Rokas/);
     const cells = rokas === null ? [] : within(rokas).getAllByRole('cell');
     const forked = cells[0];
-    expect(forked?.textContent).toBe('Pasidarė asmeninę kopiją');
+    expect(forked?.textContent).toBe(MESSAGES.assignment.badge.forked);
     expect(forked?.querySelector('a')).toBeNull();
   });
 
@@ -141,10 +141,12 @@ describe('the group grid (R-153)', () => {
     expect(cell).toBeDefined();
     if (cell === undefined) return;
     expect(
-      within(cell).getByRole('link', { name: /100 %/ }).getAttribute('href'),
+      within(cell).getByRole('link', { name: /100%/ }).getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-2/pazanga/r-2');
-    expect(within(cell).getByText('0 kartotinų')).toBeTruthy();
-    expect(within(cell).getByText('Pradelsta')).toBeTruthy();
+    expect(within(cell).getByText('0 due')).toBeTruthy();
+    expect(
+      within(cell).getByText(MESSAGES.assignment.badge.overdue),
+    ).toBeTruthy();
     expect(within(cell).getByText(p.mastered)).toBeTruthy();
   });
 
@@ -189,18 +191,5 @@ describe('the group grid (R-153)', () => {
     expect(table.parentElement?.className).toContain('overflow-x-auto');
     const header = screen.getByRole('rowheader', { name: /Gabija/ });
     expect(header.className).toContain('sticky');
-  });
-
-  it('speaks English on the English page', () => {
-    show(GRID, 'en');
-    const e = MESSAGES.en.coach.progress;
-    expect(screen.getByRole('region', { name: e.gridTitle })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /25% learned/ })).toBeTruthy();
-    expect(screen.getByText('5 due')).toBeTruthy();
-    expect(
-      screen.getByRole('link', {
-        name: 'Gabija, Karo-Kan gynyba: 25% learned, 5 due',
-      }),
-    ).toBeTruthy();
   });
 });

@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import SettingsPage from './page';
 
 // What the mocked server knows: the Google pair and the account's links.
@@ -44,7 +44,6 @@ vi.mock('../../server/session', () => ({
       id: 'a1',
       email: 'ruta@example.lt',
       displayName: 'Rūta Jonaitė',
-      locale: 'lt',
       entitlement: 'free',
       admin: false,
       disabledAt: null,
@@ -135,13 +134,15 @@ const page = (search: Search = {}): Promise<JSX.Element> =>
 async function renderPage(search: Search = {}): Promise<void> {
   const element = await page(search);
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {element}
     </NextIntlClientProvider>,
   );
 }
 
-const s = MESSAGES.lt.settings;
+const s = MESSAGES.settings;
+const provider = (template: string, name: string) =>
+  template.replace('{provider}', name);
 
 beforeEach(() => {
   server.google = { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' };
@@ -166,7 +167,7 @@ describe('the settings page', () => {
         .map((heading) => heading.textContent),
     ).toEqual([
       s.profile.title,
-      MESSAGES.lt.training.settings.title,
+      MESSAGES.training.settings.title,
       s.coachMode.title,
       s.myCoaches.title,
       s.providers.title,
@@ -188,7 +189,7 @@ describe('the settings page', () => {
 
   it("shows the session account's training settings (R-62, R-146, R-205)", async () => {
     await renderPage();
-    const t = MESSAGES.lt.training.settings;
+    const t = MESSAGES.training.settings;
     expect(server.trainingOf).toEqual(['a1']);
     expect(
       screen.getByLabelText<HTMLInputElement>(t.sessionSizeLabel).value,
@@ -207,7 +208,9 @@ describe('the settings page', () => {
     server.links = [{ id: 'pa-1', provider: 'lichess' }];
     await renderPage({ error: ['account_already_linked_to_different_user'] });
     expect(
-      screen.getByRole('button', { name: 'Atjungti Lichess' }),
+      screen.getByRole('button', {
+        name: provider(s.providers.unlink, 'Lichess'),
+      }),
     ).toBeDefined();
     expect(
       screen
@@ -220,10 +223,14 @@ describe('the settings page', () => {
     server.google = { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: '' };
     await renderPage();
     expect(
-      screen.queryByRole('button', { name: 'Prijungti Google' }),
+      screen.queryByRole('button', {
+        name: provider(s.providers.link, 'Google'),
+      }),
     ).toBeNull();
     expect(
-      screen.getByRole('button', { name: 'Prijungti Lichess' }),
+      screen.getByRole('button', {
+        name: provider(s.providers.link, 'Lichess'),
+      }),
     ).toBeDefined();
   });
 

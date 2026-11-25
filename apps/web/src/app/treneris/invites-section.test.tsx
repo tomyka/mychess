@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { CreateInviteState, RevokeInviteState } from './actions';
 import { InvitesSection, type CoachInviteRow } from './invites-section';
 
@@ -33,7 +33,7 @@ vi.mock('./actions', () => ({
   revokeInviteAction: server.revoke,
 }));
 
-const i = MESSAGES.lt.coach.invites;
+const i = MESSAGES.coach.invites;
 
 const GROUPS = [
   { id: 'g-1', name: 'Sekmadienio grupė' },
@@ -42,11 +42,10 @@ const GROUPS = [
 
 // 21:30 UTC on the 24th is already the 25th in Vilnius (UTC+3).
 const EXPIRES = new Date('2026-10-24T21:30:00Z');
-const vilnius = (locale: string) =>
-  new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeZone: 'Europe/Vilnius',
-  }).format(EXPIRES);
+const VILNIUS = new Intl.DateTimeFormat('en', {
+  dateStyle: 'medium',
+  timeZone: 'Europe/Vilnius',
+}).format(EXPIRES);
 
 // The coach's open invites: the loader lists no other (coachInvites, #329).
 const INVITES: readonly CoachInviteRow[] = [
@@ -66,12 +65,9 @@ const INVITES: readonly CoachInviteRow[] = [
 
 const LINK = `http://localhost:3000/k/${'A'.repeat(43)}`;
 
-function renderSection(
-  invites: readonly CoachInviteRow[] = [],
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderSection(invites: readonly CoachInviteRow[] = []): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <InvitesSection groups={GROUPS} invites={invites} />
     </NextIntlClientProvider>,
   );
@@ -152,9 +148,7 @@ describe('InvitesSection: making an invite (R-98, R-110)', () => {
       expect(
         screen
           .getAllByRole('status')
-          .some(
-            (line) => line.textContent === MESSAGES.lt.invite.groupRequired,
-          ),
+          .some((line) => line.textContent === MESSAGES.invite.groupRequired),
       ).toBe(true);
     });
     expect(
@@ -167,15 +161,14 @@ describe('InvitesSection: making an invite (R-98, R-110)', () => {
     server.create.mockResolvedValue({ refusal: 'coach.inviteLimit' });
     renderSection();
     fireEvent.click(createButton());
-    const said = MESSAGES.lt.coach.inviteLimit.replace('{limit}', '50');
+    const said = MESSAGES.coach.inviteLimit.replace('{limit}', '50');
     await waitFor(() => {
       expect(
         screen.getAllByRole('status').some((line) => line.textContent === said),
       ).toBe(true);
     });
     // The limit comes from OPEN_INVITE_LIMIT, not from the catalogue text.
-    expect(MESSAGES.lt.coach.inviteLimit).toContain('{limit}');
-    expect(MESSAGES.en.coach.inviteLimit).toContain('{limit}');
+    expect(MESSAGES.coach.inviteLimit).toContain('{limit}');
   });
 });
 
@@ -189,8 +182,8 @@ describe('InvitesSection: the invite list', () => {
     renderSection(INVITES);
     const rows = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(rows.map((row) => row.textContent)).toEqual([
-      `${i.group}Grupė: Šeštadienio grupėGalioja iki ${vilnius('lt')}${i.revoke}`,
-      `${i.personal}Galioja iki ${vilnius('lt')}${i.revoke}`,
+      `${i.group}Group: Šeštadienio grupėValid until ${VILNIUS}${i.revoke}`,
+      `${i.personal}Valid until ${VILNIUS}${i.revoke}`,
     ]);
   });
 
@@ -218,10 +211,5 @@ describe('InvitesSection: the invite list', () => {
         screen.getAllByRole('status').map((line) => line.textContent),
       ).toContain(i.revokeInvalid);
     });
-  });
-
-  it('speaks English on the English page', () => {
-    renderSection(INVITES.slice(0, 1), 'en');
-    expect(screen.getByText(`Valid until ${vilnius('en')}`)).toBeDefined();
   });
 });

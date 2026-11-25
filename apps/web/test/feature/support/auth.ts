@@ -100,7 +100,6 @@ export async function signInByMagicLink(
 /** What onboarding asks for (R-81). */
 export interface Profile {
   readonly displayName: string;
-  readonly locale: 'lt' | 'en';
 }
 
 /** Onboards the account `cookie` is signed in to; returns its id. */

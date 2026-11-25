@@ -1,12 +1,7 @@
 // Accounts and sign-in. Better Auth's tables carry our names (apps/web
 // src/server/auth/options.ts maps them): its "user" is our Account and its "account"
 // is a provider link.
-import {
-  DEFAULT_ENTITLEMENT,
-  DEFAULT_LOCALE,
-  ENTITLEMENTS,
-  LOCALES,
-} from '@mychess/domain';
+import { DEFAULT_ENTITLEMENT, ENTITLEMENTS } from '@mychess/domain';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -28,7 +23,6 @@ export const accounts = pgTable(
     emailVerified: boolean('email_verified').notNull().default(false),
     displayName: text('display_name').notNull(),
     image: text('image'),
-    locale: text('locale', { enum: LOCALES }).notNull().default(DEFAULT_LOCALE),
     entitlement: text('entitlement', { enum: ENTITLEMENTS })
       .notNull()
       .default(DEFAULT_ENTITLEMENT),
@@ -54,7 +48,6 @@ export const accounts = pgTable(
       'accounts_email_canonical',
       sql`${t.email} = lower(btrim(normalize(${t.email}, NFKC))) and ${t.email} ~ '^[\\x21-\\x7e]+$'`,
     ),
-    check('accounts_locale_check', oneOf(t.locale, LOCALES)),
     check('accounts_entitlement_check', oneOf(t.entitlement, ENTITLEMENTS)),
     check('accounts_session_size_check', between(t.sessionSize, 10, 100)),
     check('accounts_new_per_day_check', between(t.newPerDay, 0, 50)),

@@ -2,12 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { PauseState } from './actions';
 import { PauseControl, usePause } from './pause-control';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const p = MESSAGES.lt.assignment.pause;
+const p = MESSAGES.assignment.pause;
 
 const server = vi.hoisted(() => ({
   pause: vi.fn<(previous: PauseState, form: FormData) => Promise<PauseState>>(),
@@ -20,9 +20,9 @@ function Control({ paused }: { readonly paused: boolean }): JSX.Element {
   return <PauseControl repertoireId={ID} pause={usePause(paused)} />;
 }
 
-function renderControl(paused: boolean, locale: 'lt' | 'en' = 'lt'): void {
+function renderControl(paused: boolean): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <Control paused={paused} />
     </NextIntlClientProvider>,
   );
@@ -68,15 +68,9 @@ describe('PauseControl (R-46)', () => {
     fireEvent.click(screen.getByRole('button', { name: p.pause }));
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(
-        MESSAGES.lt.assignment.notFound,
+        MESSAGES.assignment.notFound,
       );
     });
     expect(screen.getByRole('button', { name: p.pause })).toBeDefined();
-  });
-
-  it('speaks English on the English page', () => {
-    renderControl(true, 'en');
-    expect(screen.getByRole('button', { name: 'Resume' })).toBeDefined();
-    expect(screen.getByText('Paused')).toBeDefined();
   });
 });

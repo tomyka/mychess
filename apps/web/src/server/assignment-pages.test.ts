@@ -42,7 +42,7 @@ vi.mock('./db', () => ({ getDb: () => DB }));
 // The session player; requireOnboarded's redirects are session.ts's own.
 vi.mock('./session', () => ({
   requireOnboarded: () =>
-    Promise.resolve({ id: 'rokas', locale: 'en', displayName: 'Rokas' }),
+    Promise.resolve({ id: 'rokas', displayName: 'Rokas' }),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -112,8 +112,7 @@ describe('assignedRepertoireData', () => {
       paused: true,
       deadline: '2026-10-19',
       overdue: true,
-      // In the player's own language.
-      names: chapterNamesOf(GRAPH, 'en'),
+      names: chapterNamesOf(GRAPH),
       changes: CHANGES.changes,
     });
   });

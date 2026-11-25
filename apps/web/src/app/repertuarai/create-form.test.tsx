@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { CreateState } from './actions';
 import { CreateForm } from './create-form';
 
@@ -12,11 +12,11 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ createRepertoireAction: server.create }));
 
-const c = MESSAGES.lt.repertoires.create;
+const c = MESSAGES.repertoires.create;
 
 function renderForm(): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <CreateForm />
     </NextIntlClientProvider>,
   );
@@ -53,7 +53,7 @@ describe('CreateForm', () => {
     renderForm();
     fireEvent.change(nameField(), { target: { value: 'a'.repeat(81) } });
     fireEvent.click(screen.getByRole('button', { name: c.submit }));
-    const status = await screen.findByText(MESSAGES.lt.repertoire.nameTooLong);
+    const status = await screen.findByText(MESSAGES.repertoire.nameTooLong);
     expect(status.getAttribute('role')).toBe('status');
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
     expect(nameField().getAttribute('aria-describedby')).toBe(status.id);
@@ -65,7 +65,7 @@ describe('CreateForm', () => {
     renderForm();
     fireEvent.click(screen.getByRole('button', { name: c.submit }));
     await screen.findByText(
-      'Galite turėti ne daugiau kaip 50 repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.',
+      'You can have up to 50 repertoires. Delete one to add another.',
     );
     expect(nameField().getAttribute('aria-invalid')).toBeNull();
   });
@@ -74,7 +74,7 @@ describe('CreateForm', () => {
     server.create.mockResolvedValue({ refusal: 'repertoire.sideInvalid' });
     renderForm();
     fireEvent.click(screen.getByRole('button', { name: c.submit }));
-    await screen.findByText(MESSAGES.lt.repertoire.sideInvalid);
+    await screen.findByText(MESSAGES.repertoire.sideInvalid);
     expect(nameField().getAttribute('aria-invalid')).toBeNull();
   });
 });

@@ -22,10 +22,10 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import {
   chapterNamesOf,
-  plainChapterTitleIn,
+  plainChapterTitle,
 } from '../../../server/chapter-names';
 import type { NoteOutcome } from '../../repertoire-view';
 import type { EditOutcome } from './actions';
@@ -78,8 +78,7 @@ function must<T>(value: T | undefined): T {
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const GRAPH = graphOf(LONDON);
-const lt = MESSAGES.lt;
-const r = lt.repertoires;
+const r = MESSAGES.repertoires;
 
 type Coaching = Partial<
   Pick<
@@ -94,12 +93,12 @@ function renderScreen(
   coaching: Coaching = {},
 ) {
   render(
-    <NextIntlClientProvider locale="lt" messages={lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <RepertoireScreen
         repertoire={{ id: ID, name, side: graph.side, version: 3 }}
         graph={graph}
         notes={{}}
-        names={chapterNamesOf(graph, 'lt')}
+        names={chapterNamesOf(graph)}
         sharing={coaching.sharing ?? { coaches: [], sharedWith: [] }}
         coachNotes={coaching.coachNotes ?? []}
         forkNotes={coaching.forkNotes ?? []}
@@ -133,7 +132,7 @@ beforeEach(() => {
 describe('RepertoireScreen: browsing', () => {
   it('names the board after the repertoire and the chapter', () => {
     renderScreen();
-    const title = plainChapterTitleIn('lt')(GRAPH);
+    const title = plainChapterTitle(GRAPH);
     // The chapters are named in English (R-180), where the two London
     // chapters' openings differ, so neither is told apart (R-158).
     expect(title(must(GRAPH.chapters[1]))).not.toBe(
@@ -141,7 +140,7 @@ describe('RepertoireScreen: browsing', () => {
     );
     expect(
       screen.getByRole('application', {
-        name: `Šachmatų lenta, Londono sistema, ${title(must(GRAPH.chapters[0]))}`,
+        name: `Chess board, Londono sistema, ${title(must(GRAPH.chapters[0]))}`,
       }),
     ).toBeDefined();
     expect(
@@ -189,8 +188,8 @@ describe('RepertoireScreen: browsing', () => {
     expect(screen.queryByText('Pirmiausia Bf4')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     expect(
-      screen.getByRole('list', { name: lt.coachNote.list }).textContent,
-    ).toBe('Trenerio pastaba — RimantasPirmiausia Bf4');
+      screen.getByRole('list', { name: MESSAGES.coachNote.list }).textContent,
+    ).toBe('Coach note from RimantasPirmiausia Bf4');
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     expect(screen.queryByText('Pirmiausia Bf4')).toBeNull();
   });
@@ -214,12 +213,12 @@ describe('RepertoireScreen: browsing', () => {
       ],
     });
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
-    const notes = screen.getByRole('list', { name: lt.coachNote.list });
+    const notes = screen.getByRole('list', { name: MESSAGES.coachNote.list });
     expect(
       [...notes.querySelectorAll('li')].map((li) => li.textContent),
     ).toEqual([
-      'Trenerio pastaba — JonasVisada Bf4',
-      'Trenerio pastaba — RimantasPirmiausia Bf4',
+      'Coach note from JonasVisada Bf4',
+      'Coach note from RimantasPirmiausia Bf4',
     ]);
     expect(notes.querySelector('textarea')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
@@ -243,7 +242,7 @@ describe('RepertoireScreen: browsing', () => {
       },
     });
     expect(
-      screen.getByRole('heading', { level: 2, name: lt.share.title }),
+      screen.getByRole('heading', { level: 2, name: MESSAGES.share.title }),
     ).toBeDefined();
     expect(screen.getByRole('checkbox', { name: 'Rimantas' })).toHaveProperty(
       'checked',
@@ -262,7 +261,7 @@ describe('RepertoireScreen: browsing', () => {
     });
     const slot = screen.getByRole('region', { name: 'Assign slot' });
     expect(slot.nextElementSibling?.getAttribute('aria-labelledby')).toBe(
-      screen.getByRole('heading', { level: 2, name: lt.share.title }).id,
+      screen.getByRole('heading', { level: 2, name: MESSAGES.share.title }).id,
     );
     // The phone's and the desktop's Delete both ask with the count.
     for (const remove of screen.getAllByRole('button', {
@@ -272,7 +271,7 @@ describe('RepertoireScreen: browsing', () => {
     }
     expect(
       screen.getAllByText(
-        'Šį repertuarą turi 2 žaidėjai. Per 30 dienų jie galės pasilikti asmeninę kopiją.',
+        '2 players have this repertoire; each has 30 days to keep their own copy.',
       ),
     ).toHaveLength(2);
   });
@@ -300,7 +299,7 @@ describe('RepertoireScreen: browsing', () => {
   it('plays a typed move, and says when it is not a legal one', () => {
     renderScreen();
     const field = screen.getByLabelText<HTMLInputElement>(
-      lt.board.moveInput.label,
+      MESSAGES.board.moveInput.label,
     );
     fireEvent.change(field, { target: { value: 'd4' } });
     fireEvent.submit(field);
@@ -308,13 +307,13 @@ describe('RepertoireScreen: browsing', () => {
     expect(field.value).toBe('');
     fireEvent.change(field, { target: { value: 'Ke2' } });
     fireEvent.submit(field);
-    expect(screen.getByText(lt.board.moveInput.unknown)).toBeDefined();
+    expect(screen.getByText(MESSAGES.board.moveInput.unknown)).toBeDefined();
     expect(field.value).toBe('Ke2');
   });
 
   it('opens another chapter at its root', () => {
     renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: /Skyrius 1 iš 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Chapter 1 of 2/ }));
     const second = screen
       .getAllByRole('button')
       .find(
@@ -324,7 +323,7 @@ describe('RepertoireScreen: browsing', () => {
     if (second === undefined) throw new Error('no second chapter');
     fireEvent.click(second);
     expect(
-      screen.getByRole('button', { name: /Skyrius 2 iš 2/ }),
+      screen.getByRole('button', { name: /Chapter 2 of 2/ }),
     ).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
@@ -349,7 +348,9 @@ describe('RepertoireScreen: browsing', () => {
     if (!added.ok) throw new Error('no move');
     renderScreen(added.value);
     boardMove('b7', 'b8');
-    fireEvent.click(screen.getByRole('button', { name: lt.board.promotion.q }));
+    fireEvent.click(
+      screen.getByRole('button', { name: MESSAGES.board.promotion.q }),
+    );
     expect(current()).toBe('b8=Q');
   });
 
@@ -374,7 +375,7 @@ describe('RepertoireScreen: browsing', () => {
     );
     expect(
       screen.getByRole('button', {
-        name: /1\. d4, yra komentaras, yra mano užrašas/,
+        name: /1\. d4, has a comment, has my note/,
       }),
     ).toBeDefined();
   });
@@ -392,10 +393,10 @@ describe('RepertoireScreen: an empty repertoire', () => {
         .getAttribute('href'),
     ).toBe(`/repertuarai/importuoti?i=${ID}`);
     expect(
-      screen.getByRole('application', { name: 'Šachmatų lenta, Taimanovas' }),
+      screen.getByRole('application', { name: 'Chess board, Taimanovas' }),
     ).toBeDefined();
     expect(
-      screen.queryByRole('button', { name: /Skyrius [0-9]+ iš/ }),
+      screen.queryByRole('button', { name: /Chapter [0-9]+ of/ }),
     ).toBeNull();
     await waitFor(() => {
       expect(ground.created.at(-1)?.orientation).toBe('black');
@@ -413,7 +414,7 @@ function savedAs(
     ok: true,
     graph: result.value,
     version,
-    names: chapterNamesOf(result.value, 'lt'),
+    names: chapterNamesOf(result.value),
   };
 }
 
@@ -479,7 +480,9 @@ describe('RepertoireScreen: builder mode', () => {
     building();
     ground.set.mockClear();
     boardMove('e2', 'e4');
-    expect(await screen.findByText(lt.repertoire.secondAnswer)).toBeDefined();
+    expect(
+      await screen.findByText(MESSAGES.repertoire.secondAnswer),
+    ).toBeDefined();
     // The snap-back is the board's passive effect on the reset revision: it
     // runs after the commit that shows the refusal, so it is waited for.
     await waitFor(() => {
@@ -500,9 +503,7 @@ describe('RepertoireScreen: builder mode', () => {
     ground.set.mockClear();
     boardMove('e2', 'e4');
     expect(
-      await screen.findByText(
-        /^Repertuare gali būti ne daugiau kaip 5\s000 ėjimų\.$/,
-      ),
+      await screen.findByText(/^A repertoire can hold up to 5,000 moves\.$/),
     ).toBeDefined();
     await waitFor(() => {
       expect(ground.set.mock.calls.map(([config]) => config.fen)).toContain(
@@ -529,7 +530,7 @@ describe('RepertoireScreen: builder mode', () => {
     building();
     fireEvent.click(named(r.nav.forward));
     fireEvent.click(named(b.remove));
-    expect(screen.getByText(/Pašalinti 1\. d4 ir 8/)).toBeDefined();
+    expect(screen.getByText(/Remove 1\. d4 and the 8/)).toBeDefined();
     fireEvent.click(named(b.removeSubmit));
     expect(server.edit).toHaveBeenCalledWith({
       repertoireId: ID,
@@ -559,7 +560,7 @@ describe('RepertoireScreen: builder mode', () => {
     expect(ground.set).toHaveBeenLastCalledWith({
       highlight: { custom: new Map([['e2', 'selected']]) },
     });
-    expect(screen.getByText('Nuo e2')).toBeDefined();
+    expect(screen.getByText('From e2')).toBeDefined();
     press('e4');
     expect(server.edit).toHaveBeenCalledWith({
       repertoireId: ID,
@@ -572,9 +573,7 @@ describe('RepertoireScreen: builder mode', () => {
         marks,
       },
     });
-    expect(
-      await screen.findByText('Rodyklė e2–e4, raudona, pridėta'),
-    ).toBeDefined();
+    expect(await screen.findByText('Arrow e2 to e4, red, added')).toBeDefined();
   });
 
   it('takes no board move in draw mode, and Done leaves it', () => {
@@ -618,10 +617,10 @@ describe('RepertoireScreen: builder mode', () => {
       ok: true,
       graph: addChapter(GRAPH, START_KEY).graph,
       version: 4,
-      names: chapterNamesOf(GRAPH, 'lt'),
+      names: chapterNamesOf(GRAPH),
     });
     building();
-    fireEvent.click(named(/Skyrius 1 iš 2/));
+    fireEvent.click(named(/Chapter 1 of 2/));
     fireEvent.click(named(r.chapters.add));
     expect(server.edit).toHaveBeenCalledWith({
       repertoireId: ID,
@@ -629,7 +628,7 @@ describe('RepertoireScreen: builder mode', () => {
       op: { kind: 'addChapter' },
     });
     expect(
-      await screen.findByRole('button', { name: /Skyrius 3 iš 3/ }),
+      await screen.findByRole('button', { name: /Chapter 3 of 3/ }),
     ).toBeDefined();
     expect(screen.getByText(b.playFirst)).toBeDefined();
   });
@@ -652,7 +651,7 @@ describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () =
       op: { kind: 'addMove', chapterId: null, from: START_KEY, san: 'd4' },
     });
     expect(
-      await screen.findByRole('button', { name: /Skyrius 1 iš 1/ }),
+      await screen.findByRole('button', { name: /Chapter 1 of 1/ }),
     ).toBeDefined();
     expect(current()).toBe('d4');
   });

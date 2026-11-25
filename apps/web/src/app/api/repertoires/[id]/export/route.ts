@@ -1,5 +1,5 @@
 import { exportPgn } from '@mychess/chess';
-import { plainChapterTitleIn } from '../../../../../server/chapter-names';
+import { plainChapterTitle } from '../../../../../server/chapter-names';
 import { contentDisposition } from '../../../../../server/pgn-download';
 import { downloadableRepertoire } from '../../../../../server/repertoires';
 import { getAccount } from '../../../../../server/session';
@@ -25,16 +25,13 @@ export async function GET(
   if (repertoire === undefined)
     return new Response(null, { status: 404, headers: NO_STORE });
   const pgn = exportPgn(repertoire.graph, {
-    title: plainChapterTitleIn(account.locale),
+    title: plainChapterTitle,
   });
   return new Response(pgn, {
     headers: {
       ...NO_STORE,
       'content-type': 'application/x-chess-pgn; charset=utf-8',
-      'content-disposition': contentDisposition(
-        repertoire.name,
-        account.locale,
-      ),
+      'content-disposition': contentDisposition(repertoire.name),
     },
   });
 }

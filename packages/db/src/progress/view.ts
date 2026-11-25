@@ -59,7 +59,7 @@ export async function loadVisible(
   return { repertoire: { id, name, side }, graph: loaded.graph };
 }
 
-/** By repertoire name in Lithuanian order, then id. */
+/** By repertoire name in English order, then id. */
 export const byRepertoireName = byName((one: LoadedGraph) => one.repertoire);
 
 /** Each of `ids` that `scope` reaches for viewing, by name: 4 statements each. */

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../../../i18n/locales';
+import { MESSAGES } from '../../../../../../i18n/catalogue';
 import type { ProgressPage } from '../../../../../../server/coach-progress';
 import CoachProgressPage from './page';
 
@@ -31,7 +31,7 @@ describe('the coach’s progress page', () => {
       chapters: [],
     });
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await CoachProgressPage({
           params: Promise.resolve({ playerId: 'p-1', repertoireId: 'r-1' }),
         })}

@@ -83,7 +83,7 @@ describe('the repertoire page', () => {
     });
     expect(data.graph.chapters).toHaveLength(2);
     expect(data.notes).toEqual({});
-    expect(data.names).toEqual(chapterNamesOf(data.graph, 'lt'));
+    expect(data.names).toEqual(chapterNamesOf(data.graph));
   });
 
   it('is not found for another account’s repertoire and a malformed id', async () => {

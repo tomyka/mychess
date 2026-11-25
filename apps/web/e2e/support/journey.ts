@@ -9,17 +9,14 @@ import {
   type Page,
 } from '@playwright/test';
 import en from '../../src/i18n/messages/en.json' with { type: 'json' };
-import lt from '../../src/i18n/messages/lt.json' with { type: 'json' };
 import { linkIn, nextMailTo, type Mail } from './mailpit';
 
-export type Messages = typeof lt;
-export type Locale = 'lt' | 'en';
+/** The app's one catalogue (#378), so the tests read what a person reads. */
+export { en };
+export type Messages = typeof en;
 
-/** The app's own catalogues, so the tests read what a person reads. */
-export const CATALOGUES: Record<Locale, Messages> = { lt, en };
-
-/** The locale cookie next-intl reads (src/i18n/locales.ts LOCALE_COOKIE). */
-export const LOCALE_COOKIE = 'NEXT_LOCALE';
+/** The language the app renders in (src/i18n/catalogue.ts LOCALE). */
+export const LOCALE = 'en';
 
 /**
  * Fills a catalogue message's `{name}`-style placeholders and drops its
@@ -139,9 +136,8 @@ export async function signIn(
 }
 
 /**
- * Fills the onboarding screen: the display name only, as no language is
- * offered to choose (R-180). The name field is found by its role and the
- * submit button by its English name.
+ * Fills the onboarding screen: the display name only. The name field is
+ * found by its role and the submit button by its name.
  */
 export async function onboard(
   page: Page,
@@ -164,7 +160,7 @@ export async function expectGreeting(
   );
 }
 
-/** A new account, signed in by magic link and onboarded, in English (R-180). */
+/** A new account, signed in by magic link and onboarded. */
 export async function newOnboardedAccount(
   page: Page,
   request: APIRequestContext,

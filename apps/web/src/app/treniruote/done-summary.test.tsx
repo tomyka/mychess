@@ -2,14 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { DoneActions, DoneSummary } from './done-summary';
 
-const T = MESSAGES.lt.training.done;
+const T = MESSAGES.training.done;
 
-const renderLt = (node: ReactNode) =>
+const renderIn = (node: ReactNode) =>
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {node}
     </NextIntlClientProvider>,
   );
@@ -45,7 +45,7 @@ afterEach(() => {
 
 describe('the done summary', () => {
   it('shows the review counts and takes focus on its heading', () => {
-    renderLt(<DoneSummary {...DUE} counts={REVIEW} />);
+    renderIn(<DoneSummary {...DUE} counts={REVIEW} />);
     const heading = screen.getByRole('heading', { name: T.title });
     expect(document.activeElement).toBe(heading);
     expect(stat(T.reviewed)).toBe('30');
@@ -54,19 +54,17 @@ describe('the done summary', () => {
   });
 
   it('shows how many moves a learn pass taught', () => {
-    renderLt(<DoneSummary {...DUE} counts={{ kind: 'learn', learned: 8 }} />);
+    renderIn(<DoneSummary {...DUE} counts={{ kind: 'learn', learned: 8 }} />);
     expect(stat(T.learned)).toBe('8');
     expect(screen.queryByText(T.lapses)).toBeNull();
   });
 
   it('says how many moves are still due, not a later review, while some are (#319, R-62)', () => {
-    renderLt(<DoneSummary {...DUE} counts={REVIEW} />);
-    expect(screen.getByText('Dar 6 kartotini ėjimai.')).toBeDefined();
-    expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
+    renderIn(<DoneSummary {...DUE} counts={REVIEW} />);
+    expect(screen.getByText('6 more moves are due.')).toBeDefined();
+    expect(screen.queryByText(/^Next review:/)).toBeNull();
     expect(screen.queryByText(T.dayDone)).toBeNull();
-    expect(
-      screen.getByText('142 išmokta · 6 kartotini · 18 liko išmokti'),
-    ).toBeDefined();
+    expect(screen.getByText('142 learned · 6 due · 18 to learn')).toBeDefined();
   });
 
   it('says when a move comes back later today, without calling the day done (R-78)', () => {
@@ -75,14 +73,14 @@ describe('the done summary', () => {
       toFake: ['Date'],
     });
     const soon = new Date('2026-10-25T08:00:00Z');
-    renderLt(
+    renderIn(
       <DoneSummary
         progress={{ ...PROGRESS, due: 0, nextDue: soon }}
         standing={{ kind: 'laterToday', next: soon }}
         counts={REVIEW}
       />,
     );
-    expect(screen.getByText('Kitas kartojimas: po 10 min.')).toBeDefined();
+    expect(screen.getByText('Next review: in 10 min')).toBeDefined();
     expect(screen.queryByText(T.dayDone)).toBeNull();
   });
 
@@ -91,7 +89,7 @@ describe('the done summary', () => {
       now: new Date('2026-10-25T07:00:00Z'),
       toFake: ['Date'],
     });
-    renderLt(
+    renderIn(
       <DoneSummary
         progress={{ ...PROGRESS, due: 0 }}
         standing={{ kind: 'dayDone', next: NEXT }}
@@ -99,11 +97,11 @@ describe('the done summary', () => {
       />,
     );
     expect(screen.getByText(T.dayDone)).toBeDefined();
-    expect(screen.getByText('Kitas kartojimas: rytoj 10:00')).toBeDefined();
+    expect(screen.getByText('Next review: tomorrow at 10:00')).toBeDefined();
   });
 
   it('leaves the next review out when none is scheduled', () => {
-    renderLt(
+    renderIn(
       <DoneSummary
         progress={{ reviewed: 0, due: 0, toLearn: 4, nextDue: null }}
         standing={{ kind: 'dayDone', next: null }}
@@ -111,14 +109,12 @@ describe('the done summary', () => {
       />,
     );
     expect(screen.getByText(T.dayDone)).toBeDefined();
-    expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
-    expect(
-      screen.getByText('0 išmokta · 0 kartotinų · 4 liko išmokti'),
-    ).toBeDefined();
+    expect(screen.queryByText(/^Next review:/)).toBeNull();
+    expect(screen.getByText('0 learned · 0 due · 4 to learn')).toBeDefined();
   });
 
   it('draws the progress bar on a border-toned track, visible on the dark page', () => {
-    const { container } = renderLt(<DoneSummary {...DUE} counts={REVIEW} />);
+    const { container } = renderIn(<DoneSummary {...DUE} counts={REVIEW} />);
     const track = container.querySelector('.bg-learned')?.parentElement;
     expect(track?.classList).toContain('bg-border');
     expect(track?.classList).not.toContain('bg-sunken');
@@ -127,33 +123,33 @@ describe('the done summary', () => {
 
 describe('the done summary’s buttons', () => {
   it('offers Continue only when more items exist', () => {
-    const { unmount } = renderLt(<DoneActions doneHref="/" />);
+    const { unmount } = renderIn(<DoneActions doneHref="/" />);
     expect(screen.queryByRole('button', { name: T.continue })).toBeNull();
     unmount();
     const more = vi.fn();
-    renderLt(<DoneActions onContinue={more} doneHref="/" />);
+    renderIn(<DoneActions onContinue={more} doneHref="/" />);
     fireEvent.click(screen.getByRole('button', { name: T.continue }));
     expect(more).toHaveBeenCalledOnce();
   });
 
   it('offers new moves only while the allowance is left, and leads back', () => {
-    const { unmount } = renderLt(<DoneActions doneHref="/repertuarai/r1" />);
+    const { unmount } = renderIn(<DoneActions doneHref="/repertuarai/r1" />);
     expect(screen.queryByRole('link', { name: T.learn })).toBeNull();
     expect(
       screen.getByRole('link', { name: T.done }).getAttribute('href'),
     ).toBe('/repertuarai/r1');
     unmount();
-    renderLt(<DoneActions learnHref="/treniruote?mode=learn" doneHref="/" />);
+    renderIn(<DoneActions learnHref="/treniruote?mode=learn" doneHref="/" />);
     expect(
       screen.getByRole('link', { name: T.learn }).getAttribute('href'),
     ).toBe('/treniruote?mode=learn');
   });
 
   it('offers to start review when given its way there, after Done', () => {
-    const { unmount } = renderLt(<DoneActions doneHref="/" />);
+    const { unmount } = renderIn(<DoneActions doneHref="/" />);
     expect(screen.queryByRole('link', { name: T.review })).toBeNull();
     unmount();
-    renderLt(<DoneActions reviewHref="/treniruote?mode=review" doneHref="/" />);
+    renderIn(<DoneActions reviewHref="/treniruote?mode=review" doneHref="/" />);
     expect(
       screen.getByRole('link', { name: T.review }).getAttribute('href'),
     ).toBe('/treniruote?mode=review');
@@ -161,7 +157,7 @@ describe('the done summary’s buttons', () => {
   });
 
   it('puts Done first and new moves last, Continue between them', () => {
-    renderLt(
+    renderIn(
       <DoneActions
         onContinue={vi.fn()}
         learnHref="/treniruote?mode=learn"

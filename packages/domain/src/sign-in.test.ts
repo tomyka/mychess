@@ -26,7 +26,6 @@ const account = (over: Partial<Account> = {}): Account => ({
   email: 'ruta@example.lt',
   emailVerified: false,
   displayName: 'Ruta',
-  locale: 'lt',
   entitlement: 'free',
   admin: false,
   disabledAt: null,

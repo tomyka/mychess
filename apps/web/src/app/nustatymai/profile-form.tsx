@@ -1,10 +1,8 @@
 'use client';
 
-import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
-import { OFFERED_LOCALES } from '../../i18n/locales';
-import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
+import { NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { updateProfileAction, type ProfileState } from './actions';
@@ -13,16 +11,12 @@ import { SECTION, SECTION_TITLE } from './styles';
 
 export interface ProfileFormProps {
   readonly displayName: string;
-  readonly locale: Locale;
 }
 
 const INITIAL: ProfileState = {};
 
-/** The display name and language, changed at any time (settings). */
-export function ProfileForm({
-  displayName,
-  locale,
-}: ProfileFormProps): JSX.Element {
+/** The display name, changed at any time (settings). */
+export function ProfileForm({ displayName }: ProfileFormProps): JSX.Element {
   const t = useTranslations();
   const statusId = useId();
   const titleId = useId();
@@ -43,8 +37,7 @@ export function ProfileForm({
         text={text}
         tone={state.refusal === undefined ? 'success' : 'error'}
       />
-      {/* noValidate: the server's refusal is shown in the page's language,
-          not the browser's. */}
+      {/* noValidate: the server's refusal is shown, not the browser's. */}
       <form
         noValidate
         onSubmit={submitByHand(action)}
@@ -53,13 +46,8 @@ export function ProfileForm({
         <NameField
           label={t('settings.profile.displayName')}
           initial={displayName}
-          invalid={isNameRefusal(state.refusal)}
+          invalid={state.refusal !== undefined}
           statusId={statusId}
-        />
-        <LanguageField
-          legend={t('settings.profile.language')}
-          initial={locale}
-          offered={OFFERED_LOCALES}
         />
         <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
           {t('settings.profile.submit')}

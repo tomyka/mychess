@@ -8,7 +8,6 @@ import {
 import { beforeEach } from 'vitest';
 import {
   buildTestAuth,
-  type Profile,
   signInByMagicLink,
   signInOnboarded,
   type TestAuthOptions,
@@ -40,10 +39,6 @@ export function signIn(email: string): Promise<string> {
 }
 
 /** Signs `email` in and onboards it as `displayName`; returns the cookie. */
-export function onboarded(
-  email: string,
-  displayName: string,
-  locale: Profile['locale'] = 'lt',
-): Promise<string> {
-  return signInOnboarded(built(), testDb(), email, { displayName, locale });
+export function onboarded(email: string, displayName: string): Promise<string> {
+  return signInOnboarded(built(), testDb(), email, { displayName });
 }

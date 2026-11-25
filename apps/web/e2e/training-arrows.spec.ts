@@ -15,12 +15,7 @@ import {
 } from './support/assignment-people';
 import { assignTo, importRepertoire } from './support/assignments';
 import { createInvite } from './support/coaching';
-import {
-  CATALOGUES,
-  format,
-  newOnboardedAccount,
-  test,
-} from './support/journey';
+import { en, format, newOnboardedAccount, test } from './support/journey';
 import { storedReviews } from './support/training-db';
 import {
   answer,
@@ -41,8 +36,6 @@ import {
   stat,
   trainLink,
 } from './support/training-cast';
-
-const { en } = CATALOGUES;
 
 /** The coach's comments on 3.Bc4 and 4.c3 (fixtures/italiskoji.pgn). */
 const BC4_COMMENT = 'Rikis taikosi į f7 langelį.';
@@ -120,7 +113,6 @@ test(
     test.setTimeout(300_000);
     const devices: BrowserContext[] = [];
     const cast: Cast = {
-      locale: 'en',
       messages: en,
       browser,
       request,

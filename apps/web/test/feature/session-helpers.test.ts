@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestConfigFor } from '../../src/i18n/request';
 import {
   getAccount,
   requireAccount,
@@ -7,7 +6,7 @@ import {
 } from '../../src/server/session';
 import { onboard } from './support/auth';
 import { signIn, useRequestHarness } from './support/harness';
-import { built, outcomeOf, request, setRequestCookie } from './support/request';
+import { built, outcomeOf, request } from './support/request';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -22,16 +21,10 @@ vi.mock('../../src/server/auth', async (original) =>
   (await import('./support/request')).serverAuth(original),
 );
 
-// Outside a React server build next-intl's getRequestConfig refuses to run;
-// the request config is the function it wraps.
-vi.mock('next-intl/server', () => ({
-  getRequestConfig: <T>(config: T): T => config,
-}));
-
 const { db, client } = useRequestHarness();
 
-const onboardAs = (locale: 'lt' | 'en'): Promise<string> =>
-  onboard(built(), db, request.cookie, { displayName: 'Rūta', locale });
+const onboardAsRuta = (): Promise<string> =>
+  onboard(built(), db, request.cookie, { displayName: 'Rūta' });
 
 describe('the session helpers', () => {
   it('send a signed-out visitor to sign-in', async () => {
@@ -54,11 +47,10 @@ describe('the session helpers', () => {
 
   it('let an onboarded account through', async () => {
     request.cookie = await signIn('ruta@example.lt');
-    const id = await onboardAs('en');
+    const id = await onboardAsRuta();
     expect(await requireOnboarded()).toMatchObject({
       id,
       displayName: 'Rūta',
-      locale: 'en',
     });
   });
 
@@ -72,25 +64,5 @@ describe('the session helpers', () => {
     expect(await outcomeOf(requireAccount())).toEqual({
       redirectedTo: '/prisijungti',
     });
-  });
-});
-
-// The locale next-intl renders this request in.
-const requestLocale = async (): Promise<string | undefined> =>
-  (await requestConfigFor()).locale;
-
-describe('the request locale', () => {
-  it('is English while signed out, whatever the cookie says (R-180)', async () => {
-    expect(await requestLocale()).toBe('en');
-    setRequestCookie('NEXT_LOCALE', 'lt');
-    expect(await requestLocale()).toBe('en');
-  });
-
-  it('is English for a Lithuanian account, whose stored locale stays (R-180)', async () => {
-    request.cookie = await signIn('ruta@example.lt');
-    setRequestCookie('NEXT_LOCALE', 'lt');
-    expect(await requestLocale()).toBe('en');
-    await onboardAs('lt');
-    expect(await requestLocale()).toBe('en');
   });
 });

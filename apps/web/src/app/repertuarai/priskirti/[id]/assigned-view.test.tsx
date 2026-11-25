@@ -9,7 +9,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import type { NoteOutcome } from '../../../repertoire-view';
 import type { ForkState, PauseState } from './actions';
@@ -39,12 +39,11 @@ vi.mock('./actions', () => ({
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const D4 = moveKey(START_KEY, 'd4');
-const lt = MESSAGES.lt;
-const a = lt.assignment;
+const a = MESSAGES.assignment;
 const GRAPH = graphOf(LONDON);
 
 const day = (iso: string): string =>
-  new Intl.DateTimeFormat('lt', {
+  new Intl.DateTimeFormat('en', {
     dateStyle: 'long',
     timeZone: 'Europe/Vilnius',
   }).format(new Date(`${iso}T12:00:00Z`));
@@ -67,7 +66,11 @@ const fork =
 
 function renderView(over: Partial<AssignedRepertoirePage> = {}): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={lt} timeZone="Europe/Vilnius">
+    <NextIntlClientProvider
+      locale="en"
+      messages={MESSAGES}
+      timeZone="Europe/Vilnius"
+    >
       <AssignedView data={{ ...DATA, ...over }} forkAction={fork} />
     </NextIntlClientProvider>,
   );
@@ -75,12 +78,12 @@ function renderView(over: Partial<AssignedRepertoirePage> = {}): void {
 
 const forward = () => {
   fireEvent.click(
-    screen.getByRole('button', { name: lt.repertoires.nav.forward }),
+    screen.getByRole('button', { name: MESSAGES.repertoires.nav.forward }),
   );
 };
 
 const noteField = () =>
-  screen.queryByLabelText<HTMLTextAreaElement>(lt.repertoires.note.label);
+  screen.queryByLabelText<HTMLTextAreaElement>(MESSAGES.repertoires.note.label);
 
 beforeEach(() => {
   server.pause.mockReset().mockResolvedValue({ paused: true });
@@ -95,7 +98,7 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
-    expect(screen.getByText('Priskyrė Jonas')).toBeDefined();
+    expect(screen.getByText('Assigned by Jonas')).toBeDefined();
     expect(
       screen.getByRole('link', { name: a.page.back }).getAttribute('href'),
     ).toBe('/');
@@ -105,9 +108,9 @@ describe('AssignedView (R-21, R-102)', () => {
   it('is read-only: none of the owner’s controls and no comment field', () => {
     renderView();
     forward();
-    const header = lt.repertoires.header;
+    const header = MESSAGES.repertoires.header;
     for (const name of [
-      lt.repertoires.mode.toBuild,
+      MESSAGES.repertoires.mode.toBuild,
       header.rename,
       header.delete,
       header.importInto,
@@ -120,7 +123,7 @@ describe('AssignedView (R-21, R-102)', () => {
   it('downloads the coach’s repertoire as PGN (R-202)', () => {
     renderView();
     const download = screen.getByRole('link', {
-      name: lt.repertoires.header.download,
+      name: MESSAGES.repertoires.header.download,
     });
     expect(download.getAttribute('href')).toBe(`/api/repertoires/${ID}/export`);
     expect(download.hasAttribute('download')).toBe(true);
@@ -130,7 +133,7 @@ describe('AssignedView (R-21, R-102)', () => {
     renderView();
     forward();
     const note = screen.getByRole('region', {
-      name: 'Trenerio pastaba — Jonas',
+      name: 'Coach note from Jonas',
     });
     expect(within(note).getByText('Solid')).toBeDefined();
   });
@@ -139,15 +142,17 @@ describe('AssignedView (R-21, R-102)', () => {
     renderView();
     forward();
     fireEvent.click(
-      screen.getByRole('button', { name: lt.repertoires.note.label }),
+      screen.getByRole('button', { name: MESSAGES.repertoires.note.label }),
     );
     const field = noteField();
     if (field === null) throw new Error('no note field');
     fireEvent.change(field, { target: { value: 'Mano planas' } });
     fireEvent.click(
-      screen.getByRole('button', { name: lt.repertoires.note.save }),
+      screen.getByRole('button', { name: MESSAGES.repertoires.note.save }),
     );
-    expect(await screen.findByText(lt.repertoires.note.saved)).toBeDefined();
+    expect(
+      await screen.findByText(MESSAGES.repertoires.note.saved),
+    ).toBeDefined();
     expect(server.note).toHaveBeenCalledWith({
       repertoireId: ID,
       moveKey: D4,
@@ -158,7 +163,7 @@ describe('AssignedView (R-21, R-102)', () => {
   it('shows the player’s own note and marks its move in the move list', () => {
     renderView({ personalNotes: { [D4]: 'Mano planas' } });
     const d4 = screen.getByRole('button', {
-      name: `1. d4, ${lt.repertoires.moves.hasComment}, ${lt.repertoires.moves.hasNote}`,
+      name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}, ${MESSAGES.repertoires.moves.hasNote}`,
     });
     expect(d4.querySelector('[data-note="personal"]')).not.toBeNull();
     forward();
@@ -181,7 +186,7 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(screen.getByRole('button', { name: a.pause.resume })).toBeDefined();
     expect(screen.getByText(a.pause.pausedHint)).toBeDefined();
     const assignedBy = within(screen.getByRole('banner')).getByText(
-      'Priskyrė Jonas',
+      'Assigned by Jonas',
     );
     expect(assignedBy.nextElementSibling?.textContent).toBe(a.badge.paused);
   });
@@ -192,16 +197,16 @@ describe('AssignedView (R-21, R-102)', () => {
     const deadline = within(header).getByText(
       a.deadlineOn.replace('{date}', day('2026-10-19')),
     );
-    expect(within(header).getByText('Priskyrė Jonas').nextElementSibling).toBe(
-      deadline,
-    );
+    expect(
+      within(header).getByText('Assigned by Jonas').nextElementSibling,
+    ).toBe(deadline);
     expect(deadline.nextElementSibling?.textContent).toBe(a.badge.overdue);
   });
 
   it('shows neither a deadline nor overdue without a deadline', () => {
     renderView();
     const header = screen.getByRole('banner');
-    expect(within(header).queryByText(/Terminas/u)).toBeNull();
+    expect(within(header).queryByText(/Deadline/u)).toBeNull();
     expect(within(header).queryByText(a.badge.overdue)).toBeNull();
   });
 
@@ -237,12 +242,14 @@ describe('AssignedView (R-21, R-102)', () => {
   it('says a move the chapter lacks is the coach’s to change, and offers the copy (#320)', async () => {
     renderView();
     const field = screen.getByLabelText<HTMLInputElement>(
-      lt.board.moveInput.label,
+      MESSAGES.board.moveInput.label,
     );
     fireEvent.change(field, { target: { value: 'e4' } });
     fireEvent.submit(field);
     expect(screen.getByText(a.notInChapter)).toBeDefined();
-    expect(screen.queryByText(lt.repertoires.board.notInRepertoire)).toBeNull();
+    expect(
+      screen.queryByText(MESSAGES.repertoires.board.notInRepertoire),
+    ).toBeNull();
     const offers = screen.getAllByRole('button', { name: a.fork.label });
     expect(offers).toHaveLength(2);
     fireEvent.click(offers[0] ?? field);
@@ -260,9 +267,11 @@ describe('AssignedView (R-21, R-102)', () => {
 
   it('shows a repertoire without chapters as empty, with no note', () => {
     renderView({ graph: { ...GRAPH, chapters: [] } });
-    expect(screen.getByText(lt.repertoires.panel.emptyBrowse)).toBeDefined();
     expect(
-      screen.queryByRole('button', { name: lt.repertoires.note.label }),
+      screen.getByText(MESSAGES.repertoires.panel.emptyBrowse),
+    ).toBeDefined();
+    expect(
+      screen.queryByRole('button', { name: MESSAGES.repertoires.note.label }),
     ).toBeNull();
   });
 });

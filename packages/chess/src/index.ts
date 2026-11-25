@@ -111,7 +111,6 @@ export {
   classify,
   ecoName,
   type ChapterName,
-  type Locale,
 } from './openings/classify';
 export type { EcoEntry } from './openings/data/eco';
 export {

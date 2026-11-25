@@ -33,8 +33,8 @@ We take the feel, not the pixels: no copied layouts, colours or assets.
 4. **Mobile-first.** Design at 390px first, then widen (ruling R-7). Primary
    actions sit in the thumb zone (bottom of the screen on a phone). Installable
    as a PWA, so no layout may depend on browser chrome.
-5. **Lithuanian first.** LT is the default locale (R-1). Design every label
-   for LT length, then check EN (see below).
+5. **Text can grow.** The site is English only for now (R-217), but labels
+   must not depend on their English length (see below).
 6. **Tokens only.** Colours, radii, type sizes and the named spacings come
    from `apps/web/src/app/tokens.css`. A raw hex value or a Tailwind palette
    colour (`bg-blue-600`) in a component is a review finding.
@@ -43,23 +43,16 @@ We take the feel, not the pixels: no copied layouts, colours or assets.
    `min-w-touch`), visible focus everywhere, the board and drills fully
    usable from the keyboard, motion off under `prefers-reduced-motion`.
 
-## Lithuanian text length
-
-Lithuanian runs roughly 20-40% longer than English and has long compound
-words that do not break (opening names, verb forms). So:
+## Text length
 
 - No fixed widths on anything holding text: buttons, chips, tabs and badges
   size to content and may wrap to two lines on a phone.
 - Never truncate a label with an ellipsis on a primary action. Long
   secondary text (an opening name in a list) may clamp to two lines, with the
   full text available on focus or tap.
-- Leave 40% headroom over the English string when sizing a component; check
-  the LT screenshot first in every sign-off.
-- Diacritics (ą č ę ė į š ų ū ž) need the full line height; do not set
-  `leading-none` on text that can contain them.
-- Numbers and dates are formatted by locale (`Intl`), never by hand.
-- Copy itself comes from `i18n-content`; design notes show layout, not final
-  wording.
+- Names may carry diacritics (ą č ę ė į š ų ū ž); do not set `leading-none`
+  on text that can contain them.
+- Numbers and dates are formatted with `Intl`, never by hand.
 
 ## Tokens
 

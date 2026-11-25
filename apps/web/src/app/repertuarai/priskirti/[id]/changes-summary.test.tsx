@@ -12,10 +12,10 @@ import {
   LONDON,
   TAIMANOV,
 } from '../../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import { ChangesSummary } from './changes-summary';
 
-const lt = MESSAGES.lt.assignment.changes;
+const changesText = MESSAGES.assignment.changes;
 const LONDON_GRAPH = graphOf(LONDON);
 const TAIMANOV_GRAPH = graphOf(TAIMANOV, 'black');
 
@@ -37,8 +37,8 @@ function chapterId(graph: RepertoireGraph, index: number): string {
 
 /** The London's chapters are named after their openings, by chapter id. */
 const TAXONOMY_NAMES = {
-  [chapterId(LONDON_GRAPH, 0)]: 'Londono sistema',
-  [chapterId(LONDON_GRAPH, 1)]: 'Ferzio pėstininko partija',
+  [chapterId(LONDON_GRAPH, 0)]: 'London System',
+  [chapterId(LONDON_GRAPH, 1)]: "Queen's Pawn Game",
 };
 
 const NONE: MoveChanges = { added: [], removed: [], commentsChanged: 0 };
@@ -46,10 +46,9 @@ const NONE: MoveChanges = { added: [], removed: [], commentsChanged: 0 };
 function renderSummary(
   changes: MoveChanges,
   graph: RepertoireGraph = LONDON_GRAPH,
-  locale: 'lt' | 'en' = 'lt',
 ) {
   return render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ChangesSummary
         graph={graph}
         changes={changes}
@@ -60,7 +59,7 @@ function renderSummary(
 }
 
 const summary = () =>
-  screen.getByRole('region', { name: MESSAGES.lt.assignment.changes.title });
+  screen.getByRole('region', { name: MESSAGES.assignment.changes.title });
 
 describe('ChangesSummary (R-133)', () => {
   it('shows nothing when nothing changed', () => {
@@ -87,13 +86,16 @@ describe('ChangesSummary (R-133)', () => {
     });
     const region = summary();
     expect(
-      within(region).getByRole('heading', { level: 2, name: lt.title }),
+      within(region).getByRole('heading', {
+        level: 2,
+        name: changesText.title,
+      }),
     ).toBeDefined();
     const chapter = within(region).getByRole('heading', { level: 3 });
-    expect(chapter.textContent).toBe('Skyrius 1 — Londono sistema');
-    expect(within(region).getByText('Pridėta: 2. Bf4')).toBeDefined();
+    expect(chapter.textContent).toBe('Chapter 1 — London System');
+    expect(within(region).getByText('Added: 2. Bf4')).toBeDefined();
     // A removed move is no longer in the graph: no move number for it.
-    expect(within(region).getByText('Pašalinta: c4')).toBeDefined();
+    expect(within(region).getByText('Removed: c4')).toBeDefined();
   });
 
   it('lists the chapters in the repertoire’s order, each with only its own moves', () => {
@@ -130,13 +132,13 @@ describe('ChangesSummary (R-133)', () => {
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent);
     expect(headings).toEqual([
-      'Skyrius 1 — Londono sistema',
-      'Skyrius 2 — Ferzio pėstininko partija',
+      'Chapter 1 — London System',
+      "Chapter 2 — Queen's Pawn Game",
     ]);
     // Within a chapter, in the order they are played.
-    expect(screen.getByText('Pridėta: 2. Bf4 ir 4. Nf3')).toBeDefined();
-    expect(screen.getByText('Pridėta: 2. Bf4')).toBeDefined();
-    expect(screen.queryByText(/Pašalinta/)).toBeNull();
+    expect(screen.getByText('Added: 2. Bf4 and 4. Nf3')).toBeDefined();
+    expect(screen.getByText('Added: 2. Bf4')).toBeDefined();
+    expect(screen.queryByText(/Removed/)).toBeNull();
   });
 
   it('puts the moves the chapter does not have after those it has, as they came', () => {
@@ -163,7 +165,7 @@ describe('ChangesSummary (R-133)', () => {
       commentsChanged: 0,
     });
     expect(
-      screen.getByText('Pašalinta: 2. Bf4, 4. Nf3, Nf6 ir d5'),
+      screen.getByText('Removed: 2. Bf4, 4. Nf3, Nf6, and d5'),
     ).toBeDefined();
   });
 
@@ -171,7 +173,7 @@ describe('ChangesSummary (R-133)', () => {
     const afterD5 = keyAfter(LONDON_GRAPH, 'd4', 'd5');
     const afterNf6 = keyAfter(LONDON_GRAPH, 'd4', 'Nf6');
     render(
-      <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ChangesSummary
           graph={LONDON_GRAPH}
           changes={{
@@ -235,7 +237,7 @@ describe('ChangesSummary (R-133)', () => {
     );
     expect(
       within(summary()).getByRole('heading', { level: 3 }).textContent,
-    ).toBe('Skyrius 1');
+    ).toBe('Chapter 1');
   });
 
   it('numbers Black’s moves with an ellipsis', () => {
@@ -253,7 +255,7 @@ describe('ChangesSummary (R-133)', () => {
       },
       TAIMANOV_GRAPH,
     );
-    expect(screen.getByText('Pridėta: 1... c5')).toBeDefined();
+    expect(screen.getByText('Added: 1... c5')).toBeDefined();
   });
 
   it('names a move the chapter does not have by its move alone', () => {
@@ -268,7 +270,7 @@ describe('ChangesSummary (R-133)', () => {
       ],
       commentsChanged: 0,
     });
-    expect(screen.getByText('Pašalinta: Nf6')).toBeDefined();
+    expect(screen.getByText('Removed: Nf6')).toBeDefined();
   });
 
   it('puts the moves of a chapter deleted since under "deleted chapters", last', () => {
@@ -290,34 +292,21 @@ describe('ChangesSummary (R-133)', () => {
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent);
     expect(headings).toEqual([
-      'Skyrius 1 — Londono sistema',
-      lt.deletedChapters,
+      'Chapter 1 — London System',
+      changesText.deletedChapters,
     ]);
-    expect(screen.getByText('Pašalinta: e4 ir c4')).toBeDefined();
+    expect(screen.getByText('Removed: e4 and c4')).toBeDefined();
   });
 
-  it('counts the moves whose comments or marks changed, in Lithuanian plural forms', () => {
+  it('counts the moves whose comments or marks changed, singular and plural', () => {
     for (const [count, text] of [
-      [1, 'Pakeisti 1 ėjimo komentarai ar žymės'],
-      [3, 'Pakeisti 3 ėjimų komentarai ar žymės'],
-      [10, 'Pakeisti 10 ėjimų komentarai ar žymės'],
+      [1, 'Comments or marks changed on 1 move'],
+      [2, 'Comments or marks changed on 2 moves'],
     ] as const) {
       const { unmount } = renderSummary({ ...NONE, commentsChanged: count });
       expect(within(summary()).getByText(text)).toBeDefined();
       expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
       unmount();
     }
-  });
-
-  it('speaks English on the English page', () => {
-    renderSummary({ ...NONE, commentsChanged: 2 }, LONDON_GRAPH, 'en');
-    expect(
-      screen.getByRole('heading', {
-        name: 'Your coach updated this repertoire',
-      }),
-    ).toBeDefined();
-    expect(
-      screen.getByText('Comments or marks changed on 2 moves'),
-    ).toBeDefined();
   });
 });

@@ -115,7 +115,7 @@ describe('editRepertoireAction: moves', () => {
       ok: true,
       version: 2,
       graph: expected.value,
-      names: chapterNamesOf(expected.value, 'lt'),
+      names: chapterNamesOf(expected.value),
     });
     const now = await stored(empty, rokas);
     expect(now.version).toBe(2);

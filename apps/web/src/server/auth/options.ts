@@ -3,11 +3,9 @@ import { authSchema, findAccountById, type Db } from '@mychess/db';
 import {
   canOpenSession,
   DEFAULT_ENTITLEMENT,
-  DEFAULT_LOCALE,
   FRESH_AGE_SECONDS,
   GOOGLE,
   LICHESS,
-  LOCALES,
   MAGIC_LINK_RATE_LIMIT,
   signInEmail,
 } from '@mychess/domain';
@@ -21,8 +19,6 @@ import { createAuthMiddleware } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
-import { z } from 'zod';
-import { resolveLocale } from '../../i18n/locales';
 import { ROUTES } from '../../lib/routes';
 import { refusalError } from '../auth-refusal';
 import { googleConfigured, type WebEnv } from '../env';
@@ -30,7 +26,6 @@ import { magicLinkMail, type Mailer } from '../mail';
 import { noteLichessUnlinked } from '../lichess-unlinked';
 import { lichessUserInfo } from '../oauth/lichess';
 import { endUnlinkedProviderSession } from '../provider-session';
-import { linkWithLocale, signUpLocale } from '../sign-up-locale';
 import { testSignInPlugin } from '../test-sign-in';
 import { provingGoogleUserInfo, validateUserInfo } from './provider-join';
 import { beforeRequest } from './request-hooks';
@@ -69,14 +64,12 @@ function databaseHooks(db: Db): DatabaseHooks {
   return {
     user: {
       create: {
-        // Canonical email (security item 6); the language the person was
-        // using (R-85).
-        before: (account, ctx) =>
+        // Canonical email (security item 6).
+        before: (account) =>
           Promise.resolve({
             data: {
               ...account,
               email: newAccountEmail(account.email),
-              locale: signUpLocale(ctx),
             },
           }),
       },
@@ -93,7 +86,6 @@ function databaseHooks(db: Db): DatabaseHooks {
 
 // Our fields are never client input: no request can set them (decision 8).
 const accountFields = {
-  locale: { type: 'string', defaultValue: DEFAULT_LOCALE, input: false },
   entitlement: {
     type: 'string',
     defaultValue: DEFAULT_ENTITLEMENT,
@@ -166,17 +158,12 @@ const DISABLED_PATHS = [
   '/account-info',
 ];
 
-const metadataSchema = z.object({ locale: z.enum(LOCALES) }).partial();
-
 function magicLinkPlugin(mail: Mailer) {
   return magicLink({
     expiresIn: 15 * 60,
     storeToken: 'hashed',
-    sendMagicLink: async ({ email, url, metadata }) => {
-      const parsed = metadataSchema.safeParse(metadata ?? {});
-      const asked = parsed.success ? parsed.data.locale : undefined;
-      const link = linkWithLocale(url, asked);
-      await mail.send(magicLinkMail(resolveLocale(asked), email, link));
+    sendMagicLink: async ({ email, url }) => {
+      await mail.send(magicLinkMail(email, url));
     },
   });
 }

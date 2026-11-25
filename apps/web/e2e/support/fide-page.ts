@@ -3,9 +3,7 @@
 // (community-broadcasts.spec.ts).
 import { expect, type Locator, type Page } from '@playwright/test';
 import { FIXTURE_MONTHS } from './broadcast-fixture';
-import { CATALOGUES, format } from './journey';
-
-const { en } = CATALOGUES;
+import { en, format } from './journey';
 
 /** Waiting for the runner: one poll every 5 s, two tiny months. */
 export const MONTHS_READY_MS = 60_000;

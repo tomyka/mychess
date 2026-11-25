@@ -3,18 +3,17 @@
 import { stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
-import { format, type Locale, type Messages } from './journey';
+import { format, LOCALE, type Messages } from './journey';
 
 /**
  * A catalogue message with ICU `plural`s (and plain placeholders), as the
- * app renders it in `locale`.
+ * app renders it.
  */
 export function plural(
   message: string,
-  locale: Locale,
   values: Readonly<Record<string, number | string>>,
 ): string {
-  const rules = new Intl.PluralRules(locale);
+  const rules = new Intl.PluralRules(LOCALE);
   const text = message.replace(
     /\{(\w+), plural, ((?:[=\w]+ \{[^{}]*\}\s*)+)\}/g,
     (_whole, name: string, branches: string) => {
@@ -185,7 +184,6 @@ const COUNTS = [
 export async function expectSummary(
   page: Page,
   messages: Messages,
-  locale: Locale,
   counts: SummaryCounts,
 ): Promise<void> {
   const t = messages.repertoires.import;
@@ -194,7 +192,7 @@ export async function expectSummary(
   ).toBeVisible();
   for (const key of COUNTS)
     await expect(
-      page.getByText(plural(t.summary[key], locale, { count: counts[key] }), {
+      page.getByText(plural(t.summary[key], { count: counts[key] }), {
         exact: true,
       }),
     ).toBeVisible();

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { CreateGroupState } from './actions';
 import { GroupsSection, type CoachGroupRow } from './groups-section';
 
@@ -14,7 +14,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ createGroupAction: server.create }));
 
-const g = MESSAGES.lt.coach.groups;
+const g = MESSAGES.coach.groups;
 
 const GROUPS: readonly CoachGroupRow[] = [
   { id: 'g-1', name: 'Sekmadienio grupė', memberCount: 1 },
@@ -22,12 +22,9 @@ const GROUPS: readonly CoachGroupRow[] = [
   { id: 'g-3', name: 'Vakarinė grupė', memberCount: 12 },
 ];
 
-function renderSection(
-  groups: readonly CoachGroupRow[],
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderSection(groups: readonly CoachGroupRow[]): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <GroupsSection groups={groups} />
     </NextIntlClientProvider>,
   );
@@ -59,9 +56,9 @@ describe('GroupsSection', () => {
           item.textContent,
         ]),
     ).toEqual([
-      ['/treneris/grupes/g-1', 'Sekmadienio grupė1 žaidėjas'],
-      ['/treneris/grupes/g-2', 'Šeštadienio grupė3 žaidėjai'],
-      ['/treneris/grupes/g-3', 'Vakarinė grupė12 žaidėjų'],
+      ['/treneris/grupes/g-1', 'Sekmadienio grupė1 player'],
+      ['/treneris/grupes/g-2', 'Šeštadienio grupė3 players'],
+      ['/treneris/grupes/g-3', 'Vakarinė grupė12 players'],
     ]);
   });
 
@@ -89,7 +86,7 @@ describe('GroupsSection', () => {
     fireEvent.click(create());
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(
-        MESSAGES.lt.coach.groupLimit,
+        MESSAGES.coach.groupLimit,
       );
     });
     expect(nameField().value).toBe('Grupė 11');
@@ -102,7 +99,7 @@ describe('GroupsSection', () => {
     renderSection([]);
     fireEvent.change(nameField(), { target: { value: 'Grupė' } });
     fireEvent.click(create());
-    const i = MESSAGES.lt.coach.invites;
+    const i = MESSAGES.coach.invites;
     expect((await screen.findByLabelText<HTMLInputElement>(i.link)).value).toBe(
       link,
     );
@@ -111,7 +108,7 @@ describe('GroupsSection', () => {
   });
 
   it('shows each new group’s own link, the 4th as well as the 1st (ux sign-off)', async () => {
-    const i = MESSAGES.lt.coach.invites;
+    const i = MESSAGES.coach.invites;
     renderSection([]);
     for (let n = 1; n <= 4; n += 1) {
       const link = `http://localhost:3000/k/${String(n)}`;
@@ -143,15 +140,9 @@ describe('GroupsSection', () => {
     expect(
       await screen.findByText(g.createdNoLink.replace('{limit}', '50')),
     ).toBeDefined();
-    expect(screen.queryByLabelText(MESSAGES.lt.coach.invites.link)).toBeNull();
+    expect(screen.queryByLabelText(MESSAGES.coach.invites.link)).toBeNull();
     // The group was made: the field is empty again and not marked invalid.
     expect(nameField().value).toBe('');
     expect(nameField().getAttribute('aria-invalid')).toBeNull();
-  });
-
-  it('counts players in English on the English page', () => {
-    renderSection(GROUPS.slice(0, 2), 'en');
-    expect(screen.getByText('1 player')).toBeDefined();
-    expect(screen.getByText('3 players')).toBeDefined();
   });
 });

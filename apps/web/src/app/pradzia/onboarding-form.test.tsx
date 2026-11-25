@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { OnboardingState } from './actions';
 import { OnboardingForm } from './onboarding-form';
 
@@ -14,26 +14,23 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ completeOnboardingAction: server.action }));
 
-const lt = MESSAGES.lt;
-const en = MESSAGES.en;
+const o = MESSAGES.onboarding;
 
 function renderForm(
   displayName = 'Rūta Jonaitė',
-  locale: 'lt' | 'en' = 'lt',
   next: string | null = null,
 ): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <OnboardingForm displayName={displayName} locale={locale} next={next} />
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
+      <OnboardingForm displayName={displayName} next={next} />
     </NextIntlClientProvider>,
   );
 }
 
-const nameField = (label = lt.onboarding.displayName) =>
-  screen.getByLabelText<HTMLInputElement>(label);
+const nameField = () => screen.getByLabelText<HTMLInputElement>(o.displayName);
 const status = () => screen.getByRole('status');
-const submit = (label = lt.onboarding.submit) => {
-  fireEvent.click(screen.getByRole('button', { name: label }));
+const submit = () => {
+  fireEvent.click(screen.getByRole('button', { name: o.submit }));
 };
 
 /** The form the action was last called with, as plain fields. */
@@ -48,18 +45,17 @@ beforeEach(() => {
 });
 
 describe('OnboardingForm', () => {
-  it('welcomes the account with the name prefilled and no language choice (R-81, R-180)', () => {
-    renderForm('Ruta', 'en');
+  it('welcomes the account with the name prefilled and its hint (R-81)', () => {
+    renderForm('Ruta');
     expect(
-      screen.getByRole('heading', { level: 1, name: en.onboarding.title }),
+      screen.getByRole('heading', { level: 1, name: o.title }),
     ).toBeDefined();
-    expect(screen.getByText(en.onboarding.introNameOnly)).toBeDefined();
-    expect(screen.queryByText(en.onboarding.intro)).toBeNull();
-    expect(nameField(en.onboarding.displayName).value).toBe('Ruta');
+    expect(screen.getByText(o.intro)).toBeDefined();
+    expect(nameField().value).toBe('Ruta');
+    expect(nameField().getAttribute('aria-describedby')).toBe(
+      screen.getByText(o.displayNameHint).id,
+    );
     expect(screen.queryByRole('radio')).toBeNull();
-    expect(
-      screen.queryByRole('group', { name: en.onboarding.language }),
-    ).toBeNull();
     expect(status().textContent).toBe('');
   });
 
@@ -68,41 +64,32 @@ describe('OnboardingForm', () => {
     expect(nameField().value).toBe('');
   });
 
-  it('sends the name with the account’s stored language, unchanged (R-180)', async () => {
+  it('sends only the typed name', async () => {
     renderForm();
     fireEvent.change(nameField(), { target: { value: 'Rūta' } });
     submit();
     await waitFor(() => {
       expect(server.action).toHaveBeenCalledTimes(1);
     });
-    expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'lt' });
-  });
-
-  it('keeps an English account English', async () => {
-    renderForm('Ruta', 'en');
-    submit(en.onboarding.submit);
-    await waitFor(() => {
-      expect(server.action).toHaveBeenCalledTimes(1);
-    });
-    expect(submitted()).toEqual({ displayName: 'Ruta', locale: 'en' });
+    expect(submitted()).toEqual({ displayName: 'Rūta' });
   });
 
   it('sends the return path along when there is one (R-81)', async () => {
     const next = `/k/${'A'.repeat(42)}_`;
-    renderForm('Rūta', 'lt', next);
+    renderForm('Rūta', next);
     submit();
     await waitFor(() => {
       expect(server.action).toHaveBeenCalledTimes(1);
     });
-    expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'lt', next });
+    expect(submitted()).toEqual({ displayName: 'Rūta', next });
   });
 
-  it('shows a refusal in the page language and marks the name field', async () => {
+  it('shows a refusal and marks the name field', async () => {
     server.action.mockResolvedValue({ refusal: 'displayName.blank' });
     renderForm('');
     submit();
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.displayName.blank);
+      expect(status().textContent).toBe(MESSAGES.displayName.blank);
     });
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
     expect(nameField().getAttribute('aria-describedby')).toContain(status().id);
@@ -115,19 +102,9 @@ describe('OnboardingForm', () => {
     fireEvent.change(nameField(), { target: { value: long } });
     submit();
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.displayName.tooLong);
+      expect(status().textContent).toBe(MESSAGES.displayName.tooLong);
     });
     expect(nameField().value).toBe(long);
-  });
-
-  it('does not mark the name field for a language refusal', async () => {
-    server.action.mockResolvedValue({ refusal: 'account.localeInvalid' });
-    renderForm();
-    submit();
-    await waitFor(() => {
-      expect(status().textContent).toBe(lt.account.localeInvalid);
-    });
-    expect(nameField().getAttribute('aria-invalid')).toBeNull();
   });
 
   it('cannot send twice while saving', async () => {
@@ -139,7 +116,7 @@ describe('OnboardingForm', () => {
     );
     renderForm();
     submit();
-    const button = screen.getByRole('button', { name: lt.onboarding.submit });
+    const button = screen.getByRole('button', { name: o.submit });
     await waitFor(() => {
       expect(button.hasAttribute('disabled')).toBe(true);
     });

@@ -11,8 +11,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "eco:generate": "node scripts/generate-eco.mjs",
-    "eco:generate:lt": "node scripts/generate-eco-lt.mjs"
+    "eco:generate": "node scripts/generate-eco.mjs"
   },
   "dependencies": {
     "chess.js": "1.4.0",

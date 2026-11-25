@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import OnboardingPage from './page';
 
 /** The error the mocked `redirect` throws, naming where it sends. */
@@ -17,7 +17,6 @@ class Redirected extends Error {
 
 interface SignedIn {
   displayName: string;
-  locale: 'lt' | 'en';
   onboardedAt: Date | null;
 }
 
@@ -26,7 +25,7 @@ interface SignedIn {
 // whether the session is fresh enough to export (R-95).
 const server = vi.hoisted(() => {
   const state: { account: SignedIn; fresh: boolean } = {
-    account: { displayName: '', locale: 'lt', onboardedAt: null },
+    account: { displayName: '', onboardedAt: null },
     fresh: true,
   };
   return state;
@@ -75,7 +74,7 @@ vi.mock('./actions', () => ({ completeOnboardingAction: vi.fn() }));
 vi.mock('../nustatymai/actions', () => ({ deleteAccountAction: vi.fn() }));
 
 beforeEach(() => {
-  server.account = { displayName: '', locale: 'lt', onboardedAt: null };
+  server.account = { displayName: '', onboardedAt: null };
   server.fresh = true;
 });
 
@@ -84,13 +83,10 @@ type Search = Record<string, string | string[] | undefined>;
 const page = (search: Search = {}): Promise<JSX.Element> =>
   OnboardingPage({ searchParams: Promise.resolve(search) });
 
-async function renderPage(
-  locale: 'lt' | 'en',
-  search: Search = {},
-): Promise<void> {
+async function renderPage(search: Search = {}): Promise<void> {
   const element = await page(search);
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {element}
     </NextIntlClientProvider>,
   );
@@ -119,38 +115,31 @@ describe('the onboarding page', () => {
   });
 
   it('hands the first return path to the form as a hidden field', async () => {
-    await renderPage('lt', { next: [NEXT, '/nustatymai'] });
+    await renderPage({ next: [NEXT, '/nustatymai'] });
     expect(hiddenNext()?.value).toBe(NEXT);
   });
 
   it('hands the form no return path that is not an invite', async () => {
-    await renderPage('lt', { next: 'https://evil.example/' });
+    await renderPage({ next: 'https://evil.example/' });
     expect(document.querySelector('input[name="next"]')).toBeNull();
   });
 
-  it("prefills the provider's name and keeps the account's stored language (R-180)", async () => {
-    server.account = {
-      displayName: 'Ruta J',
-      locale: 'lt',
-      onboardedAt: null,
-    };
-    await renderPage('en');
+  it("prefills the provider's name", async () => {
+    server.account = { displayName: 'Ruta J', onboardedAt: null };
+    await renderPage();
     expect(
-      screen.getByLabelText<HTMLInputElement>(
-        MESSAGES.en.onboarding.displayName,
-      ).value,
+      screen.getByLabelText<HTMLInputElement>(MESSAGES.onboarding.displayName)
+        .value,
     ).toBe('Ruta J');
     expect(screen.queryByRole('radio')).toBeNull();
-    expect(
-      document.querySelector<HTMLInputElement>('input[name="locale"]')?.value,
-    ).toBe('lt');
+    expect(document.querySelector('input[name="locale"]')).toBeNull();
   });
 
   it('offers to delete the account, confirmed by its email (R-86)', async () => {
-    server.account = { displayName: 'Ruta J', locale: 'lt', onboardedAt: null };
-    await renderPage('lt');
-    const d = MESSAGES.lt.settings.delete;
-    const disclosure = screen.getByText(MESSAGES.lt.onboarding.deleteAccount, {
+    server.account = { displayName: 'Ruta J', onboardedAt: null };
+    await renderPage();
+    const d = MESSAGES.settings.delete;
+    const disclosure = screen.getByText(MESSAGES.onboarding.deleteAccount, {
       selector: 'summary',
     });
     expect(disclosure.closest('details')?.open).toBe(false);
@@ -165,24 +154,24 @@ describe('the onboarding page', () => {
     ).toBeDefined();
     expect(
       screen
-        .getByRole('link', { hidden: true, name: 'atsisiųskite savo duomenis' })
+        .getByRole('link', { hidden: true, name: 'download your data' })
         .getAttribute('href'),
     ).toBe('/api/account/export');
   });
 
   it('asks a session older than a day to sign in again before exporting (R-95)', async () => {
     server.fresh = false;
-    await renderPage('lt');
+    await renderPage();
     expect(screen.queryByRole('link', { hidden: true })).toBeNull();
     expect(screen.getByRole('note', { hidden: true }).textContent).toBe(
-      MESSAGES.lt.settings.export.notFresh,
+      MESSAGES.settings.export.notFresh,
     );
   });
 
   it('hands the delete disclosure only what deciding a deletion needs', async () => {
-    server.account = { displayName: 'Ruta J', locale: 'lt', onboardedAt: null };
+    server.account = { displayName: 'Ruta J', onboardedAt: null };
     handed.accounts = [];
-    await renderPage('lt');
+    await renderPage();
     expect(handed.accounts).toStrictEqual([
       { displayName: 'Ruta J', email: 'ruta@example.lt', onboardedAt: null },
     ]);

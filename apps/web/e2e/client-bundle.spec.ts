@@ -24,18 +24,16 @@ const ECO_DATA = new URL(
 const ecoEntry = z.object({ name: z.string() });
 
 /**
- * The opening names in both languages. A name with a quote or a backslash
- * is left out: the bundler escapes it inside the inlined JSON, so it would
- * never match.
+ * The opening names. A name with a quote or a backslash is left out: the
+ * bundler escapes it inside the inlined JSON, so it would never match.
  */
 async function openingNames(): Promise<string[]> {
   const read = async (file: string): Promise<unknown> =>
     JSON.parse(await readFile(new URL(file, ECO_DATA), 'utf8'));
-  const english = z.array(ecoEntry).parse(await read('eco.json'));
-  const lithuanian = z
-    .record(z.string(), z.string())
-    .parse(await read('eco-lt.json'));
-  const names = [...english.map((e) => e.name), ...Object.values(lithuanian)];
+  const names = z
+    .array(ecoEntry)
+    .parse(await read('eco.json'))
+    .map((e) => e.name);
   return [...new Set(names)].filter((name) => !/['"\\]/.test(name));
 }
 

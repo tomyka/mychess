@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { TrainingFrame } from './training-frame';
 
 vi.mock('@lichess-org/chessground', () => ({
@@ -15,7 +15,7 @@ vi.mock('@lichess-org/chessground', () => ({
   }),
 }));
 
-const T = MESSAGES.lt.training;
+const T = MESSAGES.training;
 
 /** Elements Tab reaches, in the order it reaches them. */
 const FOCUSABLE = 'a[href], button, input, [tabindex]:not([tabindex="-1"])';
@@ -33,7 +33,7 @@ function renderFrame(parts: {
   subtitle?: string;
 }) {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainingFrame
         mode="review"
         backHref="/"

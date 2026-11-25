@@ -3,7 +3,7 @@
 // home, and the dates they show.
 import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page } from '@playwright/test';
-import { format, type Locale, type Messages } from './journey';
+import { format, LOCALE, type Messages } from './journey';
 import { previewImport } from './repertoires';
 
 /** A PGN under e2e/fixtures. */
@@ -23,13 +23,9 @@ export function vilniusDay(days = 0): string {
   return moved.toISOString().slice(0, 10);
 }
 
-/** A deadline as the app writes it in `locale` (src/app/use-deadline.ts). */
-export function deadlineText(
-  messages: Messages,
-  locale: Locale,
-  day: string,
-): string {
-  const date = new Intl.DateTimeFormat(locale, {
+/** A deadline as the app writes it (src/app/use-deadline.ts). */
+export function deadlineText(messages: Messages, day: string): string {
+  const date = new Intl.DateTimeFormat(LOCALE, {
     dateStyle: 'long',
     timeZone: VILNIUS,
   }).format(new Date(`${day}T12:00:00Z`));

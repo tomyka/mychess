@@ -28,7 +28,7 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-const JONAS = { id: 'jonas', locale: 'lt' };
+const JONAS = { id: 'jonas' };
 const COUNTS = { notStarted: 1, skipped: 2, due: 3, learned: 4 };
 const REF = { id: REPERTOIRE, name: 'Karo-Kan', side: 'black' } as const;
 const BADGES = { overdue: true, paused: false, forked: false, updated: false };
@@ -61,8 +61,8 @@ const VIEW: RepertoireProgressView = {
 };
 
 /**
- * Three Caro-Kann chapters, each named after its opening on import; the
- * Advance (B12) and the Two Knights (B11) share their Lithuanian name.
+ * Three Caro-Kann chapters, each named after the line its main line reaches
+ * (R-216), so no two share a title.
  */
 function caroKann(): RepertoireGraph {
   const imported = importPgn(
@@ -135,7 +135,7 @@ describe('coachProgressData', () => {
     );
   });
 
-  it('gives the standing and names each chapter in the coach’s locale', async () => {
+  it('gives the standing and names each chapter', async () => {
     server.repertoire.mockResolvedValue(VIEW);
     expect(await coachProgressData(PLAYER, REPERTOIRE)).toEqual({
       player: { id: PLAYER, displayName: 'Rokas' },
@@ -176,17 +176,13 @@ describe('coachProgressData', () => {
     ]);
   });
 
-  it('keeps titles plain where the coach’s language names them apart', async () => {
-    for (const locale of ['lt', 'en'] as const) {
-      // A Lithuanian coach is served English too (R-180).
-      server.coach.mockResolvedValue({ ...JONAS, locale });
-      server.repertoire.mockResolvedValue(viewOf(caroKann()));
-      const page = await coachProgressData(PLAYER, REPERTOIRE);
-      expect(page.chapters.map((chapter) => chapter.title)).toEqual([
-        'Caro-Kann Defense: Advance Variation',
-        'Caro-Kann Defense: Classical Variation',
-        'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
-      ]);
-    }
+  it('keeps titles plain where their names tell them apart', async () => {
+    server.repertoire.mockResolvedValue(viewOf(caroKann()));
+    const page = await coachProgressData(PLAYER, REPERTOIRE);
+    expect(page.chapters.map((chapter) => chapter.title)).toEqual([
+      'Caro-Kann Defense: Advance Variation',
+      'Caro-Kann Defense: Classical Variation',
+      'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
+    ]);
   });
 });

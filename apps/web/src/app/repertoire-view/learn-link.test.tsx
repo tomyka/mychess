@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { LearnLink } from './learn-link';
 import type { PanelTraining } from './train-buttons';
 
@@ -26,10 +26,9 @@ function renderLink(
   learnedToday: number,
   focus: { chapterId: string; lineIndex?: number },
   subject?: string,
-  locale: 'en' | 'lt' = 'en',
 ) {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <LearnLink
         training={training(learnedToday)}
         graph={london}
@@ -69,15 +68,6 @@ describe('LearnLink (R-206)', () => {
     expect(link.getAttribute('href')).toBe(
       `/treniruote?mode=learn&r=r1&chapter=${chapterId}&line=1`,
     );
-  });
-
-  it('names the line in Lithuanian', () => {
-    renderLink(0, { chapterId, lineIndex: 0 }, undefined, 'lt');
-    expect(
-      screen.getByRole('link', {
-        name: 'Mokytis 2 naujų ėjimų šiame variante',
-      }),
-    ).toBeDefined();
   });
 
   it('is hidden when learning it would teach nothing today', () => {

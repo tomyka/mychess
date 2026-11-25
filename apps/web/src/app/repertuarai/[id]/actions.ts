@@ -214,6 +214,6 @@ export async function editRepertoireAction(
     ok: true,
     graph,
     version: edited.value.version,
-    names: chapterNamesOf(graph, account.locale),
+    names: chapterNamesOf(graph),
   };
 }

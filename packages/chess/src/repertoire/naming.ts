@@ -1,18 +1,12 @@
 /**
  * How a chapter is named from its moves. R-63: an imported game is named
  * from the opening taxonomy first: the named lines of
- * lichess-org/chess-openings (R-216), in Lithuanian by ECO code
- * (šachmatai.lt). R-104: a chapter built on the board is named the same way
+ * lichess-org/chess-openings (R-216). R-104: a chapter built on the board is named the same way
  * as its moves grow, and is "Chapter N" only while its line is too short to
  * classify. A name its owner typed, or one a PGN header
  * gave, is never replaced.
  */
-import {
-  classifyKeys,
-  ecoName,
-  openingName,
-  type Locale,
-} from '../openings/classify';
+import { classifyKeys, ecoName } from '../openings/classify';
 import type { EcoEntry } from '../openings/data/eco';
 import { START_KEY } from '../position-key';
 import {
@@ -93,13 +87,12 @@ export function renamedByMoves(
 }
 
 /**
- * Each taxonomy-named chapter's opening name in `locale`, by chapter id:
+ * Each taxonomy-named chapter's opening name, by chapter id:
  * the named line its main line reaches, else its stored code's family name.
  * Derived whenever titles are built, so nothing is stored (R-216).
  */
 export function taxonomyNames(
   graph: RepertoireGraph,
-  locale: Locale,
 ): ReadonlyMap<string, string> {
   const walks = chapterWalks(graph);
   return new Map(
@@ -107,10 +100,7 @@ export function taxonomyNames(
       const source = chapter.nameSource;
       if (source.kind !== 'eco') return [];
       const entry = chapterOpening(chapter, walks(chapter.id).mainLine());
-      const name =
-        entry === null
-          ? ecoName(source.eco, locale)
-          : openingName(entry, locale);
+      const name = entry === null ? ecoName(source.eco) : entry.name;
       return [[chapter.id, name] as const];
     }),
   );

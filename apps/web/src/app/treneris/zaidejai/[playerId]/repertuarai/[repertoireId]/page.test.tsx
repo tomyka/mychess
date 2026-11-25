@@ -5,7 +5,7 @@ import {
   graphOf,
   TAIMANOV,
 } from '../../../../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../../../../i18n/locales';
+import { MESSAGES } from '../../../../../../i18n/catalogue';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import SharedRepertoireLoading from './loading';
 import CoachSharedRepertoirePage from './page';
@@ -50,7 +50,7 @@ describe('the coach’s page of a shared repertoire', () => {
       names: { taxonomyNames: {}, distinctions: {} },
     });
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await CoachSharedRepertoirePage({
           params: Promise.resolve({ playerId: 'p-1', repertoireId: ID }),
         })}
@@ -60,7 +60,7 @@ describe('the coach’s page of a shared repertoire', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Taimanovas' }),
     ).toBeDefined();
-    expect(screen.getByText(MESSAGES.lt.coach.shared.readOnly)).toBeDefined();
+    expect(screen.getByText(MESSAGES.coach.shared.readOnly)).toBeDefined();
     expect(screen.getByRole('application')).toBeDefined();
   });
 });
@@ -68,7 +68,7 @@ describe('the coach’s page of a shared repertoire', () => {
 describe('the coach’s page of a shared repertoire while it loads', () => {
   const renderLoading = () =>
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <SharedRepertoireLoading />
       </NextIntlClientProvider>,
     );
@@ -88,7 +88,7 @@ describe('the coach’s page of a shared repertoire while it loads', () => {
       act(() => {
         vi.advanceTimersByTime(1000);
       });
-      expect(line.textContent).toBe(MESSAGES.lt.repertoires.loading);
+      expect(line.textContent).toBe(MESSAGES.repertoires.loading);
     } finally {
       vi.useRealTimers();
     }

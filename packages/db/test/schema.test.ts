@@ -21,29 +21,19 @@ const insertAudit = (action: string, hash: string) =>
   );
 
 describe('the accounts schema', () => {
-  it('defaults a new account to Lithuanian, free, not admin, not onboarded', async () => {
+  it('defaults a new account to free, not admin, not onboarded', async () => {
     await insertAccount('a1', 'ruta@example.lt');
     const { rows } = await client.query(
-      'select locale, entitlement, admin, disabled_at, onboarded_at from accounts',
+      'select entitlement, admin, disabled_at, onboarded_at from accounts',
     );
     expect(rows).toEqual([
       {
-        locale: 'lt',
         entitlement: 'free',
         admin: false,
         disabled_at: null,
         onboarded_at: null,
       },
     ]);
-  });
-
-  it('refuses a locale outside Lithuanian and English', async () => {
-    await expect(
-      client.query(
-        `insert into accounts (id, email, display_name, locale, created_at, updated_at)
-         values ('a1', 'ruta@example.lt', '', 'de', now(), now())`,
-      ),
-    ).rejects.toThrow(/check/);
   });
 
   it('refuses an entitlement that does not exist', async () => {

@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { CoachActionState } from './actions';
 import { PlayersList, type CoachPlayerRow } from './players-list';
 
@@ -20,7 +20,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ unlinkPlayerAction: server.unlink }));
 
-const p = MESSAGES.lt.coach.players;
+const p = MESSAGES.coach.players;
 
 const ROKAS: CoachPlayerRow = {
   id: 'p-1',
@@ -46,20 +46,17 @@ const GABIJA: CoachPlayerRow = {
 
 /** "Linked since" with `date` written as the page writes it, in Vilnius. */
 const linkedSince = (date: Date): string =>
-  MESSAGES.lt.coach.player.linkedSince.replace(
+  MESSAGES.coach.player.linkedSince.replace(
     '{date}',
-    new Intl.DateTimeFormat('lt', {
+    new Intl.DateTimeFormat('en', {
       dateStyle: 'medium',
       timeZone: 'Europe/Vilnius',
     }).format(date),
   );
 
-function renderList(
-  players: readonly CoachPlayerRow[],
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderList(players: readonly CoachPlayerRow[]): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PlayersList players={players} />
     </NextIntlClientProvider>,
   );
@@ -93,7 +90,7 @@ describe('PlayersList', () => {
     ]);
     expect(
       playerItem('Rokas').getByText(
-        'Grupės: Sekmadienio grupė ir Šeštadienio grupė',
+        'Groups: Sekmadienio grupė and Šeštadienio grupė',
       ),
     ).toBeDefined();
     expect(playerItem('Gabija').getByText(p.noGroups)).toBeDefined();
@@ -102,16 +99,16 @@ describe('PlayersList', () => {
   it('says when each player last trained (R-154)', () => {
     renderList([ROKAS, GABIJA]);
     expect(
-      playerItem('Rokas').getByText(MESSAGES.lt.coach.progress.yesterday),
+      playerItem('Rokas').getByText(MESSAGES.coach.progress.yesterday),
     ).toBeDefined();
     expect(
-      playerItem('Gabija').getByText(MESSAGES.lt.coach.progress.neverTrained),
+      playerItem('Gabija').getByText(MESSAGES.coach.progress.neverTrained),
     ).toBeDefined();
   });
 
-  it('joins the group names as the locale joins a list', () => {
+  it('joins the group names as English joins a list', () => {
     const three = [...ROKAS.groups, { id: 'g-3', name: 'Jaunimas' }];
-    renderList([{ ...ROKAS, groups: three }], 'en');
+    renderList([{ ...ROKAS, groups: three }]);
     expect(
       playerItem('Rokas').getByText(
         'Groups: Sekmadienio grupė, Šeštadienio grupė, and Jaunimas',
@@ -146,7 +143,7 @@ describe('PlayersList', () => {
     fireEvent.click(gabija.getByRole('button', { name: p.confirmUnlink }));
     await waitFor(() => {
       expect(players.getByRole('status').textContent).toBe(
-        MESSAGES.lt.coach.notLinked,
+        MESSAGES.coach.notLinked,
       );
     });
   });
@@ -163,7 +160,7 @@ describe('PlayersList', () => {
   });
 
   it('marks a player with an overdue assignment, and gives the nearest deadline otherwise (#329)', () => {
-    const a = MESSAGES.lt.assignment;
+    const a = MESSAGES.assignment;
     const due = {
       ...GABIJA,
       id: 'p-4',
@@ -173,13 +170,13 @@ describe('PlayersList', () => {
     renderList([ROKAS, GABIJA, due]);
     const rokas = playerItem('Rokas');
     expect(rokas.getByText(a.badge.overdue)).toBeDefined();
-    expect(rokas.queryByText(/^Terminas/u)).toBeNull();
+    expect(rokas.queryByText(/^Deadline/u)).toBeNull();
     const egle = playerItem('Eglė');
     expect(
       egle.getByText(
         a.deadlineOn.replace(
           '{date}',
-          new Intl.DateTimeFormat('lt', {
+          new Intl.DateTimeFormat('en', {
             dateStyle: 'long',
             timeZone: 'Europe/Vilnius',
           }).format(new Date('2026-12-01T12:00:00Z')),
@@ -189,7 +186,7 @@ describe('PlayersList', () => {
     expect(egle.queryByText(a.badge.overdue)).toBeNull();
     const gabija = playerItem('Gabija');
     expect(gabija.queryByText(a.badge.overdue)).toBeNull();
-    expect(gabija.queryByText(/^Terminas/u)).toBeNull();
+    expect(gabija.queryByText(/^Deadline/u)).toBeNull();
   });
 
   it('keeps Unlink a quiet text action, not a button as big as the name (#329)', () => {
@@ -197,10 +194,5 @@ describe('PlayersList', () => {
     const unlink = playerItem('Rokas').getByRole('button', { name: p.unlink });
     expect(unlink.className).not.toContain('border');
     expect(unlink.className).toContain('underline');
-  });
-
-  it('speaks English on the English page', () => {
-    renderList([GABIJA], 'en');
-    expect(screen.getByText('Not in any group')).toBeDefined();
   });
 });

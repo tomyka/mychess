@@ -43,13 +43,13 @@ vi.mock('../../server/auth', () => ({
   getMailer: () => ({ send: server.send }),
 }));
 vi.mock('../../server/sign-out', () => ({ signOutHere: server.signOut }));
-vi.mock('../../server/locale-cookie', () => ({ rememberLocale: vi.fn() }));
+
 vi.mock('../../server/lichess-unlinked', () => ({
   forgetLichessUnlinked: vi.fn(),
 }));
 vi.mock('../../server/session', () => ({
   requireAccount: () => Promise.resolve({ id: 'a1' }),
-  requireOnboarded: () => Promise.resolve({ id: 'a1', locale: 'lt' }),
+  requireOnboarded: () => Promise.resolve({ id: 'a1' }),
 }));
 
 /** The delete form, confirmed by `typed`. */
@@ -65,7 +65,7 @@ beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
   server.deleteAccount.mockReset().mockResolvedValue({
     ok: true,
-    value: { confirmationMail: { to: TO, locale: 'lt' } },
+    value: { confirmationMail: { to: TO } },
   });
   server.send.mockReset().mockResolvedValue(undefined);
   server.signOut.mockReset().mockResolvedValue(undefined);

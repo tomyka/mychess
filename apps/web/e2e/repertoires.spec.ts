@@ -10,7 +10,7 @@ import { expect, type Page } from '@playwright/test';
 import { ecoName } from '@mychess/chess';
 import { playOnBoard, pressSquare, type BoardHand } from './support/board';
 import {
-  CATALOGUES,
+  en,
   format,
   newDevice,
   newOnboardedAccount,
@@ -30,8 +30,6 @@ import {
   previewImport,
   typeMove,
 } from './support/repertoires';
-
-const { en } = CATALOGUES;
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
@@ -56,12 +54,12 @@ const TAIMANOV_COUNTS = {
 // ECO code and the move it parts at (R-158), proven with `importPgn` and
 // `chapterDistinctions`: 6.Be3 and 3.Nc3 (B48), 6.Be2 and 6.g3 (B47).
 const TAIMANOV_B48 = distinctTitle(en, {
-  name: ecoName('B48', 'en'),
+  name: ecoName('B48'),
   eco: 'B48',
   move: '6. Be3',
 });
 const TAIMANOV_B47 = distinctTitle(en, {
-  name: ecoName('B47', 'en'),
+  name: ecoName('B47'),
   eco: 'B47',
   move: '6. Be2',
 });
@@ -96,7 +94,7 @@ async function importAsNew(
   const t = en.repertoires.import;
   await page.goto('/repertuarai/importuoti');
   await previewImport(page, en, { file, side: 'black' });
-  await expectSummary(page, en, 'en', TAIMANOV_COUNTS);
+  await expectSummary(page, en, TAIMANOV_COUNTS);
   await expect(page.getByRole('radio', { name: t.targetNew })).toBeChecked();
   await page.getByLabel(t.name, { exact: true }).fill(name);
   await page.getByRole('button', { name: t.confirm, exact: true }).click();
@@ -195,7 +193,6 @@ async function checkLondon(
   await expect(page.getByText(t.note.saved)).toBeVisible();
 }
 
-// English only for now (R-180); the journey ran in Lithuanian too.
 test(
   'U1-M1-5 (own part): Rokas builds the London on the board, with a comment and an arrow',
   { tag: '@mobile' },
@@ -211,7 +208,7 @@ test(
     await page.getByRole('link', { name: t.header.back }).first().click();
     await expect(page).toHaveURL(/\/repertuarai$/);
     await expect(
-      page.getByText(plural(t.list.meta, 'en', { chapters: 1, moves: 29 })),
+      page.getByText(plural(t.list.meta, { chapters: 1, moves: 29 })),
     ).toBeVisible();
   },
 );
@@ -226,7 +223,7 @@ test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-impor
   await openRepertoires(page, en);
   await page.getByRole('link', { name: t.list.import }).click();
   await previewImport(page, en, { file: TAIMANOV, side: 'black' });
-  await expectSummary(page, en, 'en', TAIMANOV_COUNTS);
+  await expectSummary(page, en, TAIMANOV_COUNTS);
   // R-64: the broken game is listed with its number and reason.
   await expect(
     page.getByRole('heading', {
@@ -288,7 +285,7 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   await previewImport(page, en, { file: TAIMANOV_MORE });
   await expect(
     page.getByText(
-      plural(t.import.added, 'en', {
+      plural(t.import.added, {
         chapters: 2,
         moves: 12,
         name: 'Taimanovas',
@@ -304,7 +301,7 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   );
   await page.getByRole('link', { name: t.header.back }).first().click();
   await expect(
-    page.getByText(plural(t.list.meta, 'en', { chapters: 8, moves: 119 })),
+    page.getByText(plural(t.list.meta, { chapters: 8, moves: 119 })),
   ).toBeVisible();
 });
 

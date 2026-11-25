@@ -17,7 +17,7 @@ const DB = { name: 'the db' };
 const NOW = new Date('2026-10-20T07:00:00Z');
 // 23:30 in Vilnius on 18 October, 20:30 UTC: two Vilnius days before NOW.
 const TWO_DAYS_AGO = new Date('2026-10-18T20:30:00Z');
-const JONAS = { id: 'jonas', locale: 'lt' };
+const JONAS = { id: 'jonas' };
 const GROUP = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
 const server = vi.hoisted(() => ({

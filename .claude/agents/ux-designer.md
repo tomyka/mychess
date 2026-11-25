@@ -20,8 +20,7 @@ review the result.
 
 The references are chessbook.com, chessreps.com and openingtree.com: a board
 that dominates the screen, training at one tap per move, and progress that
-reads at a glance. Mobile-first and installable (Q35). Lithuanian text runs
-longer than English, so design for it. Colours come from tokens only; there
+reads at a glance. Mobile-first and installable (Q35). Colours come from tokens only; there
 are light and dark themes.
 
 ## How you work

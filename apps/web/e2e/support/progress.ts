@@ -12,7 +12,7 @@ import {
 import { expect, type Page } from '@playwright/test';
 import { COACH } from './assignment-people';
 import { homeAssignment } from './assignments';
-import { CATALOGUES, format, type Locale, type Messages } from './journey';
+import { en, format, type Messages } from './journey';
 import { plural } from './repertoires';
 
 /**
@@ -56,18 +56,18 @@ export const notStarted = (total: number): Counts => ({
   notStarted: total,
 });
 
-/** The state bar's counts line in `locale`. */
-export const countsText = (locale: Locale, counts: Counts): string =>
-  plural(CATALOGUES[locale].coach.progress.counts, locale, { ...counts });
+/** The state bar's counts line. */
+export const countsText = (counts: Counts): string =>
+  plural(en.coach.progress.counts, { ...counts });
 
 /**
  * "n % learned": the learned moves only (R-177), as the app rounds it
  * (@mychess/chess `percentLearned`). Counts with no moves have no percentage.
  */
-export function percentText(locale: Locale, counts: Counts): string {
+export function percentText(counts: Counts): string {
   const percent = percentLearned(counts);
   if (percent === null) throw new Error('percentText: no moves');
-  return format(CATALOGUES[locale].coach.progress.percent, {
+  return format(en.coach.progress.percent, {
     percent: String(percent),
   });
 }
@@ -76,7 +76,6 @@ export function percentText(locale: Locale, counts: Counts): string {
 export async function shareWithCoach(
   page: Page,
   messages: Messages,
-  locale: Locale,
 ): Promise<void> {
   const section = page.getByRole('region', { name: messages.share.title });
   await section.getByRole('checkbox', { name: COACH }).setChecked(true);
@@ -84,7 +83,7 @@ export async function shareWithCoach(
     .getByRole('button', { name: messages.share.save, exact: true })
     .click();
   await expect(
-    section.getByText(plural(messages.share.sharedWith, locale, { count: 1 }), {
+    section.getByText(plural(messages.share.sharedWith, { count: 1 }), {
       exact: true,
     }),
   ).toBeVisible();

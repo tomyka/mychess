@@ -49,8 +49,8 @@ const config: NextConfig = {
     ]),
 };
 
-// next-intl without locale routing: the locale comes from a cookie
-// (src/i18n/request.ts), Lithuanian when there is none.
+// next-intl without locale routing: one language, English
+// (src/i18n/request.ts).
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 export default withNextIntl(config);

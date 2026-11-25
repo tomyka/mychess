@@ -9,7 +9,7 @@ import {
 import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
-import { chapterLabelIn } from '../../src/server/chapter-names';
+import { chapterLabelOf } from '../../src/server/chapter-names';
 import { graphOf } from '../fixtures/repertoires';
 import {
   LONDON,
@@ -135,9 +135,7 @@ describe('previewImportAction', () => {
     expect(preview.summary.lines).toBe(6);
     expect(preview.summary.transpositions).toBeGreaterThanOrEqual(1);
     const graph = graphOf(SICILIANS_WITH_BROKEN, 'black');
-    expect(preview.chapters).toEqual(
-      graph.chapters.map(chapterLabelIn(graph, 'lt')),
-    );
+    expect(preview.chapters).toEqual(graph.chapters.map(chapterLabelOf(graph)));
     expect(preview.chapters).toHaveLength(6);
     expect(preview.skipped).toEqual([
       { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },

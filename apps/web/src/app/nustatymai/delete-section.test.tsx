@@ -2,7 +2,7 @@ import type { DeletableAccount } from '@mychess/domain';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { DeleteState } from './actions';
 import { DeleteSection } from './delete-section';
 
@@ -13,8 +13,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ deleteAccountAction: server.action }));
 
-const lt = MESSAGES.lt;
-const d = lt.settings.delete;
+const d = MESSAGES.settings.delete;
 
 const ONBOARDED: DeletableAccount = {
   displayName: 'Rūta Jonaitė',
@@ -30,12 +29,11 @@ const FRESH: DeletableAccount = {
 };
 
 function renderSection(
-  locale: 'lt' | 'en' = 'lt',
   account: DeletableAccount = ONBOARDED,
   canExport = true,
 ): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <DeleteSection account={account} canExport={canExport} />
     </NextIntlClientProvider>,
   );
@@ -74,11 +72,11 @@ describe('DeleteSection (R-82)', () => {
       d.items.sessions,
     ]);
     expect(d.items.repertoires).toBe(
-      'repertuarai, jų skyriai, ėjimai, komentarai ir asmeniniai užrašai;',
+      'your repertoires, their chapters, moves, comments and personal notes;',
     );
     expect(screen.getByText(d.irreversible)).toBeDefined();
     const link = screen.getByRole('link', {
-      name: 'atsisiųskite savo duomenis',
+      name: 'download your data',
     });
     expect(link.getAttribute('href')).toBe('/api/account/export');
     expect(link.hasAttribute('download')).toBe(true);
@@ -87,11 +85,11 @@ describe('DeleteSection (R-82)', () => {
   });
 
   it('asks a session older than a day to sign in again instead of linking the export (R-95)', () => {
-    renderSection('lt', ONBOARDED, false);
+    renderSection(ONBOARDED, false);
     expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.queryByText(/atsisiųskite savo duomenis/u)).toBeNull();
+    expect(screen.queryByText(/download your data/u)).toBeNull();
     expect(screen.getByRole('note').textContent).toBe(
-      lt.settings.export.notFresh,
+      MESSAGES.settings.export.notFresh,
     );
     expect(screen.getByText(d.irreversible)).toBeDefined();
   });
@@ -137,7 +135,7 @@ describe('DeleteSection (R-82)', () => {
     type('Rūta Jonaitė');
     fireEvent.click(confirm());
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.account.deleteNameMismatch);
+      expect(status().textContent).toBe(MESSAGES.account.deleteNameMismatch);
     });
     expect(typedName().value).toBe('Rūta Jonaitė');
     expect(typedName().getAttribute('aria-invalid')).toBe('true');
@@ -160,21 +158,11 @@ describe('DeleteSection (R-82)', () => {
     });
     settle({});
   });
-
-  it('speaks English on the English page', () => {
-    renderSection('en');
-    const e = MESSAGES.en.settings.delete;
-    expect(screen.getByRole('button', { name: e.confirm })).toBeDefined();
-    expect(screen.getByText(e.items.repertoires)).toBeDefined();
-    expect(
-      screen.getByRole('link', { name: 'download your data' }),
-    ).toBeDefined();
-  });
 });
 
 describe('DeleteSection for an account not yet onboarded (R-86)', () => {
   it('asks for the email address, shown in bold, not the prefilled name', () => {
-    renderSection('lt', FRESH);
+    renderSection(FRESH);
     expect(
       screen.getByText('ruta@example.lt', { selector: 'label strong' }),
     ).toBeDefined();
@@ -183,7 +171,7 @@ describe('DeleteSection for an account not yet onboarded (R-86)', () => {
   });
 
   it('keeps the button disabled until the email is typed, in any case', () => {
-    renderSection('lt', FRESH);
+    renderSection(FRESH);
     type('Ruta J', typedEmail());
     expect(confirm().hasAttribute('disabled')).toBe(true);
     type('jonas@example.lt', typedEmail());
@@ -194,11 +182,11 @@ describe('DeleteSection for an account not yet onboarded (R-86)', () => {
 
   it('sends the typed email and shows the server’s refusal', async () => {
     server.action.mockResolvedValue({ refusal: 'account.deleteEmailMismatch' });
-    renderSection('lt', FRESH);
+    renderSection(FRESH);
     type('ruta@example.lt', typedEmail());
     fireEvent.click(confirm());
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.account.deleteEmailMismatch);
+      expect(status().textContent).toBe(MESSAGES.account.deleteEmailMismatch);
     });
     const form = server.action.mock.lastCall?.[1];
     expect(Object.fromEntries(form?.entries() ?? [])).toEqual({

@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { NoteOutcome } from '../../repertoire-view';
 import { OwnerNotes, type OwnerNotesProps } from './owner-notes';
 
-const p = MESSAGES.en.repertoires;
+const p = MESSAGES.repertoires;
 
 /** The owner's notes under a move: the coaches' notes and the Personal note. */
 function renderNotes(over: Partial<Omit<OwnerNotesProps, 'onSaveNote'>> = {}) {
@@ -14,7 +14,7 @@ function renderNotes(over: Partial<Omit<OwnerNotesProps, 'onSaveNote'>> = {}) {
     .mockResolvedValue({ ok: true });
   const { note = '', coachNotes = [] } = over;
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <OwnerNotes coachNotes={coachNotes} note={note} onSaveNote={onSaveNote} />
     </NextIntlClientProvider>,
   );
@@ -107,7 +107,7 @@ describe('OwnerNotes under a move', () => {
     fireEvent.change(noteField(), { target: { value: 'x'.repeat(2001) } });
     fireEvent.click(screen.getByRole('button', { name: p.note.save }));
     expect(
-      await screen.findByText(MESSAGES.en.personalNote.tooLong),
+      await screen.findByText(MESSAGES.personalNote.tooLong),
     ).toBeDefined();
     expect(noteField().value).toBe('x'.repeat(2001));
     expect(noteField().getAttribute('aria-invalid')).toBe('true');

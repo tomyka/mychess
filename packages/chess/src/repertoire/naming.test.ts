@@ -143,15 +143,8 @@ describe('taxonomyNames (R-216)', () => {
   it('names an ECO chapter by the deepest named line of its main line', () => {
     const graph = graphOf('1. e4 c6 2. d4 d5 3. e5 Bf5 *');
     expect(graph.chapters[0]?.nameSource).toEqual({ kind: 'eco', eco: 'B12' });
-    expect([...taxonomyNames(graph, 'en')]).toEqual([
+    expect([...taxonomyNames(graph)]).toEqual([
       ['c1', 'Caro-Kann Defense: Advance Variation'],
-    ]);
-  });
-
-  it('names it by its code in Lithuanian', () => {
-    const graph = graphOf('1. e4 c6 2. d4 d5 3. e5 Bf5 *');
-    expect([...taxonomyNames(graph, 'lt')]).toEqual([
-      ['c1', ecoName('B12', 'lt')],
     ]);
   });
 
@@ -160,10 +153,8 @@ describe('taxonomyNames (R-216)', () => {
       kind: 'eco',
       eco: 'B12',
     });
-    expect([...taxonomyNames(graph, 'en')]).toEqual([
-      ['c1', ecoName('B12', 'en')],
-    ]);
-    expect(ecoName('B12', 'en')).toBe('Caro-Kann Defense');
+    expect([...taxonomyNames(graph)]).toEqual([['c1', ecoName('B12')]]);
+    expect(ecoName('B12')).toBe('Caro-Kann Defense');
   });
 
   it('leaves custom, header and numbered chapters out', () => {
@@ -173,9 +164,7 @@ describe('taxonomyNames (R-216)', () => {
       { kind: 'header', name: 'Event' },
       { kind: 'index', number: 1 },
     ] as const) {
-      expect(taxonomyNames(withNameSource(graph, nameSource), 'en').size).toBe(
-        0,
-      );
+      expect(taxonomyNames(withNameSource(graph, nameSource)).size).toBe(0);
     }
   });
 });

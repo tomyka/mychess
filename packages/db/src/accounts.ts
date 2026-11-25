@@ -16,7 +16,6 @@ export const accountColumns = {
   email: accounts.email,
   emailVerified: accounts.emailVerified,
   displayName: accounts.displayName,
-  locale: accounts.locale,
   entitlement: accounts.entitlement,
   admin: accounts.admin,
   disabledAt: accounts.disabledAt,

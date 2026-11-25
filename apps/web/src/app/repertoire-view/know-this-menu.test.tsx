@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { KnowCounts, KnowOutcome } from '../repertuarai/know-actions';
 import { KnowThisMenu, type KnowFields } from './know-this-menu';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const lt = MESSAGES.lt.training.know;
+const know = MESSAGES.training.know;
 
 const server = vi.hoisted(() => ({
   count: vi.fn<(form: FormData) => Promise<KnowCounts>>(),
@@ -30,7 +30,7 @@ const LINE: KnowFields = {
 
 function renderMenu(fields: KnowFields): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <KnowThisMenu fields={fields} subject="1. d4">
         <span>1. d4</span>
       </KnowThisMenu>
@@ -40,7 +40,7 @@ function renderMenu(fields: KnowFields): void {
 
 const toggle = () =>
   screen.getByRole('button', {
-    name: lt.toggle.replace('{subject}', '1. d4'),
+    name: know.toggle.replace('{subject}', '1. d4'),
   });
 
 /** The fields a mocked action was last sent. */
@@ -69,7 +69,7 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     expect(server.count).not.toHaveBeenCalled();
     fireEvent.click(toggle());
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    await screen.findByRole('button', { name: lt.knowMove });
+    await screen.findByRole('button', { name: know.knowMove });
     expect(sent(server.count)).toEqual(MOVE);
   });
 
@@ -77,38 +77,36 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     renderMenu(MOVE);
     fireEvent.click(toggle());
     server.count.mockResolvedValue(counts(0, 0));
-    fireEvent.click(await screen.findByRole('button', { name: lt.knowMove }));
-    await screen.findByText('Pažymėta, kad žinote 1 ėjimą.');
+    fireEvent.click(await screen.findByRole('button', { name: know.knowMove }));
+    await screen.findByText('1 move marked as known.');
     expect(sent(server.mark)).toEqual(MOVE);
     // Counted again: nothing left to mark.
-    await screen.findByText(lt.nothing);
-    expect(screen.queryByRole('button', { name: lt.knowMove })).toBeNull();
+    await screen.findByText(know.nothing);
+    expect(screen.queryByRole('button', { name: know.knowMove })).toBeNull();
   });
 
   it('asks before marking a line, with the count', async () => {
     server.count.mockResolvedValue(counts(5, 0));
     renderMenu(LINE);
     fireEvent.click(toggle());
-    fireEvent.click(await screen.findByRole('button', { name: lt.knowLine }));
+    fireEvent.click(await screen.findByRole('button', { name: know.knowLine }));
     expect(
       screen.getByText(
-        'Pažymėti, kad žinote 5 ėjimus? Mokytis jų nereikės, pirmasis kartojimas bus rytoj.',
+        'Mark 5 moves as known? You skip learning them; the first review is tomorrow.',
       ),
     ).toBeDefined();
     expect(server.mark).not.toHaveBeenCalled();
     server.mark.mockResolvedValue({ ok: true, changed: 5 });
-    fireEvent.click(screen.getByRole('button', { name: lt.confirm }));
-    await screen.findByText('Pažymėta, kad žinote 5 ėjimus.');
+    fireEvent.click(screen.getByRole('button', { name: know.confirm }));
+    await screen.findByText('5 moves marked as known.');
     expect(sent(server.mark)).toEqual(LINE);
   });
 
   it('offers Learn again only when there are skipped moves', async () => {
     renderMenu(LINE);
     fireEvent.click(toggle());
-    await screen.findByRole('button', { name: lt.knowLine });
-    expect(
-      screen.queryByRole('button', { name: /Mokytis iš naujo/ }),
-    ).toBeNull();
+    await screen.findByRole('button', { name: know.knowLine });
+    expect(screen.queryByRole('button', { name: /Learn again/ })).toBeNull();
   });
 
   it('returns the skipped moves to learn', async () => {
@@ -117,10 +115,10 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     fireEvent.click(toggle());
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Mokytis iš naujo (2 ėjimai)',
+        name: 'Learn again (2 moves)',
       }),
     );
-    await screen.findByText('2 ėjimai grąžinti mokytis iš naujo.');
+    await screen.findByText('2 moves are back to learn.');
     expect(sent(server.again)).toEqual(LINE);
     expect(server.mark).not.toHaveBeenCalled();
   });
@@ -129,7 +127,7 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     server.count.mockResolvedValue(counts(0, 0));
     renderMenu(LINE);
     fireEvent.click(toggle());
-    expect(await screen.findByText(lt.nothing)).toBeDefined();
+    expect(await screen.findByText(know.nothing)).toBeDefined();
   });
 
   it('shows a refusal in words', async () => {
@@ -139,9 +137,7 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     });
     renderMenu(MOVE);
     fireEvent.click(toggle());
-    expect(
-      await screen.findByText(MESSAGES.lt.training.notTrained),
-    ).toBeDefined();
+    expect(await screen.findByText(MESSAGES.training.notTrained)).toBeDefined();
   });
 
   it('shows a refused action as an error', async () => {
@@ -151,8 +147,8 @@ describe('KnowThisMenu (R-58, R-147)', () => {
       ok: false,
       refusal: 'training.notTrained',
     });
-    fireEvent.click(await screen.findByRole('button', { name: lt.knowMove }));
-    const status = await screen.findByText(MESSAGES.lt.training.notTrained);
+    fireEvent.click(await screen.findByRole('button', { name: know.knowMove }));
+    const status = await screen.findByText(MESSAGES.training.notTrained);
     expect(status.getAttribute('role')).toBe('status');
     expect(status.className).toContain('text-error');
   });
@@ -161,16 +157,16 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     server.count.mockRejectedValue(new Error('offline'));
     renderMenu(MOVE);
     fireEvent.click(toggle());
-    expect(await screen.findByText(lt.failed)).toBeDefined();
+    expect(await screen.findByText(know.failed)).toBeDefined();
   });
 
   it('closes again', async () => {
     renderMenu(MOVE);
     fireEvent.click(toggle());
-    await screen.findByRole('button', { name: lt.knowMove });
+    await screen.findByRole('button', { name: know.knowMove });
     fireEvent.click(toggle());
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: lt.knowMove })).toBeNull();
+      expect(screen.queryByRole('button', { name: know.knowMove })).toBeNull();
     });
   });
 });

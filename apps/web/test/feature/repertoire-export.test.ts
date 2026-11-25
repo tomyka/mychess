@@ -46,7 +46,7 @@ vi.mock('../../src/server/auth', async (original) =>
   (await import('./support/request')).serverAuth(original),
 );
 
-const { client, sql } = useRequestHarness();
+const { sql } = useRequestHarness();
 
 interface Cast {
   readonly rokas: Person;
@@ -138,7 +138,7 @@ describe('the PGN download (R-96, decision 13)', () => {
       'application/x-chess-pgn; charset=utf-8',
     );
     expect(response.headers.get('content-disposition')).toBe(
-      contentDisposition('Sicilijos gynyba, Taimanovo variantas', 'lt'),
+      contentDisposition('Sicilijos gynyba, Taimanovo variantas'),
     );
     const stored = await storedGraph(taimanov, rokas.id);
     expect(await reimported(response, 'black')).toEqual(canonical(stored));
@@ -161,21 +161,15 @@ describe('the PGN download (R-96, decision 13)', () => {
     );
   });
 
-  it('titles the chapters in the served language: English, for a Lithuanian account too (decision 14, R-180)', async () => {
+  it('titles the chapters by their opening names (decision 14)', async () => {
     const { rokas, taimanov } = await cast();
     actAs(rokas);
     const eco = ecoOf(
       (await storedGraph(taimanov, rokas.id)).chapters[0]?.nameSource,
     );
-    expect(ecoName(eco, 'lt')).toMatch(/^Siciliška gynyba/u);
-    const lt = await (await download(taimanov)).text();
-    expect(lt).toContain(`[Event "${ecoName(eco, 'en')}"]`);
-    expect(lt).not.toContain(ecoName(eco, 'lt'));
-    await client.query(
-      "update accounts set locale = 'en' where email = 'rokas@example.lt'",
-    );
-    const en = await (await download(taimanov)).text();
-    expect(en).toContain(`[Event "${ecoName(eco, 'en')}"]`);
+    expect(ecoName(eco)).toMatch(/^Sicilian Defense/u);
+    const pgn = await (await download(taimanov)).text();
+    expect(pgn).toContain(`[Event "${ecoName(eco)}"]`);
   });
 
   it('falls back to a safe file name when the name has no letters or digits', async () => {
@@ -187,14 +181,7 @@ describe('the PGN download (R-96, decision 13)', () => {
     });
     actAs(rokas);
     const response = await download(london);
-    // English for a Lithuanian account too (R-180).
     expect(response.headers.get('content-disposition')).toBe(
-      'attachment; filename="repertoire.pgn"; filename*=UTF-8\'\'%3F%3F%3F.pgn',
-    );
-    await client.query(
-      "update accounts set locale = 'en' where email = 'rokas@example.lt'",
-    );
-    expect((await download(london)).headers.get('content-disposition')).toBe(
       'attachment; filename="repertoire.pgn"; filename*=UTF-8\'\'%3F%3F%3F.pgn',
     );
   });
@@ -307,7 +294,7 @@ describe('the PGN download of an assigned repertoire (R-202)', () => {
       'application/x-chess-pgn; charset=utf-8',
     );
     expect(response.headers.get('content-disposition')).toBe(
-      contentDisposition('Londono sistema', 'lt'),
+      contentDisposition('Londono sistema'),
     );
     const stored = await storedGraph(london, rimantas.id);
     expect(canonical(stored).join()).toContain('Solid');

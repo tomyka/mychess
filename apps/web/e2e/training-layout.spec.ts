@@ -3,14 +3,11 @@
 // card asked is the deepest move of the backlog's first line, so the line
 // so far is long enough to overflow the desktop panel.
 import { expect, type Page } from '@playwright/test';
-import { CATALOGUES, newOnboardedAccount, test } from './support/journey';
+import { en, newOnboardedAccount, test } from './support/journey';
 import { importRepertoire } from './support/assignments';
 import { seedDue } from './support/training-db';
 import { expectCounter, keyAfter } from './support/training';
 import { BACKLOG, BACKLOG_PGN, backlog } from './support/training-cast';
-
-// The UI is served in English only for now (R-180).
-const { en } = CATALOGUES;
 
 /** The backlog's first line up to its last White move, 16. Ra3. */
 const LINE_ONE =

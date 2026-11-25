@@ -9,12 +9,12 @@ import {
 } from '@mychess/chess';
 import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES, resolveLocale } from '../i18n/locales';
+import { LOCALE, MESSAGES } from '../i18n/catalogue';
 import { plainChapterLabel } from '../lib/chapter-label';
 import {
-  chapterLabelIn,
+  chapterLabelOf,
   chapterNamesOf,
-  plainChapterTitleIn,
+  plainChapterTitle,
 } from './chapter-names';
 
 const chapter = (id: string, nameSource: ChapterNameSource): Chapter => ({
@@ -37,68 +37,48 @@ const GRAPH: RepertoireGraph = {
   moves: [],
 };
 
-describe('plainChapterTitleIn', () => {
-  it('names a Lithuanian account’s chapters in English while only English is offered (R-180)', () => {
-    expect(GRAPH.chapters.map(plainChapterTitleIn('lt')(GRAPH))).toEqual([
-      ecoName('D02', 'en'),
-      'Mano Londonas',
-      'London vs KID',
-      'Chapter 4',
-      ecoName('B46', 'en'),
-      'Z99',
-    ]);
-  });
-
+describe('plainChapterTitle', () => {
   it('names each kind of chapter in English', () => {
-    expect(GRAPH.chapters.map(plainChapterTitleIn('en')(GRAPH))).toEqual([
-      ecoName('D02', 'en'),
+    expect(GRAPH.chapters.map(plainChapterTitle(GRAPH))).toEqual([
+      ecoName('D02'),
       'Mano Londonas',
       'London vs KID',
       'Chapter 4',
-      ecoName('B46', 'en'),
+      ecoName('B46'),
       'Z99',
     ]);
   });
 
   it('is the browser’s plain title over the names the server sends', () => {
-    for (const locale of ['lt', 'en'] as const) {
-      // The browser translates in the page's locale, the one served.
-      const page = resolveLocale(locale);
-      const t = createTranslator({ locale: page, messages: MESSAGES[page] });
-      const browser = plainChapterLabel(
-        (key, values) => t(key, values),
-        chapterNamesOf(GRAPH, locale),
-      );
-      expect(GRAPH.chapters.map(browser)).toEqual(
-        GRAPH.chapters.map(plainChapterTitleIn(locale)(GRAPH)),
-      );
-    }
+    const t = createTranslator({ locale: LOCALE, messages: MESSAGES });
+    const browser = plainChapterLabel(
+      (key, values) => t(key, values),
+      chapterNamesOf(GRAPH),
+    );
+    expect(GRAPH.chapters.map(browser)).toEqual(
+      GRAPH.chapters.map(plainChapterTitle(GRAPH)),
+    );
   });
 });
 
-describe('chapterLabelIn', () => {
-  it('tells apart chapters that share a name, in the locale given (R-158)', () => {
+describe('chapterLabelOf', () => {
+  it('tells apart chapters by the named line each main line reaches (R-158, R-216)', () => {
     const imported = importPgn(
       '1. e4 c6 2. d4 d5 3. e5 Bf5 *\n\n1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *',
       'black',
     );
     if (!imported.ok) throw new Error(imported.refusal.reason);
     const { graph } = imported.value;
-    // Lithuanian names both B12 and B11 "Karo-Kano gynyba"; English tells
-    // them apart by the named line each main line reaches (R-216), and a
-    // Lithuanian account is served English.
-    expect(ecoName('B12', 'lt')).toBe(ecoName('B11', 'lt'));
-    for (const locale of ['lt', 'en'] as const)
-      expect(graph.chapters.map(chapterLabelIn(graph, locale))).toEqual([
-        'Caro-Kann Defense: Advance Variation',
-        'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
-      ]);
+    expect(graph.chapters.map(chapterLabelOf(graph))).toEqual([
+      'Caro-Kann Defense: Advance Variation',
+      'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
+    ]);
   });
 
   it('keeps names no other chapter shares plain, and a chapter not in the graph', () => {
-    const label = chapterLabelIn(GRAPH, 'en');
+    const label = chapterLabelOf(GRAPH);
     expect(GRAPH.chapters.map(label)).toEqual(
-      GRAPH.chapters.map(plainChapterTitleIn('en')(GRAPH)),
+      GRAPH.chapters.map(plainChapterTitle(GRAPH)),
     );
     expect(label(chapter('c9', { kind: 'index', number: 9 }))).toBe(
       'Chapter 9',
@@ -108,22 +88,15 @@ describe('chapterLabelIn', () => {
 
 describe('chapterNamesOf', () => {
   it('names exactly the taxonomy-named chapters, by id, by their stored code when no line is reached', () => {
-    expect(chapterNamesOf(GRAPH, 'en').taxonomyNames).toEqual({
-      c1: ecoName('D02', 'en'),
-      c5: ecoName('B46', 'en'),
+    expect(chapterNamesOf(GRAPH).taxonomyNames).toEqual({
+      c1: ecoName('D02'),
+      c5: ecoName('B46'),
       c6: 'Z99',
     });
-    // A Lithuanian account gets the English names (R-180).
-    expect(chapterNamesOf(GRAPH, 'lt').taxonomyNames).toEqual({
-      c1: ecoName('D02', 'en'),
-      c5: ecoName('B46', 'en'),
-      c6: 'Z99',
-    });
-    expect(ecoName('B46', 'lt')).not.toBe(ecoName('B46', 'en'));
   });
 
   it('is empty for a repertoire without chapters', () => {
-    expect(chapterNamesOf({ ...GRAPH, chapters: [] }, 'lt')).toEqual({
+    expect(chapterNamesOf({ ...GRAPH, chapters: [] })).toEqual({
       taxonomyNames: {},
       distinctions: {},
     });
@@ -135,7 +108,7 @@ describe('chapterNamesOf', () => {
       'black',
     );
     if (!imported.ok) throw new Error(imported.refusal.reason);
-    const names = chapterNamesOf(imported.value.graph, 'lt');
+    const names = chapterNamesOf(imported.value.graph);
     expect(names.distinctions).toEqual({
       c1: { eco: 'B12', firstMove: { ply: 2, san: 'd4', whiteFirst: true } },
       c2: { eco: 'B11', firstMove: { ply: 2, san: 'Nc3', whiteFirst: true } },
@@ -156,16 +129,16 @@ describe('taxonomy names (R-216)', () => {
     const graph = graphOf('1. e4 c6 2. d4 d5 3. e5');
     const [only] = graph.chapters;
     if (only === undefined) throw new Error('no chapter');
-    expect(chapterNamesOf(graph, 'en').taxonomyNames).toEqual({
+    expect(chapterNamesOf(graph).taxonomyNames).toEqual({
       [only.id]: ADVANCE,
     });
-    expect(plainChapterTitleIn('en')(graph)(only)).toBe(ADVANCE);
-    expect(chapterLabelIn(graph, 'lt')(only)).toBe(ADVANCE);
+    expect(plainChapterTitle(graph)(only)).toBe(ADVANCE);
+    expect(chapterLabelOf(graph)(only)).toBe(ADVANCE);
   });
 
   it('titles the PGN download with the derived name', () => {
     const graph = graphOf('1. e4 c6 2. d4 d5 3. e5');
-    expect(exportPgn(graph, { title: plainChapterTitleIn('en') })).toContain(
+    expect(exportPgn(graph, { title: plainChapterTitle })).toContain(
       `[Event "${ADVANCE}"]`,
     );
   });

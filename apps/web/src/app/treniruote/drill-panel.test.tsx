@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { graphOf } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { LineSoFar } from './drill-panel';
 
 const LINE = graphOf('1. d4 d5 2. Bf4 Nf6 3. e3 e6 4. Nf3 c5 *').moves;
@@ -18,7 +18,7 @@ function Line({
   readonly rootKey?: string;
 }): JSX.Element {
   return (
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <LineSoFar moves={moves} rootKey={rootKey} />
     </NextIntlClientProvider>
   );

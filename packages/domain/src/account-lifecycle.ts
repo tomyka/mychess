@@ -5,7 +5,6 @@ import {
   hasProvenEmail,
   type Account,
   type AccountRefusal,
-  type Locale,
   type Profile,
 } from './account';
 import { ADMIN_REFUSALS, type AdminRefusal } from './admin';
@@ -158,10 +157,7 @@ export function decideDisable(
 /** A decided deletion: whom to send the confirmation mail (R-82). */
 export interface AccountDeletion {
   /** Where the R-82 confirmation goes; null for an unproven email (R-87) or an account already gone. */
-  readonly confirmationMail: {
-    readonly to: string;
-    readonly locale: Locale;
-  } | null;
+  readonly confirmationMail: { readonly to: string } | null;
 }
 
 /**
@@ -176,8 +172,6 @@ export function decideDeletion(
   const confirmed = canDelete(account, typed);
   if (!confirmed.ok) return confirmed;
   return ok({
-    confirmationMail: hasProvenEmail(account)
-      ? { to: account.email, locale: account.locale }
-      : null,
+    confirmationMail: hasProvenEmail(account) ? { to: account.email } : null,
   });
 }

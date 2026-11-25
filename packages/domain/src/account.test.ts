@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACCOUNT_REFUSALS,
   DEFAULT_ENTITLEMENT,
-  DEFAULT_LOCALE,
   ENTITLEMENTS,
-  LOCALES,
   accountSchema,
   profileSchema,
   canonicalEmail,
@@ -18,7 +16,6 @@ const account = (over: Partial<Account> = {}): Account => ({
   email: 'ruta@example.lt',
   emailVerified: true,
   displayName: 'Rūta',
-  locale: 'lt',
   entitlement: 'free',
   admin: false,
   disabledAt: null,
@@ -74,10 +71,6 @@ describe('entitlementLimits', () => {
 });
 
 describe('account constants', () => {
-  it('offers Lithuanian first, then English (R-1)', () => {
-    expect(LOCALES).toEqual(['lt', 'en']);
-  });
-
   it('has only the free entitlement in the MVP (R-70)', () => {
     expect(ENTITLEMENTS).toEqual(['free']);
   });
@@ -87,34 +80,27 @@ describe('account constants', () => {
       emailInvalid: 'account.emailInvalid',
       deleteNameMismatch: 'account.deleteNameMismatch',
       deleteEmailMismatch: 'account.deleteEmailMismatch',
-      localeInvalid: 'account.localeInvalid',
     });
   });
 
-  it('starts a new account in Lithuanian on the free entitlement (R-1, R-70)', () => {
-    expect(DEFAULT_LOCALE).toBe('lt');
+  it('starts a new account on the free entitlement (R-70)', () => {
     expect(DEFAULT_ENTITLEMENT).toBe('free');
   });
 });
 
 describe('profileSchema', () => {
-  it('trims the display name and keeps the locale', () => {
-    expect(
-      profileSchema.parse({ displayName: '  Rūta ', locale: 'en' }),
-    ).toEqual({ displayName: 'Rūta', locale: 'en' });
+  it('trims the display name', () => {
+    expect(profileSchema.parse({ displayName: '  Rūta ' })).toEqual({
+      displayName: 'Rūta',
+    });
   });
 
   it.each([
-    ['a blank name', { displayName: '   ', locale: 'lt' }, 'displayName.blank'],
+    ['a blank name', { displayName: '   ' }, 'displayName.blank'],
     [
       'a name over 50 characters',
-      { displayName: 'x'.repeat(51), locale: 'lt' },
+      { displayName: 'x'.repeat(51) },
       'displayName.tooLong',
-    ],
-    [
-      'an unknown locale',
-      { displayName: 'Rūta', locale: 'de' },
-      'account.localeInvalid',
     ],
   ])('refuses %s with its catalogue key', (_, input, key) => {
     const result = profileSchema.safeParse(input);
@@ -137,7 +123,6 @@ describe('accountSchema', () => {
   it.each([
     ['an empty id', { id: '' }],
     ['an empty email', { email: '' }],
-    ['an unknown locale', { locale: 'de' }],
     ['an unknown entitlement', { entitlement: 'pro' }],
     ['a missing email proof', { emailVerified: null }],
     ['a missing creation time', { createdAt: null }],

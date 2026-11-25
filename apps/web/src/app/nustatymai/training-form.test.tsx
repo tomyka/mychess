@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingSettingsState } from './actions';
 import { TrainingForm } from './training-form';
 
@@ -17,11 +17,11 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ updateTrainingSettingsAction: server.action }));
 
-const lt = MESSAGES.lt.training.settings;
+const t = MESSAGES.training.settings;
 
-function renderForm(locale: 'lt' | 'en' = 'lt', learnArrows = true): void {
+function renderForm(learnArrows = true): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainingForm
         settings={{ sessionSize: 20, newPerDay: 10, learnArrows }}
       />
@@ -30,19 +30,19 @@ function renderForm(locale: 'lt' | 'en' = 'lt', learnArrows = true): void {
 }
 
 const sessionField = () =>
-  screen.getByLabelText<HTMLInputElement>(lt.sessionSizeLabel);
+  screen.getByLabelText<HTMLInputElement>(t.sessionSizeLabel);
 const newField = () =>
-  screen.getByLabelText<HTMLInputElement>(lt.newPerDayLabel);
+  screen.getByLabelText<HTMLInputElement>(t.newPerDayLabel);
 const arrowsBox = () =>
   screen.getByRole<HTMLInputElement>('checkbox', {
-    name: lt.learnArrowsLabel,
+    name: t.learnArrowsLabel,
   });
 const status = () => screen.getByRole('status');
 
 function save(sessionSize: string, newPerDay: string): void {
   fireEvent.change(sessionField(), { target: { value: sessionSize } });
   fireEvent.change(newField(), { target: { value: newPerDay } });
-  fireEvent.click(screen.getByRole('button', { name: lt.submit }));
+  fireEvent.click(screen.getByRole('button', { name: t.submit }));
 }
 
 function submitted(): Record<string, FormDataEntryValue> {
@@ -59,31 +59,24 @@ describe('TrainingForm (R-62, R-146)', () => {
   it('shows the current limits, with their ranges', () => {
     renderForm();
     expect(
-      screen.getByRole('heading', { level: 2, name: lt.title }),
+      screen.getByRole('heading', { level: 2, name: t.title }),
     ).toBeDefined();
     expect(sessionField().value).toBe('20');
     expect(newField().value).toBe('10');
     expect(sessionField().getAttribute('aria-describedby')).toContain(
-      screen.getByText(lt.sessionSizeHint).id,
+      screen.getByText(t.sessionSizeHint).id,
     );
     expect(newField().getAttribute('aria-describedby')).toContain(
-      screen.getByText(lt.newPerDayHint).id,
+      screen.getByText(t.newPerDayHint).id,
     );
     expect(status().textContent).toBe('');
-  });
-
-  it('labels the fields in English too', () => {
-    renderForm('en');
-    expect(
-      screen.getByLabelText(MESSAGES.en.training.settings.sessionSizeLabel),
-    ).toBeDefined();
   });
 
   it('sends both limits, then says it saved', async () => {
     renderForm();
     save('40', '0');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.saved);
+      expect(status().textContent).toBe(t.saved);
     });
     expect(submitted()).toEqual({
       sessionSize: '40',
@@ -97,19 +90,17 @@ describe('TrainingForm (R-62, R-146)', () => {
     renderForm();
     expect(arrowsBox().checked).toBe(true);
     expect(arrowsBox().getAttribute('aria-describedby')).toContain(
-      screen.getByText(lt.learnArrowsHint).id,
+      screen.getByText(t.learnArrowsHint).id,
     );
   });
 
   it('is the settings section #treniruote that training links to', () => {
     renderForm();
-    expect(screen.getByRole('region', { name: lt.title }).id).toBe(
-      'treniruote',
-    );
+    expect(screen.getByRole('region', { name: t.title }).id).toBe('treniruote');
   });
 
   it('shows the arrows setting off when stored off', () => {
-    renderForm('lt', false);
+    renderForm(false);
     expect(arrowsBox().checked).toBe(false);
   });
 
@@ -118,7 +109,7 @@ describe('TrainingForm (R-62, R-146)', () => {
     fireEvent.click(arrowsBox());
     save('20', '10');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.saved);
+      expect(status().textContent).toBe(t.saved);
     });
     expect(submitted()).toEqual({ sessionSize: '20', newPerDay: '10' });
   });
@@ -130,7 +121,7 @@ describe('TrainingForm (R-62, R-146)', () => {
     renderForm();
     save('9', '10');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.sessionSize);
+      expect(status().textContent).toBe(t.sessionSize);
     });
     expect(sessionField().value).toBe('9');
     expect(sessionField().getAttribute('aria-invalid')).toBe('true');
@@ -145,7 +136,7 @@ describe('TrainingForm (R-62, R-146)', () => {
     renderForm();
     save('20', '51');
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.newPerDay);
+      expect(status().textContent).toBe(t.newPerDay);
     });
     expect(newField().getAttribute('aria-invalid')).toBe('true');
     expect(sessionField().getAttribute('aria-invalid')).toBeNull();

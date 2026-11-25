@@ -48,7 +48,7 @@ export async function person(
   displayName: string,
 ): Promise<Person> {
   const cookie = await signInAlone(email);
-  await onboard(built(), testDb(), cookie, { displayName, locale: 'lt' });
+  await onboard(built(), testDb(), cookie, { displayName });
   return { id: await sql.accountId(email), cookie };
 }
 

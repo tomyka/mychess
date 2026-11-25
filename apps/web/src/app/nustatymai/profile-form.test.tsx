@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { ProfileState } from './actions';
 import { ProfileForm } from './profile-form';
 
@@ -12,24 +12,20 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ updateProfileAction: server.action }));
 
-const lt = MESSAGES.lt;
-const en = MESSAGES.en;
+const p = MESSAGES.settings.profile;
 
-function renderForm(locale: 'lt' | 'en' = 'lt'): void {
+function renderForm(): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <ProfileForm displayName="Rūta Jonaitė" locale={locale} />
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
+      <ProfileForm displayName="Rūta Jonaitė" />
     </NextIntlClientProvider>,
   );
 }
 
-const nameField = () =>
-  screen.getByLabelText<HTMLInputElement>(lt.settings.profile.displayName);
+const nameField = () => screen.getByLabelText<HTMLInputElement>(p.displayName);
 const status = () => screen.getByRole('status');
 const save = () => {
-  fireEvent.click(
-    screen.getByRole('button', { name: lt.settings.profile.submit }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: p.submit }));
 };
 
 function submitted(): Record<string, FormDataEntryValue> {
@@ -43,33 +39,24 @@ beforeEach(() => {
 });
 
 describe('ProfileForm', () => {
-  it('shows the current name and offers no language choice (R-180)', () => {
-    renderForm('en');
+  it('shows the current name', () => {
+    renderForm();
     expect(
-      screen.getByRole('heading', {
-        level: 2,
-        name: en.settings.profile.title,
-      }),
+      screen.getByRole('heading', { level: 2, name: p.title }),
     ).toBeDefined();
-    expect(
-      screen.getByLabelText<HTMLInputElement>(en.settings.profile.displayName)
-        .value,
-    ).toBe('Rūta Jonaitė');
+    expect(nameField().value).toBe('Rūta Jonaitė');
     expect(screen.queryByRole('radio')).toBeNull();
-    expect(
-      screen.queryByRole('group', { name: en.settings.profile.language }),
-    ).toBeNull();
     expect(status().textContent).toBe('');
   });
 
-  it('sends the changed name with the stored language unchanged, then says it saved', async () => {
+  it('sends the changed name, then says it saved', async () => {
     renderForm();
     fireEvent.change(nameField(), { target: { value: 'Rūta' } });
     save();
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.settings.profile.saved);
+      expect(status().textContent).toBe(p.saved);
     });
-    expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'lt' });
+    expect(submitted()).toEqual({ displayName: 'Rūta' });
     expect(server.action).toHaveBeenCalledTimes(1);
     expect(nameField().getAttribute('aria-invalid')).toBeNull();
   });
@@ -80,21 +67,11 @@ describe('ProfileForm', () => {
     fireEvent.change(nameField(), { target: { value: '  ' } });
     save();
     await waitFor(() => {
-      expect(status().textContent).toBe(lt.displayName.blank);
+      expect(status().textContent).toBe(MESSAGES.displayName.blank);
     });
     expect(nameField().value).toBe('  ');
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
     expect(nameField().getAttribute('aria-describedby')).toBe(status().id);
-  });
-
-  it('does not mark the name field for a language refusal', async () => {
-    server.action.mockResolvedValue({ refusal: 'account.localeInvalid' });
-    renderForm();
-    save();
-    await waitFor(() => {
-      expect(status().textContent).toBe(lt.account.localeInvalid);
-    });
-    expect(nameField().getAttribute('aria-invalid')).toBeNull();
   });
 
   it('cannot send twice while saving', async () => {
@@ -106,9 +83,7 @@ describe('ProfileForm', () => {
     );
     renderForm();
     save();
-    const button = screen.getByRole('button', {
-      name: lt.settings.profile.submit,
-    });
+    const button = screen.getByRole('button', { name: p.submit });
     await waitFor(() => {
       expect(button.hasAttribute('disabled')).toBe(true);
     });

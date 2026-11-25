@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../../i18n/locales';
+import { MESSAGES } from '../../../../i18n/catalogue';
 import type { CoachActionState } from '../../actions';
 import { PlayerView, type CoachPlayerPageData } from './player-view';
 
@@ -20,7 +20,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('../../actions', () => ({ unlinkPlayerAction: server.unlink }));
 
-const c = MESSAGES.lt.coach;
+const c = MESSAGES.coach;
 
 const ROKAS: CoachPlayerPageData = {
   id: 'p-1',
@@ -54,12 +54,9 @@ const ROKAS: CoachPlayerPageData = {
   },
 };
 
-function renderView(
-  player: CoachPlayerPageData,
-  locale: 'lt' | 'en' = 'lt',
-): void {
+function renderView(player: CoachPlayerPageData): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PlayerView player={player} />
     </NextIntlClientProvider>,
   );
@@ -75,7 +72,7 @@ describe('PlayerView', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Rokas' }),
     ).toBeDefined();
-    expect(screen.getByText('Susieta nuo 2026-10-18')).toBeDefined();
+    expect(screen.getByText('Linked since Oct 18, 2026')).toBeDefined();
     expect(
       screen.getByRole('link', { name: c.back }).getAttribute('href'),
     ).toBe('/treneris');
@@ -115,7 +112,7 @@ describe('PlayerView', () => {
         .getByRole('link', { name: 'Karo-Kan gynyba' })
         .getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-1/pazanga/r-9');
-    expect(progress.getByText('Pristabdyta')).toBeDefined();
+    expect(progress.getByText(MESSAGES.assignment.badge.paused)).toBeDefined();
   });
 
   it('links each repertoire the player shares with the coach to its page (R-42)', () => {
@@ -131,15 +128,21 @@ describe('PlayerView', () => {
           link.getAttribute('href'),
         ]),
     ).toEqual([
-      ['Londono sistemaBaltaisiais', '/treneris/zaidejai/p-1/repertuarai/r-1'],
-      ['TaimanovasJuodaisiais', '/treneris/zaidejai/p-1/repertuarai/r-2'],
+      [
+        `Londono sistema${MESSAGES.repertoires.list.white}`,
+        '/treneris/zaidejai/p-1/repertuarai/r-1',
+      ],
+      [
+        `Taimanovas${MESSAGES.repertoires.list.black}`,
+        '/treneris/zaidejai/p-1/repertuarai/r-2',
+      ],
     ]);
   });
 
   it('says when the player shares no repertoire with the coach', () => {
     renderView({ ...ROKAS, repertoires: [] });
     expect(
-      screen.getByText('Rokas dar nebendrina su jumis nė vieno repertuaro.'),
+      screen.getByText(c.shared.empty.replace('{name}', 'Rokas')),
     ).toBeDefined();
   });
 
@@ -184,13 +187,5 @@ describe('PlayerView', () => {
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe(c.notLinked);
     });
-  });
-
-  it('speaks English on the English page', () => {
-    renderView(ROKAS, 'en');
-    expect(screen.getByText('Linked since Oct 18, 2026')).toBeDefined();
-    expect(
-      screen.getByRole('link', { name: 'Back to the coach dashboard' }),
-    ).toBeDefined();
   });
 });

@@ -3,12 +3,12 @@ import { moveKey, START_KEY, startReview } from '@mychess/chess';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingData } from '../../lib/training-data';
 import type { DrillProps } from './drill';
 import { TrainingScreen } from './training-screen';
 
-const T = MESSAGES.lt.training;
+const T = MESSAGES.training;
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const NOW = new Date('2026-10-25T08:00:00Z');
 /** 10:00 in Vilnius: winter time starts on 25 October 2026. */
@@ -96,7 +96,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
 
 function renderScreen(d: TrainingData, repertoireId: string | null = ID) {
   return render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainingScreen data={d} accountId="a1" repertoireId={repertoireId} />
     </NextIntlClientProvider>,
   );
@@ -131,10 +131,8 @@ describe('the training screen with nothing due', () => {
       }),
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
-    expect(screen.getByText('Kitas kartojimas: rytoj 10:00')).toBeDefined();
-    expect(href('Mokytis 3 naujų ėjimų')).toBe(
-      `/treniruote?mode=learn&r=${ID}`,
-    );
+    expect(screen.getByText('Next review: tomorrow at 10:00')).toBeDefined();
+    expect(href('Learn 3 new moves')).toBe(`/treniruote?mode=learn&r=${ID}`);
     expect(
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
@@ -149,8 +147,8 @@ describe('the training screen with nothing due', () => {
       }),
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
-    expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
-    expect(screen.queryByRole('link', { name: /^Mokytis \d/ })).toBeNull();
+    expect(screen.queryByText(/^Next review:/)).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Learn \d/ })).toBeNull();
   });
 
   it('shows the start position dimmed and out of reach', () => {
@@ -291,14 +289,14 @@ describe('the training screen with something to drill', () => {
     expect(screen.queryByRole('button', { name: T.sync.retry })).toBeNull();
     sync.unsynced = 2;
     rerender(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <TrainingScreen data={due} accountId="a1" repertoireId={ID} />
       </NextIntlClientProvider>,
     );
     const main = screen.getByRole('main');
     within(main).getByRole('button', { name: T.sync.retry }).click();
     expect(sync.retry).toHaveBeenCalledOnce();
-    expect(screen.getByRole('status').textContent).toContain('2 rezultatai');
+    expect(screen.getByRole('status').textContent).toContain('2 results');
   });
 });
 

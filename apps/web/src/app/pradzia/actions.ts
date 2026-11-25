@@ -7,7 +7,6 @@ import { onboardingRefusalPath } from '../../lib/onboarding-redirect';
 import { returnPath } from '../../lib/return-path';
 import { ROUTES } from '../../lib/routes';
 import { getDb } from '../../server/db';
-import { rememberLocale } from '../../server/locale-cookie';
 import {
   parseProfileInput,
   type ProfileRefusalKey,
@@ -20,13 +19,13 @@ export interface OnboardingState {
 }
 
 /**
- * Saves the name and language from onboarding (R-81), then goes home, or
+ * Saves the name from onboarding (R-81), then goes home, or
  * on to the invite in the form's `next`. An account that has been through
- * onboarding already goes there untouched: settings is where its name and
- * language change. `next` is client input, so it is checked again here.
+ * onboarding already goes there untouched: settings is where its name
+ * changes. `next` is client input, so it is checked again here.
  * The domain decides again on the locked row: a submit that lost a race
  * goes on without writing, and an account closed meanwhile goes to
- * sign-in (R-80); neither remembers the locale.
+ * sign-in (R-80).
  */
 export async function completeOnboardingAction(
   _previous: OnboardingState,
@@ -44,6 +43,5 @@ export async function completeOnboardingAction(
     new Date(),
   );
   if (!done.ok) redirect(onboardingRefusalPath(done.refusal, next));
-  await rememberLocale(profile.value.locale);
   redirect(next ?? ROUTES.home);
 }

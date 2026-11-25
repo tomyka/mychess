@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import FidePage from './page';
 
 const server = vi.hoisted(() => ({
@@ -17,7 +17,7 @@ vi.mock('./actions', () => ({
   pollFideSearchAction: vi.fn(),
 }));
 
-const en = MESSAGES.en.fide;
+const en = MESSAGES.fide;
 
 beforeEach(() => {
   server.account.mockReset().mockResolvedValue({ id: 'rokas' });
@@ -26,7 +26,7 @@ beforeEach(() => {
 describe('the FIDE ID search page', () => {
   it('signs in first, then shows the title, the way home, what it does, and the field, and no broadcast link form (R-201)', async () => {
     render(
-      <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await FidePage()}
       </NextIntlClientProvider>,
     );

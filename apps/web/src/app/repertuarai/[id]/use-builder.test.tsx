@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import { chapterBuilder, useDrawing, type Edit } from './use-builder';
 
 vi.mock('./actions', () => ({ editRepertoireAction: vi.fn() }));
@@ -33,7 +33,7 @@ function stateOf(changes: Partial<ScreenState> = {}): ScreenState {
 
 function wrapper({ children }: { readonly children: ReactNode }) {
   return (
-    <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {children}
     </NextIntlClientProvider>
   );

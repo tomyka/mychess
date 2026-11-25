@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type {
   ImportPreview,
   ImportRefused,
@@ -36,8 +36,8 @@ vi.mock('./actions', () => ({
   confirmImportAction: server.confirm,
 }));
 
-const i = MESSAGES.lt.repertoires.import;
-const c = MESSAGES.lt.repertoires.create;
+const i = MESSAGES.repertoires.import;
+const c = MESSAGES.repertoires.create;
 
 const OPTIONS: readonly ImportOption[] = [
   { id: 'r-black', name: 'Taimanovas', side: 'black' },
@@ -73,7 +73,7 @@ function renderFlow(
   names: readonly string[] = [],
 ): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ImportFlow options={OPTIONS} preselected={preselected} names={names} />
     </NextIntlClientProvider>,
   );
@@ -151,8 +151,8 @@ describe('ImportFlow', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(heading);
     });
-    expect(screen.getByText('1 skyrius')).toBeDefined();
-    expect(screen.getByText('taimanov.pgn · Juodieji')).toBeDefined();
+    expect(screen.getByText('1 chapter')).toBeDefined();
+    expect(screen.getByText(`taimanov.pgn · ${c.black}`)).toBeDefined();
     expect(screen.queryByRole('button', { name: i.preview })).toBeNull();
   });
 
@@ -163,7 +163,7 @@ describe('ImportFlow', () => {
     chooseFile(big);
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
     expect(
-      screen.getByText('Failas didesnis nei 2 MB.').getAttribute('role'),
+      screen.getByText('The file is larger than 2 MB.').getAttribute('role'),
     ).toBe('status');
     expect(server.preview).not.toHaveBeenCalled();
   });
@@ -211,7 +211,7 @@ describe('ImportFlow', () => {
     chooseFile();
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
     expect(
-      await screen.findByText('Faile daugiau nei 200 partijų.'),
+      await screen.findByText('The file has more than 200 games.'),
     ).toBeDefined();
     expect(screen.getByRole('button', { name: i.preview })).toBeDefined();
   });
@@ -225,9 +225,7 @@ describe('ImportFlow', () => {
     chooseFile();
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
     expect(
-      await screen.findByText(
-        /^Repertuare gali būti ne daugiau kaip 5\s000 ėjimų\.$/,
-      ),
+      await screen.findByText(/^A repertoire can hold up to 5,000 moves\.$/),
     ).toBeDefined();
     server.preview.mockResolvedValueOnce({
       ok: false,
@@ -240,7 +238,7 @@ describe('ImportFlow', () => {
     fireEvent.click(again);
     expect(
       await screen.findByText(
-        'Galite turėti ne daugiau kaip 50 repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.',
+        'You can have up to 50 repertoires. Delete one to add another.',
       ),
     ).toBeDefined();
   });
@@ -254,7 +252,7 @@ describe('ImportFlow', () => {
     chooseFile();
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
     expect(
-      await screen.findByText(/^Faile daugiau nei 50\s000 pusėjimių\.$/),
+      await screen.findByText(/^The file has more than 50,000 half-moves\.$/),
     ).toBeDefined();
     server.preview.mockResolvedValueOnce({
       ok: false,
@@ -268,7 +266,7 @@ describe('ImportFlow', () => {
     fireEvent.click(again);
     expect(
       await screen.findByText(
-        'Per daug peržiūrų: ne daugiau kaip 30 per minutę. Palaukite minutę ir bandykite dar kartą.',
+        'Too many previews: at most 30 a minute. Wait a minute and try again.',
       ),
     ).toBeDefined();
   });
@@ -285,9 +283,7 @@ describe('ImportFlow', () => {
       });
     });
     expect(
-      await screen.findByText(
-        'Prideda 2 skyrius ir 41 ėjimą prie „Taimanovas“.',
-      ),
+      await screen.findByText('Adds 2 chapters and 41 moves to Taimanovas.'),
     ).toBeDefined();
     const select = screen.getByLabelText<HTMLSelectElement>(i.existing);
     expect([...select.options].map((o) => o.text)).toEqual(['Taimanovas']);
@@ -308,7 +304,7 @@ describe('ImportFlow', () => {
     renderFlow();
     await previewAsBlack();
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
-    await screen.findByText(/Prideda 2 skyrius/);
+    await screen.findByText(/Adds 2 chapters/);
     fireEvent.click(screen.getByRole('button', { name: i.change }));
     fireEvent.click(screen.getByRole('radio', { name: c.white }));
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
@@ -348,7 +344,7 @@ describe('ImportFlow', () => {
     renderFlow();
     await previewAsBlack();
     fireEvent.click(await enabledConfirm());
-    await screen.findByText(MESSAGES.lt.repertoire.nameBlank);
+    await screen.findByText(MESSAGES.repertoire.nameBlank);
     expect(screen.getByLabelText(i.name).getAttribute('aria-invalid')).toBe(
       'true',
     );
@@ -358,7 +354,7 @@ describe('ImportFlow', () => {
     renderFlow();
     await previewAsBlack();
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
-    await screen.findByText(/Prideda 2 skyrius/);
+    await screen.findByText(/Adds 2 chapters/);
     fireEvent.click(await enabledConfirm());
     await waitFor(() => {
       expect(server.confirm).toHaveBeenCalledWith({
@@ -368,7 +364,7 @@ describe('ImportFlow', () => {
       });
     });
     const again = await screen.findByRole('button', { name: i.previewAgain });
-    expect(screen.getByText(MESSAGES.lt.repertoire.stale)).toBeDefined();
+    expect(screen.getByText(MESSAGES.repertoire.stale)).toBeDefined();
     await waitFor(() => {
       expect(document.activeElement).toBe(again);
     });
@@ -405,18 +401,18 @@ describe('ImportFlow', () => {
       },
     });
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
-    const said = await screen.findByText(MESSAGES.lt.pgn.nothingToAdd);
+    const said = await screen.findByText(MESSAGES.pgn.nothingToAdd);
     expect(said.getAttribute('role')).toBe('status');
     expect(confirm.hasAttribute('disabled')).toBe(true);
     // The target card does not promise "adds 0 chapters and 0 moves".
-    expect(screen.queryByText(/„Taimanovas“/)).toBeNull();
+    expect(screen.queryByText(/^Adds /)).toBeNull();
     fireEvent.click(confirm);
     expect(server.confirm).not.toHaveBeenCalled();
     // A new repertoire can still take the file.
     server.preview.mockResolvedValue({ ok: true, preview: PREVIEW });
     fireEvent.click(screen.getByRole('radio', { name: i.targetNew }));
     await waitFor(() => {
-      expect(screen.queryByText(MESSAGES.lt.pgn.nothingToAdd)).toBeNull();
+      expect(screen.queryByText(MESSAGES.pgn.nothingToAdd)).toBeNull();
     });
     await enabledConfirm();
   });
@@ -439,10 +435,12 @@ describe('ImportFlow', () => {
       },
     });
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
-    await screen.findByText('Prideda komentarų ar ženklų 1 jau esamam ėjimui.');
+    await screen.findByText(
+      'Adds comments or symbols to 1 move already there.',
+    );
     expect(screen.getByText('5. Nc3: Main line')).toBeDefined();
     // No "adds 0 chapters and 0 moves" promise beside it.
-    expect(screen.queryByText(/Prideda 0/)).toBeNull();
+    expect(screen.queryByText(/Adds 0/)).toBeNull();
     fireEvent.click(await enabledConfirm());
     await waitFor(() => {
       expect(server.confirm).toHaveBeenCalledWith({
@@ -474,9 +472,9 @@ describe('ImportFlow', () => {
     renderFlow();
     await previewAsBlack();
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
-    await screen.findByText(/Prideda 2 skyrius/);
+    await screen.findByText(/Adds 2 chapters/);
     expect(
-      screen.getByText('Prideda komentarų ar ženklų 3 jau esamiems ėjimams.'),
+      screen.getByText('Adds comments or symbols to 3 moves already there.'),
     ).toBeDefined();
   });
 
@@ -488,9 +486,7 @@ describe('ImportFlow', () => {
       refusal: { reason: 'repertoire.notFound' },
     });
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
-    expect(
-      await screen.findByText(MESSAGES.lt.repertoire.notFound),
-    ).toBeDefined();
+    expect(await screen.findByText(MESSAGES.repertoire.notFound)).toBeDefined();
     expect(
       screen.getByRole<HTMLInputElement>('radio', { name: i.targetNew })
         .checked,
@@ -521,7 +517,7 @@ describe('ImportFlow', () => {
 
   it('disables adding when the side has no repertoire', async () => {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ImportFlow
           options={OPTIONS.filter((o) => o.side === 'black')}
           preselected={null}
@@ -538,7 +534,7 @@ describe('ImportFlow', () => {
         .hasAttribute('disabled'),
     ).toBe(true);
     expect(
-      screen.getByText(MESSAGES.lt.repertoires.list.emptyWhite),
+      screen.getByText(MESSAGES.repertoires.list.emptyWhite),
     ).toBeDefined();
   });
 });
@@ -555,7 +551,7 @@ describe('pasted PGN (R-209, #330 decision 10)', () => {
       side: 'black',
       into: undefined,
     });
-    expect(screen.getByText(`${i.pasted} · Juodieji`)).toBeDefined();
+    expect(screen.getByText(`${i.pasted} · ${c.black}`)).toBeDefined();
   });
 
   it('confirms the pasted text it previewed', async () => {
@@ -612,7 +608,7 @@ describe('pasted PGN (R-209, #330 decision 10)', () => {
     renderFlow();
     paste('ą'.repeat(1024 * 1024 + 1));
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
-    expect(screen.getByText('Failas didesnis nei 2 MB.')).toBeDefined();
+    expect(screen.getByText('The file is larger than 2 MB.')).toBeDefined();
     expect(server.preview).not.toHaveBeenCalled();
   });
 });
@@ -770,10 +766,10 @@ describe('ImportFlow side check (#364, R-214)', () => {
     );
   });
 
-  const SWITCH = 'Peržiūrėti juodaisiais';
+  const SWITCH = 'Preview as Black';
   const warning = () =>
     screen.queryByText(
-      'Daugumoje partijų ėjimai praleisti kaip antri atsakymai. Gal norėjote importuoti juodaisiais?',
+      'Most games were skipped as second answers. Did you mean Black?',
     );
 
   async function previewAsWhite(preselected: string | null = null) {

@@ -57,7 +57,7 @@ const verificationIds = async (): Promise<unknown> =>
 const accountRows = async (): Promise<unknown> =>
   (
     await client.query(
-      'select id, display_name, locale, onboarded_at, updated_at from accounts order by id',
+      'select id, display_name, onboarded_at, updated_at from accounts order by id',
     )
   ).rows;
 
@@ -71,7 +71,6 @@ describe('findAccountById / findAccountByEmail', () => {
       email: 'ruta@example.lt',
       emailVerified: true,
       displayName: 'a1',
-      locale: 'lt',
       entitlement: 'free',
       admin: false,
       disabledAt: null,
@@ -124,51 +123,37 @@ describe('completeOnboarding and updateProfile', () => {
   it('sets the name, the language and the onboarding time of that account only', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await seedAccount(db, 'a2', 'jonas@example.lt');
-    await completeOnboarding(
-      db,
-      'a1',
-      { displayName: 'Rūta', locale: 'en' },
-      NOW,
-    );
+    await completeOnboarding(db, 'a1', { displayName: 'Rūta' }, NOW);
     expect(await accountRows()).toEqual([
       {
         id: 'a1',
         display_name: 'Rūta',
-        locale: 'en',
         onboarded_at: NOW,
         updated_at: NOW,
       },
       {
         id: 'a2',
         display_name: 'a2',
-        locale: 'lt',
         onboarded_at: null,
         updated_at: T0,
       },
     ]);
   });
 
-  it('changes the name and the language of that account only, without touching onboarding', async () => {
+  it('changes the name of that account only, without touching onboarding', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await seedAccount(db, 'a2', 'jonas@example.lt');
-    await updateProfile(
-      db,
-      'a1',
-      { displayName: 'Rūta K.', locale: 'en' },
-      NOW,
-    );
+    await updateProfile(db, 'a1', { displayName: 'Rūta K.' }, NOW);
     expect(await accountRows()).toEqual([
       {
         id: 'a1',
         display_name: 'Rūta K.',
-        locale: 'en',
         onboarded_at: null,
         updated_at: NOW,
       },
       {
         id: 'a2',
         display_name: 'a2',
-        locale: 'lt',
         onboarded_at: null,
         updated_at: T0,
       },
@@ -254,7 +239,6 @@ describe('exportAccount', () => {
       account: {
         email: 'ruta@example.lt',
         displayName: 'a1',
-        locale: 'lt',
         image: null,
         entitlement: 'free',
         onboardedAt: null,
@@ -295,16 +279,10 @@ describe('exportAccount', () => {
     await client.query(
       `update accounts set image = 'https://example.lt/ruta.png' where id = 'a1'`,
     );
-    await completeOnboarding(
-      db,
-      'a1',
-      { displayName: 'Rūta', locale: 'en' },
-      NOW,
-    );
+    await completeOnboarding(db, 'a1', { displayName: 'Rūta' }, NOW);
     expect((await exportAccount(db, 'a1', NOW))?.account).toEqual({
       email: 'ruta@example.lt',
       displayName: 'Rūta',
-      locale: 'en',
       image: 'https://example.lt/ruta.png',
       entitlement: 'free',
       onboardedAt: '2026-10-16T09:00:00.000Z',

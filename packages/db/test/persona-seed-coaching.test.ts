@@ -19,14 +19,13 @@ const { db } = useTestDatabase();
 
 describe('seedPersonas', () => {
   it(
-    'makes accounts the persona sign-in finds: verified, onboarded, in the doc language',
+    'makes accounts the persona sign-in finds: verified, onboarded',
     async () => {
       await seedPersonas(db, NOW);
       const rows = await db
         .select({
           email: accounts.email,
           displayName: accounts.displayName,
-          locale: accounts.locale,
           emailVerified: accounts.emailVerified,
           onboarded: accounts.onboardedAt,
           coachSince: accounts.coachSince,
@@ -37,7 +36,6 @@ describe('seedPersonas', () => {
         rows.map((r) => [
           r.email,
           r.displayName,
-          r.locale,
           r.emailVerified,
           r.onboarded !== null,
           r.coachSince !== null,
@@ -46,7 +44,6 @@ describe('seedPersonas', () => {
         [
           'persona-1400-2000@mychess.test',
           'Gabija Navickaitė',
-          'lt',
           true,
           true,
           false,
@@ -54,35 +51,13 @@ describe('seedPersonas', () => {
         [
           'persona-2000plus@mychess.test',
           'Dovydas Jankauskas',
-          'en',
           true,
           true,
           true,
         ],
-        [
-          'persona-coach2@mychess.test',
-          'Aistė Markevičienė',
-          'lt',
-          true,
-          true,
-          true,
-        ],
-        [
-          'persona-coach@mychess.test',
-          'Rimantas Vaitkus',
-          'lt',
-          true,
-          true,
-          true,
-        ],
-        [
-          'persona-u1400@mychess.test',
-          'Rokas Petrauskas',
-          'lt',
-          true,
-          true,
-          false,
-        ],
+        ['persona-coach2@mychess.test', 'Aistė Markevičienė', true, true, true],
+        ['persona-coach@mychess.test', 'Rimantas Vaitkus', true, true, true],
+        ['persona-u1400@mychess.test', 'Rokas Petrauskas', true, true, false],
       ]);
     },
     SLOW,

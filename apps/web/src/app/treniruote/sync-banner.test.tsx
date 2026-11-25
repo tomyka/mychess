@@ -2,38 +2,36 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { SyncBanner } from './sync-banner';
 
-const renderIn = (locale: 'lt' | 'en', node: ReactNode) =>
+const renderIn = (node: ReactNode) =>
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       {node}
     </NextIntlClientProvider>,
   );
 
 describe('the unsynced results banner', () => {
   it('says nothing and offers nothing while every result is saved', () => {
-    renderIn('lt', <SyncBanner unsynced={0} onRetry={vi.fn()} />);
+    renderIn(<SyncBanner unsynced={0} onRetry={vi.fn()} />);
     expect(screen.getByRole('status').textContent).toBe('');
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('counts the waiting results in Lithuanian plural forms', () => {
+  it('counts the waiting results in singular and plural', () => {
     const { rerender } = renderIn(
-      'lt',
       <SyncBanner unsynced={1} onRetry={vi.fn()} />,
     );
     expect(screen.getByRole('status').textContent).toContain(
-      '1 rezultatas dar neišsaugotas.',
+      '1 result is not saved yet.',
     );
     for (const [count, text] of [
-      [3, '3 rezultatai dar neišsaugoti.'],
-      [12, '12 rezultatų dar neišsaugota.'],
-      [21, '21 rezultatas dar neišsaugotas.'],
+      [2, '2 results are not saved yet.'],
+      [21, '21 results are not saved yet.'],
     ] as const) {
       rerender(
-        <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <NextIntlClientProvider locale="en" messages={MESSAGES}>
           <SyncBanner unsynced={count} onRetry={vi.fn()} />
         </NextIntlClientProvider>,
       );
@@ -41,18 +39,11 @@ describe('the unsynced results banner', () => {
     }
   });
 
-  it('counts them in English too', () => {
-    renderIn('en', <SyncBanner unsynced={2} onRetry={vi.fn()} />);
-    expect(screen.getByRole('status').textContent).toContain(
-      '2 results are not saved yet.',
-    );
-  });
-
   it('tries at once when asked', () => {
     const retry = vi.fn();
-    renderIn('lt', <SyncBanner unsynced={2} onRetry={retry} />);
+    renderIn(<SyncBanner unsynced={2} onRetry={retry} />);
     fireEvent.click(
-      screen.getByRole('button', { name: MESSAGES.lt.training.sync.retry }),
+      screen.getByRole('button', { name: MESSAGES.training.sync.retry }),
     );
     expect(retry).toHaveBeenCalledOnce();
   });

@@ -6,7 +6,6 @@ import {
   classifyKeys,
   ecoName,
   indexByPosition,
-  openingName,
 } from './classify';
 import { withPositionKeys } from './eco-tsv';
 
@@ -59,42 +58,36 @@ describe('classify', () => {
 });
 
 describe('ecoName', () => {
-  it('names a code in English or Lithuanian', () => {
-    expect(ecoName('B90', 'en')).toBe('Sicilian Defense: Najdorf Variation');
-    expect(ecoName('B90', 'lt')).toBe('Siciliška gynyba, Naidorfo variantas');
+  it('names a code by its family', () => {
+    expect(ecoName('B90')).toBe('Sicilian Defense: Najdorf Variation');
   });
 
   it('falls back to the code for a code it does not know', () => {
-    expect(ecoName('Z99', 'lt')).toBe('Z99');
+    expect(ecoName('Z99')).toBe('Z99');
   });
 });
 
 describe('chapter names', () => {
   it('prefers a custom name', () => {
-    expect(chapterName({ kind: 'custom', name: 'Mano' }, 'lt')).toEqual({
+    expect(chapterName({ kind: 'custom', name: 'Mano' })).toEqual({
       kind: 'text',
       text: 'Mano',
     });
   });
 
-  it('uses the ECO name in the locale', () => {
-    expect(chapterName({ kind: 'eco', eco: 'B90' }, 'en')).toEqual({
+  it('uses the ECO name', () => {
+    expect(chapterName({ kind: 'eco', eco: 'B90' })).toEqual({
       kind: 'text',
-      text: ecoName('B90', 'en'),
+      text: 'Sicilian Defense: Najdorf Variation',
     });
-    expect(chapterName({ kind: 'eco', eco: 'B90' }, 'lt')).toEqual({
-      kind: 'text',
-      text: ecoName('B90', 'lt'),
-    });
-    expect(ecoName('B90', 'lt')).not.toBe(ecoName('B90', 'en'));
   });
 
   it('falls back to the header name, then a numbered key', () => {
-    expect(chapterName({ kind: 'header', name: 'Italian' }, 'lt')).toEqual({
+    expect(chapterName({ kind: 'header', name: 'Italian' })).toEqual({
       kind: 'text',
       text: 'Italian',
     });
-    expect(chapterName({ kind: 'index', number: 3 }, 'lt')).toEqual({
+    expect(chapterName({ kind: 'index', number: 3 })).toEqual({
       kind: 'key',
       key: 'chapter.untitled',
       number: 3,
@@ -169,21 +162,5 @@ describe('classifyKeys', () => {
   it('is null when no key is a named position', () => {
     expect(classifyKeys([])).toBeNull();
     expect(classifyKeys(['none'])).toBeNull();
-  });
-});
-
-describe('openingName', () => {
-  it('is the line name in English and its code name in Lithuanian', () => {
-    const entry = classify(['e4', 'c6', 'd4', 'd5', 'e5']);
-    expect(entry && openingName(entry, 'en')).toBe(
-      'Caro-Kann Defense: Advance Variation',
-    );
-    expect(entry && openingName(entry, 'lt')).toBe(ecoName('B12', 'lt'));
-    expect(ecoName('B12', 'lt')).not.toBe(ecoName('B12', 'en'));
-  });
-
-  it('falls back to English for a code without a Lithuanian name', () => {
-    const entry = { code: 'Z99', name: 'Nowhere', moves: [], key: 'k' };
-    expect(openingName(entry, 'lt')).toBe('Nowhere');
   });
 });

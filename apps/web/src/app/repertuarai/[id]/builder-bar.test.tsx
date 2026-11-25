@@ -1,11 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import { BuilderBar, type BuilderBarProps } from './builder-bar';
 
-const lt = MESSAGES.lt;
-const b = lt.repertoires.builder;
+const b = MESSAGES.repertoires.builder;
 
 function renderBar(over: Partial<BuilderBarProps> = {}) {
   const props: BuilderBarProps = {
@@ -20,7 +19,7 @@ function renderBar(over: Partial<BuilderBarProps> = {}) {
     ...over,
   };
   const view = (next: BuilderBarProps) => (
-    <NextIntlClientProvider locale="lt" messages={lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <BuilderBar {...next} />
     </NextIntlClientProvider>
   );
@@ -41,20 +40,20 @@ describe('BuilderBar: removing a move', () => {
     fireEvent.click(button(b.remove));
     expect(
       screen.getByText(
-        'Pašalinti 6...a6 ir 14 tolesnių ėjimų, pasiekiamų tik per jį?',
+        'Remove 6...a6 and the 14 moves that can only be reached through it?',
       ),
     ).toBeDefined();
     expect(document.activeElement).toBe(button(b.removeCancel));
     expect(props.onRemove).not.toHaveBeenCalled();
     fireEvent.click(button(b.removeSubmit));
     expect(props.onRemove).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(/Pašalinti 6\.\.\.a6/)).toBeNull();
+    expect(screen.queryByText(/Remove 6\.\.\.a6/)).toBeNull();
   });
 
   it('drops the second clause when nothing goes with it', () => {
     renderBar({ count: 0 });
     fireEvent.click(button(b.remove));
-    expect(screen.getByText('Pašalinti 6...a6?')).toBeDefined();
+    expect(screen.getByText('Remove 6...a6?')).toBeDefined();
   });
 
   it('cancels with Cancel or Escape and returns focus to Remove move', () => {
@@ -95,7 +94,7 @@ describe('BuilderBar: draw mode', () => {
 
   it('shows the four colours by name, the chosen one pressed, and the hint', () => {
     const { props } = renderBar({ drawMode: true, drawColor: 'R' });
-    const colors = lt.repertoires.colors;
+    const colors = MESSAGES.repertoires.colors;
     expect(
       screen
         .getAllByRole('button', { pressed: false })
@@ -118,7 +117,7 @@ describe('BuilderBar: draw mode', () => {
     const { rerender } = renderBar();
     rerender({ drawMode: true });
     expect(document.activeElement).toBe(
-      screen.getByRole('button', { name: lt.repertoires.colors.G }),
+      screen.getByRole('button', { name: MESSAGES.repertoires.colors.G }),
     );
     rerender({ drawMode: false });
     expect(document.activeElement).toBe(button(b.draw));

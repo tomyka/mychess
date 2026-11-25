@@ -40,35 +40,17 @@ const account = (
  */
 export const PERSONA_ACCOUNTS: readonly PersonaAccount[] = [
   // The earliest date the docs give the coach: Dovydas joins the group then.
-  account(
-    'coach',
-    { displayName: 'Rimantas Vaitkus', locale: 'lt' },
-    '2025-11-20',
-    true,
-  ),
+  account('coach', { displayName: 'Rimantas Vaitkus' }, '2025-11-20', true),
   // The docs give no date for the second coach (seed assumption).
-  account(
-    'coach2',
-    { displayName: 'Aistė Markevičienė', locale: 'lt' },
-    '2026-09-01',
-    true,
-  ),
+  account('coach2', { displayName: 'Aistė Markevičienė' }, '2026-09-01', true),
   account(
     '2000plus',
-    { displayName: 'Dovydas Jankauskas', locale: 'en' },
+    { displayName: 'Dovydas Jankauskas' },
     '2025-11-20',
     true,
   ),
-  account(
-    '1400-2000',
-    { displayName: 'Gabija Navickaitė', locale: 'lt' },
-    '2026-02-01',
-  ),
-  account(
-    'u1400',
-    { displayName: 'Rokas Petrauskas', locale: 'lt' },
-    '2026-04-12',
-  ),
+  account('1400-2000', { displayName: 'Gabija Navickaitė' }, '2026-02-01'),
+  account('u1400', { displayName: 'Rokas Petrauskas' }, '2026-04-12'),
 ];
 
 export const PERSONA_GROUP = {

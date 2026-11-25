@@ -181,8 +181,7 @@ function SideGroup({
 
 /**
  * The account's repertoires and those assigned to it (#328) by side, White
- * then Black, each sorted by name in Lithuanian order whatever the viewer's
- * language (R-160); one line when there are none at all.
+ * then Black, each sorted by name in English order (R-160, R-217); one line when there are none at all.
  */
 export function RepertoireList({
   items,

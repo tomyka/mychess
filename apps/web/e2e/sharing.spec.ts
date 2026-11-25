@@ -1,8 +1,7 @@
 // S4 journey G-M1-3 (plan Task B8): Gabija shares her Taimanov with her
 // coach Rimantas, who reads it read-only and writes a coach note; she reads
 // the note under his name; unsharing and unlinking each end his access and
-// take his notes with them (R-42, R-107, R-124, R-125, R-127). Rimantas
-// works in Lithuanian; Gabija once in Lithuanian and once in English.
+// take his notes with them (R-42, R-107, R-124, R-125, R-127).
 import { fileURLToPath } from 'node:url';
 import {
   expect,
@@ -17,12 +16,11 @@ import {
   switchOnCoachMode,
 } from './support/coaching';
 import {
-  CATALOGUES,
+  en,
   format,
   newDevice,
   newOnboardedAccount,
   test,
-  type Locale,
   type Messages,
 } from './support/journey';
 import {
@@ -32,8 +30,6 @@ import {
   plural,
   previewImport,
 } from './support/repertoires';
-
-const { lt, en } = CATALOGUES;
 
 const COACH = 'Rimantas Vaitkus';
 const PLAYER = 'Gabija Navickaitė';
@@ -45,24 +41,14 @@ const TAIMANOV = fileURLToPath(
 );
 /**
  * The first chapter (6.Be3), whose 9...Ne5 carries the comment below, by
- * its opening name in each language (opening names follow the language).
- * Its 3.Nc3 chapter shares the name, so the title carries the ECO code and
- * the move it parts at (R-158).
+ * its opening name. Its 3.Nc3 chapter shares the name, so the title carries
+ * the ECO code and the move it parts at (R-158).
  */
-const FIRST_CHAPTER: Record<Locale, string> = {
-  lt: distinctTitle(lt, {
-    name: 'Siciliška gynyba, Taimanovo variantas',
-    eco: 'B48',
-    move: '6. Be3',
-  }),
-  en: distinctTitle(en, {
-    name: 'Sicilian Defense: Taimanov Variation, Bastrikov Variation, English Attack',
-    eco: 'B48',
-    move: '6. Be3',
-  }),
-};
-/** Rimantas reads in English, the only language served (R-180). */
-const TAIMANOV_B48 = FIRST_CHAPTER.en;
+const TAIMANOV_B48 = distinctTitle(en, {
+  name: 'Sicilian Defense: Taimanov Variation, Bastrikov Variation, English Attack',
+  eco: 'B48',
+  move: '6. Be3',
+});
 const COMMENT = 'Juodieji spaudžia c4 langelį.';
 /** Gabija's private note on 9...Ne5: no coach ever reads it (R-21). */
 const PERSONAL_NOTE = 'Asmeninis: čia dažnai suklystu.';
@@ -115,7 +101,6 @@ async function playerImports(page: Page, link: string): Promise<string> {
 async function setShared(
   page: Page,
   messages: Messages,
-  locale: Locale,
   shared: boolean,
 ): Promise<void> {
   const section = shareSection(page, messages);
@@ -126,7 +111,7 @@ async function setShared(
   await expect(
     section.getByText(
       shared
-        ? plural(messages.share.sharedWith, locale, { count: 1 })
+        ? plural(messages.share.sharedWith, { count: 1 })
         : messages.share.notShared,
       { exact: true },
     ),
@@ -188,14 +173,10 @@ async function coachWritesNote(coach: Page): Promise<void> {
 }
 
 /** On her 9...Ne5, Rimantas's note under his name, or none. */
-async function expectCoachNote(
-  page: Page,
-  locale: Locale,
-  shown: boolean,
-): Promise<void> {
-  const messages = CATALOGUES[locale];
+async function expectCoachNote(page: Page, shown: boolean): Promise<void> {
+  const messages = en;
   await page.reload();
-  await chooseChapter(page, FIRST_CHAPTER[locale]);
+  await chooseChapter(page, TAIMANOV_B48);
   await ne5(page, messages, messages.repertoires.moves.hasNote).click();
   await expect(page.getByText(PERSONAL_NOTE)).toBeVisible();
   const byCoach = page.getByText(
@@ -233,62 +214,59 @@ async function onOwnDevice(
   }
 }
 
-// English only for now (R-180); Gabija's side ran in Lithuanian too.
-for (const locale of ['en'] as const) {
-  test(`G-M1-3 (Gabija in ${locale}): a shared repertoire, its coach note, and how unshare and unlink end them`, async ({
-    page: coach,
-    request,
-    browser,
-  }) => {
-    test.setTimeout(300_000);
-    const messages = CATALOGUES[locale];
-    await newOnboardedAccount(coach, request, COACH);
-    const link = await coachInvites(coach);
+test(`G-M1-3: a shared repertoire, its coach note, and how unshare and unlink end them`, async ({
+  page: coach,
+  request,
+  browser,
+}) => {
+  test.setTimeout(300_000);
+  const messages = en;
+  await newOnboardedAccount(coach, request, COACH);
+  const link = await coachInvites(coach);
 
-    await onOwnDevice(browser, async (gabija) => {
-      await newOnboardedAccount(gabija, request, PLAYER);
-      const repertoire = await playerImports(gabija, link);
-      // Not shared yet: her page lists nothing for him (checklist 2).
-      const player = await openPlayer(coach);
-      const noneShared = coach.getByText(
-        format(en.coach.shared.empty, { name: PLAYER }),
-      );
-      await expect(noneShared).toBeVisible();
+  await onOwnDevice(browser, async (gabija) => {
+    await newOnboardedAccount(gabija, request, PLAYER);
+    const repertoire = await playerImports(gabija, link);
+    // Not shared yet: her page lists nothing for him (checklist 2).
+    const player = await openPlayer(coach);
+    const noneShared = coach.getByText(
+      format(en.coach.shared.empty, { name: PLAYER }),
+    );
+    await expect(noneShared).toBeVisible();
 
-      await setShared(gabija, messages, locale, true);
-      await coach.reload();
-      await coachOpensShared(coach);
-      const shared = coach.url();
-      await coachWritesNote(coach);
+    await setShared(gabija, messages, true);
+    await coach.reload();
+    await coachOpensShared(coach);
+    const shared = coach.url();
+    await coachWritesNote(coach);
 
-      // R-107, R-127: she reads it, marked with his name.
-      await expectCoachNote(gabija, locale, true);
+    // R-107, R-127: she reads it, marked with his name.
+    await expectCoachNote(gabija, true);
 
-      // Unshared: his link is not found, and the note is gone (R-124).
-      await setShared(gabija, messages, locale, false);
-      await coach.reload();
-      await expectNotFound(coach);
-      await coach.goto(player);
-      await expect(noneShared).toBeVisible();
-      await expectCoachNote(gabija, locale, false);
+    // Unshared: his link is not found, and the note is gone (R-124).
+    await setShared(gabija, messages, false);
+    await coach.reload();
+    await expectNotFound(coach);
+    await coach.goto(player);
+    await expect(noneShared).toBeVisible();
+    await expectCoachNote(gabija, false);
 
-      // Shared again: the old note does not come back.
-      await setShared(gabija, messages, locale, true);
-      await coach.goto(shared);
-      await chooseChapter(coach, TAIMANOV_B48);
-      await ne5(coach, en).click();
-      await expect(
-        coach.getByLabel(en.coach.shared.note, { exact: true }),
-      ).toHaveValue('');
+    // Shared again: the old note does not come back.
+    await setShared(gabija, messages, true);
+    await coach.goto(shared);
+    await chooseChapter(coach, TAIMANOV_B48);
+    await ne5(coach, en).click();
+    await expect(
+      coach.getByLabel(en.coach.shared.note, { exact: true }),
+    ).toHaveValue('');
 
-      // Unlinked: access ends on his next request.
-      await playerUnlinks(gabija, messages);
-      await coach.reload();
-      await expectNotFound(coach);
-      await gabija.goto(repertoire);
-      // No linked coach left: no share section at all (#331).
-      await expect(gabija.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(shareSection(gabija, messages)).toHaveCount(0);
-    });
+    // Unlinked: access ends on his next request.
+    await playerUnlinks(gabija, messages);
+    await coach.reload();
+    await expectNotFound(coach);
+    await gabija.goto(repertoire);
+    // No linked coach left: no share section at all (#331).
+    await expect(gabija.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(shareSection(gabija, messages)).toHaveCount(0);
   });
-}
+});

@@ -4,7 +4,6 @@ import {
   type Entitlement,
   type InviteKind,
   type InviteState,
-  type Locale,
 } from '@mychess/domain';
 import { exportPgn, type ChapterTitles, type Side } from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
@@ -88,7 +87,6 @@ export interface AccountExport {
   readonly account: {
     readonly email: string;
     readonly displayName: string;
-    readonly locale: Locale;
     readonly image: string | null;
     readonly entitlement: Entitlement;
     /** ISO time, or null before onboarding. */
@@ -374,7 +372,6 @@ export async function exportAccount(
     account: {
       email: account.email,
       displayName: account.displayName,
-      locale: account.locale,
       image: account.image,
       entitlement: account.entitlement,
       onboardedAt: iso(account.onboardedAt),

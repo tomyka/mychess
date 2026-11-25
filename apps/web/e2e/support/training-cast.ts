@@ -9,13 +9,7 @@ import {
   type Page,
 } from '@playwright/test';
 import { fixture, importRepertoire } from './assignments';
-import {
-  CATALOGUES,
-  format,
-  newOnboardedAccount,
-  type Locale,
-  type Messages,
-} from './journey';
+import { en, format, newOnboardedAccount, type Messages } from './journey';
 import { disclosure, plural } from './repertoires';
 import {
   bookOf,
@@ -25,8 +19,6 @@ import {
   type Asked,
   type Drill,
 } from './training';
-
-const { en } = CATALOGUES;
 
 export const ITALIAN = 'Itališkoji partija';
 export const CATALAN = 'Katalonų pradžia';
@@ -77,8 +69,8 @@ export const today = (page: Page, messages: Messages): Locator =>
   page.getByRole('region', { name: messages.training.today.title });
 
 /** Home's due line: `count` due, about `minutes` (8 s a move, rounded up). */
-export const dueLine = (locale: Locale, count: number): string =>
-  plural(CATALOGUES[locale].training.today.due, locale, {
+export const dueLine = (count: number): string =>
+  plural(en.training.today.due, {
     count,
     minutes: Math.ceil((count * 8) / 60),
   });
@@ -133,7 +125,6 @@ export async function learnPianissimo(drill: Drill): Promise<Asked[]> {
 async function markKnown(
   body: Locator,
   messages: Messages,
-  locale: Locale,
 ): Promise<number | null> {
   const t = messages.training.know;
   await expect(body.getByText(t.loading)).toHaveCount(0);
@@ -143,10 +134,10 @@ async function markKnown(
   const question = (await body.getByText(/\?/).textContent()) ?? '';
   const count = Number(/\d+/.exec(question)?.[0]);
   // R-147: the confirm says how many moves.
-  expect(question).toBe(plural(t.question, locale, { count }));
+  expect(question).toBe(plural(t.question, { count }));
   await body.getByRole('button', { name: t.confirm, exact: true }).click();
   await expect(
-    body.getByText(plural(t.marked, locale, { count }), { exact: true }),
+    body.getByText(plural(t.marked, { count }), { exact: true }),
   ).toBeVisible();
   return count;
 }
@@ -155,7 +146,6 @@ async function markKnown(
 export async function markChaptersKnown(
   page: Page,
   messages: Messages,
-  locale: Locale,
 ): Promise<number[]> {
   const trigger = disclosure(page);
   if ((await trigger.getAttribute('aria-expanded')) === 'false')
@@ -174,7 +164,7 @@ export async function markChaptersKnown(
     const body = list.locator(
       `[id="${String(await toggle.getAttribute('aria-controls'))}"]`,
     );
-    const count = await markKnown(body, messages, locale);
+    const count = await markKnown(body, messages);
     if (count !== null) counts.push(count);
   }
   return counts;

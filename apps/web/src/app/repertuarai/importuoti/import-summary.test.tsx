@@ -2,11 +2,11 @@ import type { Skipped } from '@mychess/chess';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../../i18n/catalogue';
 import type { ImportPreview } from '../../../server/import-preview';
 import { ImportSummary } from './import-summary';
 
-const i = MESSAGES.lt.repertoires.import;
+const i = MESSAGES.repertoires.import;
 
 const PREVIEW: ImportPreview = {
   summary: {
@@ -16,7 +16,7 @@ const PREVIEW: ImportPreview = {
     transpositions: 3,
     moves: 1,
   },
-  chapters: ['Sicilijos gynyba, Taimanovo variantas', 'Skyrius 2'],
+  chapters: ['Sicilian Defense: Taimanov Variation', 'Chapter 2'],
   renamed: [],
   skipped: [
     { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },
@@ -31,8 +31,8 @@ const PREVIEW: ImportPreview = {
 
 /** An existing chapter a merge tells apart from a namesake (R-159). */
 const RENAMED = {
-  from: 'Karo-Kano gynyba',
-  to: 'Karo-Kano gynyba (B12, 2.\u00A0d4)',
+  from: 'Caro-Kann Defense',
+  to: 'Caro-Kann Defense (B12, 2.\u00A0d4)',
 };
 
 function renderSummary(
@@ -40,7 +40,7 @@ function renderSummary(
   side: 'white' | 'black' = 'black',
 ): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ImportSummary preview={preview} side={side} busy={false} />
     </NextIntlClientProvider>,
   );
@@ -53,11 +53,11 @@ describe('ImportSummary', () => {
       screen.getByRole('heading', { level: 2, name: i.summaryTitle }),
     ).toBeDefined();
     for (const text of [
-      '6 skyriai',
-      '7 variantai',
-      '88 padėtys',
-      '3 ėjimų perstatymai',
-      '1 ėjimas',
+      '6 chapters',
+      '7 lines',
+      '88 positions',
+      '3 transpositions',
+      '1 move',
     ]) {
       expect(screen.getByText(text)).toBeDefined();
     }
@@ -70,7 +70,7 @@ describe('ImportSummary', () => {
       within(list)
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['Sicilijos gynyba, Taimanovo variantas', 'Skyrius 2']);
+    ).toEqual(['Sicilian Defense: Taimanov Variation', 'Chapter 2']);
   });
 
   it('lists the existing chapters a merge renames, old title and new (R-159)', () => {
@@ -83,9 +83,7 @@ describe('ImportSummary', () => {
       within(list)
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual([
-      `\u201e${RENAMED.from}\u201c vadinsis \u201e${RENAMED.to}\u201c`,
-    ]);
+    ).toEqual([`“${RENAMED.from}” will be called “${RENAMED.to}”`]);
   });
 
   it('leaves out the renamed list when no title changes', () => {
@@ -96,16 +94,16 @@ describe('ImportSummary', () => {
   it('lists the skipped games with their reason and move', () => {
     renderSummary(PREVIEW);
     const list = screen.getByRole('list', {
-      name: 'Praleistos partijos (3)',
+      name: 'Skipped games (3)',
     });
     expect(
       within(list)
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual([
-      'Partija 7: neleistinas ėjimas, Nxe4',
-      'Partija 8: antras atsakymas toje pačioje padėtyje, 5...a6',
-      'Partija 9: partijoje nėra ėjimų',
+      'Game 7: illegal move, Nxe4',
+      'Game 8: a second answer in the same position, 5...a6',
+      'Game 9: the game has no moves',
     ]);
   });
 
@@ -118,16 +116,14 @@ describe('ImportSummary', () => {
       'white',
     );
     expect(
-      screen.getByText(
-        'Partija 1: antras atsakymas toje pačioje padėtyje, 2. Bf4',
-      ),
+      screen.getByText('Game 1: a second answer in the same position, 2. Bf4'),
     ).toBeDefined();
   });
 
   it('says every game is valid when none was skipped', () => {
     renderSummary({ ...PREVIEW, skipped: [] });
-    expect(screen.getByText('Visos partijos tinkamos (2)')).toBeDefined();
-    expect(screen.queryByRole('list', { name: /Praleistos/ })).toBeNull();
+    expect(screen.getByText('All 2 games are valid')).toBeDefined();
+    expect(screen.queryByRole('list', { name: /Skipped games/ })).toBeNull();
   });
 
   it('leaves out an empty chapter list', () => {
@@ -142,12 +138,10 @@ describe('ImportSummary', () => {
       skipped: [{ game: 1, reason: 'pgn.secondAnswer', san: 'd6', move: 2 }],
       refusal: 'pgn.nothingToAdd',
     });
-    expect(screen.queryByText('6 skyriai')).toBeNull();
+    expect(screen.queryByText('6 chapters')).toBeNull();
     expect(screen.queryByRole('list', { name: i.chaptersTitle })).toBeNull();
     expect(
-      screen.getByText(
-        'Partija 1: antras atsakymas toje pačioje padėtyje, 2...d6',
-      ),
+      screen.getByText('Game 1: a second answer in the same position, 2...d6'),
     ).toBeDefined();
   });
 
@@ -158,8 +152,8 @@ describe('ImportSummary', () => {
       skipped: [],
       refusal: 'pgn.nothingToAdd',
     });
-    expect(screen.queryByText(/Visos partijos tinkamos/)).toBeNull();
-    expect(screen.queryByText('6 skyriai')).toBeNull();
+    expect(screen.queryByText(/games are valid/)).toBeNull();
+    expect(screen.queryByText('6 chapters')).toBeNull();
   });
 
   it('shows the first 10 skipped games and the rest on request', () => {
@@ -170,17 +164,17 @@ describe('ImportSummary', () => {
     renderSummary({ ...PREVIEW, skipped });
     const items = () =>
       within(
-        screen.getByRole('list', { name: 'Praleistos partijos (12)' }),
+        screen.getByRole('list', { name: 'Skipped games (12)' }),
       ).getAllByRole('listitem');
     expect(items()).toHaveLength(10);
-    fireEvent.click(screen.getByRole('button', { name: 'Rodyti visas (12)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 12' }));
     expect(items()).toHaveLength(12);
-    expect(screen.queryByRole('button', { name: /Rodyti visas/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Show all/ })).toBeNull();
   });
 
   it('marks itself busy while the preview re-runs', () => {
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ImportSummary preview={PREVIEW} side="black" busy />
       </NextIntlClientProvider>,
     );
@@ -192,15 +186,10 @@ describe('ImportSummary', () => {
     ).toBe('true');
   });
 
-  it('speaks of symbols, not PGN NAGs, in either language (#335)', () => {
-    for (const locale of ['lt', 'en'] as const) {
-      const { annotationsTitle, addedAnnotations } =
-        MESSAGES[locale].repertoires.import;
-      expect(`${annotationsTitle} ${addedAnnotations}`).not.toMatch(/NAG/);
-    }
-    expect(MESSAGES.en.repertoires.import.annotationsTitle).toContain(
-      'symbols',
-    );
+  it('speaks of symbols, not PGN NAGs (#335)', () => {
+    const { annotationsTitle, addedAnnotations } = MESSAGES.repertoires.import;
+    expect(`${annotationsTitle} ${addedAnnotations}`).not.toMatch(/NAG/);
+    expect(MESSAGES.repertoires.import.annotationsTitle).toContain('symbols');
   });
 
   it('lists the comments and NAGs a merge adds to moves already there (R-175, R-176)', () => {
@@ -258,7 +247,7 @@ describe('ImportSummary side check (#364, R-214)', () => {
   it('says the file looks like the other side’s, with a switch to it', () => {
     const switched: string[] = [];
     render(
-      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ImportSummary
           preview={SUGGESTS_WHITE}
           side="black"
@@ -269,25 +258,21 @@ describe('ImportSummary side check (#364, R-214)', () => {
     );
     expect(
       screen.getByText(
-        'Daugumoje partijų ėjimai praleisti kaip antri atsakymai. Gal norėjote importuoti baltaisiais?',
+        'Most games were skipped as second answers. Did you mean White?',
       ),
     ).toBeDefined();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Peržiūrėti baltaisiais' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview as White' }));
     expect(switched).toEqual(['white']);
   });
 
   it('warns with no switch when there is none to offer', () => {
     renderSummary(SUGGESTS_WHITE);
-    expect(
-      screen.getByText(/Gal norėjote importuoti baltaisiais?/),
-    ).toBeDefined();
-    expect(screen.queryByRole('button', { name: /Peržiūrėti/ })).toBeNull();
+    expect(screen.getByText(/Did you mean White?/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Preview as/ })).toBeNull();
   });
 
   it('says nothing of the side when it fits', () => {
     renderSummary(PREVIEW);
-    expect(screen.queryByText(/Gal norėjote importuoti/)).toBeNull();
+    expect(screen.queryByText(/Did you mean/)).toBeNull();
   });
 });

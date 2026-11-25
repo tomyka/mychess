@@ -53,28 +53,26 @@ async function race<T>(racers: (() => Promise<T>)[]): Promise<T[]> {
 }
 
 describe('completeOnboarding under the lock (R-81)', () => {
-  const RUTA = { displayName: 'Rūta', locale: 'en' } as const;
+  const RUTA = { displayName: 'Rūta' } as const;
 
-  it('onboards a new account: its name, language and times, nobody else', async () => {
+  it('onboards a new account: its name and times, nobody else', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await seedAccount(db, 'a2', 'jonas@example.lt');
     expect(await completeOnboarding(db, 'a1', RUTA, NOW)).toEqual(OK);
     expect(
       await query(
-        'select id, display_name, locale, onboarded_at, updated_at from accounts order by id',
+        'select id, display_name, onboarded_at, updated_at from accounts order by id',
       ),
     ).toEqual([
       {
         id: 'a1',
         display_name: 'Rūta',
-        locale: 'en',
         onboarded_at: NOW,
         updated_at: NOW,
       },
       {
         id: 'a2',
         display_name: 'a2',
-        locale: 'lt',
         onboarded_at: null,
         updated_at: T0,
       },
@@ -123,13 +121,7 @@ describe('completeOnboarding under the lock (R-81)', () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     const results = await race([
       () => completeOnboarding(db, 'a1', RUTA, NOW),
-      () =>
-        completeOnboarding(
-          db,
-          'a1',
-          { displayName: 'Jonas', locale: 'lt' },
-          LATER,
-        ),
+      () => completeOnboarding(db, 'a1', { displayName: 'Jonas' }, LATER),
     ]);
     const winners = results.flatMap((result, i) => (result.ok ? [i] : []));
     expect(winners).toHaveLength(1);
@@ -138,11 +130,11 @@ describe('completeOnboarding under the lock (R-81)', () => {
     ]);
     const stored =
       winners[0] === 0
-        ? { display_name: 'Rūta', locale: 'en', onboarded_at: NOW }
-        : { display_name: 'Jonas', locale: 'lt', onboarded_at: LATER };
+        ? { display_name: 'Rūta', onboarded_at: NOW }
+        : { display_name: 'Jonas', onboarded_at: LATER };
     expect(
       await query(
-        `select display_name, locale, onboarded_at from accounts where id = 'a1'`,
+        `select display_name, onboarded_at from accounts where id = 'a1'`,
       ),
     ).toEqual([stored]);
   });
@@ -179,7 +171,7 @@ describe('disableAccount under the lock (R-80)', () => {
 });
 
 describe('deleteConfirmedAccount (R-40, R-82, R-86, R-87)', () => {
-  const RUTA_MAIL = { to: 'ruta@example.lt', locale: 'lt' };
+  const RUTA_MAIL = { to: 'ruta@example.lt' };
 
   const counts = async (): Promise<unknown> =>
     (
@@ -323,7 +315,7 @@ describe('deleteConfirmedAccount (R-40, R-82, R-86, R-87)', () => {
       }),
     ).toEqual({
       ok: true,
-      value: { confirmationMail: { to: 'c@example.lt', locale: 'lt' } },
+      value: { confirmationMail: { to: 'c@example.lt' } },
     });
     expect(await remaining()).toEqual([{ id: 'p' }]);
     expect(

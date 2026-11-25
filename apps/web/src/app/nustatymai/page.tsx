@@ -79,7 +79,7 @@ export default async function SettingsPage({
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
       <Header />
-      <ProfileForm displayName={account.displayName} locale={account.locale} />
+      <ProfileForm displayName={account.displayName} />
       <TrainingForm settings={training} />
       <CoachMode isCoach={isCoach(account)} />
       <MyCoaches

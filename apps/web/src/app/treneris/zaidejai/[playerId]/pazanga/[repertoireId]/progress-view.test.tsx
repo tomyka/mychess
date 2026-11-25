@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../../../../../i18n/locales';
+import { MESSAGES } from '../../../../../../i18n/catalogue';
 import type { ProgressPage } from '../../../../../../server/coach-progress';
 import { ProgressView } from './progress-view';
 
-const p = MESSAGES.lt.coach.progress;
+const p = MESSAGES.coach.progress;
 const COUNTS = { notStarted: 0, skipped: 0, due: 0, learned: 3 };
 const PARTIAL = { notStarted: 2, skipped: 0, due: 1, learned: 0 };
 const NONE = { notStarted: 0, skipped: 0, due: 0, learned: 0 };
@@ -50,7 +50,7 @@ const PAGE: ProgressPage = {
 
 function show(page: ProgressPage = PAGE): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ProgressView page={page} />
     </NextIntlClientProvider>,
   );
@@ -72,13 +72,15 @@ describe('the progress page (R-152)', () => {
     expect(
       within(header).getByRole('link', { name: 'Rokas' }).getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-1');
-    expect(within(header).getByText('Pristabdyta')).toBeTruthy();
+    expect(
+      within(header).getByText(MESSAGES.assignment.badge.paused),
+    ).toBeTruthy();
     expect(within(header).getByText(p.mastered)).toBeTruthy();
   });
 
   it('shows no badges when there is no assignment', () => {
     show({ ...PAGE, badges: null });
-    expect(screen.queryByText('Pristabdyta')).toBeNull();
+    expect(screen.queryByText(MESSAGES.assignment.badge.paused)).toBeNull();
   });
 
   it('lists the chapters under their heading, each with lines closed at first', () => {

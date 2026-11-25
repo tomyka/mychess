@@ -50,13 +50,12 @@ import {
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
   type Account,
-  type Locale,
   type RateRefusal,
   type RateRule,
   type RepertoireLimitRefusal,
 } from '@mychess/domain';
 import { z } from 'zod';
-import { chapterLabelIn } from './chapter-names';
+import { chapterLabelOf } from './chapter-names';
 import { getDb } from './db';
 import { refusalOf } from './parse-refusal';
 import { ownRepertoire } from './repertoires';
@@ -283,37 +282,33 @@ function importFile(file: z.infer<typeof previewRequestSchema>): ImportedFile {
 }
 
 /**
- * The titles of `graph`'s chapters from the `from`th on, in `locale`: each
+ * The titles of `graph`'s chapters from the `from`th on: each
  * as the repertoire page will name it once `graph` is saved, told apart
  * from any chapter of the same name (R-158).
  */
-const titlesFrom = (
-  graph: RepertoireGraph,
-  from: number,
-  locale: Locale,
-): string[] => graph.chapters.slice(from).map(chapterLabelIn(graph, locale));
+const titlesFrom = (graph: RepertoireGraph, from: number): string[] =>
+  graph.chapters.slice(from).map(chapterLabelOf(graph));
 
 /**
- * `before`'s chapters whose title, in `locale`, differs in `after`, the
+ * `before`'s chapters whose title differs in `after`, the
  * repertoire a merge made of it (R-159): each with its old and new title.
  */
 function renamedBy(
   before: RepertoireGraph,
   after: RepertoireGraph,
-  locale: Locale,
 ): RenamedChapter[] {
-  const was = chapterLabelIn(before, locale);
-  const becomes = chapterLabelIn(after, locale);
+  const was = chapterLabelOf(before);
+  const becomes = chapterLabelOf(after);
   return before.chapters
     .map((chapter) => ({ from: was(chapter), to: becomes(chapter) }))
     .filter(({ from, to }) => from !== to);
 }
 
 /** A new repertoire's preview: the import as it stands. */
-function newPreview(imported: ImportedRepertoire, locale: Locale): PreviewBody {
+function newPreview(imported: ImportedRepertoire): PreviewBody {
   return {
     summary: summarize(imported.graph),
-    chapters: titlesFrom(imported.graph, 0, locale),
+    chapters: titlesFrom(imported.graph, 0),
     renamed: [],
     skipped: imported.skipped,
     annotations: [],
@@ -344,7 +339,6 @@ function mergedPreview(
   loaded: LoadedRepertoire,
   imported: ImportedRepertoire,
   merged: MergedRepertoire,
-  locale: Locale,
 ): PreviewBody {
   const before = loaded.graph;
   const after = merged.graph;
@@ -355,8 +349,8 @@ function mergedPreview(
   );
   return {
     summary: summarize(after),
-    chapters: titlesFrom(after, before.chapters.length, locale),
-    renamed: renamedBy(before, after, locale),
+    chapters: titlesFrom(after, before.chapters.length),
+    renamed: renamedBy(before, after),
     skipped: [...imported.skipped, ...merged.skipped].sort(
       (a, b) => a.game - b.game,
     ),
@@ -419,7 +413,7 @@ async function previewNew(
   const moves = imported.graph.moves.length;
   const fits = canHoldMoves(account, { before: 0, after: moves });
   if (!fits.ok) return refused(fits.refusal);
-  return { ok: true, preview: newPreview(imported, account.locale) };
+  return { ok: true, preview: newPreview(imported) };
 }
 
 /**
@@ -456,7 +450,7 @@ async function previewBody(
   const { loaded, merged } = merge;
   return {
     ok: true,
-    preview: mergedPreview(loaded, imported, merged, account.locale),
+    preview: mergedPreview(loaded, imported, merged),
   };
 }
 

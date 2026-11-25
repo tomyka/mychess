@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../i18n/catalogue';
 import { MyCoaches, type MyCoach } from './my-coaches';
 
 const server = vi.hoisted(() => ({
@@ -20,7 +20,7 @@ vi.mock('./coaching-actions', () => ({
   leaveGroupAction: server.leave,
 }));
 
-const m = MESSAGES.lt.settings.myCoaches;
+const m = MESSAGES.settings.myCoaches;
 
 const JONAS: MyCoach = {
   id: 'c-1',
@@ -32,13 +32,15 @@ const JONAS: MyCoach = {
 };
 const ONA: MyCoach = { id: 'c-2', displayName: 'Ona', groups: [] };
 
+const leave = (group: string): string =>
+  m.leaveGroupNamed.replace('{group}', group);
+
 function renderCoaches(
   coaches: readonly MyCoach[],
-  locale: 'lt' | 'en' = 'lt',
   acceptedCoachId: string | null = null,
 ): void {
   render(
-    <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <MyCoaches coaches={coaches} acceptedCoachId={acceptedCoachId} />
     </NextIntlClientProvider>,
   );
@@ -47,7 +49,7 @@ function renderCoaches(
 describe('MyCoaches after an invite is accepted (#329)', () => {
   it('drops ?treneris= from the address once it shows, so a reload does not say it again', () => {
     window.history.replaceState(null, '', '/nustatymai?treneris=c-2#treneriai');
-    renderCoaches([JONAS, ONA], 'lt', ONA.id);
+    renderCoaches([JONAS, ONA], ONA.id);
     expect(screen.getByRole('status').textContent).toBe(
       m.accepted.replace('{name}', 'Ona'),
     );
@@ -63,14 +65,14 @@ describe('MyCoaches after an invite is accepted (#329)', () => {
   });
 
   it('says the player is now linked with the coach the invite was from', () => {
-    renderCoaches([JONAS, ONA], 'lt', ONA.id);
+    renderCoaches([JONAS, ONA], ONA.id);
     expect(screen.getByRole('status').textContent).toBe(
       m.accepted.replace('{name}', 'Ona'),
     );
   });
 
   it('says nothing for a coach the player is not linked to, or none', () => {
-    renderCoaches([JONAS], 'lt', 'someone-else');
+    renderCoaches([JONAS], 'someone-else');
     expect(screen.getByRole('status').textContent).toBe('');
   });
 });
@@ -89,7 +91,7 @@ beforeEach(() => {
   server.leave.mockReset().mockResolvedValue(undefined);
 });
 
-describe('MyCoaches ("Mano treneriai")', () => {
+describe('MyCoaches ("My coaches")', () => {
   it('is the settings section #treneriai the invite page lands on', () => {
     renderCoaches([JONAS]);
     const section = screen.getByRole('region', { name: m.title });
@@ -111,11 +113,11 @@ describe('MyCoaches ("Mano treneriai")', () => {
     ).toEqual(['Jonas', 'Ona']);
     expect(
       coachItem('Jonas')
-        .getAllByRole('button', { name: /^Palikti grupę „/u })
+        .getAllByRole('button', { name: /^Leave the group “/u })
         .map((button) => button.getAttribute('aria-label')),
     ).toEqual([
-      'Palikti grupę „Sekmadienio grupė“',
-      'Palikti grupę „Šeštadienio grupė“',
+      'Leave the group “Sekmadienio grupė”',
+      'Leave the group “Šeštadienio grupė”',
     ]);
     expect(coachItem('Ona').queryByText(m.groups)).toBeNull();
   });
@@ -123,7 +125,7 @@ describe('MyCoaches ("Mano treneriai")', () => {
   it('leaves one group (R-45)', async () => {
     renderCoaches([JONAS]);
     fireEvent.click(
-      screen.getByRole('button', { name: 'Palikti grupę „Šeštadienio grupė“' }),
+      screen.getByRole('button', { name: leave('Šeštadienio grupė') }),
     );
     await waitFor(() => {
       expect(server.leave).toHaveBeenCalledTimes(1);
@@ -145,12 +147,5 @@ describe('MyCoaches ("Mano treneriai")', () => {
       expect(server.unlink).toHaveBeenCalledTimes(1);
     });
     expect(sent(server.unlink)).toEqual({ coachId: 'c-2' });
-  });
-
-  it('speaks English on the English page', () => {
-    renderCoaches([], 'en');
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'My coaches' }),
-    ).toBeDefined();
   });
 });

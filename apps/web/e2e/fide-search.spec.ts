@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect } from '@playwright/test';
-import { storeLocale } from './support/account-db';
 import { resetFixtureMonths } from './support/broadcast-db';
 import {
   BROADCAST_FIXTURE_DIR,
@@ -19,14 +18,13 @@ import {
   resultOf,
   search,
 } from './support/fide-page';
-import { CATALOGUES, newOnboardedAccount, test } from './support/journey';
+import { en, newOnboardedAccount, test } from './support/journey';
 
 // Opponent's games (#316, R-171, R-183 to R-187): the app reads the
 // committed fixture dumps (e2e/support/broadcast-fixture.ts), never
 // database.lichess.org. Lichess's FIDE player endpoint answers 404 there,
 // so the result is headed by the ID alone.
 
-const { en } = CATALOGUES;
 const ID = String(SEARCHED_FIDE_ID);
 
 /**
@@ -107,12 +105,11 @@ test("a player opens Opponent's games from home, searches a FIDE ID and sees its
   await expectCredit(result);
 });
 
-test('a FIDE ID that is not one is refused on the page, in English even for an account stored in Lithuanian (R-180)', async ({
+test('a FIDE ID that is not one is refused on the page', async ({
   page,
   request,
 }) => {
-  const email = await newOnboardedAccount(page, request, 'Mantas');
-  await storeLocale(email, 'lt');
+  await newOnboardedAccount(page, request, 'Mantas');
   await page.goto('/fide');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     en.fide.title,

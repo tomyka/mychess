@@ -82,16 +82,6 @@ function cookieValue(name: string): string | undefined {
     ?.slice(name.length + 1);
 }
 
-/** Sets cookie `name` in the request's Cookie header, as a browser would. */
-export function setRequestCookie(name: string, value: string): void {
-  request.cookie = [
-    ...request.cookie
-      .split('; ')
-      .filter((pair) => pair !== '' && !pair.startsWith(`${name}=`)),
-    `${name}=${value}`,
-  ].join('; ');
-}
-
 /** The error the mocked `redirect` throws, naming where it sends. */
 export class Redirected extends Error {
   readonly to: string;
