@@ -105,10 +105,9 @@ The top bar shows:
   "Caro-Kann (Black) · Main line". For a scoped session the repertoire is
   already the title, so the line is the side and chapter. With no current
   item (an empty state, Done), there is no context line.
-- On desktop, where the side card has room, the session's name is an
-  eyebrow (`text-xs`, uppercase, `accent`) above the repertoire as the
-  title, and the chapter is the context line. In a scoped session the
-  eyebrow is the mode ("Review", "Learn").
+- The same title and context line at every width (one `h1`): the
+  desktop eyebrow variant in the brainstorm mockup was dropped while
+  planning, so a phone and a desktop read alike.
 
 The chapter label is the repertoire page's (`chapterLabelOf`, R-158,
 R-216): the server adds `chapterTitles: Record<chapterId, string>` to each
@@ -125,9 +124,8 @@ order stay. Changes:
 
 - Back is the shell's icon button (44px target, chevron, labelled "Back"),
   on desktop too (today an underlined text link in the card).
-- The counter is `text-base`, semibold, tabular: "3 / 9" on a phone, "3 of
-  9 moves" under the title on desktop. The mode word ("Review") goes: the
-  title now says it.
+- The counter is `text-base`, semibold, tabular, "3 / 9" at every width.
+  The mode word before it on desktop ("Review") goes: the title says it.
 - The progress bar is Today's 6px rounded track (`border` track, `accent`
   fill), with gutters on a phone.
 
@@ -141,8 +139,9 @@ order stay. Changes:
   `accent` text, as Today's row buttons), a new `TONAL_BUTTON` in
   `buttons.ts`. A used or unavailable Hint is visibly disabled (50% opacity,
   `cursor-not-allowed`), not only `aria-disabled`.
-- "Again" pill (`due-subtle` / `due`, `text-xs`, pill) after the side to
-  move when the current ask is a repeat.
+- A repeat's existing "again" status ("Once more: you missed this move
+  earlier.") becomes a `due-subtle` / `due` pill, like the result pills
+  below.
 - Coach note (R-174): a soft card (`accent-subtle` background, no border,
   `rounded-card`) with the eyebrow "Coach note".
 - Two-answers notice and the sync banner keep their content; the notice
@@ -156,7 +155,7 @@ order stay. Changes:
 Below `lg`, the move field is hidden behind a **Type** tonal button
 (keyboard icon and the word) next to Hint. Pressing it shows the field in
 place and moves focus into it; the field closes after a move is accepted
-or on Escape, and focus returns to the board. At `lg` and up (and `tall`)
+or on Escape, and focus returns to the Type button. At `lg` and up (and `tall`)
 the field is always shown, as now. Screen-reader users reach it through
 the button, which is in the tab order after the board.
 
@@ -216,13 +215,14 @@ the button, which is in the tab order after the board.
   done" (`text-2xl`), the stats, the day line and the repertoire bar, as
   today.
 - Stats labels: review "reviewed", "first try" (was "correct"), "lapses";
-  learn "new moves learned".
-- The day line in a learn pass's Done says where the learning stands ("N
-  new moves left today", or "Today's new moves are done"), not "Today's
-  review is done"; a review's Done keeps its text.
+  learn "learned" (unchanged).
+- A learn pass's Done no longer says "Today's review is done": it shows
+  the moves still due when there are any, else only the next review time.
+  A review's Done keeps its text.
 - The bottom bar has **one primary** next step, the first that applies:
-  Continue (the queue has more, R-62), Review N (moves due now, after a
-  learn pass), Learn N new moves (today's allowance has room), else Done.
+  Continue (the queue has more, R-62), Start review (moves due now, after a
+  learn pass), Learn new moves (today's allowance has room), else Done.
+  The labels stay as today.
   Done is a quiet button when another action is primary. On a phone the
   primary is full width with Done under it.
 - On a phone the board stays hidden (as now); on desktop it stays beside
@@ -251,7 +251,7 @@ error state keeps its behaviour; its panel content becomes a plain card.
 | `packages/chess/src/training/review-session.ts` | size counts first asks; `reviewProgress` counts finished moves of a fixed total |
 | `apps/web/src/server/training*.ts` and `lib/training-data.ts` | each entry carries `chapterTitles` |
 | `training-screen.tsx` | `title` and `context` from the scope and the current item (`sessionHeader`, a pure function in `session-header.ts`, tested) |
-| `training-frame.tsx`, `frame-classes.ts` | icon Back, counter, 6px track, eyebrow on desktop, centring, board cap |
+| `training-frame.tsx`, `frame-classes.ts` | icon Back, title and context line, counter, 6px track, centring, board cap |
 | `drill-panel.tsx` | dot colours, "Again" pill, result pills, phone line (`phoneLine`, pure, tested), move list columns |
 | `move-entry.tsx` (new) | the Type button and the field on phones, the field alone at `lg` |
 | `done-summary.tsx` | card, labels, learn day line, `primaryAction` (pure, tested) choosing the one primary |
@@ -259,7 +259,7 @@ error state keeps its behaviour; its panel content becomes a plain card.
 | `buttons.ts` | `TONAL_BUTTON`; End session's quiet style |
 | `board/board.css`, `tokens.css` | badges, flash alpha, coordinates, arrow |
 | `drill-input.ts` | `FEEDBACK_MS` 700; the lapse hold |
-| catalogue | new keys (Type, Again, first try, eyebrows, result pills, learn day lines); `title.mixed` and the `mode.*` counter prefix removed |
+| catalogue | new keys (Type, side words, first try, coach-note eyebrow); `title.learn` reads "Learn new moves"; `title.mixed` and the `mode.*` counter prefix removed |
 | `docs/design/training-screen.md` | updated to this spec (sketches, feedback table, states) |
 
 ## Testing
