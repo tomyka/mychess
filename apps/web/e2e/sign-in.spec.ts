@@ -10,6 +10,7 @@ import {
   requestLink,
   test,
 } from './support/journey';
+import { fromAccountMenu } from './support/nav';
 
 // The magic-link round trip (S1 spec, Testing), run at phone and desktop
 // width by the two Playwright projects. The journey IDs are the persona
@@ -84,7 +85,7 @@ test('after signing out, the home page sends the visitor to sign-in', async ({
 }) => {
   await newOnboardedAccount(page, request, 'Rimantas');
 
-  await page.getByRole('button', { name: en.app.signOut }).click();
+  await fromAccountMenu(page, en, 'signOut');
   await expect(page).toHaveURL(/\/sign-in$/);
 
   await page.goto('/');

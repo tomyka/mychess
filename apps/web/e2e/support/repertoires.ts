@@ -4,6 +4,7 @@ import { stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { format, LOCALE, type Messages } from './journey';
+import { openTab } from './nav';
 
 /**
  * A catalogue message with ICU `plural`s (and plain placeholders), as the
@@ -39,12 +40,12 @@ export function plural(
   );
 }
 
-/** From home to My repertoires. */
+/** From any shell page to My repertoires, through the tab. */
 export async function openRepertoires(
   page: Page,
   messages: Messages,
 ): Promise<void> {
-  await page.getByRole('link', { name: messages.app.repertoires }).click();
+  await openTab(page, messages, 'repertoires');
   await expect(page).toHaveURL(/\/repertoires$/);
 }
 
@@ -87,9 +88,15 @@ export async function typeMove(
   ).toBeVisible();
 }
 
-/** The chapter disclosure ("Chapter n of m" and the title). */
+/**
+ * The chapter disclosure ("Chapter n of m" and the title). It is named by
+ * its text; the other disclosures on the page, the account menu (#381) and
+ * "I know this", carry an aria-label.
+ */
 export const disclosure = (page: Page): Locator =>
-  page.locator('button[aria-controls][aria-expanded]').first();
+  page
+    .locator('button[aria-controls][aria-expanded]:not([aria-label])')
+    .first();
 
 /** What keeps a move's number and its SAN on one line in a chapter title. */
 const NO_BREAK_SPACE = String.fromCodePoint(0xa0);

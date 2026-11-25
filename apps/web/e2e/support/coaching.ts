@@ -3,14 +3,15 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { en, format, freshEmail, requestLink, type Messages } from './journey';
 import { linkIn } from './mailpit';
+import { fromAccountMenu } from './nav';
 
-/** From home to settings, then Coach mode on; home then links the coach area. */
+/** From the account menu to settings, then Coach mode on; the Coach tab then shows. */
 export async function switchOnCoachMode(
   page: Page,
   messages: Messages,
 ): Promise<void> {
   const t = messages.settings.coachMode;
-  await page.getByRole('link', { name: messages.app.settings }).click();
+  await fromAccountMenu(page, messages, 'settings');
   await expect(page).toHaveURL(/\/settings/);
   await page.getByRole('button', { name: t.switchOn }).click();
   await expect(page.getByText(t.on, { exact: true })).toBeVisible();

@@ -205,7 +205,11 @@ test(
     await buildLondon({ page, isMobile }, en, comment);
     await checkLondon(page, en, comment);
     const t = en.repertoires;
-    await page.getByRole('link', { name: t.header.back }).first().click();
+    await page
+      .getByRole('link', {
+        name: format(en.nav.back, { parent: en.nav.repertoires }),
+      })
+      .click();
     await expect(page).toHaveURL(/\/repertoires$/);
     await expect(
       page.getByText(plural(t.list.meta, { chapters: 1, moves: 29 })),
@@ -299,7 +303,11 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   await expect(disclosure(page)).toContainText(
     format(t.chapters.position, { index: '7', count: '8' }),
   );
-  await page.getByRole('link', { name: t.header.back }).first().click();
+  await page
+    .getByRole('link', {
+      name: format(en.nav.back, { parent: en.nav.repertoires }),
+    })
+    .click();
   await expect(
     page.getByText(plural(t.list.meta, { chapters: 8, moves: 119 })),
   ).toBeVisible();

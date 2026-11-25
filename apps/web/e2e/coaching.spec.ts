@@ -25,6 +25,7 @@ import {
   signIn,
   test,
 } from './support/journey';
+import { openTab } from './support/nav';
 
 const GROUP = 'Šeštadienio grupė';
 const COACH = 'Rimantas Vaitkus';
@@ -49,8 +50,7 @@ async function coachInvitesGroup(
 ): Promise<string> {
   await newOnboardedAccount(page, request, COACH);
   await switchOnCoachMode(page, en);
-  await page.getByRole('link', { name: en.settings.home }).click();
-  await page.getByRole('link', { name: en.app.coachArea }).click();
+  await openTab(page, en, 'coach');
   await expect(page).toHaveURL(/\/coach$/);
   // A group invite from the invites form; the group's own one (R-204) is
   // used by the assignment and progress journeys.

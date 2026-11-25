@@ -2,11 +2,7 @@
   "app": {
     "title": "MyChess",
     "greeting": "Hello, {name}!",
-    "signOut": "Sign out",
-    "settings": "Settings",
-    "coachArea": "Coach dashboard",
-    "repertoires": "My repertoires",
-    "fideSearch": "Opponent's games"
+    "signOut": "Sign out"
   },
   "nav": {
     "label": "Main",
@@ -55,7 +51,6 @@
   },
   "settings": {
     "title": "Settings",
-    "home": "Home",
     "profile": {
       "title": "Profile",
       "displayName": "Display name",
@@ -375,7 +370,6 @@
       "submit": "Create"
     },
     "header": {
-      "back": "My repertoires",
       "section": "Repertoire",
       "rename": "Rename",
       "renameLabel": "Repertoire name",

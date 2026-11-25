@@ -19,6 +19,7 @@ import {
   search,
 } from './support/fide-page';
 import { en, newOnboardedAccount, test } from './support/journey';
+import { openTab } from './support/nav';
 
 // Opponent's games (#316, R-171, R-183 to R-187): the app reads the
 // committed fixture dumps (e2e/support/broadcast-fixture.ts), never
@@ -52,14 +53,14 @@ test('the committed fixture dumps are the ones broadcast-fixture.ts makes', () =
   }
 });
 
-test("a player opens Opponent's games from home, searches a FIDE ID and sees its months become ready, then the games by colour and opening family", async ({
+test("a player opens Opponent's games from the Opponents tab, searches a FIDE ID and sees its months become ready, then the games by colour and opening family", async ({
   page,
   request,
 }) => {
   await newOnboardedAccount(page, request, 'Gintare');
   await resetFixtureMonths();
 
-  await page.getByRole('link', { name: en.app.fideSearch }).click();
+  await openTab(page, en, 'opponents');
   await expect(page).toHaveURL(/\/fide$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     en.fide.title,

@@ -12,12 +12,13 @@ import {
   signIn,
   test,
 } from './support/journey';
+import { fromAccountMenu } from './support/nav';
 
 // The UI is English only and offers no language choice (#378).
 
-/** From the home page to settings. */
+/** From the account menu to settings. */
 async function openSettings(page: Page): Promise<void> {
-  await page.getByRole('link', { name: en.app.settings }).click();
+  await fromAccountMenu(page, en, 'settings');
   await expect(page).toHaveURL(/\/settings$/);
 }
 
@@ -43,7 +44,9 @@ test('settings offer no language choice; a changed name shows at once, in Englis
   await expect(page.getByRole('radio')).toHaveCount(0);
 
   await rename(page, 'Gabija N.');
-  await page.getByRole('link', { name: en.settings.home }).click();
+  await page
+    .getByRole('link', { name: format(en.nav.back, { parent: en.nav.today }) })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expectGreeting(page, en, 'Gabija N.');
 });
