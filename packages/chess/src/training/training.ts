@@ -125,6 +125,8 @@ export {
   learnStart,
   newKeys,
   nextDue,
+  repertoireDay,
+  repertoireLearn,
   startState,
   toLearnCount,
   trainingCounts,
@@ -133,7 +135,9 @@ export {
   withLearned,
 } from './training-day';
 export type {
+  LearnDay,
   LearnedMove,
+  LearnStart,
   RepertoireDue,
   StartState,
   TrainingCounts,

@@ -47,19 +47,19 @@ function day(
     repertoires,
     reviews: new Map(reviews.map((r) => [r.key, r])),
     tracked: new Set(reviews.map((r) => r.key)),
+    known: new Set(),
     learnedToday: 0,
     limits: { reviews: 20, newPerDay: 10 },
     ...overrides,
   };
 }
 
-const none: ReadonlySet<string> = new Set();
 const W = repertoire(white, 'w');
 const B = repertoire(black, 'b');
 
 describe('todayRows', () => {
   it('lists the repertoires with due moves first, then the learn order', () => {
-    const rows = todayRows(day([W, B], [dueNow(C6)]), none, NOW);
+    const rows = todayRows(day([W, B], [dueNow(C6)]), NOW);
     expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
       ['b', 1],
       ['w', 0],
@@ -71,11 +71,7 @@ describe('todayRows', () => {
       E4,
       new Date(NOW.getTime() - DAY_MS / 2 - DAY_MS),
     );
-    const rows = todayRows(
-      day([W, B], [dueNow(C6), dueNow(D5), later]),
-      none,
-      NOW,
-    );
+    const rows = todayRows(day([W, B], [dueNow(C6), dueNow(D5), later]), NOW);
     expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
       ['w', 1],
       ['b', 2],
@@ -84,7 +80,7 @@ describe('todayRows', () => {
 
   it('keeps the learn order with nothing due', () => {
     const third = repertoire(white, 'x');
-    const rows = todayRows(day([B, third, W]), none, NOW);
+    const rows = todayRows(day([B, third, W]), NOW);
     expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
       ['b', 0],
       ['x', 0],
@@ -93,7 +89,7 @@ describe('todayRows', () => {
   });
 
   it('can learn while moves are left and the allowance allows', () => {
-    const rows = todayRows(day([W, B], [fresh(C6), fresh(D5)]), none, NOW);
+    const rows = todayRows(day([W, B], [fresh(C6), fresh(D5)]), NOW);
     expect(rows.map((r) => [r.repertoireId, r.canLearn])).toEqual([
       ['w', true],
       ['b', false],
@@ -101,18 +97,18 @@ describe('todayRows', () => {
   });
 
   it('cannot learn once today has learned the new moves a day', () => {
-    const rows = todayRows(day([W], [], { learnedToday: 10 }), none, NOW);
+    const rows = todayRows(day([W], [], { learnedToday: 10 }), NOW);
     expect(rows.map((r) => r.canLearn)).toEqual([false]);
   });
 
   it('can learn with one new move of the day left', () => {
-    const rows = todayRows(day([W], [], { learnedToday: 9 }), none, NOW);
+    const rows = todayRows(day([W], [], { learnedToday: 9 }), NOW);
     expect(rows.map((r) => r.canLearn)).toEqual([true]);
   });
 
   it('starts a review before learning when moves are due', () => {
     // 'w' has a due move and new moves to learn; 'b' only new moves.
-    const rows = todayRows(day([W, B], [dueNow(E4)]), none, NOW);
+    const rows = todayRows(day([W, B], [dueNow(E4)]), NOW);
     expect(rows.map((r) => [r.repertoireId, r.canLearn, r.action])).toEqual([
       ['w', true, 'review'],
       ['b', true, 'learn'],
@@ -120,7 +116,7 @@ describe('todayRows', () => {
   });
 
   it('starts nothing when every move is tracked and none is due', () => {
-    const rows = todayRows(day([B], [fresh(C6), fresh(D5)]), none, NOW);
+    const rows = todayRows(day([B], [fresh(C6), fresh(D5)]), NOW);
     expect(rows.map((r) => [r.due, r.canLearn, r.action])).toEqual([
       [0, false, null],
     ]);
@@ -129,7 +125,6 @@ describe('todayRows', () => {
   it('reviews due moves even with the day allowance used', () => {
     const rows = todayRows(
       day([W, B], [dueNow(E4)], { learnedToday: 10 }),
-      none,
       NOW,
     );
     expect(rows.map((r) => [r.repertoireId, r.canLearn, r.action])).toEqual([
@@ -140,7 +135,7 @@ describe('todayRows', () => {
 
   it('gives a paused repertoire no due moves and nothing to learn', () => {
     const paused = repertoire(white, 'p', false);
-    const rows = todayRows(day([paused], [dueNow(E4)]), none, NOW);
+    const rows = todayRows(day([paused], [dueNow(E4)]), NOW);
     expect(rows).toEqual([
       {
         repertoireId: 'p',
@@ -157,8 +152,7 @@ describe('todayRows', () => {
 
   it('counts each own move in its one state', () => {
     const rows = todayRows(
-      day([W], [dueNow(E4), fresh(NF3), fresh(BC4)]),
-      new Set([BC4]),
+      day([W], [dueNow(E4), fresh(NF3), fresh(BC4)], { known: new Set([BC4]) }),
       NOW,
     );
     expect(rows.map((r) => r.standing)).toEqual([
@@ -172,7 +166,6 @@ describe('todayRows', () => {
   it('is mastered when every move is learned and recalled well', () => {
     const rows = todayRows(
       day([W, B], [fresh(E4), fresh(NF3), fresh(BC4), fresh(C6)]),
-      none,
       NOW,
     );
     expect(rows.map((r) => [r.repertoireId, r.standing])).toEqual([
@@ -194,7 +187,7 @@ describe('todayRows', () => {
   });
 
   it('gives a repertoire without own moves zero counts and nothing to learn', () => {
-    const rows = todayRows(day([repertoire(empty, 'e')]), none, NOW);
+    const rows = todayRows(day([repertoire(empty, 'e')]), NOW);
     expect(rows).toEqual([
       {
         repertoireId: 'e',
@@ -210,6 +203,6 @@ describe('todayRows', () => {
   });
 
   it('lists nothing without repertoires', () => {
-    expect(todayRows(day([]), none, NOW)).toEqual([]);
+    expect(todayRows(day([]), NOW)).toEqual([]);
   });
 });

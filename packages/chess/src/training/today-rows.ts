@@ -8,7 +8,11 @@
 import { repertoireStanding, type Standing } from './coach-progress';
 import type { TrackedReview } from './move-state';
 import type { TrainingRepertoire } from './scope';
-import { dueByRepertoire, learnStart, type TrainingDay } from './training-day';
+import {
+  dueByRepertoire,
+  repertoireLearn,
+  type TrainingDay,
+} from './training-day';
 
 /** What a row's button starts: due moves before new ones, or nothing. */
 export type TodayAction = 'review' | 'learn' | null;
@@ -18,7 +22,7 @@ export interface TodayRow {
   readonly repertoireId: string;
   /** Its Reviews due now, as a review of it alone asks them; 0 when paused. */
   readonly due: number;
-  /** Whether a learn session of it alone would start (R-146 allowance left). */
+  /** Whether a learn session of it alone would start (`repertoireLearn`). */
   readonly canLearn: boolean;
   /** Review when moves are due, else learn when it can, else nothing. */
   readonly action: TodayAction;
@@ -27,30 +31,15 @@ export interface TodayRow {
 }
 
 /** The day's Reviews with how each entered training (`known`: "I know this"). */
-// The snapshot keeps "I know this" as its own key set so the browser's
-// training payload (plain ReviewStates) does not carry it; joined here.
 const trackedOf = (
-  reviews: TrainingDay['reviews'],
-  known: ReadonlySet<string>,
+  day: Pick<TrainingDay, 'reviews' | 'known'>,
 ): Map<string, TrackedReview> =>
   new Map(
-    [...reviews].map(([key, review]) => [
+    [...day.reviews].map(([key, review]) => [
       key,
-      { review, knownWithoutLearning: known.has(key) },
+      { review, knownWithoutLearning: day.known.has(key) },
     ]),
   );
-
-/**
- * Whether a learn session of `repertoire` alone, without the day's focus,
- * would start. A paused repertoire's learn plan is empty, so it never does.
- */
-const canLearn = (day: TrainingDay, repertoire: TrainingRepertoire): boolean =>
-  learnStart({
-    repertoires: [repertoire],
-    tracked: day.tracked,
-    learnedToday: day.learnedToday,
-    limits: day.limits,
-  }).kind === 'drill';
 
 const actionOf = (due: number, learn: boolean): TodayAction => {
   if (due > 0) return 'review';
@@ -64,7 +53,7 @@ function rowOf(
   due: number,
   standing: Standing,
 ): TodayRow {
-  const learn = canLearn(day, repertoire);
+  const learn = repertoireLearn(day, repertoire.id).kind === 'drill';
   return {
     repertoireId: repertoire.id,
     due,
@@ -74,16 +63,9 @@ function rowOf(
   };
 }
 
-/**
- * Today's rows at `now`. `known` holds the keys whose Review entered
- * training by "I know this" (R-58), so skipped moves count as skipped.
- */
-export function todayRows(
-  day: TrainingDay,
-  known: ReadonlySet<string>,
-  now: Date,
-): TodayRow[] {
-  const tracked = trackedOf(day.reviews, known);
+/** Today's rows at `now`. */
+export function todayRows(day: TrainingDay, now: Date): TodayRow[] {
+  const tracked = trackedOf(day);
   const due = dueByRepertoire(day, now);
   const rank = new Map(due.map((d, i) => [d.repertoireId, i]));
   const dueOf = new Map(due.map((d) => [d.repertoireId, d.due]));

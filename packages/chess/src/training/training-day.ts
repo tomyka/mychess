@@ -29,6 +29,12 @@ export interface TrainingDay {
   readonly reviews: ReadonlyMap<string, ReviewState>;
   /** Tracked keys: a Review exists, learn pass finished or skipped (R-181). */
   readonly tracked: ReadonlySet<string>;
+  /**
+   * The tracked keys whose Review entered by "I know this" (R-58) rather
+   * than a learn pass: a subset of `tracked`. R-151 counts such a move as
+   * skipped until its Review is first graded.
+   */
+  readonly known: ReadonlySet<string>;
   /** Moves learned, not skipped, in the player's day so far (R-147). */
   readonly learnedToday: number;
   /** The player's session size and new moves a day, already parsed (R-146). */
@@ -38,6 +44,12 @@ export interface TrainingDay {
 }
 
 type Held = Pick<TrainingDay, 'repertoires' | 'reviews'>;
+
+/**
+ * What learning reads of a day: the tracked keys, never how a key entered
+ * (`known`) nor the Reviews.
+ */
+export type LearnDay = Omit<TrainingDay, 'reviews' | 'known'>;
 
 export type TrainingMode = 'review' | 'learn';
 
@@ -53,6 +65,12 @@ export type StartState =
   | { readonly kind: 'limitReached' }
   /** Learn with every move of the active repertoires learned. */
   | { readonly kind: 'nothingLeft' };
+
+/** Where learning stands: the learn mode's start states. */
+export type LearnStart = Extract<
+  StartState,
+  { readonly kind: 'drill' | 'limitReached' | 'nothingLeft' }
+>;
 
 /** What a page shows before training starts (U1-M1-3). */
 export interface TrainingCounts {
@@ -140,25 +158,42 @@ export interface RepertoireDue {
   readonly due: number;
 }
 
+/**
+ * `day` narrowed to one repertoire: what training that repertoire alone
+ * (its page, its row on Today) reads. The Reviews, tracked and known keys,
+ * allowance and limits stay the day's, so moves shared with other
+ * repertoires and moves learned today count as they do for the whole day.
+ * The focus stays only when it names this repertoire. An id the day does
+ * not hold narrows to no repertoire: nothing due, nothing left to learn.
+ */
+export function repertoireDay(
+  day: TrainingDay,
+  repertoireId: string,
+): TrainingDay {
+  const { focus, ...rest } = day;
+  const repertoires = day.repertoires.filter((r) => r.id === repertoireId);
+  return focus?.repertoireId === repertoireId
+    ? { ...rest, repertoires, focus }
+    : { ...rest, repertoires };
+}
+
 /** The Reviews of one repertoire due at `now`, as a review of it alone counts them. */
 const dueIn = (
-  repertoire: TrainingRepertoire,
-  reviews: Held['reviews'],
+  day: TrainingDay,
+  repertoireId: string,
   now: Date,
 ): ReviewState[] =>
-  heldReviews({ repertoires: [repertoire], reviews }).filter((r) =>
-    isDue(r, now),
-  );
+  heldReviews(repertoireDay(day, repertoireId)).filter((r) => isDue(r, now));
 
 /**
  * The active repertoires with Reviews due at `now`, each counted as a
  * review of it alone counts them (R-142, R-207), the most urgent first: by
  * its earliest due Review, as the session orders them, then learn order.
  */
-export function dueByRepertoire(day: Held, now: Date): RepertoireDue[] {
+export function dueByRepertoire(day: TrainingDay, now: Date): RepertoireDue[] {
   return day.repertoires
     .map((repertoire, order) => {
-      const due = dueIn(repertoire, day.reviews, now);
+      const due = dueIn(day, repertoire.id, now);
       const first = Math.min(...due.map((r) => r.fsrs.due.getTime()));
       return { repertoireId: repertoire.id, due: due.length, first, order };
     })
@@ -184,7 +219,7 @@ export function trainingProgress(day: Held, now: Date): TrainingProgress {
  * limits out of range are a programmer error, not a refusal.
  */
 export function dueReviews(
-  day: Omit<TrainingDay, 'tracked'>,
+  day: Omit<TrainingDay, 'tracked' | 'known'>,
   now: Date,
 ): readonly QueueItem[] {
   const queue = buildQueue(day, now, day.limits);
@@ -197,7 +232,7 @@ export function dueReviews(
  * learn order or only the day's focus (R-206), up to what is left of
  * today's allowance.
  */
-export const learnLines = (day: Omit<TrainingDay, 'reviews'>): LearnLine[] =>
+export const learnLines = (day: LearnDay): LearnLine[] =>
   learnPlan(day.repertoires, day.tracked, allowance(day), day.focus);
 
 /** A move learned in the browser whose result the snapshot may not hold yet. */
@@ -254,7 +289,7 @@ export const newKeys = (lines: readonly LearnLine[]): string[] =>
   );
 
 /** The new moves a learn session would teach now: none once the allowance is used. */
-export const toLearnCount = (day: Omit<TrainingDay, 'reviews'>): number =>
+export const toLearnCount = (day: LearnDay): number =>
   newKeys(learnLines(day)).length;
 
 /** The due and to-learn counts of `day` at `now`. */
@@ -271,7 +306,7 @@ export const trainingCounts = (
  * learn plan without a limit decides, so "nothing left" is what a learn
  * session would find.
  */
-const movesLeft = (day: Omit<TrainingDay, 'reviews'>): boolean =>
+const movesLeft = (day: LearnDay): boolean =>
   learnPlan(day.repertoires, day.tracked, Number.POSITIVE_INFINITY, day.focus)
     .length > 0;
 
@@ -280,10 +315,20 @@ const movesLeft = (day: Omit<TrainingDay, 'reviews'>): boolean =>
  * but today's allowance used, or nothing left; in the focus only, when the
  * day has one (R-206).
  */
-export function learnStart(day: Omit<TrainingDay, 'reviews'>): StartState {
+export function learnStart(day: LearnDay): LearnStart {
   if (!movesLeft(day)) return { kind: 'nothingLeft' };
   return allowance(day) === 0 ? { kind: 'limitReached' } : { kind: 'drill' };
 }
+
+/**
+ * Where learning one repertoire stands today (`learnStart` of
+ * `repertoireDay`): moves left and allowed, the allowance used, or nothing
+ * left. A paused repertoire, or one the day does not hold, has nothing left.
+ */
+export const repertoireLearn = (
+  day: TrainingDay,
+  repertoireId: string,
+): LearnStart => learnStart(repertoireDay(day, repertoireId));
 
 /**
  * What training opens on for `mode` at `now`. A paused repertoire still

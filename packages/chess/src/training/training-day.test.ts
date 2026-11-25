@@ -19,6 +19,8 @@ import {
   learnStart,
   newKeys,
   nextDue,
+  repertoireDay,
+  repertoireLearn,
   startState,
   toLearnCount,
   trainingCounts,
@@ -57,6 +59,7 @@ function day(overrides: Partial<TrainingDay> = {}): TrainingDay {
     repertoires: [repertoire(white)],
     reviews: new Map(),
     tracked: new Set(),
+    known: new Set(),
     learnedToday: 0,
     limits: { reviews: 20, newPerDay: 10 },
     ...overrides,
@@ -440,6 +443,85 @@ describe('withLearned (decision 2)', () => {
     expect(base.tracked.has(NF3)).toBe(false);
     expect(base.reviews.has(NF3)).toBe(false);
     expect(caught.limits).toBe(base.limits);
+  });
+  it('keeps the known keys: a move learned is not known', () => {
+    const base = day({
+      ...reviewed(reviewIn(E4, DAY_MS)),
+      known: new Set([E4]),
+    });
+    const caught = withLearned(base, [{ key: NF3, at: NOW }], DAY_START);
+    expect(caught).not.toBe(base);
+    expect([...caught.known]).toEqual([E4]);
+  });
+});
+
+describe('repertoireDay', () => {
+  const W = repertoire(white, 'w');
+  const B = repertoire(black, 'b');
+  const base = day({
+    repertoires: [W, B],
+    ...reviewed(reviewIn(E4, DAY_MS), reviewIn(BLACK_KEYS[0] ?? '', DAY_MS)),
+    known: new Set([E4]),
+    learnedToday: 4,
+    limits: { reviews: 5, newPerDay: 6 },
+  });
+
+  it('keeps only that repertoire, and the day’s Reviews, keys and limits', () => {
+    const narrowed = repertoireDay(base, 'b');
+    expect(narrowed.repertoires).toEqual([B]);
+    expect(narrowed.reviews).toBe(base.reviews);
+    expect(narrowed.tracked).toBe(base.tracked);
+    expect(narrowed.known).toBe(base.known);
+    expect(narrowed.learnedToday).toBe(4);
+    expect(narrowed.limits).toBe(base.limits);
+    expect(base.repertoires).toEqual([W, B]);
+  });
+  it('keeps a focus on that repertoire and drops one on another', () => {
+    const focus = { repertoireId: 'w', chapterId: 'c1' };
+    expect(repertoireDay({ ...base, focus }, 'w').focus).toEqual(focus);
+    expect('focus' in repertoireDay({ ...base, focus }, 'b')).toBe(false);
+    expect('focus' in repertoireDay(base, 'w')).toBe(false);
+  });
+  it('holds no repertoire for an id the day does not hold', () => {
+    const narrowed = repertoireDay(base, 'nope');
+    expect(narrowed.repertoires).toEqual([]);
+    expect(dueCount(narrowed, NOW)).toBe(0);
+  });
+});
+
+describe('repertoireLearn', () => {
+  const d = (overrides: Partial<TrainingDay> = {}): TrainingDay =>
+    day({
+      repertoires: [repertoire(white, 'w'), repertoire(black, 'b')],
+      ...overrides,
+    });
+
+  it('drills while the repertoire has moves left and the allowance allows', () => {
+    expect(repertoireLearn(d(), 'b')).toEqual({ kind: 'drill' });
+  });
+  it('is limit reached with moves left but the allowance used', () => {
+    expect(repertoireLearn(d({ learnedToday: 10 }), 'b')).toEqual({
+      kind: 'limitReached',
+    });
+  });
+  it('has nothing left once its own moves are tracked, whatever the others hold', () => {
+    const tracked = d({ tracked: new Set(BLACK_KEYS) });
+    expect(repertoireLearn(tracked, 'b')).toEqual({ kind: 'nothingLeft' });
+    expect(repertoireLearn(tracked, 'w')).toEqual({ kind: 'drill' });
+  });
+  it('has nothing left for a paused repertoire', () => {
+    const paused = day({ repertoires: [repertoire(white, 'w', false)] });
+    expect(repertoireLearn(paused, 'w')).toEqual({ kind: 'nothingLeft' });
+  });
+  it('has nothing left for an id the day does not hold', () => {
+    expect(repertoireLearn(d(), 'nope')).toEqual({ kind: 'nothingLeft' });
+  });
+  it('learns only the focus when it names that repertoire', () => {
+    // A focus on a chapter 'w' does not hold leaves nothing to learn in 'w';
+    // 'b' drops the focus, so its own moves are still to learn.
+    const focused = d({ focus: { repertoireId: 'w', chapterId: 'none' } });
+    expect(repertoireLearn(focused, 'w')).toEqual({ kind: 'nothingLeft' });
+    expect(repertoireLearn(focused, 'b')).toEqual({ kind: 'drill' });
   });
 });
 
