@@ -111,7 +111,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-75** (Q32): Unattended backlog runs open a PR with the gate green; the next supervised lead session reviews (qa, architect) and merges.
 - **R-76** (S2 brainstorm, #252, 2026-10-16): FSRS target retention is 90%, fixed for every player in M1; a player setting can follow later without data changes.
 - **R-77** (S2, #252, 2026-10-16): Lithuanian opening names from šachmatai.lt get a safe tidy only in the generator: collapse whitespace, castling as O-O, a comma before a trailing move qualifier, no space after a move number. Wording, capitalisation and word forms stay verbatim. (Superseded by R-217.)
-- **R-78** (S2 review, #252, 2026-10-16): A lapse or hint on a move keeps the standard FSRS relearning step: the move comes back within minutes the same day until it sticks, and these repeats count toward the session size (R-62).
+- **R-78** (S2 review, #252, 2026-10-16): A lapse or hint on a move keeps the standard FSRS relearning step: the move comes back within minutes the same day until it sticks, and these repeats count toward the session size (R-62). (Size part amended by R-223: repeats come on top of the size.)
 - **R-79** (#260, 2026-10-16): A line ends at a leaf or at a move that returns to a position already on it; that move belongs to the line, so it is trained and counts for mastery. The main line follows the first move added at each position.
 - **R-80** (S1 brainstorm, #251, 2026-10-16): A sign-in lasts 90 days and is renewed on every visit; sessions are stored in the database, so disabling or deleting an account ends them at once.
 - **R-81** (S1 brainstorm, #251, 2026-10-16): First sign-in asks only for the display name (prefilled from Google or Lichess when available) and the language (LT default); everything else is optional later. An invite link continues to its group after this screen. (Language part superseded by R-217.)
@@ -240,7 +240,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-204** (#329, 2026-11-16): Creating a group also creates its group invite (R-98, R-99) and shows the link; the coach can create a new one at any time.
 - **R-205** (#330, 2026-11-16): A player setting "Show arrows when learning new moves" (default on). Off, the learn pass skips the arrow round and goes straight to the blind round; a wrong answer shows the arrow as after a lapse (R-59). Not gated by tier (R-2). Extends R-144.
 - **R-206** (#330, 2026-11-16): A player may learn one chosen chapter or one chosen line from the repertoire page, besides the default chapter order; the daily new-move limit still applies (R-62).
-- **R-207** (#330, 2026-11-16): Home lists the due count per repertoire under Today's review, each with a link to review that repertoire alone; a mixed session's header does not name a single repertoire.
+- **R-207** (#330, 2026-11-16): Home lists the due count per repertoire under Today's review, each with a link to review that repertoire alone; a mixed session's header does not name a single repertoire. (Header refined by R-224.)
 - **R-208** (#330, 2026-11-16): PGN import previews have their own limit of 30 a minute per account; confirms keep 10 a minute. Replaces the preview half of R-119.
 - **R-209** (#330, 2026-11-16): PGN import accepts pasted PGN text as well as a file, with the same limits (R-66, R-119, R-208) and the same preview.
 - **R-210** (#329, 2026-11-17): Every assignment deadline, group or individual, must be today or later in Vilnius time when it is set or changed; clearing a deadline is always allowed. Extends R-203.
@@ -256,6 +256,8 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-220** (#381, 2026-11-25): The colour scheme is "Ocean": a clear blue accent on cool neutrals with a warm walnut board. The state colours (due, learned, success, error, skipped) do not change.
 - **R-221** (#381, 2026-11-25): Today lists every repertoire the player trains, own and assigned, each with its learned percentage (the R-177 meaning), a Mastered marker, and a Review N or Learn button when it has work; the row itself opens the repertoire. Repertoires with due moves come first (R-207 order), the rest in the R-145 order.
 - **R-222** (#381, 2026-11-25): "From my coach" is no longer a separate home section: an assignment is a row of Today's repertoire list, with its coach, deadline and badges (R-51, R-46, R-133) on the row. A paused assignment has no button.
+- **R-223** (#381, 2026-11-25): The training counter counts moves, not answers: "3 / 9" is the moves finished (answered with no repeat owed) of the moves the session holds, and that total is fixed when the session starts. The session size (R-62) counts moves; repeats (R-78) come on top and never push a move out. Amends R-78's "these repeats count toward the session size".
+- **R-224** (#381, 2026-11-25): A training session's header names the session ("Today's review", "Learn new moves") and, under it, the current item's repertoire, side and chapter; a session scoped to one repertoire is titled by that repertoire. Refines R-207.
 
 ## Open questions
 
