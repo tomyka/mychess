@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
-import type { HomeForkOffer } from '../server/assignment-pages';
+import type { TodayForkOffer } from '../server/assignment-pages';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
 import {
   acceptForkOfferAction,
@@ -47,7 +47,7 @@ function AnswerForm({
 }
 
 /** One offer: its name, coach and days left, Keep a copy and No, thanks. */
-function OfferItem({ offer }: { readonly offer: HomeForkOffer }): JSX.Element {
+function OfferItem({ offer }: { readonly offer: TodayForkOffer }): JSX.Element {
   const t = useTranslations();
   const nameId = useId();
   const { state, pending, using } = useLatestAction(INITIAL);
@@ -91,7 +91,7 @@ function OfferItem({ offer }: { readonly offer: HomeForkOffer }): JSX.Element {
 export function ForkOffers({
   offers,
 }: {
-  readonly offers: readonly HomeForkOffer[];
+  readonly offers: readonly TodayForkOffer[];
 }): JSX.Element | null {
   const t = useTranslations('forkOffer');
   const titleId = useId();

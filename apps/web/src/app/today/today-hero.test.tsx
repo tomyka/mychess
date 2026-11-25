@@ -21,16 +21,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-type Counts = Omit<TodaySummary, 'rows'>;
-
-function renderHero(state: HeroState, counts: Counts): void {
+function renderHero(state: HeroState, summary: TodaySummary): void {
   render(
     <NextIntlClientProvider
       locale="en"
       messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
-      <TodayHero state={state} summary={{ ...counts, rows: [] }} />
+      <TodayHero state={state} summary={summary} />
     </NextIntlClientProvider>,
   );
 }
@@ -53,7 +51,6 @@ describe('TodayHero (R-142, R-148, U1-M1-3)', () => {
               toLearn: 0,
               minutes: 0,
               nextDue: null,
-              rows: [],
             }}
           />
         </NextIntlClientProvider>,
@@ -126,7 +123,7 @@ describe('TodayHero (R-142, R-148, U1-M1-3)', () => {
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <TodayHero
           state="done"
-          summary={{ due: 0, toLearn: 0, minutes: 0, nextDue: NEXT, rows: [] }}
+          summary={{ due: 0, toLearn: 0, minutes: 0, nextDue: NEXT }}
         />
       </NextIntlClientProvider>,
     );

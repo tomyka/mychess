@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
+import type { ProgressCounts } from '@mychess/chess';
 import type { AssignedListItem } from '../../server/assignment-pages';
 import type { TodayPageRow } from '../../server/today-page';
 import { RepertoireRows } from './repertoire-rows';
@@ -10,15 +11,21 @@ const OWN_ID = '3b0c9f6a-8d1e-4f2a-9c3b-5e6f7a8b9c0d';
 const ASSIGNED_ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const badge = MESSAGES.assignment.badge;
 
+/** A standing of `counts`, not mastered unless said. */
+const standing = (counts: ProgressCounts, mastered = false) => ({
+  counts,
+  mastered,
+});
+
 const row = (over: Partial<TodayPageRow> = {}): TodayPageRow => ({
-  id: OWN_ID,
+  repertoireId: OWN_ID,
   name: 'Sicilian Najdorf',
   side: 'white',
   kind: 'own',
   due: 0,
   canLearn: false,
-  counts: { notStarted: 30, skipped: 0, due: 8, learned: 62 },
-  mastered: false,
+  action: null,
+  standing: standing({ notStarted: 30, skipped: 0, due: 8, learned: 62 }),
   assignment: null,
   ...over,
 });
@@ -32,8 +39,9 @@ const FACTS: AssignedListItem = {
   badges: { overdue: true, paused: true, forked: false, updated: false },
 };
 
+/** A paused assignment: todayRows gives it no action (R-46, R-222). */
 const ASSIGNED = row({
-  id: ASSIGNED_ID,
+  repertoireId: ASSIGNED_ID,
   name: 'Caro-Kann',
   side: 'black',
   kind: 'assigned',
@@ -108,7 +116,7 @@ describe('RepertoireRows (R-221, R-222)', () => {
     expect(name.className).toContain('break-words');
   });
 
-  it('shows an assignment with its coach, deadline and badges, linked to its page', () => {
+  it('shows a paused assignment with its coach, deadline and badges, linked to its page, and no button', () => {
     renderRows([ASSIGNED]);
     expect(
       screen.getByRole('link', { name: 'Caro-Kann' }).getAttribute('href'),
@@ -120,6 +128,10 @@ describe('RepertoireRows (R-221, R-222)', () => {
     expect(caro.getByText(badge.overdue)).toBeDefined();
     expect(caro.getByText(badge.paused)).toBeDefined();
     expect(caro.queryByText(badge.updated)).toBeNull();
+    // Its only link is its name: no Review or Learn (R-222).
+    expect(caro.getAllByRole('link').map((a) => a.textContent)).toEqual([
+      'Caro-Kann',
+    ]);
   });
 
   it('shows an assigned row whose facts are gone as a plain row', () => {
@@ -131,27 +143,27 @@ describe('RepertoireRows (R-221, R-222)', () => {
   });
 
   it("offers the repertoire's own review, described by its name (R-207)", () => {
-    renderRows([row({ due: 8, canLearn: true })]);
+    renderRows([row({ due: 8, canLearn: true, action: 'review' })]);
     const review = screen.getByRole('link', { name: 'Review 8' });
     expect(review.getAttribute('href')).toBe(
       `/training?mode=review&r=${OWN_ID}`,
     );
     expect(description(review)).toBe('Sicilian Najdorf');
     expect(review.className).toContain('min-h-touch');
-    // Review comes first; Learn waits until nothing is due.
+    // One button: the row's action, decided in the chess package.
     expect(
       screen.queryByRole('link', { name: MESSAGES.today.learn }),
     ).toBeNull();
   });
 
-  it('offers learning when nothing is due and new moves are allowed', () => {
-    renderRows([row({ canLearn: true })]);
+  it('offers learning when that is the action', () => {
+    renderRows([row({ canLearn: true, action: 'learn' })]);
     const learn = screen.getByRole('link', { name: MESSAGES.today.learn });
     expect(learn.getAttribute('href')).toBe(`/training?mode=learn&r=${OWN_ID}`);
     expect(description(learn)).toBe('Sicilian Najdorf');
   });
 
-  it('has no button with nothing due and nothing to learn today', () => {
+  it('has no button without an action', () => {
     renderRows([row()]);
     expect(
       within(item('Sicilian Najdorf'))
@@ -163,8 +175,10 @@ describe('RepertoireRows (R-221, R-222)', () => {
   it('marks a mastered repertoire (R-178)', () => {
     renderRows([
       row({
-        mastered: true,
-        counts: { notStarted: 0, skipped: 0, due: 0, learned: 40 },
+        standing: standing(
+          { notStarted: 0, skipped: 0, due: 0, learned: 40 },
+          true,
+        ),
       }),
     ]);
     const own = within(item('Sicilian Najdorf'));
@@ -174,7 +188,9 @@ describe('RepertoireRows (R-221, R-222)', () => {
 
   it('shows no share and no bar for a repertoire without moves', () => {
     renderRows([
-      row({ counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 } }),
+      row({
+        standing: standing({ notStarted: 0, skipped: 0, due: 0, learned: 0 }),
+      }),
     ]);
     const own = item('Sicilian Najdorf');
     expect(within(own).queryByText(/% learned/u)).toBeNull();

@@ -3,7 +3,8 @@ import 'server-only';
 // have by assignment (plan decisions 11 and 12), and each assignment's facts
 // and the fork offers on Today. The pages read the database only through these
 // loaders, which start from the session account: an id from the path never
-// decides whose assignment is read.
+// decides whose assignment is read (Today's loader is handed the session
+// account its page already read).
 import {
   assignedRepertoireForPlayer,
   changesSince,
@@ -13,6 +14,7 @@ import {
   type PlayerAssignment,
 } from '@mychess/db';
 import type { MoveChanges, RepertoireGraph, Side } from '@mychess/chess';
+import type { Account } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { z } from 'zod';
@@ -101,19 +103,19 @@ export type AssignedListItem = Pick<
   'repertoireId' | 'name' | 'side' | 'coachName' | 'deadline' | 'badges'
 >;
 
-/** One open fork offer on home (R-44, R-130). */
-export type HomeForkOffer = Pick<
+/** One open fork offer on Today (R-44, R-130). */
+export type TodayForkOffer = Pick<
   OpenForkOffer,
   'id' | 'name' | 'coachName' | 'daysLeft'
 >;
 
-export interface HomeAssignments {
-  readonly fromCoach: readonly AssignedListItem[];
-  readonly offers: readonly HomeForkOffer[];
+export interface TodayAssignments {
+  readonly assigned: readonly AssignedListItem[];
+  readonly offers: readonly TodayForkOffer[];
 }
 
 /** `playerId`'s live assignments as of `now`, individual and group merged (R-16). */
-async function fromCoachOf(
+async function assignedOf(
   playerId: string,
   now: Date,
 ): Promise<AssignedListItem[]> {
@@ -132,26 +134,28 @@ async function fromCoachOf(
 
 /**
  * The session player's live assignments for My repertoires (#328), with
- * their badges as home shows them; forked ones are left out (R-128).
+ * their badges as Today shows them; forked ones are left out (R-128).
  */
 export async function myAssignedRepertoires(): Promise<AssignedListItem[]> {
   const player = await requireOnboarded();
-  return fromCoachOf(player.id, new Date());
+  return assignedOf(player.id, new Date());
 }
 
 /**
- * The session player's live assignments, with their badges decided by the
- * domain (assignmentStatus, assignmentBadges), and their open fork offers,
- * both as of now.
+ * `player`'s live assignments, with their badges decided by the domain
+ * (assignmentStatus, assignmentBadges), and their open fork offers, both as
+ * of now. `player` is the session account the page already holds (Today
+ * reads it once), never an id from the request.
  */
-export async function homeAssignments(): Promise<HomeAssignments> {
-  const player = await requireOnboarded();
+export async function todayAssignments(
+  player: Account,
+): Promise<TodayAssignments> {
   const db = getDb();
   const now = new Date();
-  const fromCoach = await fromCoachOf(player.id, now);
+  const assigned = await assignedOf(player.id, now);
   const offers = await openForkOffers(db, player.id, now);
   return {
-    fromCoach,
+    assigned,
     offers: offers.map(({ id, name, coachName, daysLeft }) => ({
       id,
       name,

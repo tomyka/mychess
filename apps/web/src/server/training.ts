@@ -11,8 +11,8 @@ import {
   trackedIn,
   trainingCounts,
   type LearnFocus,
-  type ProgressCounts,
   type Side,
+  type TodayRow,
   type TrainingCounts,
   type TrainingDay,
   type TrainingMode,
@@ -28,6 +28,7 @@ import {
   SECONDS_PER_REVIEW,
   type Account,
   type OwnCoachNote,
+  type RepertoireKind,
 } from '@mychess/domain';
 import { cache } from 'react';
 import { z } from 'zod';
@@ -216,84 +217,83 @@ async function snapshotData(
   return (await readSnapshot(account, mode, scope))?.data;
 }
 
-/** One repertoire on Today's list (R-221): every one the player trains. */
-export interface TodaySummaryRow {
-  readonly id: string;
-  readonly name: string;
-  readonly side: Side;
-  readonly kind: 'own' | 'assigned';
-  /** Its due moves, as a review of it alone counts them; 0 when paused. */
-  readonly due: number;
-  /** Whether a learn session of it alone would start today. */
-  readonly canLearn: boolean;
-  /** Its moves' R-151 states, for the learned percentage (R-177). */
-  readonly counts: ProgressCounts;
-  /** R-178. */
-  readonly mastered: boolean;
-}
+/**
+ * The session account's snapshot over every repertoire they train, read
+ * once per request: Today's summary, Today's list and the shell's badge
+ * share the one query. `cache` matches arguments by identity, which holds:
+ * `getAccount` (server/session.ts) is itself request-cached, so every
+ * caller in a request passes the same Account object.
+ */
+const allSnapshot = cache((account: Account) =>
+  readSnapshot(account, 'review', { kind: 'all' }),
+);
 
-/** Home's "Today" block (U1-M1-3): what is due and to learn, before starting. */
+/** Today's summary (U1-M1-3): what is due and to learn, before starting. */
 export interface TodaySummary extends TrainingCounts {
   /** The estimated minutes the due moves take, rounded up. */
   readonly minutes: number;
   /** The earliest Review due after now, or null. */
   readonly nextDue: Date | null;
-  /** Every repertoire the player trains, those with due moves first (R-221). */
-  readonly rows: readonly TodaySummaryRow[];
-}
-
-/** Each todayRows row with its entry's name, side and kind. */
-function summaryRows(
-  data: SnapshotData,
-  day: TrainingDay,
-  known: ReadonlySet<string>,
-): TodaySummaryRow[] {
-  return todayRows(day, known, data.now).flatMap((row) => {
-    const entry = data.entries.find((e) => e.id === row.repertoireId);
-    return entry === undefined
-      ? []
-      : [
-          {
-            id: entry.id,
-            name: entry.name,
-            side: entry.side,
-            kind: entry.kind,
-            due: row.due,
-            canLearn: row.canLearn,
-            counts: row.standing.counts,
-            mastered: row.standing.mastered,
-          },
-        ];
-  });
 }
 
 /**
- * The session account's "Today" block over every repertoire they train
- * (R-142): every due move, not a session's worth, each repertoire's row
- * (R-221), and the new moves today's allowance leaves (R-146).
+ * The session account's Today summary over every repertoire they train
+ * (R-142): every due move, not a session's worth, and the new moves today's
+ * allowance leaves (R-146). Cheap enough for the shell's badge on every
+ * page: it computes no rows.
  */
 async function loadTodaySummary(account: Account): Promise<TodaySummary> {
-  const read = await readSnapshot(account, 'review', { kind: 'all' });
+  const read = await allSnapshot(account);
   if (read === undefined)
-    return { due: 0, toLearn: 0, minutes: 0, nextDue: null, rows: [] };
-  const { data, known } = read;
+    return { due: 0, toLearn: 0, minutes: 0, nextDue: null };
+  const { data } = read;
   const day = dayOf(data);
   const counts = trainingCounts(day, data.now);
   return {
     ...counts,
     minutes: Math.ceil((counts.due * SECONDS_PER_REVIEW) / 60),
     nextDue: nextDue(day, data.now),
-    rows: summaryRows(data, day, known),
   };
 }
 
-/**
- * todaySummary once per request: home and the shell's badge share it.
- * `cache` matches arguments by identity, which holds: `getAccount`
- * (server/session.ts) is itself request-cached, so every caller in a
- * request passes the same Account object.
- */
+/** todaySummary once per request: Today and the shell's badge share it. */
 export const todaySummary = cache(loadTodaySummary);
+
+/** One repertoire on Today's list (R-221): a todayRows row with its entry's name, side and kind. */
+export interface TodayListRow extends TodayRow {
+  readonly name: string;
+  readonly side: Side;
+  readonly kind: RepertoireKind;
+}
+
+/** Each todayRows row with its entry's name, side and kind. */
+function listRows(
+  data: SnapshotData,
+  day: TrainingDay,
+  known: ReadonlySet<string>,
+): TodayListRow[] {
+  const entries = new Map(data.entries.map((e) => [e.id, e]));
+  return todayRows(day, known, data.now).flatMap((row) => {
+    const entry = entries.get(row.repertoireId);
+    return entry === undefined
+      ? []
+      : [{ ...row, name: entry.name, side: entry.side, kind: entry.kind }];
+  });
+}
+
+/**
+ * Today's list (R-221): every repertoire the session account trains, those
+ * with due moves first, each with its standing and its action. Only Today
+ * reads it; the per-repertoire work stays off the shell's badge.
+ */
+async function loadTodayList(account: Account): Promise<TodayListRow[]> {
+  const read = await allSnapshot(account);
+  if (read === undefined) return [];
+  return listRows(read.data, dayOf(read.data), read.known);
+}
+
+/** todayList once per request. */
+export const todayList = cache(loadTodayList);
 
 /**
  * A repertoire page's training: its counts, what learning one chapter or

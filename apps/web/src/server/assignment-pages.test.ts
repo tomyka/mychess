@@ -4,12 +4,13 @@ import type {
   OpenForkOffer,
   PlayerAssignment,
 } from '@mychess/db';
+import type { Account } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../test/fixtures/repertoires';
 import {
   assignedRepertoireData,
-  homeAssignments,
   myAssignedRepertoires,
+  todayAssignments,
 } from './assignment-pages';
 import { chapterNamesOf } from './chapter-names';
 
@@ -159,14 +160,31 @@ const OFFER: OpenForkOffer = {
   daysLeft: 12,
 };
 
-describe('homeAssignments', () => {
-  it('reads the session player’s assignments and open offers, now', async () => {
+describe('todayAssignments', () => {
+  /**
+   * Gabija, the account Today's page already read; not the mocked session
+   * (Rokas), so the loader is seen reading for the account it is given.
+   */
+  const GABIJA: Account = {
+    id: 'gabija',
+    email: 'gabija@example.test',
+    emailVerified: true,
+    displayName: 'Gabija',
+    entitlement: 'free',
+    admin: false,
+    disabledAt: null,
+    onboardedAt: NOW,
+    coachSince: null,
+    createdAt: NOW,
+  };
+
+  it('reads the given player’s assignments and open offers, now', async () => {
     vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
     try {
       server.mine.mockResolvedValue([MINE]);
       server.offers.mockResolvedValue([OFFER]);
-      expect(await homeAssignments()).toEqual({
-        fromCoach: [
+      expect(await todayAssignments(GABIJA)).toEqual({
+        assigned: [
           {
             repertoireId: ID,
             name: 'Londono sistema',
@@ -190,8 +208,8 @@ describe('homeAssignments', () => {
           },
         ],
       });
-      expect(server.mine).toHaveBeenCalledWith(DB, 'rokas', NOW);
-      expect(server.offers).toHaveBeenCalledWith(DB, 'rokas', NOW);
+      expect(server.mine).toHaveBeenCalledExactlyOnceWith(DB, 'gabija', NOW);
+      expect(server.offers).toHaveBeenCalledExactlyOnceWith(DB, 'gabija', NOW);
     } finally {
       vi.useRealTimers();
     }
@@ -199,7 +217,7 @@ describe('homeAssignments', () => {
 });
 
 describe('myAssignedRepertoires', () => {
-  it('reads the session player’s live assignments, now, as home shows them (R-16)', async () => {
+  it('reads the session player’s live assignments, now, as Today shows them (R-16)', async () => {
     vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
     try {
       server.mine.mockReset().mockResolvedValue([MINE]);

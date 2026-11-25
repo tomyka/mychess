@@ -8,7 +8,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../i18n/catalogue';
-import type { HomeForkOffer } from '../server/assignment-pages';
+import type { TodayForkOffer } from '../server/assignment-pages';
 import type { ForkOfferState } from './fork-offer-actions';
 import { ForkOffers } from './fork-offers';
 
@@ -29,21 +29,21 @@ vi.mock('./fork-offer-actions', () => ({
 
 const f = MESSAGES.forkOffer;
 
-const LONDON: HomeForkOffer = {
+const LONDON: TodayForkOffer = {
   id: 'o-london',
   name: 'Londono sistema',
   coachName: 'Jonas',
   daysLeft: 3,
 };
 
-const CARO: HomeForkOffer = {
+const CARO: TodayForkOffer = {
   id: 'o-caro',
   name: 'Karo-Kan gynyba: pagrindai',
   coachName: 'Rimantas',
   daysLeft: 21,
 };
 
-function renderOffers(offers: readonly HomeForkOffer[]): void {
+function renderOffers(offers: readonly TodayForkOffer[]): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ForkOffers offers={offers} />

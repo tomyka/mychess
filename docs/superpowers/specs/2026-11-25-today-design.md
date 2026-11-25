@@ -93,8 +93,10 @@ An `accent` card with `accent-fg` text. Its state is decided by a pure
 
 The card's heading stays "Today's review" (R-148) for screen readers in
 every state; visually the count is the headline. The buttons on the accent
-card use an inverted style (surface background, `accent` text) and a
-translucent secondary; both are checked for AA contrast in both themes.
+card use an inverted style (surface background, `accent` text) and an
+outlined secondary (`accent-fg` border and text); both have an `accent-fg`
+focus ring (the usual `focus` ring is the accent and would not show on the
+card) and are checked for AA contrast in both themes.
 
 ## The repertoire list ("My repertoires")
 
@@ -113,7 +115,8 @@ Each row:
   decorative (`aria-hidden`); the text carries the value. A repertoire
   without own moves shows no bar and no percentage.
 - **Mastered:** when the repertoire's standing is mastered (R-178, R-182),
-  "Mastered" follows the percentage, in the `learned` colour.
+  the Mastered badge follows the percentage, the same badge coach progress
+  shows (`MasteredBadge`).
 - **Button:**
   - due > 0: "Review N" to `trainingPath('review', id)`.
   - else, can learn: "Learn" to `trainingPath('learn', id)`.

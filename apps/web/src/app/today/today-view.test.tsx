@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import type { HomeForkOffer } from '../../server/assignment-pages';
+import type { TodayForkOffer } from '../../server/assignment-pages';
 import type { TodayPage, TodayPageRow } from '../../server/today-page';
 import { TodayView } from './today-view';
 
@@ -12,18 +12,21 @@ vi.mock('../fork-offer-actions', () => ({
 }));
 
 const ROW: TodayPageRow = {
-  id: '3b0c9f6a-8d1e-4f2a-9c3b-5e6f7a8b9c0d',
+  repertoireId: '3b0c9f6a-8d1e-4f2a-9c3b-5e6f7a8b9c0d',
   name: 'Sicilian Najdorf',
   side: 'black',
   kind: 'own',
   due: 3,
   canLearn: false,
-  counts: { notStarted: 0, skipped: 0, due: 3, learned: 7 },
-  mastered: false,
+  action: 'review',
+  standing: {
+    counts: { notStarted: 0, skipped: 0, due: 3, learned: 7 },
+    mastered: false,
+  },
   assignment: null,
 };
 
-const OFFER: HomeForkOffer = {
+const OFFER: TodayForkOffer = {
   id: 'o-1',
   name: 'Karo-Kan gynyba: pagrindai',
   coachName: 'Jonas',
@@ -33,7 +36,7 @@ const OFFER: HomeForkOffer = {
 /** A page with one due repertoire and no offers unless given. */
 const page = (over: Partial<TodayPage> = {}): TodayPage => ({
   displayName: 'Rūta',
-  summary: { due: 3, toLearn: 0, minutes: 1, nextDue: null, rows: [ROW] },
+  summary: { due: 3, toLearn: 0, minutes: 1, nextDue: null },
   rows: [ROW],
   offers: [],
   ...over,
@@ -103,7 +106,7 @@ describe('TodayView (#381 part 2)', () => {
   it('welcomes a player with nothing to train, without a list', () => {
     renderView(
       page({
-        summary: { due: 0, toLearn: 0, minutes: 0, nextDue: null, rows: [] },
+        summary: { due: 0, toLearn: 0, minutes: 0, nextDue: null },
         rows: [],
       }),
     );

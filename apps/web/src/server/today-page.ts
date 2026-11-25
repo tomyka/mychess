@@ -1,20 +1,21 @@
 import 'server-only';
-// Today's page (#381 part 2): the summary's rows with each assignment's
-// facts (R-222), and the open fork offers.
+// Today's page (#381 part 2): the summary, the list's rows with each
+// assignment's facts (R-222), and the open fork offers.
 import type { Account } from '@mychess/domain';
 import {
-  homeAssignments,
+  todayAssignments,
   type AssignedListItem,
-  type HomeForkOffer,
+  type TodayForkOffer,
 } from './assignment-pages';
 import {
+  todayList,
   todaySummary,
+  type TodayListRow,
   type TodaySummary,
-  type TodaySummaryRow,
 } from './training';
 
 /** One row of Today's list, with its assignment's facts. */
-export interface TodayPageRow extends TodaySummaryRow {
+export interface TodayPageRow extends TodayListRow {
   /** An assignment's coach, deadline and badges; null for an own repertoire. */
   readonly assignment: AssignedListItem | null;
 }
@@ -23,7 +24,7 @@ export interface TodayPage {
   readonly displayName: string;
   readonly summary: TodaySummary;
   readonly rows: readonly TodayPageRow[];
-  readonly offers: readonly HomeForkOffer[];
+  readonly offers: readonly TodayForkOffer[];
 }
 
 /**
@@ -32,26 +33,32 @@ export interface TodayPage {
  * row; an own repertoire never has facts.
  */
 export function joinFacts(
-  rows: readonly TodaySummaryRow[],
+  rows: readonly TodayListRow[],
   assigned: readonly AssignedListItem[],
 ): TodayPageRow[] {
   const byId = new Map(assigned.map((a) => [a.repertoireId, a]));
   return rows.map((row) => ({
     ...row,
-    assignment: row.kind === 'assigned' ? (byId.get(row.id) ?? null) : null,
+    assignment:
+      row.kind === 'assigned' ? (byId.get(row.repertoireId) ?? null) : null,
   }));
 }
 
-/** The session account's Today page. */
+/**
+ * The session account's Today page. The summary and the list share one
+ * request-cached snapshot read; the assignments are read for `account`, the
+ * session account the page already holds.
+ */
 export async function todayPage(account: Account): Promise<TodayPage> {
-  const [summary, { fromCoach, offers }] = await Promise.all([
+  const [summary, list, { assigned, offers }] = await Promise.all([
     todaySummary(account),
-    homeAssignments(),
+    todayList(account),
+    todayAssignments(account),
   ]);
   return {
     displayName: account.displayName,
     summary,
-    rows: joinFacts(summary.rows, fromCoach),
+    rows: joinFacts(list, assigned),
     offers,
   };
 }

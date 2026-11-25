@@ -4,7 +4,7 @@
 // someone else's ids and forged playerId or coachId fields change nothing.
 // The coach's assign, unassign and deadline actions act only on the session
 // coach's own repertoires, links, groups and assignments; the fork offer
-// answers and home's lists only on the session player's own.
+// answers and Today's lists only on the session player's own.
 // Every refusal is checked against the whole assignment state of the
 // database, before and after.
 import { moveKey, START_KEY } from '@mychess/chess';
@@ -43,8 +43,8 @@ import {
 import { repertoireRoute } from '../../src/lib/routes';
 import {
   assignedRepertoireData,
-  homeAssignments,
   myAssignedRepertoires,
+  todayAssignments,
 } from '../../src/server/assignment-pages';
 import { coachAssignData } from '../../src/server/coach-assignments';
 import { sharedRepertoireData } from '../../src/server/coach-pages';
@@ -52,6 +52,7 @@ import {
   myRepertoires,
   repertoirePageData,
 } from '../../src/server/repertoires';
+import { requireOnboarded } from '../../src/server/session';
 import {
   actAs,
   coachPerson,
@@ -1253,32 +1254,32 @@ describe('a fork the player asks for at the R-162 limit (R-163)', () => {
       await outcomeOf(acceptForkOfferAction({}, formOf({ offerId: offer }))),
     ).toEqual(AT_LIMIT);
     expect(await state()).toEqual(before);
-    expect(await homeAssignments()).toMatchObject({ offers: [{ id: offer }] });
+    expect(await sessionToday()).toMatchObject({ offers: [{ id: offer }] });
   });
 });
 
 describe('the fork offer answers', () => {
-  it('keeping a copy goes to the new fork, and the offer leaves home', async () => {
+  it('keeping a copy goes to the new fork, and the offer leaves Today', async () => {
     const people = await cast();
     const offer = await rokasOffer(people);
     actAs(people.rokas);
-    expect(await homeAssignments()).toMatchObject({
+    expect(await sessionToday()).toMatchObject({
       offers: [{ id: offer, name: 'Londono sistema', coachName: 'Rimantas' }],
     });
     expect(
       await outcomeOf(acceptForkOfferAction({}, formOf({ offerId: offer }))),
     ).toEqual({ redirectedTo: repertoireRoute(await rokasFork()) });
-    expect((await homeAssignments()).offers).toEqual([]);
+    expect((await sessionToday()).offers).toEqual([]);
   });
 
-  it('declining takes the offer off home, and it cannot be kept after', async () => {
+  it('declining takes the offer off Today, and it cannot be kept after', async () => {
     const people = await cast();
     const offer = await rokasOffer(people);
     actAs(people.rokas);
     expect(
       await outcomeOf(declineForkOfferAction({}, formOf({ offerId: offer }))),
     ).toEqual({});
-    expect((await homeAssignments()).offers).toEqual([]);
+    expect((await sessionToday()).offers).toEqual([]);
     const before = await state();
     expect(
       await outcomeOf(acceptForkOfferAction({}, formOf({ offerId: offer }))),
@@ -1342,13 +1343,21 @@ describe('the fork offer answers', () => {
   });
 });
 
-/** Home's lists for `who`, as "name (coach)". */
-async function homeNames(who: Person): Promise<unknown> {
+/**
+ * The session account's assignments and offers, read as Today's page reads
+ * them: the page's requireOnboarded, then todayAssignments for that account.
+ */
+async function sessionToday(): ReturnType<typeof todayAssignments> {
+  return todayAssignments(await requireOnboarded());
+}
+
+/** Today's lists for `who`, as "name (coach)". */
+async function todayNames(who: Person): Promise<unknown> {
   actAs(who);
-  const home = await homeAssignments();
+  const today = await sessionToday();
   return {
-    fromCoach: home.fromCoach.map((one) => `${one.name} (${one.coachName})`),
-    offers: home.offers.map((one) => `${one.name} (${one.coachName})`),
+    assigned: today.assigned.map((one) => `${one.name} (${one.coachName})`),
+    offers: today.offers.map((one) => `${one.name} (${one.coachName})`),
   };
 }
 
@@ -1358,20 +1367,20 @@ describe('Today’s assignment facts and fork offers', () => {
     await secondCoach();
     await rokasOffer(people);
     const before = await state();
-    expect(await homeNames(people.rokas)).toEqual({
-      fromCoach: ['Taimanovas (Rimantas)'],
+    expect(await todayNames(people.rokas)).toEqual({
+      assigned: ['Taimanovas (Rimantas)'],
       offers: ['Londono sistema (Rimantas)'],
     });
-    expect(await homeNames(people.gabija)).toEqual({
-      fromCoach: ['Taimanovas (Rimantas)'],
+    expect(await todayNames(people.gabija)).toEqual({
+      assigned: ['Taimanovas (Rimantas)'],
       offers: [],
     });
-    expect(await homeNames(people.jonas)).toEqual({
-      fromCoach: [],
+    expect(await todayNames(people.jonas)).toEqual({
+      assigned: [],
       offers: [],
     });
-    expect(await homeNames(people.rimantas)).toEqual({
-      fromCoach: [],
+    expect(await todayNames(people.rimantas)).toEqual({
+      assigned: [],
       offers: [],
     });
     expect(await state()).toEqual(before);
@@ -1417,22 +1426,22 @@ describe('Today’s assignment facts and fork offers', () => {
         pauseForm(people.taimanov, true, { playerId: people.rokas.id }),
       ),
     );
-    expect((await homeAssignments()).fromCoach).toMatchObject([
+    expect((await sessionToday()).assigned).toMatchObject([
       { repertoireId: people.taimanov, badges: { paused: true } },
     ]);
     actAs(people.rokas);
-    const rokas = await homeAssignments();
-    expect(rokas.fromCoach).toHaveLength(2);
+    const rokas = await sessionToday();
+    expect(rokas.assigned).toHaveLength(2);
     expect(
-      rokas.fromCoach.find((one) => one.repertoireId === people.taimanov)
-        ?.badges.paused,
+      rokas.assigned.find((one) => one.repertoireId === people.taimanov)?.badges
+        .paused,
     ).toBe(false);
   });
 
   it('send a signed-out visitor to sign-in', async () => {
     await cast();
     request.cookie = '';
-    expect(await outcomeOf(homeAssignments())).toEqual({
+    expect(await outcomeOf(sessionToday())).toEqual({
       redirectedTo: '/sign-in',
     });
   });

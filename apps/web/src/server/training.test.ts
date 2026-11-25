@@ -7,6 +7,7 @@ import {
   loadTraining,
   parseTrainingSearch,
   repertoireTraining,
+  todayList,
   todaySummary,
 } from './training';
 
@@ -350,45 +351,95 @@ describe('todaySummary (U1-M1-3)', () => {
   it('counts the due moves and rounds the minutes up', async () => {
     expect(LONDON_KEYS).toHaveLength(8);
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS));
-    // 8 moves at 8 s: 64 s, about 2 minutes.
+    // 8 moves at 8 s: 64 s, about 2 minutes. No rows: the shell's badge
+    // reads this on every page.
     expect(await todaySummary(ROKAS)).toEqual({
       due: 8,
       toLearn: 0,
       minutes: 2,
       nextDue: null,
-      rows: [
-        {
-          id: ID,
-          name: 'Londono sistema',
-          side: 'white',
-          kind: 'own',
-          due: 8,
-          // Every move is tracked: nothing is left to learn.
-          canLearn: false,
-          counts: { notStarted: 0, skipped: 0, due: 8, learned: 0 },
-          mastered: false,
-        },
-      ],
     });
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 1)));
     expect(await todaySummary(ROKAS)).toMatchObject({ due: 1, minutes: 1 });
   });
 
-  it('gives the next review time when nothing is due, and still lists the repertoire (R-221)', async () => {
+  it('gives the next review time when nothing is due', async () => {
     server.snapshot.mockResolvedValue(londonDue([]));
     expect(await todaySummary(ROKAS)).toEqual({
       due: 0,
       toLearn: 0,
       minutes: 0,
       nextDue: new Date('2026-10-22T08:00:00Z'),
-      rows: [
-        expect.objectContaining({
-          id: ID,
-          due: 0,
-          counts: { notStarted: 0, skipped: 0, due: 0, learned: 8 },
-        }),
-      ],
     });
+  });
+
+  it('is all zero when the player trains nothing', async () => {
+    server.snapshot.mockResolvedValue(undefined);
+    expect(await todaySummary(ROKAS)).toEqual({
+      due: 0,
+      toLearn: 0,
+      minutes: 0,
+      nextDue: null,
+    });
+  });
+
+  it('counts the new moves today’s allowance leaves', async () => {
+    // Nothing learned yet: 5 a day, 3 learned today.
+    server.snapshot.mockResolvedValue({
+      ...londonDue([]),
+      reviews: new Map(),
+      tracked: new Set(),
+    });
+    expect(await todaySummary(ROKAS)).toMatchObject({
+      due: 0,
+      toLearn: 2,
+      minutes: 0,
+      nextDue: null,
+    });
+  });
+});
+
+describe('todayList (R-221)', () => {
+  it("reads the session account's every repertoire as of now", async () => {
+    await todayList(ROKAS);
+    expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
+      DB,
+      'rokas',
+      { kind: 'all' },
+      NOW,
+    );
+  });
+
+  it('gives each repertoire its name, side, kind, due count, action and standing', async () => {
+    server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS));
+    expect(await todayList(ROKAS)).toEqual([
+      {
+        repertoireId: ID,
+        name: 'Londono sistema',
+        side: 'white',
+        kind: 'own',
+        due: 8,
+        // Every move is tracked: nothing is left to learn.
+        canLearn: false,
+        action: 'review',
+        standing: {
+          counts: { notStarted: 0, skipped: 0, due: 8, learned: 0 },
+          mastered: false,
+        },
+      },
+    ]);
+  });
+
+  it('still lists a repertoire with nothing due', async () => {
+    server.snapshot.mockResolvedValue(londonDue([]));
+    expect(await todayList(ROKAS)).toMatchObject([
+      {
+        repertoireId: ID,
+        due: 0,
+        action: null,
+        standing: { counts: { notStarted: 0, skipped: 0, due: 0, learned: 8 } },
+      },
+    ]);
   });
 
   it('counts a move entered by "I know this" as skipped (R-151)', async () => {
@@ -397,8 +448,8 @@ describe('todaySummary (U1-M1-3)', () => {
       ...londonDue([]),
       known: new Set([known]),
     });
-    const [row] = (await todaySummary(ROKAS)).rows;
-    expect(row?.counts).toEqual({
+    const [row] = await todayList(ROKAS);
+    expect(row?.standing.counts).toEqual({
       notStarted: 0,
       skipped: 1,
       due: 0,
@@ -408,13 +459,7 @@ describe('todaySummary (U1-M1-3)', () => {
 
   it('lists no rows when the player trains nothing', async () => {
     server.snapshot.mockResolvedValue(undefined);
-    expect(await todaySummary(ROKAS)).toEqual({
-      due: 0,
-      toLearn: 0,
-      minutes: 0,
-      nextDue: null,
-      rows: [],
-    });
+    expect(await todayList(ROKAS)).toEqual([]);
   });
 
   it('lists every repertoire, the ones with due moves first (R-207, R-221)', async () => {
@@ -433,10 +478,10 @@ describe('todaySummary (U1-M1-3)', () => {
       ]),
       tracked: new Set([...london.tracked, taimanovKey]),
     });
-    const { rows } = await todaySummary(ROKAS);
-    expect(rows.map((r) => [r.name, r.kind, r.due, r.canLearn])).toEqual([
-      ['Taimanovas', 'assigned', 1, true],
-      ['Londono sistema', 'own', 0, false],
+    const rows = await todayList(ROKAS);
+    expect(rows.map((r) => [r.name, r.kind, r.due, r.action])).toEqual([
+      ['Taimanovas', 'assigned', 1, 'review'],
+      ['Londono sistema', 'own', 0, null],
     ]);
   });
 
@@ -457,26 +502,11 @@ describe('todaySummary (U1-M1-3)', () => {
       ]),
       tracked: new Set([...london.tracked, taimanovKey]),
     });
-    const { rows } = await todaySummary(ROKAS);
-    expect(rows.map((r) => [r.id, r.name, r.side, r.due])).toEqual([
+    const rows = await todayList(ROKAS);
+    expect(rows.map((r) => [r.repertoireId, r.name, r.side, r.due])).toEqual([
       [OTHER, 'Taimanovas', 'black', 1],
       [ID, 'Londono sistema', 'white', 1],
     ]);
-  });
-
-  it('counts the new moves today’s allowance leaves', async () => {
-    // Nothing learned yet: 5 a day, 3 learned today.
-    server.snapshot.mockResolvedValue({
-      ...londonDue([]),
-      reviews: new Map(),
-      tracked: new Set(),
-    });
-    expect(await todaySummary(ROKAS)).toMatchObject({
-      due: 0,
-      toLearn: 2,
-      minutes: 0,
-      nextDue: null,
-    });
   });
 });
 

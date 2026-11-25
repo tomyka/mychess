@@ -26,9 +26,8 @@ const ROW_BUTTON =
   'inline-flex min-h-touch shrink-0 items-center justify-center rounded-control bg-accent-subtle px-4 py-2 font-semibold text-accent';
 
 /**
- * Review N when the repertoire has due moves, else Learn when today's
- * allowance leaves it new moves, else nothing (a paused assignment never
- * has either). Described by the row's name: "Review 8, Sicilian Najdorf".
+ * The row's action as todayRows decided it (R-221): Review N, Learn, or
+ * nothing. Described by the row's name: "Review 8, Sicilian Najdorf".
  */
 function RowAction({
   row,
@@ -38,15 +37,14 @@ function RowAction({
   readonly describedBy: string;
 }): JSX.Element | null {
   const t = useTranslations('today');
-  if (row.due === 0 && !row.canLearn) return null;
-  const review = row.due > 0;
+  if (row.action === null) return null;
   return (
     <Link
-      href={trainingPath(review ? 'review' : 'learn', row.id)}
+      href={trainingPath(row.action, row.repertoireId)}
       aria-describedby={describedBy}
       className={ROW_BUTTON}
     >
-      {review ? t('review', { count: row.due }) : t('learn')}
+      {row.action === 'review' ? t('review', { count: row.due }) : t('learn')}
     </Link>
   );
 }
@@ -54,14 +52,14 @@ function RowAction({
 /** The bar and "N% learned" (R-177), then Mastered (R-178); none without moves. */
 function Progress({ row }: { readonly row: TodayPageRow }): JSX.Element | null {
   const t = useTranslations('coach.progress');
-  const percent = percentLearned(row.counts);
+  const percent = percentLearned(row.standing.counts);
   if (percent === null) return null;
   return (
     <span className="flex flex-col gap-1">
       <LearnedBar percent={percent} />
       <span className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
         {t('percent', { percent })}
-        {row.mastered ? <MasteredBadge /> : null}
+        {row.standing.mastered ? <MasteredBadge /> : null}
       </span>
     </span>
   );
@@ -73,8 +71,8 @@ function RepertoireRow({ row }: { readonly row: TodayPageRow }): JSX.Element {
   const nameId = useId();
   const href =
     row.kind === 'assigned'
-      ? assignedRepertoirePath(row.id)
-      : repertoireRoute(row.id);
+      ? assignedRepertoirePath(row.repertoireId)
+      : repertoireRoute(row.repertoireId);
   return (
     <li className="flex items-start gap-3 border-b border-border py-3 last:border-b-0">
       <span className="flex min-w-0 flex-1 flex-col gap-2">
@@ -119,7 +117,7 @@ export function RepertoireRows({
       </h2>
       <ul>
         {rows.map((row) => (
-          <RepertoireRow key={row.id} row={row} />
+          <RepertoireRow key={row.repertoireId} row={row} />
         ))}
       </ul>
     </section>
