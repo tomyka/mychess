@@ -1,0 +1,12 @@
+# gitleaks: the default rules, plus one allowlist. A chess position key (a
+# FEN without its move counters, CONTEXT "Position key") matches the
+# generic-api-key rule wherever a field is called "key" (#377's eco.json
+# holds thousands). A FEN cannot hold a secret, so only FEN-shaped values
+# are allowed (gitleaks captures the board field), nothing by path.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Chess board placements (the first field of a position key)"
+regexTarget = "secret"
+regexes = ['''^[pnbrqkPNBRQK1-8]{1,8}(/[pnbrqkPNBRQK1-8]{1,8}){7}$''']
