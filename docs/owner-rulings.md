@@ -254,6 +254,8 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-218** (#381, 2026-11-25): Navigation is a bottom tab bar on a phone and a top bar on desktop. Tabs: Today, Repertoires, Opponents, plus Coach for an account with the coach capability; account and settings sit behind an avatar menu. A drill runs full-screen without the tabs (focus mode).
 - **R-219** (#381, 2026-11-25): The visual style is "calm and modern": cool neutrals, soft shadowed cards instead of bordered ones, rounder corners, the Inter typeface (self-hosted).
 - **R-220** (#381, 2026-11-25): The colour scheme is "Ocean": a clear blue accent on cool neutrals with a warm walnut board. The state colours (due, learned, success, error, skipped) do not change.
+- **R-221** (#381, 2026-11-25): Today lists every repertoire the player trains, own and assigned, each with its learned percentage (the R-177 meaning), a Mastered marker, and a Review N or Learn button when it has work; the row itself opens the repertoire. Repertoires with due moves come first (R-207 order), the rest in the R-145 order.
+- **R-222** (#381, 2026-11-25): "From my coach" is no longer a separate home section: an assignment is a row of Today's repertoire list, with its coach, deadline and badges (R-51, R-46, R-133) on the row. A paused assignment has no button.
 
 ## Open questions
 
