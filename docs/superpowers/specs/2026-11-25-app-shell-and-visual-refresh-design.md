@@ -182,33 +182,31 @@ re-checks every contrast pair and may adjust a value to pass (AA: text
 
 ## Architecture
 
-### Route groups
+### Where the shell is mounted
 
-```
-src/app/
-  (app)/                layout: AppShell (top bar, tabs, account menu)
-    page.tsx            Today
-    repertoires/...
-    fide/
-    coach/...
-    settings/
-  (focus)/              layout: no tabs
-    training/
-  sign-in/  welcome/  invite/   no group, unchanged
-```
+Lead decision (plan, 2026-11-25): one small `layout.tsx` per tab segment
+(`repertoires/`, `coach/`, `fide/`, `settings/`) renders `AppShell`, and the
+home page renders it itself. Route groups would have moved four folders and
+rewritten relative imports in 123 files for the same result. `/training`,
+`/sign-in`, `/welcome` and `/invite` have no such layout, so no shell. No URL
+changes; `ROUTES` stays as it is.
 
-Moving a folder into a route group changes no URL. `ROUTES` stays as it is.
+On a phone the shell's top row (wordmark, avatar) shows only on a tab's own
+page; an inner page's own header row is the only top row, and `PageHeader`
+carries the avatar there. Board pages keep their compact header so the board
+stays high. The theme cookie is written by the browser (a non-secret
+preference); the root layout reads it on the server.
 
 ### Components (in `apps/web/src/app/shell/`)
 
 | Unit | Does | Depends on |
 | --- | --- | --- |
-| `(app)/layout.tsx` | server: `requireOnboarded()`, `isCoach`, due count, theme cookie; renders `AppShell` around children | session, `todaySummary` |
+| `AppShell` (server) | server: `requireOnboarded()`, `isCoach`, due count, theme cookie; renders `AppShell` around children | session, `todaySummary` |
 | `AppShell` | top bar and, below `md`, the fixed bottom bar; content padding for the bar | `TabNav`, `AccountMenu` |
 | `TabNav` | the tab list for both placements; marks the active tab from `usePathname()` with `aria-current="page"`; the due badge | `nav-tabs.ts` |
 | `nav-tabs.ts` | pure: `navTabs({ isCoach, dueCount })` returns the tabs; `activeTab(pathname)` returns the tab id | `ROUTES` |
 | `AccountMenu` | avatar button and its menu (a disclosure, closes on Escape and outside click, focus returns to the button) | `ThemeSwitch`, `SignOutButton` |
-| `ThemeSwitch` | three-way radio group; sets the attribute and the cookie through a server action | `theme.ts` |
+| `ThemeSwitch` | three-way radio group; sets the attribute and the cookie in the browser | `theme.ts` |
 | `theme.ts` | pure: parse the cookie value (zod), map it to the `data-theme` attribute | `zod` |
 | `PageHeader` | back link plus `h1`; one line, clamped | `next/link` |
 
