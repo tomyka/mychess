@@ -199,7 +199,7 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `board-mark-green` / `-red` / `-blue` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`) | 4.1 / 6.7 / 8.6 | 3.2 / 5.3 / 6.8 |
 | `board-mark-yellow` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`) | 1.8 | 1.5 |
 | `piece-outline` on `bg` (king glyph, 2026-10-18) | 19.0 | 15.5 |
-| `board-badge-glyph` on `board-badge-correct` / `-wrong` (2026-10-26; static, both themes) | 6.1 / 6.5 | 6.1 / 6.5 |
+| `board-badge-glyph` on `board-badge-correct` / `-wrong` (2026-11-26, owner choice D, #381; static, both themes; graphic, 3:1) | 3.9 / 3.9 | 3.9 / 3.9 |
 | `board-hint-edge` on light / dark square (2026-10-26, dark theme re-measured 2026-11-25 on `#d7c2a0` / `#946f4f`; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.5, a hue cue only) | 10.7 / 4.7 | 8.5 / 3.3 |
 | `board-hint` on `board-hint-edge` | 8.2 | 8.2 |
 

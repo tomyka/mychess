@@ -185,7 +185,7 @@ describe('markBrushes', () => {
         key: 'a',
         color: '--color-board-arrow-value',
         opacity: 1,
-        lineWidth: 10,
+        lineWidth: 15,
       },
     });
   });

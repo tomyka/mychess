@@ -80,7 +80,7 @@
     ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
     monospace;
 
-  --text-xs: 0.75rem; /* 12px: board coordinates, fine print */
+  --text-xs: 0.75rem; /* 12px: fine print */
   --text-xs--line-height: 1rem;
   --text-sm: 0.875rem; /* 14px: secondary text, move list */
   --text-sm--line-height: 1.25rem;
@@ -157,15 +157,15 @@
   --color-board-selected: rgb(20 85 30 / 0.5);
   --color-board-target: rgb(20 85 30 / 0.35); /* legal-move dot and ring */
   --color-board-check: rgb(220 30 30 / 0.75); /* radial glow on the king */
-  --color-board-arrow: rgb(21 120 27 / 0.8); /* Learn pass arrows */
-  --color-board-correct: rgb(24 112 58 / 0.55); /* square flash, success */
-  --color-board-wrong: rgb(179 38 30 / 0.55); /* square flash, lapse */
-  /* The check and cross badges in a flashed square's corner: solid and the
-     same in both themes (the board barely changes), with a white glyph (6.1
-     and 6.5:1) and a white ring that parts them from any square. */
-  --color-board-badge-correct: #18703a;
-  --color-board-badge-wrong: #b3261e;
-  --color-board-badge-glyph: #ffffff; /* the badge's glyph and ring */
+  --color-board-arrow: rgb(21 120 27 / 0.95); /* Learn pass and lapse arrows */
+  --color-board-correct: rgb(39 146 87 / 0.3); /* square flash, success */
+  --color-board-wrong: rgb(214 90 80 / 0.3); /* square flash, lapse */
+  /* The check and cross badges in a flashed square's corner (owner choice
+     D, #381): lichess's shape in Ocean-tuned colours, the same in both
+     themes, a white glyph at 3.9:1 on each, lifted by a soft shadow. */
+  --color-board-badge-correct: #279257;
+  --color-board-badge-wrong: #d65a50;
+  --color-board-badge-glyph: #ffffff; /* the badge's glyph */
   --color-board-focus: #0a1f5c; /* keyboard cursor, >= 3:1 on all four squares */
   /* A review hint's piece (R-61): an amber ring, apart from the green of a
      selection or a correct move and the navy cursor, with a dark edge inside

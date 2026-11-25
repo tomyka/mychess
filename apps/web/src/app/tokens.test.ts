@@ -59,6 +59,9 @@ const PAIRS: readonly (readonly [fg: string, bg: string, min: number])[] = [
   ['focus', 'surface', UI],
   ['border-strong', 'bg', UI],
   ['border-strong', 'surface', UI],
+  // The move badges' white glyph (owner choice D, #381): a graphic, 3:1.
+  ['board-badge-glyph', 'board-badge-correct', UI],
+  ['board-badge-glyph', 'board-badge-wrong', UI],
   ...(['success', 'error', 'due', 'learned'] as const).flatMap(
     (s) =>
       [

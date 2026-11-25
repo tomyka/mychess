@@ -113,11 +113,11 @@ export function cursorConfig(
   return { highlight: { custom } };
 }
 
-const brush = (key: string, color: string) => ({
+const brush = (key: string, color: string, lineWidth = 10) => ({
   key,
   color: color.trim(),
   opacity: 1,
-  lineWidth: 10,
+  lineWidth,
 });
 
 /**
@@ -131,8 +131,9 @@ export function markBrushes(read: (token: string) => string): DrawBrushes {
     red: brush('r', read('--color-board-mark-red')),
     yellow: brush('y', read('--color-board-mark-yellow')),
     blue: brush('b', read('--color-board-mark-blue')),
-    // The training screen's expected move (docs/design/training-screen.md).
-    arrow: brush('a', read('--color-board-arrow')),
+    // The training screen's expected move (docs/design/training-screen.md),
+    // thicker than a mark so a lapse's answer stands out.
+    arrow: brush('a', read('--color-board-arrow'), 15),
   };
 }
 
