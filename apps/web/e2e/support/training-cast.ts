@@ -83,7 +83,7 @@ export async function startTodayReview(
   await today(page, messages)
     .getByRole('link', { name: messages.training.today.start, exact: true })
     .click();
-  await expect(page).toHaveURL(/\/treniruote\?mode=review$/);
+  await expect(page).toHaveURL(/\/training\?mode=review$/);
 }
 
 /** A done summary's number under `label`. */
@@ -114,7 +114,7 @@ export async function rokasWithItalian(
 export async function learnPianissimo(drill: Drill): Promise<Asked[]> {
   const { page } = drill;
   await trainLink(page, en, 'learn', 8).click();
-  await expect(page).toHaveURL(/\/treniruote\?mode=learn&r=/);
+  await expect(page).toHaveURL(/\/training\?mode=learn&r=/);
   await expectCounter(page, 0, 8);
   const asked = await drillToDone(drill);
   await expect(stat(page, en.training.done.learned)).toHaveText('8');

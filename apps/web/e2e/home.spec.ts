@@ -25,7 +25,7 @@ test('a signed-out visitor to the home page lands on sign-in, in English', async
 }) => {
   await page.goto('/');
 
-  await expect(page).toHaveURL(/\/prisijungti$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
@@ -68,7 +68,7 @@ test(
     // The Italian's link: its two due moves alone, under its own name.
     await page.goto('/');
     await block.getByRole('link', { name: ITALIAN, exact: true }).click();
-    await expect(page).toHaveURL(/\/treniruote\?mode=review&r=[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(/\/training\?mode=review&r=[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(ITALIAN);
     await expectCounter(page, 0, 2);
     const drill: Drill = {

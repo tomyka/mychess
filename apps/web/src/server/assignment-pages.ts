@@ -94,7 +94,7 @@ async function loadAssignedRepertoire(
 
 /**
  * One repertoire on home's "From my coach" (R-15, R-51, R-133) and under
- * its side on Mano repertuarai (#328).
+ * its side on My repertoires (#328).
  */
 export type AssignedListItem = Pick<
   PlayerAssignment,
@@ -131,7 +131,7 @@ async function fromCoachOf(
 }
 
 /**
- * The session player's live assignments for Mano repertuarai (#328), with
+ * The session player's live assignments for My repertoires (#328), with
  * their badges as home shows them; forked ones are left out (R-128).
  */
 export async function myAssignedRepertoires(): Promise<AssignedListItem[]> {

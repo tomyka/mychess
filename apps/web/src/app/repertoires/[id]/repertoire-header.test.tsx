@@ -52,7 +52,7 @@ describe('RepertoireHeader', () => {
     ).toBeDefined();
     expect(
       screen.getByRole('link', { name: h.back }).getAttribute('href'),
-    ).toBe('/repertuarai');
+    ).toBe('/repertoires');
   });
 
   it('renames in place of the name and says it was saved', async () => {
@@ -90,7 +90,7 @@ describe('RepertoireActions', () => {
     expect(download.hasAttribute('download')).toBe(true);
     expect(
       screen.getByRole('link', { name: h.importInto }).getAttribute('href'),
-    ).toBe(`/repertuarai/importuoti?i=${ID}`);
+    ).toBe(`/repertoires/import?i=${ID}`);
   });
 
   it('renames in place and says it was saved', async () => {

@@ -70,8 +70,8 @@ describe('acceptForkOfferAction (R-44)', () => {
       {},
       formOf({ offerId: OFFER, playerId: 'marta' }),
     );
-    await expect(kept).rejects.toThrow(new Redirected('/repertuarai/f-1'));
-    await expect(kept).rejects.toHaveProperty('to', '/repertuarai/f-1');
+    await expect(kept).rejects.toThrow(new Redirected('/repertoires/f-1'));
+    await expect(kept).rejects.toHaveProperty('to', '/repertoires/f-1');
     expect(server.accept).toHaveBeenCalledWith(
       DB,
       { playerId: 'rokas', offerId: OFFER },

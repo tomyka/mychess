@@ -16,7 +16,7 @@ import { AssignmentFacts } from '../assignment-facts';
 const CARD =
   'flex min-h-touch flex-col gap-1 rounded-card border border-border bg-surface p-4';
 
-/** One repertoire as Mano repertuarai lists it. */
+/** One repertoire as My repertoires lists it. */
 export interface RepertoireCard {
   readonly id: string;
   readonly side: Side;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { onboardingRefusalPath } from './onboarding-redirect';
 
-const INVITE = `/k/${'A'.repeat(42)}_`;
+const INVITE = `/invite/${'A'.repeat(42)}_`;
 
 describe('onboardingRefusalPath', () => {
   it('sends an onboarded account on to the invite in next', () => {
@@ -21,7 +21,7 @@ describe('onboardingRefusalPath', () => {
     (next) => {
       expect(
         onboardingRefusalPath({ reason: 'lifecycle.accountClosed' }, next),
-      ).toBe('/prisijungti');
+      ).toBe('/sign-in');
     },
   );
 });

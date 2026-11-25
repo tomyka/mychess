@@ -30,10 +30,10 @@ describe('the session helpers', () => {
   it('send a signed-out visitor to sign-in', async () => {
     expect(await getAccount()).toBeNull();
     expect(await outcomeOf(requireAccount())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
     expect(await outcomeOf(requireOnboarded())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 
@@ -41,7 +41,7 @@ describe('the session helpers', () => {
     request.cookie = await signIn('ruta@example.lt');
     expect(await requireAccount()).toMatchObject({ email: 'ruta@example.lt' });
     expect(await outcomeOf(requireOnboarded())).toEqual({
-      redirectedTo: '/pradzia',
+      redirectedTo: '/welcome',
     });
   });
 
@@ -62,7 +62,7 @@ describe('the session helpers', () => {
     ).toEqual([{ n: 1 }]);
     expect(await getAccount()).toBeNull();
     expect(await outcomeOf(requireAccount())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 });

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import type { KnowCounts, KnowOutcome } from '../repertuarai/know-actions';
+import type { KnowCounts, KnowOutcome } from '../repertoires/know-actions';
 import { KnowThisMenu, type KnowFields } from './know-this-menu';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -14,7 +14,7 @@ const server = vi.hoisted(() => ({
   again: vi.fn<(form: FormData) => Promise<KnowOutcome>>(),
 }));
 
-vi.mock('../repertuarai/know-actions', () => ({
+vi.mock('../repertoires/know-actions', () => ({
   knowCountAction: server.count,
   markKnownAction: server.mark,
   learnAgainAction: server.again,

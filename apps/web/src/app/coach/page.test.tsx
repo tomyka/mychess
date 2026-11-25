@@ -74,7 +74,7 @@ describe('the coach dashboard', () => {
       within(groups)
         .getByRole('link', { name: 'Šeštadienio grupė' })
         .getAttribute('href'),
-    ).toBe('/treneris/grupes/g-1');
+    ).toBe('/coach/groups/g-1');
     const invites = screen.getByRole('region', { name: c.invites.title });
     expect(
       within(invites)

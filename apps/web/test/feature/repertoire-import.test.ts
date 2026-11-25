@@ -5,7 +5,7 @@ import { z } from 'zod';
 import {
   confirmImportAction,
   previewImportAction,
-} from '../../src/app/repertuarai/importuoti/actions';
+} from '../../src/app/repertoires/import/actions';
 import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
@@ -310,7 +310,7 @@ describe('previewImportAction', () => {
   it('sends a signed-out visitor to sign-in', async () => {
     expect(
       await outcomeOf(previewImportAction({ text: TAIMANOV, side: 'black' })),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
   });
 });
 
@@ -329,7 +329,7 @@ describe('confirmImportAction', () => {
       `select id from repertoires where name = 'Sicilietiška'`,
     );
     const { id } = z.object({ id: z.uuid() }).parse(rows[0]);
-    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${id}?chapter=c1` });
+    expect(outcome).toEqual({ redirectedTo: `/repertoires/${id}?chapter=c1` });
     const loaded = await stored(id, gabija);
     expect(loaded.repertoire.side).toBe('black');
     expect(loaded.graph).toEqual(graphOf(SICILIANS_WITH_BROKEN, 'black'));
@@ -376,7 +376,7 @@ describe('confirmImportAction', () => {
     );
     // It opens on the first chapter the import added (screen note).
     expect(outcome).toEqual({
-      redirectedTo: `/repertuarai/${taimanov}?chapter=c2`,
+      redirectedTo: `/repertoires/${taimanov}?chapter=c2`,
     });
     const loaded = await stored(taimanov, gabija);
     expect(loaded.repertoire.version).toBe(2);
@@ -397,7 +397,7 @@ describe('confirmImportAction', () => {
       }),
     );
     // No chapter added, so it opens on the repertoire itself.
-    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${london}` });
+    expect(outcome).toEqual({ redirectedTo: `/repertoires/${london}` });
     const loaded = await stored(london, gabija);
     expect(loaded.repertoire.version).toBe(2);
     expect(loaded.graph.chapters).toEqual(graphOf(LONDON).chapters);
@@ -524,7 +524,7 @@ describe('confirmImportAction', () => {
           target: { kind: 'new', name: 'Taimanovas' },
         }),
       ),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
     expect(await repertoireCount()).toBe(0);
   });
 });

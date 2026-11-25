@@ -56,9 +56,9 @@ describe('GroupsSection', () => {
           item.textContent,
         ]),
     ).toEqual([
-      ['/treneris/grupes/g-1', 'Sekmadienio grupė1 player'],
-      ['/treneris/grupes/g-2', 'Šeštadienio grupė3 players'],
-      ['/treneris/grupes/g-3', 'Vakarinė grupė12 players'],
+      ['/coach/groups/g-1', 'Sekmadienio grupė1 player'],
+      ['/coach/groups/g-2', 'Šeštadienio grupė3 players'],
+      ['/coach/groups/g-3', 'Vakarinė grupė12 players'],
     ]);
   });
 
@@ -94,7 +94,7 @@ describe('GroupsSection', () => {
   });
 
   it('shows the new group’s invite link once, to copy (R-204)', async () => {
-    const link = 'http://localhost:3000/k/abc';
+    const link = 'http://localhost:3000/invite/abc';
     server.create.mockResolvedValue({ createdId: 'g-new', link });
     renderSection([]);
     fireEvent.change(nameField(), { target: { value: 'Grupė' } });
@@ -111,7 +111,7 @@ describe('GroupsSection', () => {
     const i = MESSAGES.coach.invites;
     renderSection([]);
     for (let n = 1; n <= 4; n += 1) {
-      const link = `http://localhost:3000/k/${String(n)}`;
+      const link = `http://localhost:3000/invite/${String(n)}`;
       server.create.mockResolvedValueOnce({
         createdId: `g-${String(n)}`,
         link,

@@ -38,7 +38,7 @@ export function idIn(url: string): string {
 
 /** The coach's progress page of a player on a repertoire (src/lib/routes.ts). */
 export const progressPath = (playerId: string, repertoireId: string): string =>
-  `/treneris/zaidejai/${playerId}/pazanga/${repertoireId}`;
+  `/coach/players/${playerId}/progress/${repertoireId}`;
 
 /** The four states of R-151, counted. */
 export interface Counts {
@@ -100,9 +100,9 @@ export async function makeOwnCopy(
   await homeAssignment(page, messages, name)
     .getByRole('link', { name, exact: true })
     .click();
-  await expect(page).toHaveURL(/\/repertuarai\/priskirti\//);
+  await expect(page).toHaveURL(/\/repertoires\/assigned\//);
   await page.getByRole('button', { name: t.label, exact: true }).click();
   await page.getByRole('button', { name: t.confirm, exact: true }).click();
-  await expect(page).toHaveURL(/\/repertuarai\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   return idIn(page.url());
 }

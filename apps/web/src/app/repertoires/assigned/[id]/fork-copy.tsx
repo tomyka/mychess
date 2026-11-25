@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useActionState, type JSX } from 'react';
 import { ConfirmedAction, type Asking } from '../../../confirmed-action';
-import { RefusalLine } from '../../../treneris/refusal-line';
+import { RefusalLine } from '../../../coach/refusal-line';
 import type { ForkState } from './actions';
 
 /** The server action that forks the assignment, as useActionState takes it. */

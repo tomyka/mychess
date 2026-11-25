@@ -94,9 +94,9 @@ describe('TrainingForm (R-62, R-146)', () => {
     );
   });
 
-  it('is the settings section #treniruote that training links to', () => {
+  it('is the settings section #training that training links to', () => {
     renderForm();
-    expect(screen.getByRole('region', { name: t.title }).id).toBe('treniruote');
+    expect(screen.getByRole('region', { name: t.title }).id).toBe('training');
   });
 
   it('shows the arrows setting off when stored off', () => {

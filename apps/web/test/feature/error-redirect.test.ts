@@ -23,7 +23,7 @@ describe('an auth error with no errorCallbackURL', () => {
       state: `${flow.state}x`,
     });
     expect(response.status).toBe(302);
-    expect(location(response)).toBe(`${BASE}/prisijungti?error=state_mismatch`);
+    expect(location(response)).toBe(`${BASE}/sign-in?error=state_mismatch`);
   });
 
   it("sends Better Auth's error page on to the sign-in page", async () => {
@@ -33,7 +33,7 @@ describe('an auth error with no errorCallbackURL', () => {
     );
     expect(response.status).toBe(302);
     expect(location(response)).toBe(
-      `${BASE}/prisijungti?error=unable_to_create_user`,
+      `${BASE}/sign-in?error=unable_to_create_user`,
     );
   });
 });

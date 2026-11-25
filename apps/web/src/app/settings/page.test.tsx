@@ -312,18 +312,18 @@ describe('the settings page', () => {
     await renderPage();
     expect(server.coachesOf).toEqual(['a1']);
     const coaches = screen.getByRole('region', { name: s.myCoaches.title });
-    expect(coaches.id).toBe('treneriai');
+    expect(coaches.id).toBe('coaches');
     expect(
       within(coaches).getByRole('heading', { level: 3, name: 'Jonas' }),
     ).toBeDefined();
     expect(within(coaches).getByText('Šeštadienio grupė')).toBeDefined();
   });
 
-  it('says the invite of `?treneris=` was accepted, naming that linked coach (#329)', async () => {
+  it('says the invite of `?coach=` was accepted, naming that linked coach (#329)', async () => {
     server.coaches = [
       { id: 'c-1', displayName: 'Jonas', linkedAt: new Date(), groups: [] },
     ];
-    await renderPage({ treneris: 'c-1' });
+    await renderPage({ coach: 'c-1' });
     const coaches = screen.getByRole('region', { name: s.myCoaches.title });
     expect(within(coaches).getByRole('status').textContent).toBe(
       s.myCoaches.accepted.replace('{name}', 'Jonas'),

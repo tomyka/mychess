@@ -146,9 +146,9 @@ function renderDrill(d: TrainingData = data()) {
           retry: vi.fn(),
         }}
         links={{
-          back: '/repertuarai/x',
-          learn: '/treniruote?mode=learn',
-          review: `/treniruote?mode=review&r=${REP_ID}`,
+          back: '/repertoires/x',
+          learn: '/training?mode=learn',
+          review: `/training?mode=review&r=${REP_ID}`,
         }}
         frame={frame}
         clock={testClock}
@@ -371,7 +371,7 @@ describe('the learn drill, blind round', () => {
     arrowsRound();
     play('d4');
     const end = screen.getByRole('link', { name: T.drill.end });
-    expect(end.getAttribute('href')).toBe('/repertuarai/x');
+    expect(end.getAttribute('href')).toBe('/repertoires/x');
     expect(learnedKeys()).toEqual([D4]);
   });
 });
@@ -390,7 +390,7 @@ describe('the learn drill’s done summary', () => {
     expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
     expect(screen.queryByRole('link', { name: T.done.learn })).toBeNull();
     const done = screen.getByRole('link', { name: T.done.done });
-    expect(done.getAttribute('href')).toBe('/repertuarai/x');
+    expect(done.getAttribute('href')).toBe('/repertoires/x');
     // In the bottom bar, not the panel.
     expect(done.closest('footer')).not.toBeNull();
     // Nothing is due: no way on to review.
@@ -410,7 +410,7 @@ describe('the learn drill’s done summary', () => {
     expect(screen.getByText('1 more move is due.')).toBeDefined();
     const review = screen.getByRole('link', { name: T.done.review });
     expect(review.getAttribute('href')).toBe(
-      `/treniruote?mode=review&r=${REP_ID}`,
+      `/training?mode=review&r=${REP_ID}`,
     );
     expect(review.closest('footer')).not.toBeNull();
   });

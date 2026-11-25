@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { queueKey } from '../treniruote/result-queue';
+import { queueKey } from '../training/result-queue';
 import { SignInForm, type SignInFormProps } from './sign-in-form';
 
 interface ClientAnswer {
@@ -29,8 +29,8 @@ const OK: ClientAnswer = { data: { status: true }, error: null };
 
 const URLS = {
   callbackURL: '/',
-  newUserCallbackURL: '/pradzia',
-  errorCallbackURL: '/prisijungti',
+  newUserCallbackURL: '/welcome',
+  errorCallbackURL: '/sign-in',
 };
 
 const s = MESSAGES.signIn;
@@ -212,11 +212,11 @@ describe('SignInForm', () => {
 
 describe('SignInForm with a return path (R-81)', () => {
   const TOKEN = 'A'.repeat(42) + '_';
-  const NEXT = `/k/${TOKEN}`;
+  const NEXT = `/invite/${TOKEN}`;
   const BACK = {
     callbackURL: NEXT,
-    newUserCallbackURL: `/pradzia?next=%2Fk%2F${TOKEN}`,
-    errorCallbackURL: `/prisijungti?next=%2Fk%2F${TOKEN}`,
+    newUserCallbackURL: `/welcome?next=%2Finvite%2F${TOKEN}`,
+    errorCallbackURL: `/sign-in?next=%2Finvite%2F${TOKEN}`,
   };
 
   it('sends the magic link back to the invite, through onboarding for a new account', async () => {

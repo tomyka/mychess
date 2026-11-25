@@ -7,7 +7,7 @@ import type { LearnScope } from '../../lib/learn-scope';
 import { ROUTES, trainingPath } from '../../lib/routes';
 import type { TrainingCounts } from '@mychess/chess';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
-import { TEXT_LINK } from '../nustatymai/styles';
+import { TEXT_LINK } from '../settings/styles';
 
 /**
  * The player's training of the repertoire a page shows. Absent where the

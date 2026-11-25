@@ -141,7 +141,7 @@ test('a dropped connection loses no result: 3 answers wait offline, then sync (R
   });
   await seedDue(email, ownKeys(backlog).slice(0, 5));
   const drill: Drill = { page, messages: en, books: [backlog], isMobile };
-  await page.goto('/treniruote?mode=review');
+  await page.goto('/training?mode=review');
   await expectCounter(page, 0, 5);
   await answer(drill);
   await expect(async () => {

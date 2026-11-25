@@ -307,7 +307,7 @@ export async function setTrainingLimits(
   limits: { sessionSize?: number; newPerDay?: number; learnArrows?: boolean },
 ): Promise<void> {
   const t = messages.training.settings;
-  await page.goto('/nustatymai');
+  await page.goto('/settings');
   const section = page.getByRole('region', { name: t.title });
   if (limits.sessionSize !== undefined)
     await section

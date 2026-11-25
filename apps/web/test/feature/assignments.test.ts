@@ -26,16 +26,16 @@ import {
   markSeenAction,
   pauseAction,
   setPersonalNoteAction,
-} from '../../src/app/repertuarai/priskirti/[id]/actions';
-import AssignedRepertoireLayout from '../../src/app/repertuarai/priskirti/[id]/layout';
-import AssignedRepertoirePage from '../../src/app/repertuarai/priskirti/[id]/page';
-import { savePersonalNoteAction } from '../../src/app/repertuarai/[id]/actions';
+} from '../../src/app/repertoires/assigned/[id]/actions';
+import AssignedRepertoireLayout from '../../src/app/repertoires/assigned/[id]/layout';
+import AssignedRepertoirePage from '../../src/app/repertoires/assigned/[id]/page';
+import { savePersonalNoteAction } from '../../src/app/repertoires/[id]/actions';
 import {
   assignAction,
   clearDeadlineAction,
   setDeadlineAction,
   unassignAction,
-} from '../../src/app/repertuarai/[id]/assign-actions';
+} from '../../src/app/repertoires/[id]/assign-actions';
 import {
   acceptForkOfferAction,
   declineForkOfferAction,
@@ -386,7 +386,7 @@ describe('the assigned page is 404 (plan decision 12)', () => {
     const { london } = await cast();
     const before = await state();
     request.cookie = '';
-    expect(await openPage(london)).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await openPage(london)).toEqual({ redirectedTo: '/sign-in' });
     expect(await state()).toEqual(before);
   });
 });
@@ -525,7 +525,7 @@ describe('the player actions with someone else’s ids change nothing', () => {
       setPersonalNoteAction({ repertoireId: london, moveKey: D4, text: '' }),
       markSeenAction({ repertoireId: london, seenVersion: 1 }),
     ])
-      expect(await outcomeOf(act)).toEqual({ redirectedTo: '/prisijungti' });
+      expect(await outcomeOf(act)).toEqual({ redirectedTo: '/sign-in' });
     expect(await state()).toEqual(before);
   });
 });
@@ -1173,7 +1173,7 @@ describe('the assign actions without Coach mode or signed out', () => {
     const before = await state();
     actAs(people.rokas);
     for (const act of await everyAssignAction(people))
-      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/nustatymai' });
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/settings' });
     expect(await state()).toEqual(before);
   });
 
@@ -1199,7 +1199,7 @@ describe('the assign actions without Coach mode or signed out', () => {
         clearDeadlineAction({}, formOf({ assignmentId: dovydasAssignment })),
     ];
     for (const act of acts)
-      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/nustatymai' });
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/settings' });
     expect(await state()).toEqual(before);
   });
 
@@ -1208,7 +1208,7 @@ describe('the assign actions without Coach mode or signed out', () => {
     const before = await state();
     request.cookie = '';
     for (const act of await everyAssignAction(people))
-      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/prisijungti' });
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/sign-in' });
     expect(await state()).toEqual(before);
   });
 });
@@ -1337,7 +1337,7 @@ describe('the fork offer answers', () => {
       () => declineForkOfferAction({}, formOf({ offerId: offer })),
     ];
     for (const act of acts)
-      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/prisijungti' });
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/sign-in' });
     expect(await state()).toEqual(before);
   });
 });
@@ -1377,7 +1377,7 @@ describe('home’s "From my coach" and fork offers', () => {
     expect(await state()).toEqual(before);
   });
 
-  it('Mano repertuarai lists the session player’s live assignments, individual and group, by side (#328)', async () => {
+  it('My repertoires lists the session player’s live assignments, individual and group, by side (#328)', async () => {
     const people = await cast();
     const listed = async (who: Person): Promise<unknown> => {
       actAs(who);
@@ -1396,7 +1396,7 @@ describe('home’s "From my coach" and fork offers', () => {
     expect(await listed(people.rimantas)).toEqual([]);
   });
 
-  it('Mano repertuarai labels the player’s fork with its coach, and sends no source id to the page (#328)', async () => {
+  it('My repertoires labels the player’s fork with its coach, and sends no source id to the page (#328)', async () => {
     const { rokas, london } = await cast();
     actAs(rokas);
     await outcomeOf(forkAction({}, formOf({ repertoireId: london })));
@@ -1433,7 +1433,7 @@ describe('home’s "From my coach" and fork offers', () => {
     await cast();
     request.cookie = '';
     expect(await outcomeOf(homeAssignments())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 });

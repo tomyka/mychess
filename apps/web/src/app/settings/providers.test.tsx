@@ -84,8 +84,8 @@ describe('Providers', () => {
       await waitFor(() => {
         expect(client.linkSocial).toHaveBeenCalledWith({
           provider,
-          callbackURL: '/nustatymai',
-          errorCallbackURL: '/nustatymai',
+          callbackURL: '/settings',
+          errorCallbackURL: '/settings',
         });
       });
       expect(status().textContent).toBe('');

@@ -297,9 +297,9 @@ describe('a FIDE ID search (#316)', () => {
   it('sends a signed-out visitor to sign-in, counting and fetching nothing', async () => {
     serverProcess(goodDumps(MONTHS));
     actAs({ id: '', cookie: '' });
-    expect(await outcomeOf(start())).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await outcomeOf(start())).toEqual({ redirectedTo: '/sign-in' });
     expect(await outcomeOf(polled('x.y'))).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
     expect(
       await sql.count("request_counters where key like 'fide-search:%'"),

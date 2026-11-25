@@ -158,7 +158,7 @@ test('U1-M1-4: the Two Knights after the Pianissimo teaches only its own new mov
   const drill: Drill = { page, messages: en, books: [italian], isMobile };
   await learnPianissimo(drill);
   await setTrainingLimits(page, en, { newPerDay: 10 });
-  await page.goto('/repertuarai');
+  await page.goto('/repertoires');
   await page.getByRole('link', { name: new RegExp(`^${ITALIAN}`) }).click();
   // Two left today: the Two Knights' 4.d3 and 5.c3. From 5...d6 on it is
   // the Pianissimo's position, already learned, so not taught again.
@@ -183,12 +183,12 @@ test('U1-M1-4: the Two Knights after the Pianissimo teaches only its own new mov
   }).toPass({ timeout: 10_000 });
 });
 
-/** From Mano repertuarai, the Italian's page; its id. */
+/** From My repertoires, the Italian's page; its id. */
 async function openItalian(page: Page): Promise<string> {
-  await page.goto('/repertuarai');
+  await page.goto('/repertoires');
   await page.getByRole('link', { name: new RegExp(`^${ITALIAN}`) }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(ITALIAN);
-  const id = /\/repertuarai\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  const id = /\/repertoires\/([0-9a-f-]{36})/.exec(page.url())?.[1];
   if (id === undefined) throw new Error(`no repertoire id in ${page.url()}`);
   return id;
 }
@@ -224,7 +224,7 @@ test(
       })
       .click();
     await expect(page).toHaveURL(
-      /\/treniruote\?mode=learn&r=.+&chapter=.+&line=\d+$/,
+      /\/training\?mode=learn&r=.+&chapter=.+&line=\d+$/,
     );
     await expectCounter(page, 0, 8);
     const asked = await drillToDone(drill);
@@ -278,7 +278,7 @@ test('decision 2: moves learned but not yet sent are not taught again on a fresh
       .map(keyOf),
   );
   expect(await storedReviews(email)).toHaveLength(8);
-  await page.goto(`/treniruote?mode=learn&r=${id}`);
+  await page.goto(`/training?mode=learn&r=${id}`);
   const asked = await drillToDone(drill);
   test.info().annotations.push({
     type: 'decision 2',
@@ -303,7 +303,7 @@ test('decision 2: moves learned but not yet sent are not taught again on a fresh
   // Unblocked, the held results land, sent from a training page (only it
   // syncs): the Two Knights' and the new page's.
   await page.unroute(`**${RESULTS}`);
-  await page.goto('/treniruote?mode=review');
+  await page.goto('/training?mode=review');
   await expect(async () => {
     const keys = new Set((await storedReviews(email)).map((r) => r.move_key));
     expect(keys.size).toBe(8 + justLearned.size + learnedNow);
@@ -331,7 +331,7 @@ test('decision 11: with the day’s new moves used, the repertoire page says so 
   ).toBeVisible();
   await expect(trainLink(page, en, 'learn', 0)).toHaveCount(0);
   await page.getByRole('link', { name: t.limitSettings, exact: true }).click();
-  await expect(page).toHaveURL(/\/nustatymai#/);
+  await expect(page).toHaveURL(/\/settings#/);
   await expect(
     page.getByRole('region', { name: en.training.settings.title }),
   ).toBeVisible();

@@ -14,7 +14,7 @@ import {
 } from '../../lib/sign-in-errors';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { StatusLine, type StatusLineProps } from '../status-line';
-import { clearQueuedResults } from '../treniruote/result-queue';
+import { clearQueuedResults } from '../training/result-queue';
 
 export interface SignInFormProps {
   /** The `?error=` code a failed sign-in was sent back with. */

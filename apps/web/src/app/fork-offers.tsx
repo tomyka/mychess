@@ -9,8 +9,8 @@ import {
   declineForkOfferAction,
   type ForkOfferState,
 } from './fork-offer-actions';
-import { SECTION, SECTION_TITLE } from './nustatymai/styles';
-import { RefusalLine } from './treneris/refusal-line';
+import { SECTION, SECTION_TITLE } from './settings/styles';
+import { RefusalLine } from './coach/refusal-line';
 import { useLatestAction } from './use-latest-action';
 
 const INITIAL: ForkOfferState = {};

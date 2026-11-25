@@ -44,7 +44,7 @@ export async function importRepertoire(
   // afresh for each try until the preview's name field shows.
   const field = page.getByLabel(t.name, { exact: true });
   await expect(async () => {
-    await page.goto('/repertuarai/importuoti');
+    await page.goto('/repertoires/import');
     await previewImport(page, messages, { file, side });
     await expect(field).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 60_000 });

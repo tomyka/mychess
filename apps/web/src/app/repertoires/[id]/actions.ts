@@ -128,7 +128,7 @@ export interface DeleteState {
 
 /**
  * Deletes the owner's repertoire with its chapters, moves and the notes on
- * it, then goes to Mano repertuarai, which says it was deleted.
+ * it, then goes to My repertoires, which says it was deleted.
  */
 export async function deleteRepertoireAction(
   _previous: DeleteState,

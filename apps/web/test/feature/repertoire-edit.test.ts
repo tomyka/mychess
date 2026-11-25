@@ -11,7 +11,7 @@ import {
 } from '@mychess/chess';
 import { deleteRepertoire, loadRepertoire } from '@mychess/db';
 import { describe, expect, it, vi } from 'vitest';
-import { editRepertoireAction } from '../../src/app/repertuarai/[id]/actions';
+import { editRepertoireAction } from '../../src/app/repertoires/[id]/actions';
 import { chapterNamesOf } from '../../src/server/chapter-names';
 import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
@@ -373,7 +373,7 @@ describe('editRepertoireAction: refusals that change nothing', () => {
     const { rokas, london } = await cast();
     request.cookie = '';
     expect(await outcomeOf(edit(london, 1, { kind: 'addChapter' }))).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
     expect((await stored(london, rokas)).version).toBe(1);
   });

@@ -37,7 +37,7 @@ export interface Cast {
 export async function coachReady(page: Page, cast: Cast): Promise<void> {
   await newOnboardedAccount(page, cast.request, COACH);
   await switchOnCoachMode(page, cast.messages);
-  await page.goto('/treneris');
+  await page.goto('/coach');
 }
 
 /** A player on a device of their own, and the email they signed up with. */
@@ -120,9 +120,9 @@ export async function setInGroup(
   { name, member }: { name: string; member: boolean },
 ): Promise<void> {
   const t = messages.coach.group;
-  await coach.goto('/treneris');
+  await coach.goto('/coach');
   await coach.getByRole('link', { name: GROUP, exact: true }).click();
-  await expect(coach).toHaveURL(/\/treneris\/grupes\//);
+  await expect(coach).toHaveURL(/\/coach\/groups\//);
   const members = coach.getByRole('region', { name: t.membersTitle });
   if (member) {
     await coach

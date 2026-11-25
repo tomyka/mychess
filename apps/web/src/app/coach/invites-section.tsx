@@ -6,7 +6,7 @@ import { useActionState, useId, type JSX } from 'react';
 import { MEDIUM_DATE } from '../../lib/date-format';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { FIELD } from '../fields';
-import { SECTION, SECTION_TITLE } from '../nustatymai/styles';
+import { SECTION, SECTION_TITLE } from '../settings/styles';
 import { PendingButton } from '../pending-button';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';

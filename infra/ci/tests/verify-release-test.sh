@@ -48,7 +48,7 @@ run "$sha-arm64"
 check "passes when the commit matches and every page answers" test "$?" = 0
 check "asks through the site's name resolved to this host" grep -q -- "--resolve mychess.example:443:127.0.0.1" "$work/curl.calls"
 check "asks for the version and the two pages" test "$(grep -c . "$work/curl.calls")" = 3
-check "the home page and the sign-in page" bash -c 'for p in / /prisijungti; do grep -q "https://mychess.example$p\$" "$1" || exit 1; done' _ "$work/curl.calls"
+check "the home page and the sign-in page" bash -c 'for p in / /sign-in; do grep -q "https://mychess.example$p\$" "$1" || exit 1; done' _ "$work/curl.calls"
 check "pages follow redirects (a signed-out / goes to sign-in)" test "$(grep -c -- ' -L ' "$work/curl.calls")" = 2
 check "no warning for a sha tag" test ! -s "$work/err"
 
@@ -67,10 +67,10 @@ run "$sha-arm64"
 check "fails when /api/version does not answer 200" test "$?" = 1
 check "and says so" grep -q "GET /api/version did not answer 200" "$work/err"
 
-reset; export STUB_COMMIT=$sha STUB_BAD=/prisijungti
+reset; export STUB_COMMIT=$sha STUB_BAD=/sign-in
 run "$sha-arm64"
 check "fails when a page does not answer 200" test "$?" = 1
-check "and names the page and its status" grep -q "GET /prisijungti answered 503 instead of 200" "$work/err"
+check "and names the page and its status" grep -q "GET /sign-in answered 503 instead of 200" "$work/err"
 
 reset; export STUB_COMMIT=$sha STUB_FAIL_FIRST=2
 run "$sha-arm64"
@@ -103,7 +103,7 @@ check "and asks nothing" test ! -s "$work/curl.calls"
 
 reset; export STUB_COMMIT=$sha VERIFY_HOST=other.example
 run "$sha-arm64"
-check "VERIFY_HOST changes the name asked for" grep -q "https://other.example/prisijungti" "$work/curl.calls"
+check "VERIFY_HOST changes the name asked for" grep -q "https://other.example/sign-in" "$work/curl.calls"
 
 echo
 [ "$fails" -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }

@@ -52,7 +52,7 @@ async function renderPage(params: Record<string, string> = {}): Promise<void> {
   );
 }
 
-describe('Mano repertuarai', () => {
+describe('My repertoires', () => {
   it('shows the title, the way home, the repertoires, the create form and the import link', async () => {
     await renderPage();
     expect(
@@ -65,12 +65,12 @@ describe('Mano repertuarai', () => {
       screen
         .getByRole('link', { name: 'Londono sistema' })
         .getAttribute('href'),
-    ).toBe('/repertuarai/r-1');
+    ).toBe('/repertoires/r-1');
     expect(
       screen
         .getByRole('link', { name: 'Karo-Kan gynyba' })
         .getAttribute('href'),
-    ).toBe('/repertuarai/priskirti/a-1');
+    ).toBe('/repertoires/assigned/a-1');
     expect(screen.queryByText(l.emptyBlack)).toBeNull();
     expect(
       screen.getByRole('heading', {
@@ -80,7 +80,7 @@ describe('Mano repertuarai', () => {
     ).toBeDefined();
     expect(
       screen.getByRole('link', { name: l.import }).getAttribute('href'),
-    ).toBe('/repertuarai/importuoti');
+    ).toBe('/repertoires/import');
     expect(screen.queryByText(MESSAGES.repertoires.header.deleted)).toBeNull();
   });
 

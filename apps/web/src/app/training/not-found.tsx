@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
-import { TEXT_LINK } from '../nustatymai/styles';
+import { TEXT_LINK } from '../settings/styles';
 
 // A repertoire the player does not train, or a malformed id: both read the
 // same, so the page does not tell whether a repertoire exists.

@@ -132,11 +132,11 @@ describe('the training screen with nothing due', () => {
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
     expect(screen.getByText('Next review: tomorrow at 10:00')).toBeDefined();
-    expect(href('Learn 3 new moves')).toBe(`/treniruote?mode=learn&r=${ID}`);
+    expect(href('Learn 3 new moves')).toBe(`/training?mode=learn&r=${ID}`);
     expect(
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
-    expect(href(T.back)).toBe(`/repertuarai/${ID}`);
+    expect(href(T.back)).toBe(`/repertoires/${ID}`);
   });
 
   it('offers no new moves when today’s allowance is used', () => {
@@ -201,7 +201,7 @@ describe('the training screen with no moves of the player’s side', () => {
   it('offers to edit the repertoire or import a PGN into it', () => {
     renderScreen(empty);
     expect(heading(T.empty.noMoves.title)).toBeDefined();
-    expect(href(T.empty.noMoves.edit)).toBe(`/repertuarai/${ID}`);
+    expect(href(T.empty.noMoves.edit)).toBe(`/repertoires/${ID}`);
     expect(href(T.empty.noMoves.import)).toContain(ID);
   });
 
@@ -223,14 +223,14 @@ describe('the training screen with no moves of the player’s side', () => {
     expect(
       screen.queryByRole('link', { name: T.empty.noMoves.import }),
     ).toBeNull();
-    expect(href(T.back)).toBe(`/repertuarai/priskirti/${ID}`);
+    expect(href(T.back)).toBe(`/repertoires/assigned/${ID}`);
   });
 
   it('leads to the repertoires when it trains them all', () => {
     renderScreen(data({ entries: [] }), null);
     expect(heading(T.empty.noMoves.title)).toBeDefined();
     expect(screen.getByText(T.empty.noMoves.bodyAll)).toBeDefined();
-    expect(href(T.empty.noMoves.repertoires)).toBe('/repertuarai');
+    expect(href(T.empty.noMoves.repertoires)).toBe('/repertoires');
     expect(
       screen.getByRole('heading', { level: 1, name: T.title.review }),
     ).toBeDefined();
@@ -243,7 +243,7 @@ describe('the training screen with something to drill', () => {
   it('hands the review mode to the review drill, drawn in the frame', () => {
     renderScreen(due);
     expect(
-      screen.getByText(`review drill, review, back to /repertuarai/${ID}`),
+      screen.getByText(`review drill, review, back to /repertoires/${ID}`),
     ).toBeDefined();
     expect(
       screen.getByRole('heading', { level: 1, name: 'review item' }),
@@ -264,7 +264,7 @@ describe('the training screen with something to drill', () => {
     });
     expect(
       screen.getByText(
-        `review drill, review, back to /repertuarai/priskirti/${ID}`,
+        `review drill, review, back to /repertoires/assigned/${ID}`,
       ),
     ).toBeDefined();
   });
@@ -273,15 +273,15 @@ describe('the training screen with something to drill', () => {
     renderScreen(data({ mode: 'learn' }), null);
     const panel = screen.getByText('learn drill, learn, back to /');
     // Its way on to review, over every repertoire.
-    expect(panel.dataset['review']).toBe('/treniruote?mode=review');
+    expect(panel.dataset['review']).toBe('/training?mode=review');
   });
 
   it('leads a drill scoped to one repertoire on to that repertoire’s review', () => {
     renderScreen(data({ mode: 'learn' }));
     const panel = screen.getByText(
-      `learn drill, learn, back to /repertuarai/${ID}`,
+      `learn drill, learn, back to /repertoires/${ID}`,
     );
-    expect(panel.dataset['review']).toBe(`/treniruote?mode=review&r=${ID}`);
+    expect(panel.dataset['review']).toBe(`/training?mode=review&r=${ID}`);
   });
 
   it('shows the banner over the drill only while results wait, and retries', () => {
@@ -357,7 +357,7 @@ describe('the training screen and the results still queued (#330 decision 2)', (
     renderScreen(data({ mode: 'learn' }));
     expect(
       screen.getByText(
-        `learn drill, learn, back to /repertuarai/${ID}, 1 queued`,
+        `learn drill, learn, back to /repertoires/${ID}, 1 queued`,
       ),
     ).toBeDefined();
   });
@@ -366,7 +366,7 @@ describe('the training screen and the results still queued (#330 decision 2)', (
     sync.queued = [];
     renderScreen(data({ mode: 'learn' }));
     expect(
-      screen.getByText(`learn drill, learn, back to /repertuarai/${ID}`),
+      screen.getByText(`learn drill, learn, back to /repertoires/${ID}`),
     ).toBeDefined();
   });
 
@@ -382,7 +382,7 @@ describe('the training screen and the results still queued (#330 decision 2)', (
       data({ reviews: [startReview(D4, new Date(0))], tracked: [D4] }),
     );
     expect(
-      screen.getByText(`review drill, review, back to /repertuarai/${ID}`),
+      screen.getByText(`review drill, review, back to /repertoires/${ID}`),
     ).toBeDefined();
   });
 });

@@ -83,7 +83,7 @@ describe('the group grid (R-153)', () => {
     const gabija = screen.getByRole('rowheader', { name: /Gabija/ });
     expect(
       within(gabija).getByRole('link', { name: 'Gabija' }).getAttribute('href'),
-    ).toBe('/treneris/zaidejai/p-1');
+    ).toBe('/coach/players/p-1');
     expect(within(gabija).getByText(p.today)).toBeTruthy();
     const rokas = screen.getByRole('rowheader', { name: /Rokas/ });
     expect(within(rokas).getByText(p.neverTrained)).toBeTruthy();
@@ -92,9 +92,7 @@ describe('the group grid (R-153)', () => {
   it('shows % learned and due in a cell that opens the player’s progress', () => {
     show();
     const cell = screen.getByRole('link', { name: /25%/ });
-    expect(cell.getAttribute('href')).toBe(
-      '/treneris/zaidejai/p-1/pazanga/r-1',
-    );
+    expect(cell.getAttribute('href')).toBe('/coach/players/p-1/progress/r-1');
     expect(within(cell).getByText('5 due')).toBeTruthy();
     expect(within(cell).getByText('25% learned')).toBeTruthy();
   });
@@ -142,7 +140,7 @@ describe('the group grid (R-153)', () => {
     if (cell === undefined) return;
     expect(
       within(cell).getByRole('link', { name: /100%/ }).getAttribute('href'),
-    ).toBe('/treneris/zaidejai/p-2/pazanga/r-2');
+    ).toBe('/coach/players/p-2/progress/r-2');
     expect(within(cell).getByText('0 due')).toBeTruthy();
     expect(
       within(cell).getByText(MESSAGES.assignment.badge.overdue),

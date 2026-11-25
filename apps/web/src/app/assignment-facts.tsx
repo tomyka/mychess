@@ -6,7 +6,7 @@ import { useDeadline } from './use-deadline';
 
 /**
  * What an assignment shows under its name wherever it is listed (home's
- * "From my coach", Mano repertuarai): who assigned it and its deadline, in
+ * "From my coach", My repertoires): who assigned it and its deadline, in
  * one block that `id` names (for a link's aria-describedby), then its
  * badges (R-51, R-46, R-133). `className` styles the text block.
  */

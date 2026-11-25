@@ -6,8 +6,8 @@ import { useId, type JSX } from 'react';
 import { trainingPath } from '../lib/routes';
 import type { TodaySummary } from '../server/training';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from './nustatymai/styles';
-import { useReviewTime } from './treniruote/review-time';
+import { SECTION, SECTION_TITLE, TEXT_LINK } from './settings/styles';
+import { useReviewTime } from './training/review-time';
 
 /** What is due: the count and the estimate, or when the next review is. */
 function DueLine({ summary }: { readonly summary: TodaySummary }): JSX.Element {

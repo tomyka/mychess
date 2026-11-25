@@ -51,7 +51,7 @@ async function coachInvitesGroup(
   await switchOnCoachMode(page, en);
   await page.getByRole('link', { name: en.settings.home }).click();
   await page.getByRole('link', { name: en.app.coachArea }).click();
-  await expect(page).toHaveURL(/\/treneris$/);
+  await expect(page).toHaveURL(/\/coach$/);
   // A group invite from the invites form; the group's own one (R-204) is
   // used by the assignment and progress journeys.
   await createGroup(page, en, GROUP);
@@ -97,11 +97,11 @@ async function threePlayersAccept(
  * Checklist 3: after Rokas unlinks, his page is not found for the coach.
  */
 async function unlinkEndsAccess(coach: Page, rokas: Page): Promise<void> {
-  await coach.goto('/treneris');
+  await coach.goto('/coach');
   await coach
     .getByRole('link', { name: 'Rokas Petrauskas', exact: true })
     .click();
-  await expect(coach).toHaveURL(/\/treneris\/zaidejai\//);
+  await expect(coach).toHaveURL(/\/coach\/players\//);
   await expect(coach.getByText('Rokas Petrauskas').first()).toBeVisible();
   const t = en.settings.myCoaches;
   await rokas.getByRole('button', { name: t.unlink }).click();
@@ -124,14 +124,14 @@ test(
 
       await page.reload();
       await page.getByRole('link', { name: GROUP, exact: true }).click();
-      await expect(page).toHaveURL(/\/treneris\/grupes\//);
+      await expect(page).toHaveURL(/\/coach\/groups\//);
       for (const name of PLAYERS)
         await expect(page.getByText(name, { exact: true })).toBeVisible();
 
       await unlinkEndsAccess(page, rokas);
 
       // R-100: Coach mode stays on while Gabija and Dovydas are linked.
-      await page.goto('/nustatymai');
+      await page.goto('/settings');
       await page
         .getByRole('button', { name: en.settings.coachMode.switchOff })
         .click();
@@ -151,7 +151,7 @@ test('a revoked invite says only that it is not valid, and offers no Accept', as
 }) => {
   await newOnboardedAccount(page, request, COACH);
   await switchOnCoachMode(page, en);
-  await page.goto('/treneris');
+  await page.goto('/coach');
   const link = await createInvite(page, en, { kind: 'personal' });
   const t = en.coach.invites;
   await page

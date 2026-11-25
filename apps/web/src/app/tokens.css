@@ -55,7 +55,7 @@
   --color-on-state: light-dark(#ffffff, #111214);
 
   /* ---- Piece glyphs off the board ----
-   * A side's king beside a heading (Mano repertuarai). The fill keeps the
+   * A side's king beside a heading (My repertoires). The fill keeps the
    * side's colour in both themes, so "Black" is a black king even on the
    * dark page; the outline follows the theme so both kings stand out from
    * the page (3:1 or more against bg).

@@ -69,9 +69,7 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
   it('links each visible repertoire to its progress page with % and badges', () => {
     show();
     const link = screen.getByRole('link', { name: 'Karo-Kan gynyba' });
-    expect(link.getAttribute('href')).toBe(
-      '/treneris/zaidejai/p-1/pazanga/r-1',
-    );
+    expect(link.getAttribute('href')).toBe('/coach/players/p-1/progress/r-1');
     const row = within(rowOf(link));
     expect(row.getByText(MESSAGES.assignment.badge.overdue)).toBeTruthy();
     expect(row.getByText('Assigned · 25% learned')).toBeTruthy();
@@ -81,9 +79,7 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
   it('shows a shared repertoire with no badges, and Mastered', () => {
     show();
     const link = screen.getByRole('link', { name: 'Londono sistema' });
-    expect(link.getAttribute('href')).toBe(
-      '/treneris/zaidejai/p-1/pazanga/r-3',
-    );
+    expect(link.getAttribute('href')).toBe('/coach/players/p-1/progress/r-3');
     const row = within(rowOf(link));
     expect(row.getByText('Shared · 100% learned')).toBeTruthy();
     expect(row.getByText(p.mastered)).toBeTruthy();

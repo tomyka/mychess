@@ -39,7 +39,7 @@ function useHeaderRename() {
   };
 }
 
-/** Back to Mano repertuarai: an arrow on a phone, a text link on a desktop. */
+/** Back to My repertoires: an arrow on a phone, a text link on a desktop. */
 function BackLink(): JSX.Element {
   const t = useTranslations('repertoires.header');
   return (

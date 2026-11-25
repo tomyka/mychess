@@ -79,8 +79,8 @@ describe('CoachMode (R-11, R-100)', () => {
         .getAllByRole('link')
         .map((link) => [link.textContent, link.getAttribute('href')]),
     ).toEqual([
-      ['Gabija', '/treneris/zaidejai/p-1'],
-      ['Rokas', '/treneris/zaidejai/p%2F2'],
+      ['Gabija', '/coach/players/p-1'],
+      ['Rokas', '/coach/players/p%2F2'],
     ]);
   });
 });

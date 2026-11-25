@@ -92,7 +92,7 @@ async function importAsNew(
   name: string,
 ): Promise<string> {
   const t = en.repertoires.import;
-  await page.goto('/repertuarai/importuoti');
+  await page.goto('/repertoires/import');
   await previewImport(page, en, { file, side: 'black' });
   await expectSummary(page, en, TAIMANOV_COUNTS);
   await expect(page.getByRole('radio', { name: t.targetNew })).toBeChecked();
@@ -206,7 +206,7 @@ test(
     await checkLondon(page, en, comment);
     const t = en.repertoires;
     await page.getByRole('link', { name: t.header.back }).first().click();
-    await expect(page).toHaveURL(/\/repertuarai$/);
+    await expect(page).toHaveURL(/\/repertoires$/);
     await expect(
       page.getByText(plural(t.list.meta, { chapters: 1, moves: 29 })),
     ).toBeVisible();
@@ -338,7 +338,7 @@ test('another account’s repertoire and its download are not found', async ({
   await newOnboardedAccount(page, request, 'Rokas Petrauskas');
   await openRepertoires(page, en);
   await createRepertoire(page, en, { name: 'Londono sistema', side: 'white' });
-  const id = /\/repertuarai\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  const id = /\/repertoires\/([0-9a-f-]{36})/.exec(page.url())?.[1];
   if (id === undefined) throw new Error('no repertoire id in the URL');
 
   const other = await newDevice(browser);
@@ -346,7 +346,7 @@ test('another account’s repertoire and its download are not found', async ({
     const stranger = await other.newPage();
     await newOnboardedAccount(stranger, request, 'Dovydas');
     // Its layout decides before the page streams, so it is a real 404 (#331).
-    const opened = await stranger.goto(`/repertuarai/${id}`);
+    const opened = await stranger.goto(`/repertoires/${id}`);
     expect(opened?.status()).toBe(404);
     await expect(stranger.getByText(en.repertoire.notFound)).toBeVisible();
     await expect(stranger.getByText('Londono sistema')).toHaveCount(0);
@@ -375,7 +375,7 @@ test('R-209, decision 8: pasted PGN imports; the side is the one its players nam
     page.getByRole('radio', { name: t.create[side] });
   // Typed before the page hydrates, the text is lost: load it again.
   await expect(async () => {
-    await page.goto('/repertuarai/importuoti');
+    await page.goto('/repertoires/import');
     await paste.fill(caroKann);
     await expect(radio('black')).toBeChecked({ timeout: 2_000 });
   }).toPass({ timeout: 60_000 });

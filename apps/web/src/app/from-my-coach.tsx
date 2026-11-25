@@ -4,7 +4,7 @@ import { useId, type JSX } from 'react';
 import { assignedRepertoirePath } from '../lib/routes';
 import type { AssignedListItem } from '../server/assignment-pages';
 import { AssignmentFacts } from './assignment-facts';
-import { SECTION, SECTION_TITLE } from './nustatymai/styles';
+import { SECTION, SECTION_TITLE } from './settings/styles';
 
 /**
  * The repertoire's name as a link one text line high, so the lines under

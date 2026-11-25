@@ -6,7 +6,7 @@ import { useActionState, useId, type JSX } from 'react';
 import type { GroupGrid } from '../../../../server/coach-pages';
 import { PRIMARY_BUTTON } from '../../../buttons';
 import { ConfirmedAction } from '../../../confirmed-action';
-import { SECTION, SECTION_TITLE } from '../../../nustatymai/styles';
+import { SECTION, SECTION_TITLE } from '../../../settings/styles';
 import { PendingButton } from '../../../pending-button';
 import {
   addMemberAction,

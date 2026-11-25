@@ -75,7 +75,7 @@ describe('PlayerView', () => {
     expect(screen.getByText('Linked since Oct 18, 2026')).toBeDefined();
     expect(
       screen.getByRole('link', { name: c.back }).getAttribute('href'),
-    ).toBe('/treneris');
+    ).toBe('/coach');
   });
 
   it('links each of the coach’s groups the player is in to its page', () => {
@@ -91,8 +91,8 @@ describe('PlayerView', () => {
           item.querySelector('a')?.getAttribute('href'),
         ]),
     ).toEqual([
-      ['Sekmadienio grupė', '/treneris/grupes/g-1'],
-      ['Šeštadienio grupė', '/treneris/grupes/g-2'],
+      ['Sekmadienio grupė', '/coach/groups/g-1'],
+      ['Šeštadienio grupė', '/coach/groups/g-2'],
     ]);
   });
 
@@ -111,7 +111,7 @@ describe('PlayerView', () => {
       progress
         .getByRole('link', { name: 'Karo-Kan gynyba' })
         .getAttribute('href'),
-    ).toBe('/treneris/zaidejai/p-1/pazanga/r-9');
+    ).toBe('/coach/players/p-1/progress/r-9');
     expect(progress.getByText(MESSAGES.assignment.badge.paused)).toBeDefined();
   });
 
@@ -130,11 +130,11 @@ describe('PlayerView', () => {
     ).toEqual([
       [
         `Londono sistema${MESSAGES.repertoires.list.white}`,
-        '/treneris/zaidejai/p-1/repertuarai/r-1',
+        '/coach/players/p-1/repertoires/r-1',
       ],
       [
         `Taimanovas${MESSAGES.repertoires.list.black}`,
-        '/treneris/zaidejai/p-1/repertuarai/r-2',
+        '/coach/players/p-1/repertoires/r-2',
       ],
     ]);
   });

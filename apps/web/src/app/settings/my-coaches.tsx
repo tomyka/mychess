@@ -22,7 +22,7 @@ export interface MyCoach extends AccountRef {
 }
 
 /** The id the section has; accepting an invite lands on it (plan decision 12). */
-const SECTION_ID = 'treneriai';
+const SECTION_ID = 'coaches';
 
 /** One group the player can leave and stay linked (R-45). */
 function GroupRow({ group }: { readonly group: MyCoachGroup }): JSX.Element {
@@ -76,8 +76,8 @@ function CoachRow({ coach }: { readonly coach: MyCoach }): JSX.Element {
 }
 
 /**
- * Once "linked with" has shown, takes `?treneris=` out of the address and
- * keeps `#treneriai`, so a reload does not say it again (#329). Through the
+ * Once "linked with" has shown, takes `?coach=` out of the address and
+ * keeps `#coaches`, so a reload does not say it again (#329). Through the
  * History API, which Next.js keeps its router in step with: a router
  * replace would load the page again without the param, and the line would
  * go before the player read it.
@@ -86,14 +86,14 @@ function useDropAcceptedParam(acceptedCoachId: string | null): void {
   useEffect(() => {
     if (acceptedCoachId === null) return;
     const url = new URL(window.location.href);
-    url.searchParams.delete('treneris');
+    url.searchParams.delete('coach');
     url.hash = SECTION_ID;
     window.history.replaceState(window.history.state, '', url);
   }, [acceptedCoachId]);
 }
 
 /**
- * "Mano treneriai": the coaches the player is linked to, with unlink and
+ * "My coaches": the coaches the player is linked to, with unlink and
  * leave group (spec: either side may unlink; R-45).
  */
 export function MyCoaches({
@@ -101,7 +101,7 @@ export function MyCoaches({
   acceptedCoachId = null,
 }: {
   readonly coaches: readonly MyCoach[];
-  /** The coach whose invite was just accepted (`?treneris=`), or null. */
+  /** The coach whose invite was just accepted (`?coach=`), or null. */
   readonly acceptedCoachId?: string | null;
 }): JSX.Element {
   const t = useTranslations('settings.myCoaches');

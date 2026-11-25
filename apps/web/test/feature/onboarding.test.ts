@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { completeOnboardingAction } from '../../src/app/pradzia/actions';
+import { completeOnboardingAction } from '../../src/app/welcome/actions';
 import { signIn, useRequestHarness } from './support/harness';
 import { outcomeOf, request } from './support/request';
 
@@ -79,7 +79,7 @@ describe('completeOnboardingAction', () => {
 
   it('sends a signed-out visitor to sign-in', async () => {
     expect(await outcomeOf(completeOnboardingAction({}, form('Rūta')))).toEqual(
-      { redirectedTo: '/prisijungti' },
+      { redirectedTo: '/sign-in' },
     );
     expect(request.set).toEqual([]);
   });

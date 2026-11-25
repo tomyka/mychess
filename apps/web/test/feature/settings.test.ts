@@ -4,7 +4,7 @@ import {
   deleteAccountAction,
   dismissLichessUnlinkedAction,
   updateProfileAction,
-} from '../../src/app/nustatymai/actions';
+} from '../../src/app/settings/actions';
 import { showLichessUnlinked } from '../../src/server/lichess-unlinked';
 import { deletedMail } from '../../src/server/mail';
 import {
@@ -102,14 +102,14 @@ describe('updateProfileAction', () => {
     request.cookie = await signIn(RUTA);
     expect(
       await outcomeOf(updateProfileAction({}, profileForm('Rūta'))),
-    ).toEqual({ redirectedTo: '/pradzia' });
+    ).toEqual({ redirectedTo: '/welcome' });
     expect(await storedProfiles()).toEqual([{ email: RUTA, displayName: '' }]);
   });
 
   it('sends a signed-out visitor to sign-in', async () => {
     expect(
       await outcomeOf(updateProfileAction({}, profileForm('Rūta'))),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
   });
 });
 
@@ -195,7 +195,7 @@ describe('deleteAccountAction', () => {
     const jonasBefore = await rowsOf(JONAS);
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm(' Rūta Jonaitė '))),
-    ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
+    ).toEqual({ redirectedTo: '/sign-in?deleted=1' });
     expect(await rowsOf(RUTA)).toEqual({
       accounts: 0,
       sessions: 0,
@@ -217,7 +217,7 @@ describe('deleteAccountAction', () => {
     });
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
-    ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
+    ).toEqual({ redirectedTo: '/sign-in?deleted=1' });
     expect(await sql.count('accounts')).toBe(0);
     expect(logged).toHaveBeenCalledTimes(1);
     expect(String(logged.mock.calls)).toContain('confirmation mail not sent');
@@ -230,7 +230,7 @@ describe('deleteAccountAction', () => {
     await onboarded(RUTA, 'Rūta');
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
     expect(await sql.count('accounts')).toBe(1);
   });
 
@@ -259,7 +259,7 @@ describe('deleteAccountAction', () => {
     request.cookie = await signIn(RUTA);
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm(' Ruta@Example.LT '))),
-    ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
+    ).toEqual({ redirectedTo: '/sign-in?deleted=1' });
     expect(await rowsOf(RUTA)).toMatchObject({ accounts: 0, sessions: 0 });
     expect(request.mailed).toEqual([deletedMail(RUTA)]);
     expect(sessionCookieCleared()).toBe(true);
@@ -272,7 +272,7 @@ describe('deleteAccountAction', () => {
     await client.query('update accounts set email_verified = false');
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
-    ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
+    ).toEqual({ redirectedTo: '/sign-in?deleted=1' });
     expect(await sql.count('accounts')).toBe(0);
     expect(request.mailed).toEqual([]);
     expect(sessionCookieCleared()).toBe(true);
@@ -373,10 +373,10 @@ describe('the provider links on settings', () => {
     const response = await oauthRoundTrip(built(), 'lichess', {
       cookie: jonas,
       link: true,
-      body: { callbackURL: '/nustatymai', errorCallbackURL: '/nustatymai' },
+      body: { callbackURL: '/settings', errorCallbackURL: '/settings' },
     });
     const location = new URL(response.headers.get('location') ?? '', BASE);
-    expect(location.pathname).toBe('/nustatymai');
+    expect(location.pathname).toBe('/settings');
     expect(errorCode(response)).toBe(
       'account_already_linked_to_different_user',
     );

@@ -14,7 +14,7 @@ function SkeletonGroup(): JSX.Element {
   );
 }
 
-// Mano repertuarai while it loads (docs/design/repertoire-screen.md,
+// My repertoires while it loads (docs/design/repertoire-screen.md,
 // States): the header, then three card skeletons per side. No spinner.
 export default function RepertoiresLoading(): JSX.Element {
   const t = useTranslations('repertoires.list');

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { completeOnboardingAction } from './actions';
 
 const DB = { name: 'the db' };
-const NEXT = `/k/${'A'.repeat(42)}_`;
+const NEXT = `/invite/${'A'.repeat(42)}_`;
 const NOW = new Date('2026-10-22T08:00:00Z');
 
 const server = vi.hoisted(() => ({
@@ -94,7 +94,7 @@ describe('completeOnboardingAction (R-80, R-81)', () => {
         refused(LIFECYCLE_REFUSALS.accountClosed),
       );
       await expect(completeOnboardingAction({}, formOf(next))).rejects.toEqual(
-        new Redirected('/prisijungti'),
+        new Redirected('/sign-in'),
       );
     },
   );

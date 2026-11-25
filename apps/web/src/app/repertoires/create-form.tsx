@@ -7,7 +7,7 @@ import { PRIMARY_BUTTON } from '../buttons';
 import { FIELD } from '../fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
-import { useRefusalText } from '../treneris/refusal-line';
+import { useRefusalText } from '../coach/refusal-line';
 import { createRepertoireAction, type CreateState } from './actions';
 
 const INITIAL: CreateState = {};

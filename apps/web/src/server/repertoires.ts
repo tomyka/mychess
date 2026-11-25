@@ -96,7 +96,7 @@ export async function downloadableRepertoire(
 }
 
 /**
- * One of the account's repertoires as Mano repertuarai shows it: a Fork
+ * One of the account's repertoires as My repertoires shows it: a Fork
  * carries only the name of the coach it came from (R-135, #328), never the
  * coach's repertoire id.
  */
@@ -104,7 +104,7 @@ export type MyRepertoire = Omit<RepertoireListItem, 'forkedFrom'> & {
   readonly forkCoachName: string | null;
 };
 
-/** Mano repertuarai: the session account's own repertoires. */
+/** My repertoires: the session account's own repertoires. */
 export async function myRepertoires(): Promise<MyRepertoire[]> {
   const account = await requireOnboarded();
   const items = await listRepertoires(getDb(), account.id);

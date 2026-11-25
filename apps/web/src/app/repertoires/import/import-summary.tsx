@@ -9,7 +9,7 @@ import type {
   RenamedChapter,
 } from '../../../server/import-preview';
 import { SECONDARY_BUTTON } from '../../buttons';
-import { SECTION_TITLE } from '../../nustatymai/styles';
+import { SECTION_TITLE } from '../../settings/styles';
 import { StatusLine } from '../../status-line';
 import { StepNumber } from './file-step';
 

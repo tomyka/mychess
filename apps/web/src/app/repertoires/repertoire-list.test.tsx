@@ -87,15 +87,15 @@ describe('RepertoireList', () => {
       screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
     ).toEqual([l.white, l.black]);
     expect(linksIn(l.white)).toEqual([
-      ['/repertuarai/r-1', 'Londono sistema2 chapters · 21 movesChanged 15:00'],
+      ['/repertoires/r-1', 'Londono sistema2 chapters · 21 movesChanged 15:00'],
       [
-        '/repertuarai/r-2',
+        '/repertoires/r-2',
         'Šiaurės gambitas10 chapters · 12 movesChanged 15:00',
       ],
-      ['/repertuarai/r-3', 'Žaibas1 chapter · 1 moveChanged 15:00'],
+      ['/repertoires/r-3', 'Žaibas1 chapter · 1 moveChanged 15:00'],
     ]);
     expect(linksIn(l.black)).toEqual([
-      ['/repertuarai/r-4', 'Taimanovas6 chapters · 233 movesChanged 15:00'],
+      ['/repertoires/r-4', 'Taimanovas6 chapters · 233 movesChanged 15:00'],
     ]);
   });
 
@@ -107,7 +107,7 @@ describe('RepertoireList', () => {
     ]);
     expect(
       linksIn(MESSAGES.repertoires.list.white).map(([href]) => href),
-    ).toEqual(['/repertuarai/r-i', '/repertuarai/r-j', '/repertuarai/r-y']);
+    ).toEqual(['/repertoires/r-i', '/repertoires/r-j', '/repertoires/r-y']);
   });
 
   it('names each card by its repertoire and describes it by its counts', () => {
@@ -128,14 +128,14 @@ describe('RepertoireList', () => {
   it('lists the repertoires assigned to the player under their side, sorted with the own ones (#328)', () => {
     renderList(ITEMS, [CARO, ITALIAN]);
     expect(linksIn(l.white).map(([href]) => href)).toEqual([
-      '/repertuarai/priskirti/a-2',
-      '/repertuarai/r-1',
-      '/repertuarai/r-2',
-      '/repertuarai/r-3',
+      '/repertoires/assigned/a-2',
+      '/repertoires/r-1',
+      '/repertoires/r-2',
+      '/repertoires/r-3',
     ]);
     expect(linksIn(l.black).map(([href]) => href)).toEqual([
-      '/repertuarai/priskirti/a-1',
-      '/repertuarai/r-4',
+      '/repertoires/assigned/a-1',
+      '/repertoires/r-4',
     ]);
   });
 
@@ -196,15 +196,15 @@ describe('RepertoireList', () => {
       }),
     ]);
     expect(linksIn(MESSAGES.repertoires.list.white)).toEqual([
-      ['/repertuarai/a', 'A2 chapters · 148 movesChanged Oct 12'],
-      ['/repertuarai/b', 'B2 chapters · 148 movesChanged Sep 2, 2025'],
+      ['/repertoires/a', 'A2 chapters · 148 movesChanged Oct 12'],
+      ['/repertoires/b', 'B2 chapters · 148 movesChanged Sep 2, 2025'],
     ]);
   });
 
   it('shows a change today on a 24-hour clock (#330 decision 6)', () => {
     renderList([card({ id: 'a', name: 'A' })]);
     expect(linksIn(MESSAGES.repertoires.list.white)).toEqual([
-      ['/repertuarai/a', 'A2 chapters · 148 movesChanged 15:00'],
+      ['/repertoires/a', 'A2 chapters · 148 movesChanged 15:00'],
     ]);
   });
 });

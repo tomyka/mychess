@@ -14,17 +14,17 @@ import { dirname, join, posix, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { unlinkCoachAction } from '../../src/app/nustatymai/coaching-actions';
-import * as assignActions from '../../src/app/repertuarai/[id]/assign-actions';
+import { unlinkCoachAction } from '../../src/app/settings/coaching-actions';
+import * as assignActions from '../../src/app/repertoires/[id]/assign-actions';
 import {
   assignAction,
   clearDeadlineAction,
   setDeadlineAction,
   unassignAction,
-} from '../../src/app/repertuarai/[id]/assign-actions';
-import { setSharesAction } from '../../src/app/repertuarai/[id]/sharing-actions';
-import { forkAction } from '../../src/app/repertuarai/priskirti/[id]/actions';
-import * as coachActions from '../../src/app/treneris/actions';
+} from '../../src/app/repertoires/[id]/assign-actions';
+import { setSharesAction } from '../../src/app/repertoires/[id]/sharing-actions';
+import { forkAction } from '../../src/app/repertoires/assigned/[id]/actions';
+import * as coachActions from '../../src/app/coach/actions';
 import {
   addMemberAction,
   createGroupAction,
@@ -36,7 +36,7 @@ import {
   revokeInviteAction,
   saveCoachNoteAction,
   unlinkPlayerAction,
-} from '../../src/app/treneris/actions';
+} from '../../src/app/coach/actions';
 import {
   coachGroupData,
   coachHomeData,
@@ -222,21 +222,21 @@ async function setUp(): Promise<Ids> {
   };
 }
 
-// Every page under src/app/treneris has one entry; the guard below fails
+// Every page under src/app/coach has one entry; the guard below fails
 // when a page is added without one (plan decision 14).
 const COACH_PAGES: Readonly<Record<string, (ids: Ids) => Promise<unknown>>> = {
-  treneris: () => coachHomeData(),
-  'treneris/zaidejai/[playerId]': (ids) => coachPlayerData(ids.rokas.id),
-  'treneris/grupes/[groupId]': (ids) => coachGroupData(ids.group),
-  'treneris/zaidejai/[playerId]/repertuarai/[repertoireId]': (ids) =>
+  coach: () => coachHomeData(),
+  'coach/players/[playerId]': (ids) => coachPlayerData(ids.rokas.id),
+  'coach/groups/[groupId]': (ids) => coachGroupData(ids.group),
+  'coach/players/[playerId]/repertoires/[repertoireId]': (ids) =>
     sharedRepertoireData(ids.rokas.id, ids.london),
-  'treneris/zaidejai/[playerId]/pazanga/[repertoireId]': (ids) =>
+  'coach/players/[playerId]/progress/[repertoireId]': (ids) =>
     coachProgressData(ids.rokas.id, ids.london),
 };
 
 /** The loaders that take a player or a group: Rimantas's ones. */
 const PLAYER_AND_GROUP_PAGES = Object.entries(COACH_PAGES).filter(
-  ([page]) => page !== 'treneris',
+  ([page]) => page !== 'coach',
 );
 
 // Every coach action, each aimed at Rimantas's player, group or invite.
@@ -317,8 +317,8 @@ const COACH_ACTION_MODULES: Readonly<
     }
   >
 > = {
-  'app/treneris/actions.ts': { exports: coachActions, table: COACH_ACTIONS },
-  'app/repertuarai/[id]/assign-actions.ts': {
+  'app/coach/actions.ts': { exports: coachActions, table: COACH_ACTIONS },
+  'app/repertoires/[id]/assign-actions.ts': {
     exports: assignActions,
     table: ASSIGN_ACTIONS,
   },
@@ -387,14 +387,12 @@ const memberships = (): Promise<unknown[]> =>
 
 describe('the access table (plan decision 14)', () => {
   it('covers every coach page', () => {
-    const pages = readdirSync(join(APP, 'treneris'), {
+    const pages = readdirSync(join(APP, 'coach'), {
       recursive: true,
       encoding: 'utf8',
     })
       .filter((file) => file.endsWith('page.tsx'))
-      .map((file) =>
-        posix.join('treneris', dirname(file).split(sep).join('/')),
-      );
+      .map((file) => posix.join('coach', dirname(file).split(sep).join('/')));
     expect(new Set(pages)).toEqual(new Set(Object.keys(COACH_PAGES)));
   });
 
@@ -531,7 +529,7 @@ describe('access ends with the link (checklist 3)', () => {
       await outcomeOf(
         unlinkPlayerAction({}, formOf({ playerId: ids.rokas.id })),
       ),
-    ).toEqual({ redirectedTo: '/treneris' });
+    ).toEqual({ redirectedTo: '/coach' });
     expect(await outcomeOf(coachPlayerData(ids.rokas.id))).toEqual({
       notFound: true,
     });
@@ -650,7 +648,7 @@ describe('without Coach mode', () => {
       const before = await coachingRows();
       actAs(ids.rokas);
       expect(await outcomeOf(run(ids))).toEqual({
-        redirectedTo: '/nustatymai',
+        redirectedTo: '/settings',
       });
       expect(await coachingRows()).toEqual(before);
     },
@@ -665,7 +663,7 @@ describe('signed out', () => {
       const before = await coachingRows();
       request.cookie = '';
       expect(await outcomeOf(run(ids))).toEqual({
-        redirectedTo: '/prisijungti',
+        redirectedTo: '/sign-in',
       });
       expect(await coachingRows()).toEqual(before);
     },

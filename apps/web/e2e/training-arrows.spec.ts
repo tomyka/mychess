@@ -101,7 +101,7 @@ async function rokasLearnsAssigned(coach: Page, cast: Cast): Promise<Page> {
   await setTrainingLimits(rokas, en, { newPerDay: 8, learnArrows: false });
   await rokas.goto('/');
   await rokas.getByRole('link', { name: ITALIAN, exact: true }).click();
-  await expect(rokas).toHaveURL(/\/repertuarai\/priskirti\//);
+  await expect(rokas).toHaveURL(/\/repertoires\/assigned\//);
   await trainLink(rokas, en, 'learn', 8).click();
   return rokas;
 }

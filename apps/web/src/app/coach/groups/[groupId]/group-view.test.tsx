@@ -104,7 +104,7 @@ describe('GroupView', () => {
     ).toBeDefined();
     expect(
       screen.getByRole('link', { name: c.back }).getAttribute('href'),
-    ).toBe('/treneris');
+    ).toBe('/coach');
   });
 
   it('shows the group progress grid above the members (R-153)', () => {

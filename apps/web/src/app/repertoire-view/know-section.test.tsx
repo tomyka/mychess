@@ -6,7 +6,7 @@ import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { KnowSection } from './know-section';
 
-vi.mock('../repertuarai/know-actions', () => ({
+vi.mock('../repertoires/know-actions', () => ({
   knowCountAction: vi.fn(),
   markKnownAction: vi.fn(),
   learnAgainAction: vi.fn(),
@@ -77,7 +77,7 @@ describe('KnowSection’s Learn on the current line (R-206)', () => {
       name: /^Learn \d+ new moves in this line$/,
     });
     expect(link.getAttribute('href')).toBe(
-      `/treniruote?mode=learn&r=${ID}&chapter=${chapterId}&line=1`,
+      `/training?mode=learn&r=${ID}&chapter=${chapterId}&line=1`,
     );
   });
 

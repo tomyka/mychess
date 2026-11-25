@@ -71,7 +71,7 @@ vi.mock('./delete-disclosure', async (original) => {
 });
 
 vi.mock('./actions', () => ({ completeOnboardingAction: vi.fn() }));
-vi.mock('../nustatymai/actions', () => ({ deleteAccountAction: vi.fn() }));
+vi.mock('../settings/actions', () => ({ deleteAccountAction: vi.fn() }));
 
 beforeEach(() => {
   server.account = { displayName: '', onboardedAt: null };
@@ -92,7 +92,7 @@ async function renderPage(search: Search = {}): Promise<void> {
   );
 }
 
-const NEXT = `/k/${'A'.repeat(42)}_`;
+const NEXT = `/invite/${'A'.repeat(42)}_`;
 const hiddenNext = () =>
   document.querySelector<HTMLInputElement>('input[type="hidden"][name="next"]');
 
@@ -115,7 +115,7 @@ describe('the onboarding page', () => {
   });
 
   it('hands the first return path to the form as a hidden field', async () => {
-    await renderPage({ next: [NEXT, '/nustatymai'] });
+    await renderPage({ next: [NEXT, '/settings'] });
     expect(hiddenNext()?.value).toBe(NEXT);
   });
 

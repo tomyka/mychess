@@ -61,7 +61,7 @@ describe('FromMyCoach (R-15, R-51, R-133)', () => {
       screen
         .getByRole('link', { name: 'Londono sistema' })
         .getAttribute('href'),
-    ).toBe(`/repertuarai/priskirti/${ID}`);
+    ).toBe(`/repertoires/assigned/${ID}`);
     expect(
       within(item('Karo-Kan gynyba: pagrindai')).getByText(
         a.page.assignedBy.replace('{name}', 'Rimantas'),

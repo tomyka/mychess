@@ -9,7 +9,7 @@ import {
   removeMemberAction,
   renameGroupAction,
   unlinkPlayerAction,
-} from '../../src/app/treneris/actions';
+} from '../../src/app/coach/actions';
 import {
   coachGroupData,
   coachHomeData,
@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 /** A group invite's link, as the action answers it once. */
-const GROUP_LINK = /^http:\/\/localhost:3000\/k\/[A-Za-z0-9_-]{43}$/u;
+const GROUP_LINK = /^http:\/\/localhost:3000\/invite\/[A-Za-z0-9_-]{43}$/u;
 
 const groupNames = (): Promise<unknown[]> =>
   sql.rows(
@@ -185,9 +185,9 @@ describe('createGroupAction (R-12, R-70)', () => {
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     expect(
       await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė' }))),
-    ).toEqual({ redirectedTo: '/nustatymai' });
+    ).toEqual({ redirectedTo: '/settings' });
     expect(await outcomeOf(coachHomeData())).toEqual({
-      redirectedTo: '/nustatymai',
+      redirectedTo: '/settings',
     });
     expect(await groupNames()).toEqual([]);
   });
@@ -195,7 +195,7 @@ describe('createGroupAction (R-12, R-70)', () => {
   it('sends a signed-out visitor to sign-in', async () => {
     expect(
       await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė' }))),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
   });
 });
 
@@ -213,7 +213,7 @@ describe('renameGroupAction and deleteGroupAction', () => {
       { coach: 'Jonas', name: 'Sekmadienio grupė' },
     ]);
     expect(await outcomeOf(deleteGroupAction(formOf({ groupId })))).toEqual({
-      redirectedTo: '/treneris',
+      redirectedTo: '/coach',
     });
     expect(await groupNames()).toEqual([]);
   });
@@ -353,7 +353,7 @@ describe('unlinkPlayerAction (spec: either side may unlink)', () => {
     // Back to the dashboard: the player's page would now be 404.
     expect(
       await outcomeOf(unlinkPlayerAction({}, formOf({ playerId: rokas.id }))),
-    ).toEqual({ redirectedTo: '/treneris' });
+    ).toEqual({ redirectedTo: '/coach' });
     expect(await links()).toEqual([]);
     expect(await memberships()).toEqual([]);
   });
@@ -410,7 +410,7 @@ describe('coachGroupData (the group page)', () => {
     ]);
     actAs(jonas);
     expect(await outcomeOf(coachGroupData(groupId))).toEqual({
-      redirectedTo: '/nustatymai',
+      redirectedTo: '/settings',
     });
   });
 });

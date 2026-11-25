@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../buttons';
-import { SECTION, SECTION_TITLE } from '../../nustatymai/styles';
+import { SECTION, SECTION_TITLE } from '../../settings/styles';
 
 const CHOICE =
   'flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent has-disabled:cursor-not-allowed has-disabled:opacity-60';

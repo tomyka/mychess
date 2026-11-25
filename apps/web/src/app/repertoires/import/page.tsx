@@ -5,7 +5,7 @@ import { ROUTES } from '../../../lib/routes';
 import { lichessUsername } from '../../../server/provider-links';
 import { myRepertoires } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
-import { TEXT_LINK } from '../../nustatymai/styles';
+import { TEXT_LINK } from '../../settings/styles';
 import { ImportFlow } from './import-flow';
 
 type SearchParams = Record<string, string | string[] | undefined>;

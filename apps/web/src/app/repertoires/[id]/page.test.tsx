@@ -167,10 +167,10 @@ describe('the repertoire page', () => {
     expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
       screen.getByRole('link', { name: 'Review (4)' }).getAttribute('href'),
-    ).toBe(`/treniruote?mode=review&r=${ID}`);
+    ).toBe(`/training?mode=review&r=${ID}`);
     expect(
       screen.getByRole('link', { name: 'Learn (6)' }).getAttribute('href'),
-    ).toBe(`/treniruote?mode=learn&r=${ID}`);
+    ).toBe(`/training?mode=learn&r=${ID}`);
   });
 
   it('shows the assign panel only in Coach mode (R-15)', async () => {
@@ -209,7 +209,7 @@ describe('the repertoire page', () => {
       screen
         .getByRole('link', { name: MESSAGES.repertoires.header.back })
         .getAttribute('href'),
-    ).toBe('/repertuarai');
+    ).toBe('/repertoires');
   });
 
   it('shows a busy board frame while it loads', () => {

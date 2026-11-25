@@ -3,12 +3,12 @@ import { inviteTokenHash } from '@mychess/db/testing';
 import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { acceptInviteAction } from '../../src/app/k/[token]/actions';
-import InvitePage from '../../src/app/k/[token]/page';
+import { acceptInviteAction } from '../../src/app/invite/[token]/actions';
+import InvitePage from '../../src/app/invite/[token]/page';
 import {
   createInviteAction,
   revokeInviteAction,
-} from '../../src/app/treneris/actions';
+} from '../../src/app/coach/actions';
 import { coachGroupData } from '../../src/server/coach-pages';
 import { cookieFrom, onboard, TEST_ENV_VARS } from './support/auth';
 import {
@@ -51,7 +51,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const LINK = /^http:\/\/localhost:3000\/k\/([A-Za-z0-9_-]{43})$/u;
+const LINK = /^http:\/\/localhost:3000\/invite\/([A-Za-z0-9_-]{43})$/u;
 
 const linkState = z.object({ link: z.string().regex(LINK) });
 
@@ -187,7 +187,7 @@ describe('createInviteAction (R-98, R-99, R-110)', () => {
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     expect(
       await outcomeOf(createInviteAction({}, formOf({ kind: 'personal' }))),
-    ).toEqual({ redirectedTo: '/nustatymai' });
+    ).toEqual({ redirectedTo: '/settings' });
     expect(await sql.count('invites')).toBe(0);
   });
 });
@@ -255,7 +255,7 @@ describe('revokeInviteAction (R-98)', () => {
         acceptInviteAction({}, formOf({ token: made.value.token })),
       ),
     ).toEqual({
-      redirectedTo: `/nustatymai?treneris=${encodeURIComponent(jonas.id)}#treneriai`,
+      redirectedTo: `/settings?coach=${encodeURIComponent(jonas.id)}#coaches`,
     });
     actAs(jonas);
     expect(
@@ -316,18 +316,18 @@ const memberships = (): Promise<unknown[]> =>
       order by 1, 2`,
   );
 
-/** "Mano treneriai", naming the coach whose invite was accepted (#329). */
+/** "My coaches", naming the coach whose invite was accepted (#329). */
 const MY_COACHES = (coachId: string): string =>
-  `/nustatymai?treneris=${encodeURIComponent(coachId)}#treneriai`;
+  `/settings?coach=${encodeURIComponent(coachId)}#coaches`;
 const WELL_FORMED = 'B'.repeat(43);
 
-describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
+describe('the invite page /invite/[token] (R-81, plan decision 8)', () => {
   it('sends a signed-out visitor to sign-in, and back to the invite after', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const token = await inviteOf(jonas.id, 'personal');
     request.cookie = '';
     expect(await invitePage(token)).toEqual({
-      redirectedTo: `/prisijungti?next=%2Fk%2F${token}`,
+      redirectedTo: `/sign-in?next=%2Finvite%2F${token}`,
     });
   });
 
@@ -336,16 +336,16 @@ describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
     const token = await inviteOf(jonas.id, 'personal');
     request.cookie = await signIn('rokas@example.lt');
     expect(await invitePage(token)).toEqual({
-      redirectedTo: `/pradzia?next=%2Fk%2F${token}`,
+      redirectedTo: `/welcome?next=%2Finvite%2F${token}`,
     });
   });
 
   it('carries no return path for a malformed token', async () => {
     expect(await invitePage('not-a-token')).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
     expect(await invitePage(`${WELL_FORMED}?x=//evil.example`)).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 
@@ -410,7 +410,7 @@ describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
 });
 
 describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
-  it('links the player into the group and lands on "Mano treneriai"', async () => {
+  it('links the player into the group and lands on "My coaches"', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
     const token = await inviteOf(jonas.id, 'group', groupId);
@@ -488,7 +488,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const token = await inviteOf(jonas.id, 'personal');
     request.cookie = '';
-    expect(await accept({ token })).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await accept({ token })).toEqual({ redirectedTo: '/sign-in' });
     expect(await sql.count('coach_links')).toBe(0);
   });
 

@@ -391,7 +391,7 @@ describe('RepertoireScreen: an empty repertoire', () => {
       within(empty)
         .getByRole('link', { name: r.header.importInto })
         .getAttribute('href'),
-    ).toBe(`/repertuarai/importuoti?i=${ID}`);
+    ).toBe(`/repertoires/import?i=${ID}`);
     expect(
       screen.getByRole('application', { name: 'Chess board, Taimanovas' }),
     ).toBeDefined();

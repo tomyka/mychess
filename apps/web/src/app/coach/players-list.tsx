@@ -9,7 +9,7 @@ import { MEDIUM_DATE } from '../../lib/date-format';
 import { AssignmentBadges } from '../assignment-badges';
 import { ConfirmedAction } from '../confirmed-action';
 import { useDeadline } from '../use-deadline';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
+import { SECTION, SECTION_TITLE, TEXT_LINK } from '../settings/styles';
 import { unlinkPlayerAction, type CoachActionState } from './actions';
 import { LastTrained } from './last-trained';
 import { RefusalLine } from './refusal-line';

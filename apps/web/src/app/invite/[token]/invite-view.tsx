@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useActionState, type JSX } from 'react';
 import { ROUTES } from '../../../lib/routes';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../buttons';
-import { TEXT_LINK } from '../../nustatymai/styles';
+import { TEXT_LINK } from '../../settings/styles';
 import { PendingButton } from '../../pending-button';
 import { acceptInviteAction, type AcceptState } from './actions';
 

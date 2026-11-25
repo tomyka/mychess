@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   deleteCoachNoteAction,
   saveCoachNoteAction,
-} from '../../src/app/treneris/actions';
+} from '../../src/app/coach/actions';
 import {
   coachPlayerData,
   sharedRepertoireData,

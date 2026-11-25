@@ -19,96 +19,92 @@ import {
 } from './routes';
 
 describe('ROUTES', () => {
-  it('names the repertoire list and the import page in Lithuanian', () => {
-    expect(ROUTES.repertoires).toBe('/repertuarai');
-    expect(ROUTES.repertoireImport).toBe('/repertuarai/importuoti');
+  it('names the repertoire list and the import page in English', () => {
+    expect(ROUTES.repertoires).toBe('/repertoires');
+    expect(ROUTES.repertoireImport).toBe('/repertoires/import');
   });
 
-  it('names the coach dashboard and the "Mano treneriai" section of settings', () => {
-    expect(ROUTES.coach).toBe('/treneris');
-    expect(ROUTES.myCoaches).toBe('/nustatymai#treneriai');
+  it('names the coach dashboard and the "My coaches" section of settings', () => {
+    expect(ROUTES.coach).toBe('/coach');
+    expect(ROUTES.myCoaches).toBe('/settings#coaches');
   });
 
   it('names the training section of settings (R-205)', () => {
-    expect(ROUTES.trainingSettings).toBe('/nustatymai#treniruote');
+    expect(ROUTES.trainingSettings).toBe('/settings#training');
   });
 });
 
 describe('invitePath', () => {
-  it('is /k/ followed by the token', () => {
-    expect(invitePath('abc_-1')).toBe('/k/abc_-1');
+  it('is /invite/ followed by the token', () => {
+    expect(invitePath('abc_-1')).toBe('/invite/abc_-1');
   });
 
   it('encodes the token as one path segment', () => {
-    expect(invitePath('a/b?c')).toBe('/k/a%2Fb%3Fc');
+    expect(invitePath('a/b?c')).toBe('/invite/a%2Fb%3Fc');
   });
 });
 
 describe('acceptedInvitePath', () => {
-  it('is "Mano treneriai", naming the coach just linked, the id encoded', () => {
-    expect(acceptedInvitePath('c1')).toBe('/nustatymai?treneris=c1#treneriai');
-    expect(acceptedInvitePath('a&b')).toBe(
-      '/nustatymai?treneris=a%26b#treneriai',
-    );
+  it('is "My coaches", naming the coach just linked, the id encoded', () => {
+    expect(acceptedInvitePath('c1')).toBe('/settings?coach=c1#coaches');
+    expect(acceptedInvitePath('a&b')).toBe('/settings?coach=a%26b#coaches');
   });
 });
 
 describe('coachPlayerPath', () => {
   it('is the coach dashboard player page for the id, encoded', () => {
-    expect(coachPlayerPath('p1')).toBe('/treneris/zaidejai/p1');
-    expect(coachPlayerPath('a/b')).toBe('/treneris/zaidejai/a%2Fb');
+    expect(coachPlayerPath('p1')).toBe('/coach/players/p1');
+    expect(coachPlayerPath('a/b')).toBe('/coach/players/a%2Fb');
   });
 });
 
 describe('coachSharedRepertoirePath', () => {
   it('is the player page’s repertoire page for the ids, encoded', () => {
     expect(coachSharedRepertoirePath('p1', 'r1')).toBe(
-      '/treneris/zaidejai/p1/repertuarai/r1',
+      '/coach/players/p1/repertoires/r1',
     );
     expect(coachSharedRepertoirePath('a/b', 'c d')).toBe(
-      '/treneris/zaidejai/a%2Fb/repertuarai/c%20d',
+      '/coach/players/a%2Fb/repertoires/c%20d',
     );
   });
 });
 
 describe('coachProgressPath', () => {
   it('is the player page’s progress page for the ids, encoded', () => {
-    expect(coachProgressPath('p1', 'r1')).toBe(
-      '/treneris/zaidejai/p1/pazanga/r1',
-    );
+    expect(coachProgressPath('p1', 'r1')).toBe('/coach/players/p1/progress/r1');
     expect(coachProgressPath('a/b', 'c d')).toBe(
-      '/treneris/zaidejai/a%2Fb/pazanga/c%20d',
+      '/coach/players/a%2Fb/progress/c%20d',
     );
   });
 });
 
 describe('coachGroupPath', () => {
   it('is the coach dashboard group page for the id, encoded', () => {
-    expect(coachGroupPath('g1')).toBe('/treneris/grupes/g1');
-    expect(coachGroupPath('a b')).toBe('/treneris/grupes/a%20b');
+    expect(coachGroupPath('g1')).toBe('/coach/groups/g1');
+    expect(coachGroupPath('a b')).toBe('/coach/groups/a%20b');
   });
 });
 
 describe('repertoireRoute', () => {
   it('is the repertoire list path followed by the id', () => {
-    expect(repertoireRoute('3f1c')).toBe('/repertuarai/3f1c');
+    expect(repertoireRoute('3f1c')).toBe('/repertoires/3f1c');
   });
 });
 
 describe('assignedRepertoirePath', () => {
   it('is the assigned repertoires path followed by the id, encoded', () => {
-    expect(assignedRepertoirePath('3f1c')).toBe('/repertuarai/priskirti/3f1c');
-    expect(assignedRepertoirePath('a/b')).toBe('/repertuarai/priskirti/a%2Fb');
+    expect(assignedRepertoirePath('3f1c')).toBe('/repertoires/assigned/3f1c');
+    expect(assignedRepertoirePath('a/b')).toBe('/repertoires/assigned/a%2Fb');
   });
 });
 
 describe('repertoireChapterRoute', () => {
   it('opens the repertoire on one chapter, the id encoded as a query value', () => {
     expect(repertoireChapterRoute('3f1c', 'c3')).toBe(
-      '/repertuarai/3f1c?chapter=c3',
+      '/repertoires/3f1c?chapter=c3',
     );
     expect(repertoireChapterRoute('3f1c', 'a&b')).toBe(
-      '/repertuarai/3f1c?chapter=a%26b',
+      '/repertoires/3f1c?chapter=a%26b',
     );
   });
 });
@@ -121,32 +117,30 @@ describe('repertoireExportRoute', () => {
 
 describe('importIntoRoute', () => {
   it('preselects the target repertoire on the import page', () => {
-    expect(importIntoRoute('3f1c')).toBe('/repertuarai/importuoti?i=3f1c');
+    expect(importIntoRoute('3f1c')).toBe('/repertoires/import?i=3f1c');
   });
 
   it('encodes the id as a query value', () => {
-    expect(importIntoRoute('a&b c')).toBe(
-      '/repertuarai/importuoti?i=a%26b%20c',
-    );
+    expect(importIntoRoute('a&b c')).toBe('/repertoires/import?i=a%26b%20c');
   });
 });
 
 describe('repertoireDeletedRoute', () => {
   it('is the repertoire list, told a repertoire was deleted', () => {
-    expect(repertoireDeletedRoute).toBe('/repertuarai?deleted=1');
+    expect(repertoireDeletedRoute).toBe('/repertoires?deleted=1');
   });
 });
 
 describe('trainingPath', () => {
   it('is the training page in a mode, over every repertoire', () => {
-    expect(ROUTES.training).toBe('/treniruote');
-    expect(trainingPath('review')).toBe('/treniruote?mode=review');
-    expect(trainingPath('learn')).toBe('/treniruote?mode=learn');
+    expect(ROUTES.training).toBe('/training');
+    expect(trainingPath('review')).toBe('/training?mode=review');
+    expect(trainingPath('learn')).toBe('/training?mode=learn');
   });
 
   it('scopes it to one repertoire, the id encoded as a query value', () => {
     expect(trainingPath('learn', 'a&b c')).toBe(
-      '/treniruote?mode=learn&r=a%26b%20c',
+      '/training?mode=learn&r=a%26b%20c',
     );
   });
 });
@@ -154,16 +148,16 @@ describe('trainingPath', () => {
 describe('learnPath (R-206)', () => {
   it('learns one chapter of a repertoire, the chapter id encoded', () => {
     expect(learnPath('r1', { chapterId: 'c 1' })).toBe(
-      '/treniruote?mode=learn&r=r1&chapter=c%201',
+      '/training?mode=learn&r=r1&chapter=c%201',
     );
   });
 
   it('learns one line of the chapter, the first line too', () => {
     expect(learnPath('r1', { chapterId: 'c1', lineIndex: 3 })).toBe(
-      '/treniruote?mode=learn&r=r1&chapter=c1&line=3',
+      '/training?mode=learn&r=r1&chapter=c1&line=3',
     );
     expect(learnPath('r1', { chapterId: 'c1', lineIndex: 0 })).toBe(
-      '/treniruote?mode=learn&r=r1&chapter=c1&line=0',
+      '/training?mode=learn&r=r1&chapter=c1&line=0',
     );
   });
 });

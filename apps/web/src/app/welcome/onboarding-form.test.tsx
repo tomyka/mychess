@@ -75,7 +75,7 @@ describe('OnboardingForm', () => {
   });
 
   it('sends the return path along when there is one (R-81)', async () => {
-    const next = `/k/${'A'.repeat(42)}_`;
+    const next = `/invite/${'A'.repeat(42)}_`;
     renderForm('Rūta', next);
     submit();
     await waitFor(() => {

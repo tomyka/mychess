@@ -69,7 +69,7 @@ const shareSection = (page: Page, messages: Messages): Locator =>
 /** Rimantas: Coach mode on, a personal invite; returns its link. */
 async function coachInvites(page: Page): Promise<string> {
   await switchOnCoachMode(page, en);
-  await page.goto('/treneris');
+  await page.goto('/coach');
   return createInvite(page, en, { kind: 'personal' });
 }
 
@@ -79,7 +79,7 @@ async function playerImports(page: Page, link: string): Promise<string> {
   await expectInviteFrom(page, en, { coach: COACH });
   await acceptInvite(page, en);
   const t = en.repertoires;
-  await page.goto('/repertuarai/importuoti');
+  await page.goto('/repertoires/import');
   await previewImport(page, en, { file: TAIMANOV, side: 'black' });
   await page.getByLabel(t.import.name, { exact: true }).fill(REPERTOIRE);
   await page
@@ -120,9 +120,9 @@ async function setShared(
 
 /** Rimantas opens Gabija's page from his dashboard; returns its URL. */
 async function openPlayer(coach: Page): Promise<string> {
-  await coach.goto('/treneris');
+  await coach.goto('/coach');
   await coach.getByRole('link', { name: PLAYER, exact: true }).click();
-  await expect(coach).toHaveURL(/\/treneris\/zaidejai\/[^/]+$/);
+  await expect(coach).toHaveURL(/\/coach\/players\/[^/]+$/);
   return coach.url();
 }
 
@@ -136,7 +136,7 @@ async function coachOpensShared(coach: Page): Promise<void> {
     .getByRole('region', { name: t.title })
     .getByRole('link', { name: new RegExp(`^${REPERTOIRE}`) })
     .click();
-  await expect(coach).toHaveURL(/\/repertuarai\/[0-9a-f-]{36}$/);
+  await expect(coach).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(REPERTOIRE);
   await expect(coach.getByText(t.readOnly)).toBeVisible();
   await chooseChapter(coach, TAIMANOV_B48);
@@ -195,7 +195,7 @@ async function expectNotFound(coach: Page): Promise<void> {
 /** Gabija unlinks from Rimantas under "My coaches". */
 async function playerUnlinks(page: Page, messages: Messages): Promise<void> {
   const t = messages.settings.myCoaches;
-  await page.goto('/nustatymai');
+  await page.goto('/settings');
   await page.getByRole('button', { name: t.unlink }).click();
   await page.getByRole('button', { name: t.confirmUnlink }).click();
   await expect(page.getByText(t.empty)).toBeVisible();

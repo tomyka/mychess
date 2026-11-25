@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   leaveGroupAction,
   unlinkCoachAction,
-} from '../../src/app/nustatymai/coaching-actions';
+} from '../../src/app/settings/coaching-actions';
 import { coachPlayerData } from '../../src/server/coach-pages';
 import {
   actAs,
@@ -103,7 +103,7 @@ describe('unlinkCoachAction (spec: either side may unlink)', () => {
   it('sends a signed-out visitor to sign-in', async () => {
     expect(
       await outcomeOf(unlinkCoachAction(formOf({ coachId: 'x' }))),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
   });
 });
 

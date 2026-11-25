@@ -7,7 +7,7 @@ import { useActionState, useId, type JSX } from 'react';
 import { coachGroupPath } from '../../lib/routes';
 import { PRIMARY_BUTTON } from '../buttons';
 import { FIELD } from '../fields';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
+import { SECTION, SECTION_TITLE, TEXT_LINK } from '../settings/styles';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { createGroupAction, type CreateGroupState } from './actions';

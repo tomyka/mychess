@@ -126,7 +126,7 @@ export async function signIn(
   messages: Messages,
   email: string,
 ): Promise<Mail> {
-  await page.goto('/prisijungti');
+  await page.goto('/sign-in');
   const mail = await requestLink(page, request, messages, {
     typed: email,
     inbox: email,
@@ -143,7 +143,7 @@ export async function onboard(
   page: Page,
   { name }: { name: string },
 ): Promise<void> {
-  await expect(page).toHaveURL(/\/pradzia$/);
+  await expect(page).toHaveURL(/\/welcome$/);
   await page.getByRole('textbox').fill(name);
   await page.getByRole('button', { name: en.onboarding.submit }).click();
   await expect(page).toHaveURL(/\/$/);

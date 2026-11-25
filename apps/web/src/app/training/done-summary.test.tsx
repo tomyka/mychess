@@ -133,26 +133,26 @@ describe('the done summary’s buttons', () => {
   });
 
   it('offers new moves only while the allowance is left, and leads back', () => {
-    const { unmount } = renderIn(<DoneActions doneHref="/repertuarai/r1" />);
+    const { unmount } = renderIn(<DoneActions doneHref="/repertoires/r1" />);
     expect(screen.queryByRole('link', { name: T.learn })).toBeNull();
     expect(
       screen.getByRole('link', { name: T.done }).getAttribute('href'),
-    ).toBe('/repertuarai/r1');
+    ).toBe('/repertoires/r1');
     unmount();
-    renderIn(<DoneActions learnHref="/treniruote?mode=learn" doneHref="/" />);
+    renderIn(<DoneActions learnHref="/training?mode=learn" doneHref="/" />);
     expect(
       screen.getByRole('link', { name: T.learn }).getAttribute('href'),
-    ).toBe('/treniruote?mode=learn');
+    ).toBe('/training?mode=learn');
   });
 
   it('offers to start review when given its way there, after Done', () => {
     const { unmount } = renderIn(<DoneActions doneHref="/" />);
     expect(screen.queryByRole('link', { name: T.review })).toBeNull();
     unmount();
-    renderIn(<DoneActions reviewHref="/treniruote?mode=review" doneHref="/" />);
+    renderIn(<DoneActions reviewHref="/training?mode=review" doneHref="/" />);
     expect(
       screen.getByRole('link', { name: T.review }).getAttribute('href'),
-    ).toBe('/treniruote?mode=review');
+    ).toBe('/training?mode=review');
     expect(actionNames()).toEqual([T.done, T.review]);
   });
 
@@ -160,7 +160,7 @@ describe('the done summary’s buttons', () => {
     renderIn(
       <DoneActions
         onContinue={vi.fn()}
-        learnHref="/treniruote?mode=learn"
+        learnHref="/training?mode=learn"
         doneHref="/"
       />,
     );

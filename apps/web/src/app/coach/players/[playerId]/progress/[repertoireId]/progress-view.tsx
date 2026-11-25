@@ -12,7 +12,7 @@ import {
   SECTION,
   SECTION_TITLE,
   TEXT_LINK,
-} from '../../../../../nustatymai/styles';
+} from '../../../../../settings/styles';
 import { StateBar } from '../../../../state-bar';
 import { COACH_PAGE, SubpageHeader } from '../../../../subpage-header';
 

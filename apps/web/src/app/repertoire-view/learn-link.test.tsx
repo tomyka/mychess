@@ -46,7 +46,7 @@ describe('LearnLink (R-206)', () => {
       name: 'Learn 2 new moves in Main',
     });
     expect(link.getAttribute('href')).toBe(
-      `/treniruote?mode=learn&r=r1&chapter=${chapterId}`,
+      `/training?mode=learn&r=r1&chapter=${chapterId}`,
     );
     expect(link.textContent).toBe('Learn (2)');
   });
@@ -66,7 +66,7 @@ describe('LearnLink (R-206)', () => {
       name: 'Learn 2 new moves in this line',
     });
     expect(link.getAttribute('href')).toBe(
-      `/treniruote?mode=learn&r=r1&chapter=${chapterId}&line=1`,
+      `/training?mode=learn&r=r1&chapter=${chapterId}&line=1`,
     );
   });
 

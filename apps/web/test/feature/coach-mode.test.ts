@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   startCoachingAction,
   stopCoachingAction,
-} from '../../src/app/nustatymai/coaching-actions';
+} from '../../src/app/settings/coaching-actions';
 import { actAs, coachPerson, groupOf, link, person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, request, testDb } from './support/request';
@@ -46,7 +46,7 @@ describe('startCoachingAction (R-11, R-13)', () => {
 
   it('sends a signed-out visitor to sign-in', async () => {
     expect(await outcomeOf(startCoachingAction())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 });
@@ -97,7 +97,7 @@ describe('stopCoachingAction (R-100, R-109)', () => {
 
   it('sends a signed-out visitor to sign-in', async () => {
     expect(await outcomeOf(stopCoachingAction())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 });

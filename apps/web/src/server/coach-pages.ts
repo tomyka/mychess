@@ -50,7 +50,7 @@ export interface CoachHomeData {
 }
 
 /**
- * The coach dashboard's home, `/treneris`: the players and when they last
+ * The coach dashboard's home, `/coach`: the players and when they last
  * trained in one read; the groups and invites are the coach's own data.
  */
 export async function coachHomeData(): Promise<CoachHomeData> {

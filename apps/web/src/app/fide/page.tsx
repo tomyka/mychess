@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { requireOnboarded } from '../../server/session';
-import { TEXT_LINK } from '../nustatymai/styles';
+import { TEXT_LINK } from '../settings/styles';
 import { FideSearch } from './fide-search';
 
 function Header(): JSX.Element {

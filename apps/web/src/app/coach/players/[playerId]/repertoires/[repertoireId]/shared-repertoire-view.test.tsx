@@ -103,7 +103,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     expect(screen.getByText(s.readOnly)).toBeDefined();
     expect(
       screen.getByRole('link', { name: 'Back to Rokas' }).getAttribute('href'),
-    ).toBe('/treneris/zaidejai/p-1');
+    ).toBe('/coach/players/p-1');
     expect(screen.getByRole('application')).toBeDefined();
   });
 
@@ -114,7 +114,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
       within(header)
         .getByRole('link', { name: MESSAGES.coach.progress.title })
         .getAttribute('href'),
-    ).toBe(`/treneris/zaidejai/p-1/pazanga/${ID}`);
+    ).toBe(`/coach/players/p-1/progress/${ID}`);
   });
 
   it('has none of the owner’s controls', () => {

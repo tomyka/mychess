@@ -85,8 +85,8 @@ describe('PlayersList', () => {
         .getAllByRole('link')
         .map((link) => [link.textContent, link.getAttribute('href')]),
     ).toEqual([
-      ['Rokas', '/treneris/zaidejai/p-1'],
-      ['Gabija', '/treneris/zaidejai/p-2'],
+      ['Rokas', '/coach/players/p-1'],
+      ['Gabija', '/coach/players/p-2'],
     ]);
     expect(
       playerItem('Rokas').getByText(

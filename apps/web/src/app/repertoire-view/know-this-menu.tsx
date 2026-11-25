@@ -11,7 +11,7 @@ import {
   markKnownAction,
   type KnowCounts,
   type KnowOutcome,
-} from '../repertuarai/know-actions';
+} from '../repertoires/know-actions';
 import { StatusLine } from '../status-line';
 
 /** The form fields naming a move, a line or a chapter (know-actions.ts). */

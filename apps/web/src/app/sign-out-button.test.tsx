@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../i18n/catalogue';
 import { SignOutButton } from './sign-out-button';
-import { queueKey } from './treniruote/result-queue';
+import { queueKey } from './training/result-queue';
 
 const calls = vi.hoisted(() => {
   const order: string[] = [];
@@ -65,7 +65,7 @@ describe('SignOutButton', () => {
   it('signs out, then goes to sign-in', async () => {
     signOutWith('rokas');
     await waitFor(() => {
-      expect(calls.order).toEqual(['signOut', 'push /prisijungti']);
+      expect(calls.order).toEqual(['signOut', 'push /sign-in']);
     });
   });
 
@@ -78,7 +78,7 @@ describe('SignOutButton', () => {
       expect(calls.order).toEqual([
         `post ${JSON.stringify([RESULT])}`,
         'signOut',
-        'push /prisijungti',
+        'push /sign-in',
       ]);
     });
     expect(window.localStorage.getItem(queueKey('rokas'))).toBeNull();

@@ -165,9 +165,9 @@ function renderDrill(
           retry: vi.fn(),
         }}
         links={{
-          back: '/repertuarai/x',
-          learn: '/treniruote?mode=learn',
-          review: '/treniruote?mode=review',
+          back: '/repertoires/x',
+          learn: '/training?mode=learn',
+          review: '/training?mode=review',
         }}
         frame={drawFrame}
         clock={testClock}
@@ -325,7 +325,7 @@ describe('the review drill', () => {
       <TrainingFrame
         {...parts}
         mode="review"
-        backHref="/repertuarai/x"
+        backHref="/repertoires/x"
         defaultTitle="no title"
         side="white"
         banner={null}
@@ -446,7 +446,7 @@ describe('the review drill', () => {
     renderDrill();
     type('d4');
     const end = screen.getByRole('link', { name: T.drill.end });
-    expect(end.getAttribute('href')).toBe('/repertuarai/x');
+    expect(end.getAttribute('href')).toBe('/repertoires/x');
     expect(kinds()).toEqual(['pass']);
   });
 
@@ -470,7 +470,7 @@ describe('the review drill', () => {
     expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
     expect(
       screen.getByRole('link', { name: T.done.learn }).getAttribute('href'),
-    ).toBe('/treniruote?mode=learn');
+    ).toBe('/training?mode=learn');
     expect(screen.queryByRole('link', { name: T.drill.end })).toBeNull();
     // The ways on sit in the bottom bar, Done first.
     const bar = screen.getByRole('main').querySelector('footer');

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completeOnboardingAction } from '../../src/app/pradzia/actions';
-import SignInPage from '../../src/app/prisijungti/page';
+import { completeOnboardingAction } from '../../src/app/welcome/actions';
+import SignInPage from '../../src/app/sign-in/page';
 import { BASE, mailedLink, requestMagicLink } from './support/auth';
 import {
   onboarded,
@@ -31,8 +31,8 @@ afterEach(() => {
 });
 
 const TOKEN = 'A'.repeat(42) + '_';
-const INVITE = `/k/${TOKEN}`;
-const VIA_ONBOARDING = `/pradzia?next=%2Fk%2F${TOKEN}`;
+const INVITE = `/invite/${TOKEN}`;
+const VIA_ONBOARDING = `/welcome?next=%2Finvite%2F${TOKEN}`;
 const RUTA = 'ruta@example.lt';
 
 // Better Auth answers with absolute URLs; resolving against the site keeps

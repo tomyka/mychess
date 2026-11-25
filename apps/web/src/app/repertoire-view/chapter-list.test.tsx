@@ -18,7 +18,7 @@ const server = vi.hoisted(() => ({
   count: vi.fn<(form: FormData) => Promise<unknown>>(),
 }));
 
-vi.mock('../repertuarai/know-actions', () => ({
+vi.mock('../repertoires/know-actions', () => ({
   knowCountAction: server.count,
   markKnownAction: vi.fn(),
   learnAgainAction: vi.fn(),
@@ -423,7 +423,7 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
     });
     expect(links.map((a) => a.getAttribute('href'))).toEqual(
       london.chapters.map(
-        (c) => `/treniruote?mode=learn&r=${REPERTOIRE}&chapter=${c.id}`,
+        (c) => `/training?mode=learn&r=${REPERTOIRE}&chapter=${c.id}`,
       ),
     );
     expect(links.map((a) => a.textContent)).toEqual(

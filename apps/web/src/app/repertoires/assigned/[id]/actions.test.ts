@@ -50,7 +50,7 @@ vi.mock('../../../../server/db', () => ({ getDb: () => DB }));
 
 // The session player; requireOnboarded's redirects are session.ts's own.
 vi.mock('../../../../server/session', () => ({
-  requireOnboarded: () => Promise.resolve({ id: 'rokas', locale: 'lt' }),
+  requireOnboarded: () => Promise.resolve({ id: 'rokas' }),
 }));
 
 /** A form with `fields`. */
@@ -135,7 +135,7 @@ describe('forkAction (R-20, R-128)', () => {
       {},
       formOf({ repertoireId: ID, playerId: 'gabija' }),
     );
-    await expect(sent).rejects.toEqual(new Redirected('/repertuarai/f-1'));
+    await expect(sent).rejects.toEqual(new Redirected('/repertoires/f-1'));
     expect(server.fork).toHaveBeenCalledWith(
       DB,
       { playerId: 'rokas', repertoireId: ID },

@@ -4,7 +4,7 @@
 import { moveKey, START_KEY } from '@mychess/chess';
 import { shareRepertoire, upsertCoachNote } from '@mychess/db';
 import { describe, expect, it, vi } from 'vitest';
-import { setSharesAction } from '../../src/app/repertuarai/[id]/sharing-actions';
+import { setSharesAction } from '../../src/app/repertoires/[id]/sharing-actions';
 import { repertoirePageData } from '../../src/server/repertoires';
 import {
   actAs,
@@ -177,7 +177,7 @@ describe('setSharesAction (R-42)', () => {
     request.cookie = '';
     expect(
       await outcomeOf(setSharesAction({}, sharesForm(taimanov, [rimantas.id]))),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
     expect(await shares()).toEqual([
       { repertoire: 'Londono sistema', coach: 'Rimantas' },
     ]);

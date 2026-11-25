@@ -41,14 +41,14 @@ const mainActions = () =>
 describe('TrainButtons (R-142)', () => {
   it('reviews and learns this repertoire only, with the counts', () => {
     renderButtons(7, 3);
-    expect(href('Review (7)')).toBe(`/treniruote?mode=review&r=${ID}`);
-    expect(href('Learn (3)')).toBe(`/treniruote?mode=learn&r=${ID}`);
+    expect(href('Review (7)')).toBe(`/training?mode=review&r=${ID}`);
+    expect(href('Learn (3)')).toBe(`/training?mode=learn&r=${ID}`);
   });
 
   it('says a zero count too', () => {
     renderButtons(0, 12);
-    expect(href('Review (0)')).toBe(`/treniruote?mode=review&r=${ID}`);
-    expect(href('Learn (12)')).toBe(`/treniruote?mode=learn&r=${ID}`);
+    expect(href('Review (0)')).toBe(`/training?mode=review&r=${ID}`);
+    expect(href('Learn (12)')).toBe(`/training?mode=learn&r=${ID}`);
   });
 
   it('makes Review the main action while moves are due', () => {
@@ -74,9 +74,9 @@ describe('TrainButtons (R-142)', () => {
       screen.getByText(/Daily limit reached: 10 new moves a day\./),
     ).toBeDefined();
     expect(href(MESSAGES.training.repertoire.limitSettings)).toBe(
-      '/nustatymai#treniruote',
+      '/settings#training',
     );
-    expect(href('Review (2)')).toBe(`/treniruote?mode=review&r=${ID}`);
+    expect(href('Review (2)')).toBe(`/training?mode=review&r=${ID}`);
   });
 
   it('says the daily limit is reached with nothing due too', () => {
@@ -85,7 +85,7 @@ describe('TrainButtons (R-142)', () => {
       screen.getByText(/Daily limit reached: 10 new moves a day\./),
     ).toBeDefined();
     expect(href(MESSAGES.training.repertoire.limitSettings)).toBe(
-      '/nustatymai#treniruote',
+      '/settings#training',
     );
   });
 });

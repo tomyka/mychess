@@ -33,7 +33,7 @@ export { CoachNotes, type MoveCoachNote } from './coach-notes';
 export { movesBetween } from './board-play';
 
 // The builder block: only the owner's builder hooks
-// (repertuarai/[id]/use-builder.ts) use these, to turn the screen state into
+// (repertoires/[id]/use-builder.ts) use these, to turn the screen state into
 // edits (where a new move lands, what a mark change says, the remove bar)
 // and to fill the panel's builder fields.
 export { SAVING, type ScreenMessage } from './screen-state';

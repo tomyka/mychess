@@ -53,12 +53,12 @@ describe('HomeView', () => {
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeDefined();
     expect(
       screen.getByRole('link', { name: 'Settings' }).getAttribute('href'),
-    ).toBe('/nustatymai');
+    ).toBe('/settings');
     expect(
       screen
         .getByRole('link', { name: MESSAGES.app.repertoires })
         .getAttribute('href'),
-    ).toBe('/repertuarai');
+    ).toBe('/repertoires');
     // The FIDE ID search (#316), for every account (R-186).
     expect(
       screen
@@ -88,10 +88,10 @@ describe('HomeView', () => {
       screen
         .getByRole('link', { name: MESSAGES.app.coachArea })
         .getAttribute('href'),
-    ).toBe('/treneris');
+    ).toBe('/coach');
     expect(
       screen.getByRole('link', { name: 'Settings' }).getAttribute('href'),
-    ).toBe('/nustatymai');
+    ).toBe('/settings');
   });
 
   it('shows what a coach assigned and the copies left to keep (R-15, R-44)', () => {
@@ -160,6 +160,6 @@ describe('HomeView', () => {
       screen
         .getByRole('link', { name: MESSAGES.training.today.start })
         .getAttribute('href'),
-    ).toBe('/treniruote?mode=review');
+    ).toBe('/training?mode=review');
   });
 });

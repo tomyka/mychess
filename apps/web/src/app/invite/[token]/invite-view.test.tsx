@@ -93,7 +93,7 @@ describe('InviteView', () => {
     expect(screen.queryByText(i.explain)).toBeNull();
     expect(
       screen.getByRole('link', { name: i.myCoaches }).getAttribute('href'),
-    ).toBe('/nustatymai#treneriai');
+    ).toBe('/settings#coaches');
   });
 
   it('names no group on an accepted personal invite without one', () => {

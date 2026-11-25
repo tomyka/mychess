@@ -52,7 +52,7 @@ const C3_COMMENT = 'Ruošiame d4, bet neskubame.';
 
 /** The page of `name` among the coach's repertoires. */
 async function openOwn(coach: Page, name: string): Promise<void> {
-  await coach.goto('/repertuarai');
+  await coach.goto('/repertoires');
   await coach.getByRole('link', { name: new RegExp(`^${name}`) }).click();
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(name);
 }
@@ -124,7 +124,7 @@ async function assignToRokas(
   await rokas.reload();
   await expectAssigned(rokas, cast, ITALIAN, null);
   await rokas.getByRole('link', { name: ITALIAN, exact: true }).click();
-  await expect(rokas).toHaveURL(/\/repertuarai\/priskirti\/[0-9a-f-]{36}$/);
+  await expect(rokas).toHaveURL(/\/repertoires\/assigned\/[0-9a-f-]{36}$/);
   await expectCoachNote(rokas, cast);
   await gabija.reload();
   await expect(homeAssignment(gabija, messages, KARO_KAN)).toBeVisible();
@@ -219,7 +219,7 @@ async function updatedOnce(rokas: Page, cast: Cast): Promise<string> {
   await rokas.reload();
   await expect(badge(item, messages, 'updated')).toBeVisible();
   await item.getByRole('link', { name: ITALIAN, exact: true }).click();
-  await expect(rokas).toHaveURL(/\/repertuarai\/priskirti\//);
+  await expect(rokas).toHaveURL(/\/repertoires\/assigned\//);
   const summary = rokas.getByRole('region', { name: t.title });
   const added = format(t.added, { moves: '9. h3' });
   await expect(summary.getByText(added).first()).toBeVisible();
@@ -285,7 +285,7 @@ async function makeOwnCopy(
     rokas.getByText(format(t.question, { name: ITALIAN })),
   ).toBeVisible();
   await rokas.getByRole('button', { name: t.confirm, exact: true }).click();
-  await expect(rokas).toHaveURL(/\/repertuarai\/[0-9a-f-]{36}$/);
+  await expect(rokas).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(rokas.getByRole('heading', { level: 1 })).toHaveText(ITALIAN);
   // The fork's 4.c3 has no comment of its own, only the kept note's mark.
   await chip(rokas, `4. c3, ${r.moves.hasKeptCoachNote}`).click();

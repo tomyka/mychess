@@ -11,13 +11,13 @@ export async function switchOnCoachMode(
 ): Promise<void> {
   const t = messages.settings.coachMode;
   await page.getByRole('link', { name: messages.app.settings }).click();
-  await expect(page).toHaveURL(/\/nustatymai/);
+  await expect(page).toHaveURL(/\/settings/);
   await page.getByRole('button', { name: t.switchOn }).click();
   await expect(page.getByText(t.on, { exact: true })).toBeVisible();
 }
 
 /** An invite link as the dashboard shows it once. */
-const INVITE_LINK = /\/k\/[A-Za-z0-9_-]{43}$/;
+const INVITE_LINK = /\/invite\/[A-Za-z0-9_-]{43}$/;
 
 /**
  * On the coach dashboard: a new group named `name`; returns the group
@@ -64,8 +64,8 @@ export async function createInvite(
 }
 
 /**
- * On the invite's confirm screen: Accept, landing on "Mano treneriai",
- * which says the invite was accepted (#329). Once said, `?treneris=`
+ * On the invite's confirm screen: Accept, landing on "My coaches",
+ * which says the invite was accepted (#329). Once said, `?coach=`
  * leaves the address, so a reload does not say it again.
  */
 export async function acceptInvite(
@@ -80,7 +80,7 @@ export async function acceptInvite(
   await expect(
     page.getByRole('status').filter({ hasText: before ?? '' }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/nustatymai#treneriai$/);
+  await expect(page).toHaveURL(/\/settings#coaches$/);
 }
 
 /** The confirm screen names the coach and, for a group invite, the group. */
@@ -106,20 +106,20 @@ export async function signUpThroughInvite(
   request: APIRequestContext,
   { link, name }: { link: string; name: string },
 ): Promise<void> {
-  const token = /\/k\/([A-Za-z0-9_-]{43})$/.exec(link)?.[1];
+  const token = /\/invite\/([A-Za-z0-9_-]{43})$/.exec(link)?.[1];
   if (token === undefined) throw new Error(`no token in ${link}`);
-  const next = encodeURIComponent(`/k/${token}`);
+  const next = encodeURIComponent(`/invite/${token}`);
   await page.goto(link);
-  await expect(page).toHaveURL(new RegExp(`/prisijungti\\?next=${next}$`));
+  await expect(page).toHaveURL(new RegExp(`/sign-in\\?next=${next}$`));
   const email = freshEmail();
   const mail = await requestLink(page, request, en, {
     typed: email,
     inbox: email,
   });
   await page.goto(linkIn(mail.Text));
-  await expect(page).toHaveURL(new RegExp(`/pradzia\\?next=${next}$`));
+  await expect(page).toHaveURL(new RegExp(`/welcome\\?next=${next}$`));
   // Only the name: no language is offered to choose.
   await page.getByRole('textbox').fill(name);
   await page.getByRole('button', { name: en.onboarding.submit }).click();
-  await expect(page).toHaveURL(new RegExp(`/k/${token}$`));
+  await expect(page).toHaveURL(new RegExp(`/invite/${token}$`));
 }

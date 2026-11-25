@@ -4,7 +4,7 @@ import type { Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, type JSX, type ReactNode } from 'react';
 import type { ImportTarget } from '../../../server/import-preview';
-import { SECTION_TITLE } from '../../nustatymai/styles';
+import { SECTION_TITLE } from '../../settings/styles';
 import { StepNumber } from './file-step';
 import type { ImportOption, TargetChoice } from './use-import-flow';
 

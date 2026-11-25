@@ -63,7 +63,7 @@ describe('the import page', () => {
     expect(screen.getByText(i.intro)).toBeDefined();
     expect(
       screen.getByRole('link', { name: i.back }).getAttribute('href'),
-    ).toBe('/repertuarai');
+    ).toBe('/repertoires');
     const file = screen.getByLabelText<HTMLInputElement>(i.file);
     expect(file.type).toBe('file');
     expect(file.accept).toBe('.pgn,application/x-chess-pgn,text/plain');

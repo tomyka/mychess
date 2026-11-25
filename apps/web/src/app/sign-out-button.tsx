@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '../lib/auth-client';
 import { ROUTES } from '../lib/routes';
 import { SECONDARY_BUTTON } from './buttons';
-import { flushThenClear } from './treniruote/result-queue';
-import { postBatch } from './treniruote/use-result-sync';
+import { flushThenClear } from './training/result-queue';
+import { postBatch } from './training/use-result-sync';
 
 /**
  * Ends this browser's session and goes to sign-in. The account's unsent

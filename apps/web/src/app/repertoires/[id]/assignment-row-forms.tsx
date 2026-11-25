@@ -9,7 +9,7 @@ import { FIELD } from '../../fields';
 import { ConfirmedAction } from '../../confirmed-action';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
-import { RefusalLine } from '../../treneris/refusal-line';
+import { RefusalLine } from '../../coach/refusal-line';
 import { useLatestAction } from '../../use-latest-action';
 import {
   clearDeadlineAction,

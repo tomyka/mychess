@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
 import { ROUTES } from '../../lib/routes';
-import { TEXT_LINK } from '../nustatymai/styles';
+import { TEXT_LINK } from '../settings/styles';
 
 /** The column every page of the coach dashboard is laid out in. */
 export const COACH_PAGE =

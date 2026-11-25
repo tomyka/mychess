@@ -1,7 +1,7 @@
 import { inviteTokenSchema } from '@mychess/domain';
 import { ROUTES } from './routes';
 
-const INVITE_PREFIX = '/k/';
+const INVITE_PREFIX = '/invite/';
 
 /**
  * Where to send a person back to after sign-in or onboarding (R-81): only

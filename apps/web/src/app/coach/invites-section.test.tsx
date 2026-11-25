@@ -63,7 +63,7 @@ const INVITES: readonly CoachInviteRow[] = [
   },
 ];
 
-const LINK = `http://localhost:3000/k/${'A'.repeat(43)}`;
+const LINK = `http://localhost:3000/invite/${'A'.repeat(43)}`;
 
 function renderSection(invites: readonly CoachInviteRow[] = []): void {
   render(

@@ -71,7 +71,7 @@ describe('the progress page (R-152)', () => {
     const header = screen.getByRole('banner');
     expect(
       within(header).getByRole('link', { name: 'Rokas' }).getAttribute('href'),
-    ).toBe('/treneris/zaidejai/p-1');
+    ).toBe('/coach/players/p-1');
     expect(
       within(header).getByText(MESSAGES.assignment.badge.paused),
     ).toBeTruthy();

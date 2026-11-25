@@ -11,13 +11,13 @@
 # Checks: GET /api/version names the commit in the tag (asked only for a tag
 # `<40-hex sha>-arm64`; any other tag skips it with a warning), and the pages
 # in VERIFY_PAGES end in 200. Redirects are followed: a signed-out visitor's
-# `/` is sent to the sign-in page, /prisijungti. Settings:
+# `/` is sent to the sign-in page, /sign-in. Settings:
 #   VERIFY_HOST      the site's name (required; deploy-production.sh takes it
 #                    from BETTER_AUTH_URL in the production .env)
 #   SKIP_VERSION_CHECK=1  skips only the commit comparison, with a loud warning
 #   VERIFY_ATTEMPTS  tries (default 12) and VERIFY_INTERVAL seconds between (default 5)
 
-VERIFY_PAGES=(/ /prisijungti)
+VERIFY_PAGES=(/ /sign-in)
 verify_failure=""
 
 verify_get() { # path [curl options...]

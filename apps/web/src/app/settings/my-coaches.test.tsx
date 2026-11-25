@@ -47,19 +47,19 @@ function renderCoaches(
 }
 
 describe('MyCoaches after an invite is accepted (#329)', () => {
-  it('drops ?treneris= from the address once it shows, so a reload does not say it again', () => {
-    window.history.replaceState(null, '', '/nustatymai?treneris=c-2#treneriai');
+  it('drops ?coach= from the address once it shows, so a reload does not say it again', () => {
+    window.history.replaceState(null, '', '/settings?coach=c-2#coaches');
     renderCoaches([JONAS, ONA], ONA.id);
     expect(screen.getByRole('status').textContent).toBe(
       m.accepted.replace('{name}', 'Ona'),
     );
-    expect(window.location.pathname).toBe('/nustatymai');
+    expect(window.location.pathname).toBe('/settings');
     expect(window.location.search).toBe('');
-    expect(window.location.hash).toBe('#treneriai');
+    expect(window.location.hash).toBe('#coaches');
   });
 
   it('leaves the address alone without an accepted invite', () => {
-    window.history.replaceState(null, '', '/nustatymai?tab=x');
+    window.history.replaceState(null, '', '/settings?tab=x');
     renderCoaches([JONAS]);
     expect(window.location.search).toBe('?tab=x');
   });
@@ -92,10 +92,10 @@ beforeEach(() => {
 });
 
 describe('MyCoaches ("My coaches")', () => {
-  it('is the settings section #treneriai the invite page lands on', () => {
+  it('is the settings section #coaches the invite page lands on', () => {
     renderCoaches([JONAS]);
     const section = screen.getByRole('region', { name: m.title });
-    expect(section.id).toBe('treneriai');
+    expect(section.id).toBe('coaches');
   });
 
   it('says when no coach is linked', () => {

@@ -80,7 +80,7 @@ beforeEach(() => {
 describe('deleteAccountAction (R-40, R-82, R-87)', () => {
   it('mails the confirmation, signs out and goes to sign-in', async () => {
     await expect(deleteAccountAction({}, formOf('Rūta'))).rejects.toEqual(
-      new Redirected('/prisijungti?deleted=1'),
+      new Redirected('/sign-in?deleted=1'),
     );
     expect(server.deleteAccount).toHaveBeenCalledWith(DB, {
       id: 'a1',
@@ -98,7 +98,7 @@ describe('deleteAccountAction (R-40, R-82, R-87)', () => {
       Object.assign(new TypeError(`rejected recipient ${TO}`), { to: TO }),
     );
     await expect(deleteAccountAction({}, formOf('Rūta'))).rejects.toEqual(
-      new Redirected('/prisijungti?deleted=1'),
+      new Redirected('/sign-in?deleted=1'),
     );
     expect(logged).toHaveBeenCalledWith(
       'account deletion: confirmation mail not sent',
@@ -112,7 +112,7 @@ describe('deleteAccountAction (R-40, R-82, R-87)', () => {
   it('logs something thrown that is not an error by its kind only', async () => {
     server.send.mockRejectedValue(TO);
     await expect(deleteAccountAction({}, formOf('Rūta'))).rejects.toEqual(
-      new Redirected('/prisijungti?deleted=1'),
+      new Redirected('/sign-in?deleted=1'),
     );
     expect(logged).toHaveBeenCalledWith(
       'account deletion: confirmation mail not sent',
@@ -126,7 +126,7 @@ describe('deleteAccountAction (R-40, R-82, R-87)', () => {
       value: { confirmationMail: null },
     });
     await expect(deleteAccountAction({}, formOf('Rūta'))).rejects.toEqual(
-      new Redirected('/prisijungti?deleted=1'),
+      new Redirected('/sign-in?deleted=1'),
     );
     expect(server.send).not.toHaveBeenCalled();
   });

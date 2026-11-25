@@ -23,7 +23,7 @@ test(
     const email = freshEmail();
 
     await page.goto('/');
-    await expect(page).toHaveURL(/\/prisijungti$/);
+    await expect(page).toHaveURL(/\/sign-in$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       en.signIn.title,
@@ -36,7 +36,7 @@ test(
     expect(mail.Subject).toBe(en.mail.magicLink.subject);
 
     await page.goto(linkIn(mail.Text));
-    await expect(page).toHaveURL(/\/pradzia$/);
+    await expect(page).toHaveURL(/\/welcome$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       en.onboarding.title,
@@ -63,14 +63,14 @@ test('signing in again with the email upper-cased reaches the same account', asy
   const other = await newDevice(browser);
   try {
     const phone = await other.newPage();
-    await phone.goto('/prisijungti');
+    await phone.goto('/sign-in');
     const mail = await requestLink(phone, request, en, {
       typed: email.toUpperCase(),
       inbox: email,
     });
     await phone.goto(linkIn(mail.Text));
 
-    // Already onboarded: home, not /pradzia, so it is the one account.
+    // Already onboarded: home, not /welcome, so it is the one account.
     await expect(phone).toHaveURL(/\/$/);
     await expectGreeting(phone, en, 'Gabija');
   } finally {
@@ -85,10 +85,10 @@ test('after signing out, the home page sends the visitor to sign-in', async ({
   await newOnboardedAccount(page, request, 'Rimantas');
 
   await page.getByRole('button', { name: en.app.signOut }).click();
-  await expect(page).toHaveURL(/\/prisijungti$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
 
   await page.goto('/');
-  await expect(page).toHaveURL(/\/prisijungti$/);
+  await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     en.signIn.title,
   );

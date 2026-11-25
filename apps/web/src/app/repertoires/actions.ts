@@ -1,6 +1,6 @@
 'use server';
 
-// Mano repertuarai's actions. The owner is always the session account,
+// My repertoires's actions. The owner is always the session account,
 // never an id from the form.
 import { emptyGraph } from '@mychess/chess';
 import { createRepertoire } from '@mychess/db';

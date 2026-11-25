@@ -1,13 +1,13 @@
 import { moveKey, START_KEY } from '@mychess/chess';
 import { isValidElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import RepertoireLayout from '../../src/app/repertuarai/[id]/layout';
-import RepertoirePage from '../../src/app/repertuarai/[id]/page';
+import RepertoireLayout from '../../src/app/repertoires/[id]/layout';
+import RepertoirePage from '../../src/app/repertoires/[id]/page';
 import {
   deleteRepertoireAction,
   renameRepertoireAction,
   savePersonalNoteAction,
-} from '../../src/app/repertuarai/[id]/actions';
+} from '../../src/app/repertoires/[id]/actions';
 import { chapterNamesOf } from '../../src/server/chapter-names';
 import { repertoirePageData } from '../../src/server/repertoires';
 import { actAs, formOf, person, type Person } from './support/coaching';
@@ -122,7 +122,7 @@ describe('the repertoire page', () => {
     const { london } = await cast();
     request.cookie = '';
     expect(await outcomeOf(RepertoirePage(pageProps(london)))).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 });
@@ -226,7 +226,7 @@ describe('savePersonalNoteAction (R-21)', () => {
           text: 'a',
         }),
       ),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
   });
 });
 
@@ -285,7 +285,7 @@ describe('deleteRepertoireAction', () => {
       await outcomeOf(
         deleteRepertoireAction({}, formOf({ repertoireId: london })),
       ),
-    ).toEqual({ redirectedTo: '/repertuarai?deleted=1' });
+    ).toEqual({ redirectedTo: '/repertoires?deleted=1' });
     expect(await names()).toEqual([]);
     expect(await notes()).toEqual([]);
     expect(await sql.count('repertoire_moves')).toBe(0);
@@ -314,7 +314,7 @@ describe('deleteRepertoireAction', () => {
       await outcomeOf(
         deleteRepertoireAction({}, formOf({ repertoireId: london })),
       ),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
     expect(await names()).toEqual([{ name: 'Londono sistema', version: 1 }]);
   });
 });

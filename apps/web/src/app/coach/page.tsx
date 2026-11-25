@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { coachHomeData } from '../../server/coach-pages';
-import { TEXT_LINK } from '../nustatymai/styles';
+import { TEXT_LINK } from '../settings/styles';
 import { GroupsSection } from './groups-section';
 import { InvitesSection } from './invites-section';
 import { PlayersList } from './players-list';

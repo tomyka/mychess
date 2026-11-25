@@ -5,59 +5,59 @@
 import type { LearnFocus, TrainingMode } from '@mychess/chess';
 
 /** The id of settings' training section, which ROUTES.trainingSettings opens. */
-export const TRAINING_SETTINGS_SECTION = 'treniruote';
+export const TRAINING_SETTINGS_SECTION = 'training';
 
 export const ROUTES = {
   home: '/',
-  signIn: '/prisijungti',
-  onboarding: '/pradzia',
-  settings: '/nustatymai',
-  repertoires: '/repertuarai',
-  repertoireImport: '/repertuarai/importuoti',
-  coach: '/treneris',
+  signIn: '/sign-in',
+  onboarding: '/welcome',
+  settings: '/settings',
+  repertoires: '/repertoires',
+  repertoireImport: '/repertoires/import',
+  coach: '/coach',
   /** The training page (S6 plan decision 9); trainingPath builds its links. */
-  training: '/treniruote',
+  training: '/training',
   /** The FIDE ID search (#316); the ID is posted, never in the URL. */
   fideSearch: '/fide',
-  /** The "Mano treneriai" section of settings (plan decision 12). */
-  myCoaches: '/nustatymai#treneriai',
+  /** The "My coaches" section of settings (plan decision 12). */
+  myCoaches: '/settings#coaches',
   /** The training section of settings: the limits and the arrows (R-205). */
-  trainingSettings: `/nustatymai#${TRAINING_SETTINGS_SECTION}`,
+  trainingSettings: `/settings#${TRAINING_SETTINGS_SECTION}`,
 } as const;
 
 /** An invite link's page; the token is one path segment. */
 export const invitePath = (token: string): string =>
-  `/k/${encodeURIComponent(token)}`;
+  `/invite/${encodeURIComponent(token)}`;
 
 /**
- * "Mano treneriai" after accepting an invite: it names the coach just
+ * "My coaches" after accepting an invite: it names the coach just
  * linked, by id, so the section can say so (#329). The page shows the name
  * only for a coach the session account is linked to.
  */
 export const acceptedInvitePath = (coachId: string): string =>
-  `${ROUTES.settings}?treneris=${encodeURIComponent(coachId)}#treneriai`;
+  `${ROUTES.settings}?coach=${encodeURIComponent(coachId)}#coaches`;
 
 /** One linked player's page in the coach dashboard. */
 export const coachPlayerPath = (playerId: string): string =>
-  `${ROUTES.coach}/zaidejai/${encodeURIComponent(playerId)}`;
+  `${ROUTES.coach}/players/${encodeURIComponent(playerId)}`;
 
 /** A player's repertoire shared with the coach, in the coach dashboard. */
 export const coachSharedRepertoirePath = (
   playerId: string,
   repertoireId: string,
 ): string =>
-  `${coachPlayerPath(playerId)}/repertuarai/${encodeURIComponent(repertoireId)}`;
+  `${coachPlayerPath(playerId)}/repertoires/${encodeURIComponent(repertoireId)}`;
 
 /** A player's progress on one repertoire, in the coach dashboard (R-152). */
 export const coachProgressPath = (
   playerId: string,
   repertoireId: string,
 ): string =>
-  `${coachPlayerPath(playerId)}/pazanga/${encodeURIComponent(repertoireId)}`;
+  `${coachPlayerPath(playerId)}/progress/${encodeURIComponent(repertoireId)}`;
 
 /** One group's page in the coach dashboard. */
 export const coachGroupPath = (groupId: string): string =>
-  `${ROUTES.coach}/grupes/${encodeURIComponent(groupId)}`;
+  `${ROUTES.coach}/groups/${encodeURIComponent(groupId)}`;
 
 /** One repertoire's page (browse and builder). */
 export const repertoireRoute = (id: string): string =>
@@ -65,7 +65,7 @@ export const repertoireRoute = (id: string): string =>
 
 /** A repertoire the player has by assignment, as they see it (decision 11). */
 export const assignedRepertoirePath = (id: string): string =>
-  `${ROUTES.repertoires}/priskirti/${encodeURIComponent(id)}`;
+  `${ROUTES.repertoires}/assigned/${encodeURIComponent(id)}`;
 
 /** The query parameter a repertoire's page opens on a chapter by. */
 export const CHAPTER_PARAM = 'chapter';
@@ -107,5 +107,5 @@ export const learnPath = (
 /** Where the browser posts its queued training results. */
 export const trainingResultsRoute = '/api/training/results';
 
-/** Mano repertuarai after a delete: its status line says so. */
+/** My repertoires after a delete: its status line says so. */
 export const repertoireDeletedRoute = `${ROUTES.repertoires}?deleted=1`;

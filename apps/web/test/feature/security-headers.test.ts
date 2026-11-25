@@ -9,7 +9,7 @@ describe('the security headers on every page', () => {
         headers: [
           { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-          // An invite link carries its token in the path (/k/<token>): a
+          // An invite link carries its token in the path (/invite/<token>): a
           // link followed from that page must not send it on.
           { key: 'Referrer-Policy', value: 'same-origin' },
         ],

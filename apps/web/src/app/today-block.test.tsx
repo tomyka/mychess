@@ -45,8 +45,8 @@ describe('TodayBlock (U1-M1-3)', () => {
       screen.getByRole('heading', { level: 2, name: t.title }),
     ).toBeDefined();
     expect(screen.getByText('12 due · about 2 min')).toBeDefined();
-    expect(link(t.start)).toBe('/treniruote?mode=review');
-    expect(link('Learn 3 new moves')).toBe('/treniruote?mode=learn');
+    expect(link(t.start)).toBe('/training?mode=review');
+    expect(link('Learn 3 new moves')).toBe('/training?mode=learn');
     // The next review time is for when nothing is due.
     expect(screen.queryByText(/Next review/)).toBeNull();
   });
@@ -54,7 +54,7 @@ describe('TodayBlock (U1-M1-3)', () => {
   it('says one new move in the singular', () => {
     renderBlock({ due: 1, toLearn: 1, minutes: 1, nextDue: NEXT });
     expect(screen.getByText('1 due · about 1 min')).toBeDefined();
-    expect(link('Learn 1 new move')).toBe('/treniruote?mode=learn');
+    expect(link('Learn 1 new move')).toBe('/training?mode=learn');
   });
 
   it('offers no new moves when none are left today', () => {
@@ -71,7 +71,7 @@ describe('TodayBlock (U1-M1-3)', () => {
     expect(screen.getByText(t.nothingDue)).toBeDefined();
     expect(screen.getByText('Next review: in 3 h')).toBeDefined();
     expect(screen.queryByRole('link', { name: t.start })).toBeNull();
-    expect(link('Learn 2 new moves')).toBe('/treniruote?mode=learn');
+    expect(link('Learn 2 new moves')).toBe('/training?mode=learn');
   });
 
   it.each<[now: string, text: string]>([
@@ -162,10 +162,10 @@ describe('TodayBlock’s due moves per repertoire (R-207)', () => {
       'whitespace-nowrap',
     );
     expect(links.map((a) => a.getAttribute('href'))).toEqual([
-      '/treniruote?mode=review&r=r2',
-      '/treniruote?mode=review&r=r1',
+      '/training?mode=review&r=r2',
+      '/training?mode=review&r=r1',
     ]);
     // The review of every repertoire stays the main action.
-    expect(link(t.start)).toBe('/treniruote?mode=review');
+    expect(link(t.start)).toBe('/training?mode=review');
   });
 });

@@ -116,7 +116,7 @@ describe('the assigned repertoire page', () => {
     expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
       screen.getByRole('link', { name: 'Review (3)' }).getAttribute('href'),
-    ).toBe(`/treniruote?mode=review&r=${ID}`);
+    ).toBe(`/training?mode=review&r=${ID}`);
     expect(screen.getByRole('link', { name: 'Learn (5)' })).toBeDefined();
   });
 

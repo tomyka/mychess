@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   deleteRepertoireAction,
   renameRepertoireAction,
-} from '../../src/app/repertuarai/[id]/actions';
+} from '../../src/app/repertoires/[id]/actions';
 import type * as Repertoires from '../../src/server/repertoires';
 import { actAs, formOf, person } from './support/coaching';
 import { useRequestHarness } from './support/harness';

@@ -82,7 +82,7 @@ test('#323: the training screen fits from a phone to a desktop, the move field i
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport);
     // Each width opens the card afresh, as a player would.
-    await page.goto('/treniruote?mode=review');
+    await page.goto('/training?mode=review');
     await expectCounter(page, 0, 1);
     await expect(
       page.getByLabel(en.board.moveInput.label, { exact: true }),

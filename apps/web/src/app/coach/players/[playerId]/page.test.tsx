@@ -50,7 +50,7 @@ describe('the coach dashboard’s player page', () => {
     ).toBeDefined();
     expect(
       screen.getByRole('link', { name: /^Taimanovas/ }).getAttribute('href'),
-    ).toBe('/treneris/zaidejai/p-1/repertuarai/r-1');
+    ).toBe('/coach/players/p-1/repertoires/r-1');
     expect(
       screen.getByText(c.progress.empty.replace('{name}', 'Rokas')),
     ).toBeDefined();
@@ -64,6 +64,6 @@ describe('the coach dashboard’s player page', () => {
     ).toBeDefined();
     expect(
       screen.getByRole('link', { name: c.back }).getAttribute('href'),
-    ).toBe('/treneris');
+    ).toBe('/coach');
   });
 });

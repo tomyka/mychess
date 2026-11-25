@@ -1,4 +1,4 @@
-// Repertoire steps for the E2E journeys: Mano repertuarai, the repertoire
+// Repertoire steps for the E2E journeys: My repertoires, the repertoire
 // page's chapter list and move list, and the import flow.
 import { stat } from 'node:fs/promises';
 import { basename } from 'node:path';
@@ -39,16 +39,16 @@ export function plural(
   );
 }
 
-/** From home to Mano repertuarai. */
+/** From home to My repertoires. */
 export async function openRepertoires(
   page: Page,
   messages: Messages,
 ): Promise<void> {
   await page.getByRole('link', { name: messages.app.repertoires }).click();
-  await expect(page).toHaveURL(/\/repertuarai$/);
+  await expect(page).toHaveURL(/\/repertoires$/);
 }
 
-/** Creates a repertoire from Mano repertuarai; it opens in builder mode. */
+/** Creates a repertoire from My repertoires; it opens in builder mode. */
 export async function createRepertoire(
   page: Page,
   messages: Messages,
@@ -58,7 +58,7 @@ export async function createRepertoire(
   await page.getByLabel(t.name, { exact: true }).fill(name);
   await page.getByRole('radio', { name: t[side] }).check();
   await page.getByRole('button', { name: t.submit }).click();
-  await expect(page).toHaveURL(/\/repertuarai\/[0-9a-f-]{36}/);
+  await expect(page).toHaveURL(/\/repertoires\/[0-9a-f-]{36}/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
   // Plan decision 18: a new, empty repertoire opens in builder mode.
   await expect(
@@ -147,7 +147,7 @@ export async function previewImport(
   { file, side }: { file: string; side?: 'white' | 'black' },
 ): Promise<void> {
   const t = messages.repertoires;
-  await expect(page).toHaveURL(/\/repertuarai\/importuoti/);
+  await expect(page).toHaveURL(/\/repertoires\/import/);
   const chosen = format(t.import.fileChosen, {
     name: basename(file),
     size: String(Math.ceil((await stat(file)).size / 1024)),

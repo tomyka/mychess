@@ -1,7 +1,7 @@
 import type { DeletableAccount } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { DeleteSection } from '../nustatymai/delete-section';
+import { DeleteSection } from '../settings/delete-section';
 
 /**
  * A way out before onboarding (R-86): the delete section, folded away

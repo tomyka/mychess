@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createRepertoireAction } from '../../src/app/repertuarai/actions';
+import { createRepertoireAction } from '../../src/app/repertoires/actions';
 import { myRepertoires } from '../../src/server/repertoires';
 import { actAs, formOf, person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
@@ -51,7 +51,7 @@ describe('createRepertoireAction', () => {
       (row) => z.object({ id: z.uuid() }).parse(row).id,
     );
     expect(ids).toHaveLength(1);
-    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${ids.join('')}` });
+    expect(outcome).toEqual({ redirectedTo: `/repertoires/${ids.join('')}` });
     expect(await repertoireRows()).toEqual([
       {
         owner: 'Rokas',
@@ -101,7 +101,7 @@ describe('createRepertoireAction', () => {
           formOf({ name: 'Londono sistema', side: 'white' }),
         ),
       ),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    ).toEqual({ redirectedTo: '/sign-in' });
     expect(await repertoireRows()).toEqual([]);
   });
 });
@@ -135,7 +135,7 @@ describe('myRepertoires', () => {
 
   it('sends a signed-out visitor to sign-in', async () => {
     expect(await outcomeOf(myRepertoires())).toEqual({
-      redirectedTo: '/prisijungti',
+      redirectedTo: '/sign-in',
     });
   });
 });

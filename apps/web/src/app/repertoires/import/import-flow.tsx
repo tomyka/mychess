@@ -4,7 +4,7 @@ import { useMessages, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, type JSX } from 'react';
 import { isMessageKey } from '../../../i18n/message-key';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../buttons';
-import { SECTION } from '../../nustatymai/styles';
+import { SECTION } from '../../settings/styles';
 import { StatusLine } from '../../status-line';
 import { ChosenFile, FileStep } from './file-step';
 import { ImportSummary } from './import-summary';

@@ -110,10 +110,10 @@ async function expectNoPrivateName(page: Page): Promise<void> {
   expect(await page.content()).not.toContain(LONDON);
 }
 
-/** The players list on /treneris: each player's "last trained". */
+/** The players list on /coach: each player's "last trained". */
 async function playersList(coach: Page, cast: Cast): Promise<void> {
   const t = cast.messages.coach.players;
-  await coach.goto('/treneris');
+  await coach.goto('/coach');
   const list = coach.getByRole('region', { name: t.title, exact: true });
   for (const name of [GABIJA, ROKAS, DOVYDAS] as const) {
     const row = list.getByRole('listitem').filter({
@@ -146,7 +146,7 @@ function cellName(cast: Cast, name: Seeded): string {
 async function groupGrid(coach: Page, cast: Cast): Promise<void> {
   const t = cast.messages.coach.progress;
   await coach.getByRole('link', { name: GROUP, exact: true }).click();
-  await expect(coach).toHaveURL(/\/treneris\/grupes\//);
+  await expect(coach).toHaveURL(/\/coach\/groups\//);
   const grid = coach.getByRole('region', { name: t.gridTitle, exact: true });
   await expect(
     grid.getByRole('columnheader', { name: KARO_KAN, exact: true }),
@@ -169,7 +169,7 @@ async function groupGrid(coach: Page, cast: Cast): Promise<void> {
   await grid
     .getByRole('link', { name: cellName(cast, ROKAS), exact: true })
     .click();
-  await expect(coach).toHaveURL(/\/pazanga\/[0-9a-f-]{36}$/);
+  await expect(coach).toHaveURL(/\/progress\/[0-9a-f-]{36}$/);
 }
 
 /** The progress page's header: the repertoire, the player, the whole bar. */
@@ -213,7 +213,7 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
   await expect(lines.getByText(counts, { exact: true })).toBeVisible();
   await expectNoPrivateName(coach);
   await header.getByRole('link', { name: ROKAS, exact: true }).click();
-  await expect(coach).toHaveURL(/\/treneris\/zaidejai\/[^/]+$/);
+  await expect(coach).toHaveURL(/\/coach\/players\/[^/]+$/);
 }
 
 /** The player page's progress section (R-151 to R-155). */
@@ -268,7 +268,7 @@ async function dovydasPage(
 ): Promise<void> {
   const { messages } = cast;
   const t = messages.coach.progress;
-  await coach.goto('/treneris');
+  await coach.goto('/coach');
   await coach.getByRole('link', { name: DOVYDAS, exact: true }).click();
   const section = progressSection(coach, cast);
   await expect(
@@ -292,7 +292,7 @@ async function dovydasPage(
 async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
   const { messages } = cast;
   const t = messages.coach.progress;
-  await coach.goto('/treneris');
+  await coach.goto('/coach');
   await coach.getByRole('link', { name: GABIJA, exact: true }).click();
   const caroKann = progressRow(coach, cast, KARO_KAN);
   await expect(
@@ -311,10 +311,10 @@ async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
     .getByRole('region', { name: messages.coach.shared.title, exact: true })
     .getByRole('link', { name: new RegExp(`^${TAIMANOV}`) })
     .click();
-  await expect(coach).toHaveURL(/\/repertuarai\/[0-9a-f-]{36}$/);
+  await expect(coach).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(TAIMANOV);
   await coach.getByRole('link', { name: t.title, exact: true }).click();
-  await expect(coach).toHaveURL(/\/pazanga\/[0-9a-f-]{36}$/);
+  await expect(coach).toHaveURL(/\/progress\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(TAIMANOV);
   await expect(
     pageHeader(coach).getByText(countsText(taimanov), { exact: true }),

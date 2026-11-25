@@ -18,7 +18,7 @@ import {
 /** From the home page to settings. */
 async function openSettings(page: Page): Promise<void> {
   await page.getByRole('link', { name: en.app.settings }).click();
-  await expect(page).toHaveURL(/\/nustatymai$/);
+  await expect(page).toHaveURL(/\/settings$/);
 }
 
 /** In settings: a new display name, saved. */
@@ -110,7 +110,7 @@ test('deleting needs the exact display name, mails a confirmation, and frees the
 
   const mail = await nextMailTo(request, email, async () => {
     await confirm.click();
-    await expect(page).toHaveURL(/\/prisijungti\?deleted=1$/);
+    await expect(page).toHaveURL(/\/sign-in\?deleted=1$/);
   });
   expect(mail.Subject).toBe(en.mail.deleted.subject);
   await expect(page.getByRole('status')).toHaveText(en.signIn.deleted);
@@ -121,7 +121,7 @@ test('deleting needs the exact display name, mails a confirmation, and frees the
     inbox: email,
   });
   await page.goto(linkIn(again.Text));
-  await expect(page).toHaveURL(/\/pradzia$/);
+  await expect(page).toHaveURL(/\/welcome$/);
 });
 
 test('an account that has not finished onboarding deletes itself by typing its email (R-86)', async ({
@@ -130,7 +130,7 @@ test('an account that has not finished onboarding deletes itself by typing its e
 }) => {
   const email = freshEmail();
   await signIn(page, request, en, email);
-  await expect(page).toHaveURL(/\/pradzia$/);
+  await expect(page).toHaveURL(/\/welcome$/);
 
   // The disclosure's summary: in English the section heading inside it
   // reads the same.
@@ -152,7 +152,7 @@ test('an account that has not finished onboarding deletes itself by typing its e
 
   const mail = await nextMailTo(request, email, async () => {
     await confirm.click();
-    await expect(page).toHaveURL(/\/prisijungti\?deleted=1$/);
+    await expect(page).toHaveURL(/\/sign-in\?deleted=1$/);
   });
   expect(mail.Subject).toBe(en.mail.deleted.subject);
 });
