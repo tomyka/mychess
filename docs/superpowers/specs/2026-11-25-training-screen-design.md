@@ -142,8 +142,9 @@ order stay. Changes:
 - A repeat's existing "again" status ("Once more: you missed this move
   earlier.") becomes a `due-subtle` / `due` pill, like the result pills
   below.
-- Coach note (R-174): a soft card (`accent-subtle` background, no border,
-  `rounded-card`) with the eyebrow "Coach note".
+- Coach note (R-174): keeps its own card (`CoachNoteCard`, as on the
+  repertoire page). A soft card with an eyebrow was tried in the build and
+  dropped: the eyebrow repeated the card's "Coach note from ..." label.
 - Two-answers notice and the sync banner keep their content; the notice
   becomes the same soft card style, the banner stays as specified (R-60).
 - End session moves from an outline button to a quiet text button
@@ -259,7 +260,7 @@ error state keeps its behaviour; its panel content becomes a plain card.
 | `buttons.ts` | `TONAL_BUTTON`; End session's quiet style |
 | `board/board.css`, `tokens.css` | badges, flash alpha, coordinates, arrow |
 | `drill-input.ts` | `FEEDBACK_MS` 700; the lapse hold |
-| catalogue | new keys (Type, side words, first try, coach-note eyebrow); `title.learn` reads "Learn new moves"; `title.mixed` and the `mode.*` counter prefix removed |
+| catalogue | new keys (Type, side words, first try, the context patterns); `title.learn` reads "Learn new moves"; `title.mixed` and the `mode.*` counter prefix removed |
 | `docs/design/training-screen.md` | updated to this spec (sketches, feedback table, states) |
 
 ## Testing
