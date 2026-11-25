@@ -18,10 +18,13 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 
 ## Phone, 390px (designed first)
 
+A drill runs full-screen, without the app's tabs (R-218).
+
 ```
 +--------------------------------------+  390 x 844
-| [<]  Sicilian, Najdorf     12 / 30   |  top bar, 56px; back = 44x44
-| [=========-----------------------]   |  session progress, 4px, accent
+| [<] Today's review            3 / 9  |  top bar, 56px; back = 44x44 icon
+|     Caro-Kann (Black) · Main line    |  context line, text-sm fg-muted
+|  [=========--------------------]     |  6px rounded track, gutters
 +--------------------------------------+
 |                                      |
 |                                      |
@@ -29,18 +32,17 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 |         8 x 48.75px squares          |  no side gutter, radius 0
 |                                      |
 |                                      |
-|                                      |
 +--------------------------------------+
-|  ( ) White to move                   |  side-to-move dot + prompt,
-|  Your move                           |  text-lg; 2 lines allowed (LT)
+|  (o) Black to move                   |  side-to-move dot + words, text-sm
+|  Your move                           |  the ask, text-lg bold
+|  [ Hint ] [ (kbd) Type ]             |  tonal buttons (accent-subtle)
 |                                      |
-|  1. e4 c5 2. Nf3 d6 3. d4 cxd4 ...   |  line so far, text-sm,
-|                                      |  scrolls horizontally, newest
-|                                      |  move kept in view
-|                                      |
+|  … 4. Nc3 dxe4 5. Nxe4 Bf5 6. Ng3    |  line so far, text-sm, wraps;
+|  Bg6 7. h4 h6 8. Nf3 Nd7 9. h5       |  last six full moves, from a
+|                                      |  move number after "…"
 +--------------------------------------+
-|  [ End session ]                     |  bottom bar, thumb zone,
-+--------------------------------------+  h-touch, safe-area inset
+|  End session                         |  bottom bar, quiet text button,
++--------------------------------------+  44px, safe-area inset
 ```
 
 - The board is the first thing under the top bar and never scrolls off on a
@@ -48,8 +50,26 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
   board does not.
 - Squares are 48.75px, above the 44px target. At 320px wide they shrink to
   40px; tap-tap still works there, which is the accepted floor.
-- The opening name is the Chapter's name (šachmatai.lt taxonomy, R-1); it
-  clamps to one line in the top bar, full name on tap.
+- **Title and context line (R-224).** The title (`text-lg`, semibold; `text-xl`
+  on desktop) names the session: "Today's review", "Learn new moves", or the
+  repertoire's name for a session scoped to one. Under it one muted
+  `text-sm` line, truncated with an ellipsis, names the item being asked:
+  its repertoire, side and chapter ("Caro-Kann (Black) · Main line"); in a
+  scoped session only the side and chapter. With no item (an empty state,
+  Done) there is no context line. A chapter with no title yet shows the
+  repertoire and side only. The same `h1` and line at every width.
+- **Counter (R-223).** "3 / 9" in `text-base`, semibold, tabular: the moves
+  finished of the moves the session holds. The total is fixed when the
+  session starts and never moves; a repeat (R-78) is asked on top of it.
+  No mode word before it: the title says what the session is.
+- **Progress** is Today's track: 6px, `rounded-pill`, `border` track,
+  `accent` fill, with the gutters on a phone.
+- **Typed move.** Below `lg` the move field waits behind the **Type** button
+  (keyboard icon and the word), so it neither takes the panel's room nor
+  opens the phone keyboard over the board (see Keyboard below).
+- **Line so far.** On a phone it wraps (no sideways scroll) and keeps the
+  last six full moves; when earlier moves exist it starts "…" and a move
+  number, never mid-move. The whole line is in the accessible text.
 - Nothing overlays the board (no banners, toasts or dialogs). Messages go in
   the panel.
 
@@ -57,32 +77,32 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 
 ```
 +------------------------------------------------------------------------------+
-| mychess                                                       [user menu]    |  app header, 56px
-+------------------------------------------------------------------------------+
 |                                                                              |
-|    +--------------------------------------+  +--------------------------+    |
-|    |                                      |  | Sicilian, Najdorf        |    |  text-xl
-|    |                                      |  | Review  12 / 30          |    |
-|    |                                      |  | [=========-------------] |    |
-|    |                                      |  |                          |    |
-|    |            B O A R D                 |  | ( ) White to move        |    |
-|    |     largest square that fits:        |  | Your move                |    |  text-lg
-|    |     min(100dvh - 56 - 2*32,          |  |                          |    |
-|    |         100vw - panel - gutters)     |  | 1. e4    c5              |    |  move list, two
-|    |     = 680px at 1280 x 800            |  | 2. Nf3   d6              |    |  columns, tabular
-|    |                                      |  | 3. d4    cxd4            |    |  numbers
-|    |                                      |  | 4. Nxd4  ...             |    |
-|    |                                      |  |                          |    |
-|    |                                      |  |                          |    |
-|    |                                      |  | [ End session ]          |    |
-|    +--------------------------------------+  +--------------------------+    |
-|      <-------------- 680 -------------->  32  <---- panel 360 ------->       |
+|   +--------------------------------------+  +----------------------------+   |
+|   |                                      |  | [<] Today's review   3 / 9 |   |  title text-xl
+|   |                                      |  |     Caro-Kann (Black) · M… |   |  context, text-sm
+|   |                                      |  | [=========---------------] |   |  6px track
+|   |            B O A R D                 |  | (o) Black to move          |   |
+|   |     largest square that fits:        |  | Your move                  |   |  text-lg bold
+|   |     min(100dvh - 4rem, 50rem,        |  | [ Type a move       ][->]  |   |  field always shown
+|   |         100vw - panel - 6rem)        |  | [ Hint ]                   |   |  tonal
+|   |     = 736px at 1280 x 800            |  |                            |   |
+|   |     = 800px at 1440 x 900            |  | 1.   e4     c6             |   |  move list, columns
+|   |                                      |  | 2.   d4     d5             |   |  2.5rem 5rem 5rem,
+|   |                                      |  | 3.   e5     Bf5            |   |  tabular
+|   |                                      |  |                            |   |
+|   |                                      |  | End session                |   |  quiet text button
+|   +--------------------------------------+  +----------------------------+   |
+|                                           32  <------- panel ------->        |
 +------------------------------------------------------------------------------+
 ```
 
-- Board and panel are centred as one block (1072px at 1280); gutters are
-  `gutter-wide`. The panel (`w-panel`, `bg-surface`, `rounded-card`) is the
-  board's height and scrolls inside itself.
+- Board and card are centred as one block at every width from `lg`; the
+  board's cap is 50rem, so 1440 x 900 gets an 800px board (the height rule
+  still wins on shorter screens). The card (`w-panel`, `bg-surface`,
+  `rounded-card`, `shadow-card`) is the board's height; the move list takes
+  its spare height and scrolls inside itself.
+- Back is the same 44px icon button as on the phone, inside the card.
 - Between 640 and 1024px the panel moves under the board, as on the phone,
   but the board is capped at the viewport height minus the top bar.
 
@@ -120,25 +140,65 @@ lower half of the screen was empty; stacked, it is 880px.
   above still applies (board full width); phones and landscape screens are
   unchanged.
 
+## Panel (both drills)
+
+- **Prompt:** the side-to-move dot and its words (`text-sm`, `fg-muted`),
+  then the ask in `text-lg` bold: "Your move", "Play the move the arrow
+  shows", "Now without the arrow".
+- **Side-to-move dot:** fixed colours in both themes, like the board: White
+  a white disc (`side-white`) ringed `side-black` (#141a26), Black a
+  `side-black` disc ringed `side-ring` (#cfd5df). The words carry the
+  meaning; the dot never inverts with the theme.
+- **Hint and Type** are tonal buttons (`TONAL_BUTTON`: `accent-subtle`
+  fill, `accent` text, 44px). A used or unavailable Hint is visibly
+  disabled: 50% opacity and `cursor-not-allowed`, not only `aria-disabled`.
+- **Repeat (R-78):** "Once more: you missed this move earlier." is a
+  `due-subtle` / `due` pill in place of the plain prompt.
+- **Coach note (R-174)** keeps its own card (`CoachNoteCard`, as on the
+  repertoire page) and holds the drill: the move field and Hint go, Next
+  (primary) joins End session in the bottom bar.
+- **Two-answers notice (R-54):** a soft card, `accent-subtle`, `rounded-card`,
+  `text-sm`. The sync banner stays as in Error case 2.
+- **End session** is a quiet text button (`QUIET_ACTION`: `fg-muted`,
+  `text-base` semibold, 44px), so it does not compete with the drill.
+
 ## Move feedback (both widths)
 
 | Moment | Board | Panel |
 | --- | --- | --- |
 | Waiting for the move | last move highlighted (`board-last-move`) | prompt |
 | Piece selected | `board-selected` on the square, `board-target` dots on legal squares | unchanged |
-| Correct | piece lands, `board-correct` flash on the target square for `duration-feedback`, check icon in the square corner | prompt changes to "correct" in `success` for the same time |
-| Opponent replies | reply slides in (`duration-move`); input locked meanwhile | move appended to the line |
-| Lapse (wrong move) | wrong piece snaps back, `board-wrong` flash, cross icon; then the expected move shown with a `board-arrow` | "not this move" in `error` with an icon; the player then replays the expected move (R-59) |
-| Hint (review, R-61) | `board-hint` amber ring with a `board-hint-edge` inner edge on the piece to move | "move the highlighted piece" |
-| Learn pass, shown | expected move as a `board-arrow` | "play the arrow move" |
-| Learn pass, blind retest | no arrow | "now without the arrow" |
+| Correct | piece lands, `board-correct` flash (30%) on the target square and the check badge, both for `duration-feedback` (700ms); the next item waits the same 700ms | "Correct" as a `success-subtle` / `success` pill with a tick |
+| Opponent replies | reply slides in (`duration-move`); input locked meanwhile | "Opponent played ..." over the prompt; move appended to the line |
+| Lapse (wrong move) | the wrong move **stays on the board** for 700ms with the `board-wrong` flash and the cross badge, input locked; then the piece goes back and the expected move shows as a `board-arrow` | "Not that move. Play the move the arrow shows." as an `error-subtle` / `error` pill with a cross; it stays until the move is played (R-59) |
+| Hint (review, R-61) | `board-hint` amber ring with a `board-hint-edge` inner edge on the piece to move | "Hint: move the highlighted piece." as a `due-subtle` / `due` pill; Hint disabled |
+| Learn pass, shown | expected move as a `board-arrow` | "Play the move the arrow shows" |
+| Learn pass, blind retest | no arrow | "Now without the arrow" |
 
-Colour is never the only signal: correct and lapse also carry an icon on the
-square and words in the panel, and the panel line is an `aria-live="polite"`
-region so screen readers hear each result and the opponent's reply. The
-square's icon is a badge in `board-badge-correct` / `board-badge-wrong` (the
-same in both themes, like the board) with a white glyph and a white ring,
-not the theme's `success` / `error`, which turn light in dark mode.
+The 700ms are holds, not motion, so reduced motion keeps them; the piece
+slide is already instant there.
+
+**Badges (owner choice D).** A filled glyph in lichess's shape, white on a
+solid disc, about 38% of the square over its top-right corner, no white
+ring, a soft drop shadow (`0 1px 3px rgb(0 0 0 / 0.45)`). The discs are
+`board-badge-correct` #279257 and `board-badge-wrong` #d65a50, the same in
+both themes like the board, not the theme's `success` / `error` (which turn
+light in dark mode); the white glyph is 3.9:1 on both, above the 3:1
+non-text minimum. The square flashes are the same colours at 30%
+(`board-correct`, `board-wrong`).
+
+**Arrow.** `board-arrow` at 0.95 alpha and about half again chessground's
+line width, so the lapse and learn arrows read at a glance.
+
+**Coordinates.** 10px semibold, tucked 2px into the square's corner (ranks
+on the right edge, files on the bottom), so they sit at the piece's edge
+rather than under it; on the dimmed board they take the board's opacity
+and no further fade.
+
+Colour is never the only signal: correct and lapse also carry a badge on
+the square and a pill with an icon and words in the panel, and the status
+line is an `aria-live="polite"` region so screen readers hear each result
+and the opponent's reply.
 
 ## States
 
@@ -146,7 +206,7 @@ not the theme's `success` / `error`, which turn light in dark mode.
 
 ```
 +--------------------------------------+
-| [<]  ░░░░░░░░░░░░          ░░ / ░░   |
+| [<]  ░░░░░░░░░░░░             ░░░░   |
 +--------------------------------------+
 |                                      |
 |   empty board: board-light /         |  the real board, no pieces,
@@ -160,40 +220,48 @@ not the theme's `success` / `error`, which turn light in dark mode.
 
 No spinner over the board. If loading passes about one second, a single
 "loading" line (text-sm, `fg-muted`) replaces the first skeleton line.
-Desktop: the same, board left, skeleton panel right.
+Desktop: the same, board left, skeleton panel right. The skeleton top bar
+keeps the place of the 6px track, so the board does not move when the
+drill arrives.
 
 ### Empty: nothing due
 
 ```
 +--------------------------------------+
-| [<]  Sicilian, Najdorf               |
+| [<] Today's review                   |  no counter, no context line
 +--------------------------------------+
-|                                      |
-|   board: the Repertoire's start      |  dimmed (opacity), not
-|   position, not interactive          |  focusable
-|                                      |
+|  ░░ start position, dimmed ░░░░░░░░  |  a strip: the board's top 40%
+|  ░░ (cropped, not squashed) ░░░░░░░  |  (aspect 5/2), not focusable
 +--------------------------------------+
-|  Nothing due now                     |  text-xl
-|  Next review in 3 h                  |  text-base fg-muted; time in
-|                                      |  the user's time zone
-|  [ Learn 8 new moves ]               |  only if to-learn > 0; accent
-|  [ Free play ]                       |  secondary button
+|  +--------------------------------+  |
+|  | Nothing due now                |  |  the accent hero card, as
+|  | Next review: tomorrow at 09:00 |  |  Today's: bg-accent,
+|  |                                |  |  text-accent-fg, shadow-card,
+|  | [ Learn 8 new moves ]          |  |  text-xl heading; the button
+|  +--------------------------------+  |  inverted (surface on accent),
+|                                      |  only if to-learn > 0
 +--------------------------------------+
 ```
 
-A Repertoire with no own-side Moves at all is a different empty state: the
-panel says so and offers the builder or PGN import instead (wording from
-i18n-content). Desktop: the same content in the side panel, where the
-heading steps down to text-lg under a divider (`border`) so it does not
-compete with the text-xl title above it.
+- Nothing due is the same accent hero card as Today's learn and done
+  states (`TodayHero`'s look, not its component; `HERO_PRIMARY_BUTTON`).
+  The top bar's title already names the session, so the card carries no
+  eyebrow. The time is in the user's time zone.
+- On a phone the dimmed start board shrinks to a strip (5:2, the board
+  inside stays square and is clipped) so the card is in view. On desktop
+  the dimmed board stays whole beside the card.
+- **No moves**, **limit reached** and **nothing left** use the same card in
+  its plain form (`CARD`: `bg-surface`, `rounded-card`, shadow) with their
+  existing text and buttons. A Repertoire with no own-side Moves offers the
+  repertoire page or PGN import (an assigned one only the way back).
 
 ### Error
 
 Two cases, both in the panel, never over the board:
 
-1. **The session could not load.** Board as in Loading, panel shows an
-   `error` icon, one line of what failed, and `[ Try again ]` (accent) plus
-   `[ Back ]`. Focus moves to the message.
+1. **The session could not load.** Board as in Loading, the panel shows a
+   plain card with an `error` icon, one line of what failed, and
+   `[ Try again ]` (accent) plus `[ Back ]`. Focus moves to the message.
 2. **A result could not be saved yet** (R-60). The result waits in the
    browser's queue, which retries in the background, and the drill goes
    on. A quiet banner at the top of the panel (`bg-sunken`, `border`, a
@@ -208,42 +276,65 @@ Two cases, both in the panel, never over the board:
 
 ```
 +--------------------------------------+
-| [<]  Sicilian, Najdorf     30 / 30   |
+| [<] Today's review           9 / 9   |
+| [==============================]     |
 +--------------------------------------+
-|                                      |
-|          Session done                |  text-2xl; focus moves here
-|                                      |
-|      30        27         3          |  text-4xl numbers:
-|   reviewed   correct    lapses       |  fg / success / error
-|                                      |
-|   Next review: tomorrow 09:00        |  fg-muted
-|                                      |
-|   [=====learned=====|==due==|--new--]|  repertoire progress bar:
-|   142 learned · 6 due · 18 to learn  |  learned / due / to-learn
-|                                      |
+|  +--------------------------------+  |  a card: bg-surface,
+|  |             ( v )              |  |  shadow-card, rounded-card;
+|  |                                |  |  tick in a success-subtle circle
+|  |         Session done           |  |  text-2xl bold; focus moves here
+|  |                                |  |
+|  |     9         7         2      |  |  text-4xl numbers:
+|  |  reviewed  first try  lapses   |  |  fg / success / error
+|  |                                |  |
+|  |    Today's review is done.     |  |  day line (review only)
+|  |  Next review: tomorrow at 09:00|  |  fg-muted
+|  |  [====learned====|=due=|------]|  |  repertoire bar:
+|  | 142 learned · 6 due · 18 to... |  |  learned / due / to-learn
+|  +--------------------------------+  |
 +--------------------------------------+
-|  [ Done ]        [ Learn new moves ] |  bottom bar; LT labels may
-+--------------------------------------+  stack to two rows
+|  [        Learn new moves         ]  |  one primary, full width
+|  Done                                |  quiet, under it
++--------------------------------------+
 ```
 
-On the phone the summary replaces the board (it has nothing left to show).
-On desktop the board keeps the final position, dimmed, and the summary fills
-the panel.
+- **One primary next step**, the first that applies: Continue (the queue
+  has more, R-62), Start review (moves due now, after a learn pass), Learn
+  new moves (today's allowance has room), else Done. Any other next step
+  offered is tonal; Done is a quiet text button whenever another step is
+  primary. On a phone the primary is full width and the rest wrap under
+  it; on desktop they share a row.
+- **Stats:** a review shows "reviewed", "first try" and "lapses" (first
+  answers only, so "reviewed" equals the counter's total when the session
+  runs to the end); a learn pass shows "learned".
+- **Day line:** after a review, the moves still due, else "Today's review is
+  done." and the next review time. After a learn pass never the review
+  wording: the moves still due when there are any, else only the next
+  review time.
+- On the phone the summary replaces the board (it has nothing left to show).
+  On desktop the board keeps the final position, dimmed, beside the card.
 
 ## Keyboard and screen readers
 
 - The board is one tab stop. Inside it the arrow keys move a cursor
   (`board-focus` outline, inset so it stays inside the square), Enter or
   Space picks up the piece and again drops it, Escape cancels.
-- A move can also be typed: a text field under the board (desktop: in the
-  panel) takes SAN or coordinates (`Nf3`, `g1f3`). It is the fastest path for
-  keyboard users and the fallback for screen readers.
-- Each square has an accessible name in the current locale ("e4, white
-  knight"); the side to move and each result are announced through the live
-  region.
-- Focus never jumps after a move: it stays on the board. It moves only for
-  the Error and Done states, to their heading.
-- Tab follows the screen at both widths: the back link, the board, then
+- A move can also be typed: a text field in the panel takes SAN or
+  coordinates (`Nf3`, `g1f3`). It is the fastest path for keyboard users
+  and the fallback for screen readers.
+  - At `lg` and up (and on a `tall` portrait tablet) the field is always
+    shown, above Hint.
+  - Below `lg` it waits behind the **Type** button (tonal, keyboard icon and
+    the word, `aria-expanded`), next to Hint and in the tab order after the
+    board. Pressing Type shows the field in place, above the buttons, and
+    moves focus into it. The field closes after a move is taken, or on
+    Escape, and focus returns to the Type button.
+- Each square has an accessible name ("e4, white knight"); the side to move
+  and each result are announced through the live region.
+- Focus never jumps after a move: it stays on the board (or, for a typed
+  move on a phone, goes back to Type as above). It moves only for the
+  Error and Done states, to their heading.
+- Tab follows the screen at both widths: the back button, the board, then
   every panel button and "End session", in visual order.
 
 ## Behaviour decided by the owner (#233)
@@ -258,5 +349,14 @@ the panel.
 4. **Session size** (R-62): 20 Due Moves by default (player setting 10-100),
    with "continue"; new moves have a separate daily limit (default 10). The
    "12 / 20" counter uses that known total.
+5. **The counter counts moves** (R-223, #381): "3 / 9" is the moves finished
+   (answered, with no repeat owed) of the moves the session holds. The total
+   is fixed when the session starts and never changes; the session size
+   counts moves, and repeats (R-78) come on top and never push a move out.
+   Continue starts a new session with a new fixed total.
+6. **The header names the session** (R-224, #381): the title is "Today's
+   review", "Learn new moves", or the repertoire's name for a session
+   scoped to one; under it the current item's repertoire, side and chapter
+   (the side and chapter only in a scoped session).
 
 > Note (2026-11-25): Lithuanian language support was dropped (R-217, #378). References here to Lithuanian copy, `glossary-lt.md`, the i18n-content role or R-180 are historical.
