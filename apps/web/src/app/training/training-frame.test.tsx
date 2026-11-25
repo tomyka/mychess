@@ -30,16 +30,15 @@ function renderFrame(parts: {
   actions?: ReactNode;
   banner?: ReactNode;
   title?: string;
-  subtitle?: string;
+  context?: string | null;
 }) {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainingFrame
-        mode="review"
         backHref="/"
-        defaultTitle="Kartojimas"
         side="white"
         title="Londono sistema"
+        context={null}
         progress={{ done: 2, total: 5 }}
         banner={parts.banner ?? null}
         {...parts}
@@ -75,17 +74,35 @@ describe('the training frame’s tab order', () => {
 });
 
 describe('the training frame’s header', () => {
-  it('shows a subtitle under the title, outside the heading (R-54, R-207)', () => {
-    renderFrame({ panel: null, title: 'Keli repertuarai', subtitle: 'Kita' });
+  it('shows the context line under the title, outside the heading (R-224)', () => {
+    renderFrame({
+      panel: null,
+      title: "Today's review",
+      context: 'Caro-Kann (Black) · Main line',
+    });
     const title = screen.getByRole('heading', { level: 1 });
-    expect(title.textContent).toBe('Keli repertuarai');
-    expect(title.nextElementSibling?.textContent).toBe('Kita');
+    expect(title.textContent).toBe("Today's review");
+    expect(title.nextElementSibling?.textContent).toBe(
+      'Caro-Kann (Black) · Main line',
+    );
   });
 
-  it('shows the title alone without one', () => {
-    renderFrame({ panel: null });
+  it('shows the title alone without a context line', () => {
+    renderFrame({ panel: null, context: null });
     const title = screen.getByRole('heading', { level: 1 });
     expect(title.textContent).toBe('Londono sistema');
     expect(title.nextElementSibling).toBeNull();
+  });
+
+  it('labels the back link for screen readers, an icon on screen', () => {
+    renderFrame({ panel: null });
+    const back = screen.getByRole('link', { name: T.back });
+    expect(back.getAttribute('href')).toBe('/');
+    expect(back.textContent).toBe('');
+  });
+
+  it('counts the moves as "done / total", without the mode word (R-223)', () => {
+    renderFrame({ panel: null });
+    expect(screen.getByText('2 / 5').tagName).toBe('P');
   });
 });

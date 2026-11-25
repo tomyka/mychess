@@ -17,7 +17,7 @@ const BOARD_EDGE = 'lg:w-(--board-edge)';
 /**
  * On a desktop the board's edge is the largest square that fits (the
  * design's min(height, width - panel - gutters)): the height less the
- * padding (py-8), 680px at most, and the width less the panel, the gap and
+ * padding (py-8), 800px at most, and the width less the panel, the gap and
  * the side padding (2rem each), so a 1024px-wide portrait tablet does not
  * overflow (#323). The grid is as tall as the board plus its padding, so
  * the card is the board's height.
@@ -28,7 +28,7 @@ const BOARD_EDGE = 'lg:w-(--board-edge)';
  * panel takes what is left.
  */
 export const FRAME_MAIN =
-  'flex h-dvh flex-col lg:mx-auto lg:grid lg:[--board-edge:min(calc(100dvh_-_4rem),42.5rem,calc(100vw_-_var(--spacing-panel)_-_6rem))] lg:h-[calc(var(--board-edge)+4rem)] lg:max-w-6xl lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:justify-center lg:gap-x-8 lg:gap-y-3 lg:px-gutter-wide lg:py-8 tall:[--board-edge:min(calc(100vw_-_4rem),calc(100dvh_-_30rem))] tall:h-dvh tall:grid-cols-[var(--board-edge)] tall:grid-rows-[auto_auto_minmax(0,1fr)_auto] tall:gap-y-4';
+  'flex h-dvh flex-col lg:mx-auto lg:grid lg:[--board-edge:min(calc(100dvh_-_4rem),50rem,calc(100vw_-_var(--spacing-panel)_-_6rem))] lg:h-[calc(var(--board-edge)+4rem)] lg:w-full lg:max-w-7xl lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:justify-center lg:gap-x-8 lg:gap-y-3 lg:px-gutter-wide lg:py-8 tall:[--board-edge:min(calc(100vw_-_4rem),calc(100dvh_-_30rem))] tall:h-dvh tall:grid-cols-[var(--board-edge)] tall:grid-rows-[auto_auto_minmax(0,1fr)_auto] tall:gap-y-4';
 
 /** The desktop side card, drawn behind the right column's parts; on a portrait tablet behind the panel and the bottom bar. */
 export const FRAME_CARD =
@@ -42,7 +42,7 @@ export const FRAME_HEAD =
 export const FRAME_BOARD = `shrink-0 sm:mx-auto sm:w-[min(100%,calc(100dvh-3.75rem))] lg:col-start-1 lg:row-span-full lg:mx-0 lg:self-start ${BOARD_EDGE} tall:row-span-1 tall:row-start-2`;
 
 export const FRAME_TOP =
-  'flex min-h-14 items-center gap-3 px-gutter lg:min-h-0 lg:flex-col lg:items-start lg:gap-1 lg:px-0 tall:flex-row tall:items-center tall:gap-3';
+  'flex min-h-14 items-center gap-2 px-gutter lg:min-h-0 lg:px-0';
 
 /** With no bottom bar, its margin and the empty row's gap make the card's padding. */
 export const FRAME_PANEL =

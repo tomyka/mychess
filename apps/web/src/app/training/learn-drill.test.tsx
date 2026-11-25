@@ -87,6 +87,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
         side: 'white',
         kind: 'own',
         active: true,
+        chapterTitles: {},
         graph: SHORT,
       },
     ],
@@ -117,7 +118,7 @@ const testClock: DrillClock = {
 function frame(parts: FrameParts): JSX.Element {
   return (
     <main data-finished={parts.finished === true ? 'yes' : 'no'}>
-      <h1>{parts.title ?? 'no title'}</h1>
+      <h1>{parts.item?.name ?? 'no item'}</h1>
       {parts.progress === undefined ? null : (
         <p data-testid="counter">
           {`${String(parts.progress.done)} / ${String(parts.progress.total)}`}
@@ -232,6 +233,7 @@ describe('the learn drill, arrows round', () => {
             side: 'black',
             kind: 'own',
             active: true,
+            chapterTitles: {},
             graph: graphOf('1. e4 c5 *', 'black'),
           },
         ],
@@ -434,6 +436,7 @@ describe('the learn drill over a whole plan', () => {
           side: 'white',
           kind: 'own',
           active: true,
+          chapterTitles: {},
           graph: TWO_LINES,
         },
       ],
@@ -473,6 +476,7 @@ describe('the learn drill in a Black repertoire', () => {
             kind: 'assigned',
             coachName: 'Ona',
             active: true,
+            chapterTitles: {},
             graph: graphOf(TAIMANOV, 'black'),
           },
         ],
@@ -500,6 +504,7 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
           side: 'white',
           ...(kind === 'assigned' ? { kind, coachName: 'Rasa' } : { kind }),
           active: true,
+          chapterTitles: {},
           graph: NOTED,
         },
       ],
@@ -654,6 +659,7 @@ describe('the learn drill with arrows off (R-205, #330 decision 1)', () => {
             kind: 'assigned',
             coachName: 'Rasa',
             active: true,
+            chapterTitles: {},
             graph: NOTED,
           },
         ],

@@ -46,6 +46,7 @@ import {
   isDone,
   positionOf,
   repertoireOf,
+  chapterOf,
   shownKey,
   startDrill,
   type DrillState,
@@ -71,7 +72,7 @@ interface DrillInput extends MoveInput {
 }
 
 export interface ReviewDrill
-  extends DrillInput, DrillNotices, Pick<DrillBoard, 'view' | 'titled'> {
+  extends DrillInput, DrillNotices, Pick<DrillBoard, 'view' | 'item'> {
   readonly state: DrillState;
   /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
   readonly canContinue: boolean;
@@ -299,12 +300,13 @@ export function useReviewDrill(
   );
   const held = hasNotices(notices);
   const next = useDrillTimers({ state, setState, repertoires, held, clock });
-  const { view, legal, titled } = useDrillBoard({
+  const { view, legal, item } = useDrillBoard({
     data,
     state,
     setState,
     positionOf,
     repertoireOf,
+    chapterOf,
   });
   useDueAgain(state, gradedDay, clock);
   const input = useDrillInput({
@@ -320,7 +322,7 @@ export function useReviewDrill(
     ...dayView(gradedDay, clock, isDone(state)),
     state,
     view,
-    titled,
+    item,
     learnable,
     ...notices,
     // Only a right answer held by what it shows waits for the button;

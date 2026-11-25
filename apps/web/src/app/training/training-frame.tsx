@@ -2,11 +2,10 @@
 
 import { START_KEY, type Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
-import type { TrainingMode } from '@mychess/chess';
 import { Board } from '../board/board';
 import type { BoardView } from '../board/board-config';
-import { BackLink } from '../repertoire-view';
 import type { FrameParts } from './drill';
 import {
   FRAME_ACTIONS,
@@ -50,6 +49,35 @@ function StillBoard({ side }: { readonly side: Side }): JSX.Element {
   );
 }
 
+/** The way back: an icon button at every width, as in the shell. */
+function BackButton({
+  href,
+  label,
+}: {
+  readonly href: string;
+  readonly label: string;
+}): JSX.Element {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-control text-accent hover:bg-accent-subtle"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+    </Link>
+  );
+}
+
+/** Today's track: 6px, rounded, with gutters on a phone. */
 function ProgressBar({
   done,
   total,
@@ -59,9 +87,12 @@ function ProgressBar({
 }): JSX.Element {
   const share = total === 0 ? 0 : Math.min(1, done / total);
   return (
-    <div aria-hidden="true" className="h-1 bg-sunken lg:rounded-pill">
+    <div
+      aria-hidden="true"
+      className="mx-gutter h-1.5 overflow-hidden rounded-pill bg-border lg:mx-0"
+    >
       <div
-        className="h-full bg-accent lg:rounded-pill"
+        className="h-full rounded-pill bg-accent"
         style={{ width: `${String(share * 100)}%` }}
       />
     </div>
@@ -69,34 +100,32 @@ function ProgressBar({
 }
 
 interface TopBarProps {
-  readonly mode: TrainingMode;
   readonly backHref: string;
   readonly title: string;
-  readonly subtitle: string | undefined;
+  readonly context: string | null;
   readonly progress: FrameParts['progress'];
 }
 
+/** Back, the session's name with the item under it (R-224), the counter (R-223). */
 function TopBar({
-  mode,
   backHref,
   title,
-  subtitle,
+  context,
   progress,
 }: TopBarProps): JSX.Element {
   const t = useTranslations('training');
   return (
     <div className={FRAME_HEAD}>
       <header className={FRAME_TOP}>
-        <BackLink href={backHref} label={t('back')} />
-        <div className="min-w-0 flex-1 lg:w-full lg:flex-none tall:w-auto tall:flex-1">
+        <BackButton href={backHref} label={t('back')} />
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-semibold lg:text-xl">{title}</h1>
-          {subtitle === undefined ? null : (
-            <p className="truncate text-sm text-fg-muted">{subtitle}</p>
+          {context === null ? null : (
+            <p className="truncate text-sm text-fg-muted">{context}</p>
           )}
         </div>
         {progress === undefined ? null : (
-          <p className="shrink-0 text-fg-muted tabular-nums">
-            <span className="max-lg:sr-only">{t(`mode.${mode}`)} </span>
+          <p className="shrink-0 text-base font-semibold tabular-nums">
             {t('counter', progress)}
           </p>
         )}
@@ -107,15 +136,11 @@ function TopBar({
 }
 
 export interface TrainingFrameProps extends FrameParts {
-  readonly mode: TrainingMode;
   readonly backHref: string;
-  /** The title when the drill gives none. */
-  readonly defaultTitle: string;
-  /**
-   * Under the title: the item's repertoire when the title names several
-   * (R-54, R-207).
-   */
-  readonly subtitle?: string;
+  /** The session's name (R-224). */
+  readonly title: string;
+  /** Under the title: the item's repertoire, side and chapter, if any (R-224). */
+  readonly context: string | null;
   /** The side the still board is seen from. */
   readonly side: Side;
   /** The sync banner, at the top of the panel (R-60). */
@@ -141,10 +166,9 @@ export function TrainingFrame(props: TrainingFrameProps): JSX.Element {
     <main className={FRAME_MAIN}>
       <div aria-hidden="true" className={FRAME_CARD} />
       <TopBar
-        mode={props.mode}
         backHref={props.backHref}
-        title={props.title ?? props.defaultTitle}
-        subtitle={props.subtitle}
+        title={props.title}
+        context={props.context}
         progress={props.progress}
       />
       <div className={boardClass(live, finished)} inert={!live}>

@@ -32,6 +32,7 @@ import {
   positionOf,
   released,
   repertoireOf,
+  chapterOf,
   shownKey,
   startLearnDrill,
   taughtMove,
@@ -47,7 +48,7 @@ import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
 export interface LearnDrill
-  extends MoveInput, DrillNotices, Pick<DrillBoard, 'view' | 'titled'> {
+  extends MoveInput, DrillNotices, Pick<DrillBoard, 'view' | 'item'> {
   readonly state: LearnDrillState;
   /**
    * On to the next step, once a blind answer's Coach notes or two-answers
@@ -157,12 +158,13 @@ export function useLearnDrill(
   // it is asked, before the answer.
   const held = state.answered !== null && hasNotices(notices);
   const release = useLearnTimers(state, setState, held);
-  const { view, legal, titled } = useDrillBoard({
+  const { view, legal, item } = useDrillBoard({
     data,
     state,
     setState,
     positionOf,
     repertoireOf,
+    chapterOf,
   });
   const input = useLearnInput({ state, setState, legal, sync, clock });
   const progressAt = (now: Date) =>
@@ -174,7 +176,7 @@ export function useLearnDrill(
     ...input,
     state,
     view,
-    titled,
+    item,
     ...notices,
     next: held ? release : null,
     progress: () => progressAt(clock.now()),

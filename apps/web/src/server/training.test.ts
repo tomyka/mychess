@@ -3,6 +3,7 @@ import type { TrainingScope, TrainingSnapshot } from '@mychess/db';
 import type { Account } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../test/fixtures/repertoires';
+import { chapterTitlesOf } from './chapter-names';
 import {
   loadTraining,
   parseTrainingSearch,
@@ -222,6 +223,7 @@ describe('loadTraining', () => {
           coachName: 'Name',
           active: false,
           graph: TAIMANOV_GRAPH,
+          chapterTitles: chapterTitlesOf(TAIMANOV_GRAPH),
         },
         {
           id: ID,
@@ -230,6 +232,7 @@ describe('loadTraining', () => {
           kind: 'own',
           active: true,
           graph: LONDON_GRAPH,
+          chapterTitles: chapterTitlesOf(LONDON_GRAPH),
         },
       ],
       others: [{ id: THIRD, name: 'Kito', side: 'white', graph: LONDON_GRAPH }],

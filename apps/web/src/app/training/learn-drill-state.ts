@@ -225,6 +225,10 @@ export function learnCounts(s: LearnDrillState): {
 export const repertoireOf = (s: LearnDrillState): string | undefined =>
   s.session?.line.repertoireId;
 
+/** The chapter of the line on the board. */
+export const chapterOf = (s: LearnDrillState): string | undefined =>
+  s.session?.line.chapterId;
+
 /**
  * What the board shows: the arrow of the move asked, while the session
  * shows it (R-144, R-55), and the answer's flash.

@@ -103,6 +103,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
         side: 'white',
         kind: 'own',
         active: true,
+        chapterTitles: {},
         graph: london,
       },
     ],
@@ -133,7 +134,7 @@ const testClock: DrillClock = {
 function frame(parts: FrameParts): JSX.Element {
   return (
     <main data-finished={parts.finished === true ? 'yes' : 'no'}>
-      <h1>{parts.title ?? 'no title'}</h1>
+      <h1>{parts.item?.name ?? 'no item'}</h1>
       {parts.progress === undefined ? null : (
         <p data-testid="counter">
           {`${String(parts.progress.done)} / ${String(parts.progress.total)}`}
@@ -308,8 +309,9 @@ describe('the review drill', () => {
     expect(panel()).toContain(T.review.correct);
     wait(400);
     wait(150);
-    // The lapsed move is asked again at the end (R-78).
-    expect(counter()).toBe('1 / 3');
+    // The lapsed move is asked again at the end (R-78); owing its repeat,
+    // it is not finished (R-223).
+    expect(counter()).toBe('0 / 2');
     expect(panel()).toContain(T.review.prompt);
   });
 
@@ -325,9 +327,9 @@ describe('the review drill', () => {
     renderDrill(data(), (parts) => (
       <TrainingFrame
         {...parts}
-        mode="review"
         backHref="/repertoires/x"
-        defaultTitle="no title"
+        title="no title"
+        context={null}
         side="white"
         banner={null}
       />
@@ -391,6 +393,7 @@ describe('the review drill', () => {
             ...other('e1', 'Angliška', '1. c4 *'),
             kind: 'own',
             active: true,
+            chapterTitles: {},
           },
         ],
         others: [other('i1', 'Itališka', '1. e4 e5 2. Nf3 *')],
@@ -480,17 +483,18 @@ describe('the review drill', () => {
     ).toEqual([T.done.done, T.done.learn]);
   });
 
-  it('asks a lapsed move again at the end of the session, each repeat counted, until today is done (#319, R-78)', () => {
+  it('asks a lapsed move again at the end of the session, repeats on top of the count, until today is done (#319, R-78, R-223)', () => {
     renderDrill();
     type('e4');
-    // The repeat joins the session at the lapse: two moves and one repeat.
-    expect(counter()).toBe('1 / 3');
+    // The repeat comes on top of the session's two moves (R-223): the
+    // lapsed move owes it, so it is not finished.
+    expect(counter()).toBe('0 / 2');
     type('d4');
     wait(400);
-    expect(counter()).toBe('1 / 3');
+    expect(counter()).toBe('0 / 2');
     wait(150);
     type('Bf4');
-    expect(counter()).toBe('2 / 3');
+    expect(counter()).toBe('1 / 2');
     wait(400);
     expect(panel()).toContain(T.review.again);
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
@@ -498,8 +502,8 @@ describe('the review drill', () => {
     type('d4');
     expect(kinds()).toEqual(['lapse', 'pass', 'pass']);
     // A move in its learning steps comes back once more: 1 min, then
-    // 10 min (R-78); the next pass takes it out of today.
-    expect(counter()).toBe('3 / 4');
+    // 10 min (R-78); still owed, it is not finished (R-223).
+    expect(counter()).toBe('1 / 2');
     wait(400);
     expect(panel()).toContain(T.review.again);
     type('d4');
@@ -514,14 +518,15 @@ describe('the review drill', () => {
     expect(stat(T.done.reviewed)).toBe('2');
     expect(stat(T.done.correct)).toBe('1');
     expect(stat(T.done.lapses)).toBe('1');
-    expect(counter()).toBe('4 / 4');
+    expect(counter()).toBe('2 / 2');
   });
 
   it('starts its session by the clock, not the snapshot: a page loaded yesterday still repeats a lapse today (R-78)', () => {
     renderDrill(data({ now: new Date(NOW.getTime() - DAY) }));
     type('e4');
-    // Today's day end: the lapse's 1-minute step falls in it.
-    expect(counter()).toBe('1 / 3');
+    // Today's day end: the lapse's 1-minute step falls in it, so the move
+    // owes a repeat and is not finished (R-223).
+    expect(counter()).toBe('0 / 2');
   });
 
   it('asks a lapsed move again once its 1-minute step has run out by the clock, before the session ends (#338, R-78)', () => {
@@ -536,6 +541,7 @@ describe('the review drill', () => {
             side: 'white',
             kind: 'own',
             active: true,
+            chapterTitles: {},
             graph: wide,
           },
         ],
@@ -559,7 +565,8 @@ describe('the review drill', () => {
     wait(150);
     expect(panel()).toContain(T.review.again);
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
-    expect(counter()).toBe('2 / 10');
+    // The second move is finished; the lapsed one, asked again, is not (R-223).
+    expect(counter()).toBe('1 / 10');
   });
 
   it('says how many moves are still due and offers Continue when the session size leaves some (#319, R-62)', () => {
@@ -575,6 +582,7 @@ describe('the review drill', () => {
             side: 'white',
             kind: 'own',
             active: true,
+            chapterTitles: {},
             graph: wide,
           },
         ],
@@ -615,6 +623,7 @@ describe('the review drill on a promotion', () => {
           side: 'white',
           kind: 'own',
           active: true,
+          chapterTitles: {},
           graph: promotion,
         },
       ],
@@ -662,6 +671,7 @@ describe('the review drill in a Black repertoire', () => {
             kind: 'assigned',
             coachName: 'Ona',
             active: true,
+            chapterTitles: {},
             graph: taimanov,
           },
         ],
@@ -699,6 +709,7 @@ describe('the review drill and NAGs', () => {
             side: 'white',
             kind: 'own',
             active: true,
+            chapterTitles: {},
             graph: annotated,
           },
         ],
@@ -725,6 +736,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
           side: 'white',
           ...(kind === 'assigned' ? { kind, coachName: 'Rasa' } : { kind }),
           active: true,
+          chapterTitles: {},
           graph: NOTED,
         },
       ],

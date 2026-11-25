@@ -36,6 +36,7 @@ import type { LearnScope } from '../lib/learn-scope';
 import { CHAPTER_PARAM, LINE_PARAM } from '../lib/routes';
 import { trainingDay } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
+import { chapterTitlesOf } from './chapter-names';
 import { getDb } from './db';
 import { chapterIdSchema } from './repertoire-edit';
 
@@ -176,6 +177,7 @@ function dataEntry(entry: SnapshotEntry): TrainingData['entries'][number] {
     side,
     active: repertoire.active,
     graph: repertoire.graph,
+    chapterTitles: chapterTitlesOf(repertoire.graph),
   };
   if (entry.kind === 'own') return { ...base, kind: 'own' };
   if (entry.coachName === null)

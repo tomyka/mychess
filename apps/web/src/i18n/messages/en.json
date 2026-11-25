@@ -627,12 +627,15 @@
   "training": {
     "title": {
       "review": "Today's review",
-      "learn": "New moves",
-      "mixed": "Several repertoires"
+      "learn": "Learn new moves"
     },
-    "mode": {
-      "review": "Review",
-      "learn": "Learn"
+    "side": {
+      "white": "White",
+      "black": "Black"
+    },
+    "context": {
+      "repertoire": "{name} ({side})",
+      "chapter": "{item} · {chapter}"
     },
     "back": "Back",
     "counter": "{done} / {total}",

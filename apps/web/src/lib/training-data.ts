@@ -21,6 +21,8 @@ interface EntryBase {
   /** False while its assignment is paused: no new Moves from it. */
   readonly active: boolean;
   readonly graph: RepertoireGraph;
+  /** Each chapter's title by id, for the header's context line (R-224). */
+  readonly chapterTitles: Readonly<Record<string, string>>;
 }
 
 /**

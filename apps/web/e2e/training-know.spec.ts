@@ -119,9 +119,9 @@ test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice aft
   const field = page.getByLabel(en.board.moveInput.label, { exact: true });
   const seen: string[] = [];
   for (let i = 0; i < 2; i += 1) {
-    // Two repertoires: titled as several, the item's under it (R-207, R-54).
+    // Two repertoires: titled as today's review, the item's under it (R-224).
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      en.training.title.mixed,
+      en.training.title.review,
     );
     const title = await itemRepertoire(page, en);
     const other = OTHER.get(title);

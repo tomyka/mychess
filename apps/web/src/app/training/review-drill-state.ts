@@ -180,6 +180,10 @@ export function positionOf(s: DrillState): DrillPosition {
 export const repertoireOf = (s: DrillState): string | undefined =>
   s.shown?.item.repertoireId;
 
+/** The chapter of the item on the board. */
+export const chapterOf = (s: DrillState): string | undefined =>
+  s.shown?.line.chapterId;
+
 /**
  * What the session did, for the done summary: its moves, each by its first
  * answer; the repeats change none of them.

@@ -110,6 +110,7 @@ const data: TrainingData = {
       side: 'white',
       kind: 'own',
       active: true,
+      chapterTitles: {},
       graph: graphOf(LONDON),
     },
     {
@@ -118,6 +119,7 @@ const data: TrainingData = {
       side: 'black',
       kind: 'own',
       active: true,
+      chapterTitles: { c1: 'Najdorfas' },
       graph: graphOf(LONDON),
     },
   ],
@@ -134,10 +136,12 @@ const data: TrainingData = {
 interface Drilled {
   readonly flash: Flash | null;
   readonly repertoireId: string | undefined;
+  readonly chapterId?: string;
 }
 
 const positionOf = (s: Drilled): DrillPosition => position({ flash: s.flash });
 const repertoireOf = (s: Drilled): string | undefined => s.repertoireId;
+const chapterOf = (s: Drilled): string | undefined => s.chapterId;
 
 /** The drill board over a state the test sets, and the state's setter. */
 function renderBoard(initial: Drilled) {
@@ -147,7 +151,14 @@ function renderBoard(initial: Drilled) {
   });
   const hook = renderHook(
     ({ s }: { s: Drilled }) =>
-      useDrillBoard({ data, state: s, setState, positionOf, repertoireOf }),
+      useDrillBoard({
+        data,
+        state: s,
+        setState,
+        positionOf,
+        repertoireOf,
+        chapterOf,
+      }),
     { initialProps: { s: initial } },
   );
   return { hook, setState, current: () => state };
@@ -169,16 +180,43 @@ afterEach(() => {
 });
 
 describe('the drill board hook', () => {
-  it('shows the board from the side of the repertoire drilled, titled with its name', () => {
-    const { hook } = renderBoard({ flash: null, repertoireId: SICILIAN_ID });
+  it('shows the board from the side of the repertoire drilled, the item named by it and its chapter (R-224)', () => {
+    const { hook } = renderBoard({
+      flash: null,
+      repertoireId: SICILIAN_ID,
+      chapterId: 'c1',
+    });
     expect(hook.result.current.view.orientation).toBe('black');
-    expect(hook.result.current.titled).toEqual({ title: 'Sicilijos gynyba' });
+    expect(hook.result.current.item).toEqual({
+      name: 'Sicilijos gynyba',
+      side: 'black',
+      chapter: 'Najdorfas',
+    });
   });
 
-  it('shows the board from White, untitled, without a known repertoire', () => {
-    const { hook } = renderBoard({ flash: null, repertoireId: undefined });
+  it('names no chapter when the line has none, or the entry has no title for it', () => {
+    const none = renderBoard({ flash: null, repertoireId: SICILIAN_ID });
+    expect(none.hook.result.current.item?.chapter).toBeNull();
+    const unknown = renderBoard({
+      flash: null,
+      repertoireId: SICILIAN_ID,
+      chapterId: 'c9',
+    });
+    expect(unknown.hook.result.current.item).toEqual({
+      name: 'Sicilijos gynyba',
+      side: 'black',
+      chapter: null,
+    });
+  });
+
+  it('shows the board from White, with no item, without a known repertoire', () => {
+    const { hook } = renderBoard({
+      flash: null,
+      repertoireId: undefined,
+      chapterId: 'c1',
+    });
     expect(hook.result.current.view.orientation).toBe('white');
-    expect(hook.result.current.titled).toEqual({});
+    expect(hook.result.current.item).toBeUndefined();
   });
 
   it('gives the position’s legal moves', () => {

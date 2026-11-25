@@ -142,8 +142,9 @@ async function lineSans(d: Drill): Promise<string[]> {
 }
 
 /**
- * The repertoire of the item asked: the title, or in a mixed session,
- * titled as several repertoires, the subtitle under it (R-54, R-207).
+ * The repertoire of the item asked (R-224): the title of a scoped session,
+ * else the context line under the session's name, without its side and
+ * chapter.
  */
 export async function itemRepertoire(
   page: Page,
@@ -151,9 +152,15 @@ export async function itemRepertoire(
 ): Promise<string> {
   const title = page.getByRole('heading', { level: 1 });
   const text = (await title.textContent()) ?? '';
-  if (text !== messages.training.title.mixed) return text;
-  const subtitle = title.locator('xpath=following-sibling::p');
-  return (await subtitle.textContent()) ?? '';
+  const sessions: readonly string[] = [
+    messages.training.title.review,
+    messages.training.title.learn,
+  ];
+  if (!sessions.includes(text)) return text;
+  const context = title.locator('xpath=following-sibling::p');
+  const line = (await context.textContent()) ?? '';
+  const { white, black } = messages.training.side;
+  return line.replace(new RegExp(` \\((${white}|${black})\\)( · .*)?$`), '');
 }
 
 /**

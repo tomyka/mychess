@@ -5,12 +5,13 @@
 import type { JSX, ReactNode } from 'react';
 import type { TrainingData } from '../../lib/training-data';
 import type { DrillClock } from './drill-input';
+import type { HeaderItem } from './session-header';
 import type { ResultSync } from './use-result-sync';
 
 /** The parts of the screen a drill fills (docs/design/training-screen.md). */
 export interface FrameParts {
-  /** The top bar's title; absent, the repertoire's name or the mode's title. */
-  readonly title?: string;
+  /** The item asked now: the header names its repertoire and chapter (R-224). */
+  readonly item?: HeaderItem | undefined;
   /** The session's done / total: the counter and the progress bar. */
   readonly progress?: { readonly done: number; readonly total: number };
   /** The drill's board; absent, the start position, dimmed and inert. */

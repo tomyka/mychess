@@ -15,7 +15,15 @@ function oneMove(
   const graph = graphOf(pgn);
   const data: Pick<TrainingData, 'entries' | 'coachNotes'> = {
     entries: [
-      { id: 'r1', name: 'R', side: 'white', active: true, graph, ...entry },
+      {
+        id: 'r1',
+        name: 'R',
+        side: 'white',
+        active: true,
+        graph,
+        chapterTitles: {},
+        ...entry,
+      },
     ],
     coachNotes,
   };

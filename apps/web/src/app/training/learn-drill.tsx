@@ -121,7 +121,7 @@ export function LearnDrill({
   const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
   const counts = learnCounts(state);
-  const parts = { ...drill.titled, progress: counts };
+  const parts = { item: drill.item, progress: counts };
   const board = (
     <Board
       view={drill.view}

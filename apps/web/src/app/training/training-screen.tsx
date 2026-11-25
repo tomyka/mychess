@@ -15,6 +15,7 @@ import type { FrameParts, TrainingLinks } from './drill';
 import { EmptyPanel, type ScopedRepertoire } from './empty-panel';
 import { LearnDrill } from './learn-drill';
 import { ReviewDrill } from './review-drill';
+import { sessionHeader, type HeaderWords } from './session-header';
 import { SyncBanner } from './sync-banner';
 import { TrainingFrame } from './training-frame';
 import { useQueuedLearned, useResultSync } from './use-result-sync';
@@ -63,20 +64,15 @@ const caughtUp = (
     ? data
     : { ...data, queued };
 
-/** Does the session train several repertoires, not one (R-207)? */
-const isMixed = (data: TrainingData, repertoireId: string | null): boolean =>
-  repertoireId === null && data.entries.filter((e) => e.active).length > 1;
-
-/**
- * A mixed session's header (R-207): titled as several repertoires, not by
- * the item's; that one still shows, under the title (R-54). With no item
- * (an empty state), the mode's title stays.
- */
-const mixedTitle = (
-  parts: FrameParts,
-  several: string,
-): { title?: string; subtitle?: string } =>
-  parts.title === undefined ? {} : { title: several, subtitle: parts.title };
+/** The catalogue's words for the header (R-224). */
+function useHeaderWords(): HeaderWords {
+  const t = useTranslations('training');
+  return {
+    word: (key) => t(key),
+    repertoire: (values) => t('context.repertoire', values),
+    chapter: (values) => t('context.chapter', values),
+  };
+}
 
 /**
  * The training page (docs/design/training-screen.md): an empty state when
@@ -89,7 +85,7 @@ export function TrainingScreen({
   accountId,
   repertoireId,
 }: TrainingScreenProps): JSX.Element {
-  const t = useTranslations('training');
+  const words = useHeaderWords();
   const sync = useResultSync(accountId);
   const queued = useQueuedLearned(accountId);
   const data = useMemo(() => caughtUp(snapshot, queued), [snapshot, queued]);
@@ -103,14 +99,17 @@ export function TrainingScreen({
   );
   const scoped = data.entries.find((e) => e.id === repertoireId) ?? null;
   const links = linksFor(scoped);
-  const mixed = isMixed(data, repertoireId);
+  // The session's name, and the item asked under it (R-224).
+  const header = (parts: FrameParts) =>
+    sessionHeader(
+      { mode: data.mode, scopedName: scoped?.name ?? null, item: parts.item },
+      words,
+    );
   const frame = (parts: FrameParts): JSX.Element => (
     <TrainingFrame
       {...parts}
-      {...(mixed ? mixedTitle(parts, t('title.mixed')) : {})}
-      mode={data.mode}
+      {...header(parts)}
       backHref={links.back}
-      defaultTitle={scoped?.name ?? t(`title.${data.mode}`)}
       side={scoped?.side ?? 'white'}
       banner={
         <SyncBanner

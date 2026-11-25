@@ -67,11 +67,11 @@ test(
       ).toBeVisible();
       await expect(rowAction(row, en, due)).toBeVisible();
     }
-    // Start review trains both: titled as several, the item's under it.
+    // Start review trains both: titled as today's review, the item's under it (R-224).
     await startTodayReview(page, en);
     await expectCounter(page, 0, 5);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      en.training.title.mixed,
+      en.training.title.review,
     );
     expect(await itemRepertoire(page, en)).toBe(KARO_KAN);
     // The Italian row's Review 2: its two due moves alone, under its name.

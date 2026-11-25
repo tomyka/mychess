@@ -18,8 +18,8 @@ import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { TrainingData } from '../../lib/training-data';
 import type { BoardView } from '../board/board-config';
 import { destsOf, isKey, squaresOf } from '../board/squares';
-import type { FrameParts } from './drill';
 import { FEEDBACK_MS, useTimer, type Flash } from './drill-input';
+import type { HeaderItem } from './session-header';
 
 /** What a drill has on the board now. */
 export interface DrillPosition {
@@ -80,8 +80,23 @@ export function drillBoard(
   };
 }
 
-const entryOf = (data: TrainingData, repertoireId: string | undefined) =>
-  data.entries.find((e) => e.id === repertoireId);
+type Entry = TrainingData['entries'][number];
+
+const entryOf = (
+  data: TrainingData,
+  repertoireId: string | undefined,
+): Entry | undefined => data.entries.find((e) => e.id === repertoireId);
+
+/** The item drilled, as the header names it: repertoire, side and chapter (R-224). */
+function itemOf(
+  entry: Entry | undefined,
+  chapterId: string | undefined,
+): HeaderItem | undefined {
+  if (entry === undefined) return undefined;
+  const chapter =
+    chapterId === undefined ? undefined : entry.chapterTitles[chapterId];
+  return { name: entry.name, side: entry.side, chapter: chapter ?? null };
+}
 
 /** A drill's state: it keeps the answer's flash. */
 interface Flashing {
@@ -97,14 +112,16 @@ interface BoardSource<S extends Flashing> {
   readonly positionOf: (s: S) => DrillPosition;
   /** The repertoire drilled, if any. */
   readonly repertoireOf: (s: S) => string | undefined;
+  /** The chapter of the item drilled, if any. */
+  readonly chapterOf: (s: S) => string | undefined;
 }
 
 export interface DrillBoard {
   readonly view: BoardView;
   /** The legal moves of the position on the board. */
   readonly legal: readonly BoardMove[];
-  /** The repertoire's name, as the frame's title (R-54). */
-  readonly titled: Pick<FrameParts, 'title'>;
+  /** The item drilled, for the header's context line (R-224). */
+  readonly item: HeaderItem | undefined;
 }
 
 /** Ends each flash after its time, unless a newer one took its place. */
@@ -139,9 +156,5 @@ export function useDrillBoard<S extends Flashing>(
     [position, side, legal],
   );
   useUnflash(state.flash, source.setState);
-  return {
-    view,
-    legal,
-    titled: entry === undefined ? {} : { title: entry.name },
-  };
+  return { view, legal, item: itemOf(entry, source.chapterOf(state)) };
 }

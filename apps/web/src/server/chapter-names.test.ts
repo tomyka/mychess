@@ -14,6 +14,7 @@ import { plainChapterLabel } from '../lib/chapter-label';
 import {
   chapterLabelOf,
   chapterNamesOf,
+  chapterTitlesOf,
   plainChapterTitle,
 } from './chapter-names';
 
@@ -141,5 +142,20 @@ describe('taxonomy names (R-216)', () => {
     expect(exportPgn(graph, { title: plainChapterTitle })).toContain(
       `[Event "${ADVANCE}"]`,
     );
+  });
+});
+
+describe('chapterTitlesOf', () => {
+  it('titles every chapter by id, as the repertoire page does', () => {
+    const second = chapter('c2', { kind: 'index', number: 2 });
+    const graph: RepertoireGraph = {
+      side: 'white',
+      chapters: [chapter('c1', { kind: 'custom', name: 'Main line' }), second],
+      moves: [],
+    };
+    expect(chapterTitlesOf(graph)).toEqual({
+      c1: 'Main line',
+      c2: chapterLabelOf(graph)(second),
+    });
   });
 });

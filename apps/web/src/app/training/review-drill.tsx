@@ -124,7 +124,7 @@ export function ReviewDrill({
   const drill = useReviewDrill(data, sync, clock);
   const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
-  const parts = { ...drill.titled, progress: reviewProgress(state.session) };
+  const parts = { item: drill.item, progress: reviewProgress(state.session) };
   const board = (
     <Board
       view={drill.view}

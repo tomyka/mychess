@@ -53,7 +53,7 @@ const drills = vi.hoisted(() => {
     (name: string) =>
     ({ data, links, frame }: DrillProps) =>
       frame({
-        title: `${name} item`,
+        item: { name: `${name} item`, side: 'white', chapter: 'Main line' },
         progress: { done: 2, total: 5 },
         board: <div data-testid="live-board" />,
         panel: (
@@ -80,6 +80,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
         side: 'white',
         kind: 'own',
         active: true,
+        chapterTitles: {},
         graph: graphOf(LONDON),
       },
     ],
@@ -194,6 +195,7 @@ describe('the training screen with no moves of the player’s side', () => {
         side: 'black',
         kind: 'own',
         active: true,
+        chapterTitles: {},
         graph: graphOf('1. e4 *', 'black'),
       },
     ],
@@ -247,8 +249,9 @@ describe('the training screen with something to drill', () => {
       screen.getByText(`review drill, review, back to /repertoires/${ID}`),
     ).toBeDefined();
     expect(
-      screen.getByRole('heading', { level: 1, name: 'review item' }),
+      screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
+    expect(screen.getByText('White · Main line')).toBeDefined();
     expect(screen.getByText('2 / 5')).toBeDefined();
     expect(screen.getByTestId('live-board').closest('[inert]')).toBeNull();
     expect(sync.accounts).toContain('a1');
@@ -301,7 +304,7 @@ describe('the training screen with something to drill', () => {
   });
 });
 
-describe('the header of a session over several repertoires (R-207, R-54)', () => {
+describe('the header: the session named, the item under it (R-224)', () => {
   const OTHER = '0b6c2a4e-1f3d-4e5a-8b7c-9d0e1f2a3b4c';
   const london = data().entries[0];
   const two = (active: boolean): TrainingData['entries'] =>
@@ -309,35 +312,39 @@ describe('the header of a session over several repertoires (R-207, R-54)', () =>
       ? []
       : [london, { ...london, id: OTHER, name: 'Kita', active }];
   const due = data({ reviews: [startReview(D4, new Date(0))], tracked: [D4] });
+  const title = () => screen.getByRole('heading', { level: 1 });
 
-  it('titles it as such and names the item’s repertoire under the title', () => {
+  it('titles a session over every repertoire by its name, the item’s repertoire, side and chapter under it', () => {
     renderScreen({ ...due, entries: two(true) }, null);
-    expect(
-      screen.getByRole('heading', { level: 1, name: T.title.mixed }),
-    ).toBeDefined();
-    expect(screen.getByText('review item')).toBeDefined();
+    expect(title().textContent).toBe(T.title.review);
+    expect(title().nextElementSibling?.textContent).toBe(
+      'review item (White) · Main line',
+    );
   });
 
-  it('names the repertoire when the session trains only it', () => {
+  it('titles a learn pass over every repertoire as learning new moves', () => {
+    renderScreen({ ...due, mode: 'learn', entries: two(true) }, null);
+    expect(title().textContent).toBe(T.title.learn);
+    expect(title().nextElementSibling?.textContent).toBe(
+      'learn item (White) · Main line',
+    );
+  });
+
+  it('titles a scoped session by its repertoire, the side and chapter under it', () => {
     renderScreen({ ...due, entries: two(true) }, ID);
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'review item' }),
-    ).toBeDefined();
-    expect(screen.queryByText(T.title.mixed)).toBeNull();
+    expect(title().textContent).toBe('Londono sistema');
+    expect(title().nextElementSibling?.textContent).toBe('White · Main line');
   });
 
-  it('names the repertoire when it is the only one trained, the other paused', () => {
+  it('names the session, not the repertoire, when only one is trained, the other paused', () => {
     renderScreen({ ...due, entries: two(false) }, null);
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'review item' }),
-    ).toBeDefined();
+    expect(title().textContent).toBe(T.title.review);
   });
 
-  it('keeps the mode’s title when there is nothing to drill', () => {
+  it('keeps the session’s name, with no context line, when there is nothing to drill', () => {
     renderScreen(data({ entries: two(true) }), null);
-    expect(
-      screen.getByRole('heading', { level: 1, name: T.title.review }),
-    ).toBeDefined();
+    expect(title().textContent).toBe(T.title.review);
+    expect(title().nextElementSibling).toBeNull();
   });
 });
 
@@ -349,6 +356,7 @@ describe('the training screen and the results still queued (#330 decision 2)', (
       side: 'white',
       kind: 'own',
       active: true,
+      chapterTitles: {},
       graph: graphOf('1. d4 *'),
     },
   ] as const;

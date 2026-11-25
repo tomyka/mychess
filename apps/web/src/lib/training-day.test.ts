@@ -36,6 +36,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
         side: 'white',
         kind: 'own',
         active: true,
+        chapterTitles: {},
         graph: london,
       },
       {
@@ -45,6 +46,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
         kind: 'assigned',
         coachName: 'Ona',
         active: true,
+        chapterTitles: {},
         graph: taimanov,
       },
     ],

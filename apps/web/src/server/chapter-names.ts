@@ -66,3 +66,11 @@ export function chapterNamesOf(graph: RepertoireGraph): ChapterNames {
     distinctions: Object.fromEntries(chapterDistinctions(graph)),
   };
 }
+
+/** Every chapter of `graph` titled as on its page (R-158, R-216), by id: for the training header (R-224). */
+export function chapterTitlesOf(
+  graph: RepertoireGraph,
+): Readonly<Record<string, string>> {
+  const label = chapterLabelOf(graph);
+  return Object.fromEntries(graph.chapters.map((c) => [c.id, label(c)]));
+}
