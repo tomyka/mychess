@@ -53,11 +53,14 @@ A drill runs full-screen, without the app's tabs (R-218).
 - **Title and context line (R-224).** The title (`text-lg`, semibold; `text-xl`
   on desktop) names the session: "Today's review", "Learn new moves", or the
   repertoire's name for a session scoped to one. Under it one muted
-  `text-sm` line, truncated with an ellipsis, names the item being asked:
-  its repertoire, side and chapter ("Caro-Kann (Black) · Main line"); in a
-  scoped session only the side and chapter. With no item (an empty state,
-  Done) there is no context line. A chapter with no title yet shows the
-  repertoire and side only. The same `h1` and line at every width.
+  `text-sm` line names the item being asked: its repertoire, side and
+  chapter ("Caro-Kann (Black) · Main line"); in a scoped session only the
+  side and chapter. The line is a row of parts: the repertoire name and the
+  chapter each cut short with an ellipsis, the side never, so all three
+  stay in view; a screen reader hears the whole line once (an `sr-only`
+  copy). With no item (an empty state, Done) there is no context line. A
+  chapter with no title yet shows the repertoire and side only. The same
+  `h1` and line at every width.
 - **Counter (R-223).** "3 / 9" in `text-base`, semibold, tabular: the moves
   finished of the moves the session holds. The total is fixed when the
   session starts and never moves; a repeat (R-78) is asked on top of it.
@@ -102,7 +105,10 @@ A drill runs full-screen, without the app's tabs (R-218).
   still wins on shorter screens). The card (`w-panel`, `bg-surface`,
   `rounded-card`, `shadow-card`) is the board's height; the move list takes
   its spare height and scrolls inside itself.
-- Back is the same 44px icon button as on the phone, inside the card.
+- Back is the same 44px icon button as on the phone, inside the card. It
+  is the shell's back button (`BACK_BUTTON`, shared with the page header):
+  an `accent` chevron with round caps, `sunken` on hover, `-ml-2` so the
+  chevron lines up with the gutter.
 - Between 640 and 1024px the panel moves under the board, as on the phone,
   but the board is capped at the viewport height minus the top bar.
 
@@ -170,7 +176,7 @@ lower half of the screen was empty; stacked, it is 880px.
 | Piece selected | `board-selected` on the square, `board-target` dots on legal squares | unchanged |
 | Correct | piece lands, `board-correct` flash (30%) on the target square and the check badge, both for `duration-feedback` (700ms); the next item waits the same 700ms | "Correct" as a `success-subtle` / `success` pill with a tick |
 | Opponent replies | reply slides in (`duration-move`); input locked meanwhile | "Opponent played ..." over the prompt; move appended to the line |
-| Lapse (wrong move) | the wrong move **stays on the board** for 700ms with the `board-wrong` flash and the cross badge, input locked; then the piece goes back and the expected move shows as a `board-arrow` | "Not that move. Play the move the arrow shows." as an `error-subtle` / `error` pill with a cross; it stays until the move is played (R-59) |
+| Lapse (wrong move) | the wrong move **stays on the board** for 700ms with the `board-wrong` flash and the cross badge, input locked; then the piece goes back and the expected move shows as a `board-arrow` | "Not that move. Play the move the arrow shows." as an `error-subtle` / `error` pill with a cross; it stays until the move is played (R-59). The side to move stays the asked side through the hold |
 | Hint (review, R-61) | `board-hint` amber ring with a `board-hint-edge` inner edge on the piece to move | "Hint: move the highlighted piece." as a `due-subtle` / `due` pill; Hint disabled |
 | Learn pass, shown | expected move as a `board-arrow` | "Play the move the arrow shows" |
 | Learn pass, blind retest | no arrow | "Now without the arrow" |
@@ -188,7 +194,8 @@ non-text minimum. The square flashes are the same colours at 30%
 (`board-correct`, `board-wrong`).
 
 **Arrow.** `board-arrow` at 0.95 alpha and about half again chessground's
-line width, so the lapse and learn arrows read at a glance.
+line width, with the shapes layer at full opacity (chessground's own CSS
+fades it to 0.6), so the lapse and learn arrows read at a glance.
 
 **Coordinates.** 10px semibold, tucked 2px into the square's corner (ranks
 on the right edge, files on the bottom), so they sit at the piece's edge
@@ -221,8 +228,9 @@ and the opponent's reply.
 No spinner over the board. If loading passes about one second, a single
 "loading" line (text-sm, `fg-muted`) replaces the first skeleton line.
 Desktop: the same, board left, skeleton panel right. The skeleton top bar
-keeps the place of the 6px track, so the board does not move when the
-drill arrives.
+has the drill's header geometry (title and context line skeletons, the 6px
+track and the gap under it on a phone), so the board does not move when
+the drill arrives.
 
 ### Empty: nothing due
 
@@ -230,8 +238,8 @@ drill arrives.
 +--------------------------------------+
 | [<] Today's review                   |  no counter, no context line
 +--------------------------------------+
-|  ░░ start position, dimmed ░░░░░░░░  |  a strip: the board's top 40%
-|  ░░ (cropped, not squashed) ░░░░░░░  |  (aspect 5/2), not focusable
+|  ░░ start position, dimmed ░░░░░░░░  |  a strip: the player's two back
+|  ░░ (cropped, not squashed) ░░░░░░░  |  ranks (aspect 4/1), not focusable
 +--------------------------------------+
 |  +--------------------------------+  |
 |  | Nothing due now                |  |  the accent hero card, as
@@ -247,8 +255,10 @@ drill arrives.
   states (`TodayHero`'s look, not its component; `HERO_PRIMARY_BUTTON`).
   The top bar's title already names the session, so the card carries no
   eyebrow. The time is in the user's time zone.
-- On a phone the dimmed start board shrinks to a strip (5:2, the board
-  inside stays square and is clipped) so the card is in view. On desktop
+- On a phone the dimmed start board shrinks to a strip of exactly two
+  ranks (4:1), anchored to the bottom so it shows the player's own back
+  ranks; the board inside stays square and is clipped, so the card is in
+  view. On desktop
   the dimmed board stays whole beside the card.
 - **No moves**, **limit reached** and **nothing left** use the same card in
   its plain form (`CARD`: `bg-surface`, `rounded-card`, shadow) with their
@@ -326,9 +336,10 @@ Two cases, both in the panel, never over the board:
     shown, above Hint.
   - Below `lg` it waits behind the **Type** button (tonal, keyboard icon and
     the word, `aria-expanded`), next to Hint and in the tab order after the
-    board. Pressing Type shows the field in place, above the buttons, and
-    moves focus into it. The field closes after a move is taken, or on
-    Escape, and focus returns to the Type button.
+    board. Type is a toggle: pressing it shows the field in place, above
+    the buttons, and moves focus into it; pressing it again closes the
+    field. The field also closes after a move is taken, or on Escape, and
+    focus returns to the Type button.
 - Each square has an accessible name ("e4, white knight"); the side to move
   and each result are announced through the live region.
 - Focus never jumps after a move: it stays on the board (or, for a typed
