@@ -8,6 +8,25 @@
     "repertoires": "My repertoires",
     "fideSearch": "Opponent's games"
   },
+  "nav": {
+    "label": "Main",
+    "skip": "Skip to content",
+    "today": "Today",
+    "todayDue": "Today, {count} due",
+    "repertoires": "Repertoires",
+    "opponents": "Opponents",
+    "coach": "Coach",
+    "back": "Back to {parent}",
+    "account": {
+      "open": "Account menu",
+      "settings": "Settings",
+      "myCoaches": "My coaches",
+      "theme": "Theme",
+      "themeSystem": "System",
+      "themeLight": "Light",
+      "themeDark": "Dark"
+    }
+  },
   "signIn": {
     "title": "Sign in",
     "intro": "Enter your email address and we will send you a sign-in link.",
