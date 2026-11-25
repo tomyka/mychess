@@ -145,6 +145,20 @@ describe('trainingSnapshot', () => {
     expect(snapshot?.tracked).toEqual(new Set());
   });
 
+  it('names the held keys that entered by "I know this" (R-151)', async () => {
+    await repertoireOf('p', 'Mano');
+    await learned(D4);
+    await writeReview(db, 'p', startReview(BF4, hoursAgo(2)), {
+      skippedAt: hoursAgo(2),
+    });
+    // Not held: no repertoire of p holds 1. e4.
+    await writeReview(db, 'p', startReview(E4, hoursAgo(2)), {
+      skippedAt: hoursAgo(2),
+    });
+    const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
+    expect(snapshot && [...snapshot.known]).toEqual([BF4]);
+  });
+
   describe('scoped to one repertoire', () => {
     it('carries only that entry, yet every held review (no shared move goes dormant)', async () => {
       const own = await repertoireOf('p', 'Mano');

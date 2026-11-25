@@ -48,6 +48,11 @@ export interface TrainingSnapshot {
   readonly reviews: ReadonlyMap<string, ReviewState>;
   /** Tracked keys among them, a Review exists (for learnPlan, R-181). */
   readonly tracked: ReadonlySet<string>;
+  /**
+   * Held keys whose Review entered by "I know this" (skippedAt set), for the
+   * skipped state of R-151; a subset of `tracked`.
+   */
+  readonly known: ReadonlySet<string>;
   /** Moves learned (not skipped) in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;
@@ -89,6 +94,17 @@ function heldReviews(
   );
 }
 
+/** The keys of `held` whose stored Review entered by "I know this". */
+const knownKeys = (
+  stored: ReadonlyMap<string, StoredReview>,
+  held: ReadonlySet<string>,
+): Set<string> =>
+  new Set(
+    [...stored]
+      .filter(([key, { skippedAt }]) => held.has(key) && skippedAt !== null)
+      .map(([key]) => key),
+  );
+
 /**
  * The player's training snapshot for `scope` at `now`; undefined when the
  * scope names a repertoire the player does not train (another player's, a
@@ -107,15 +123,15 @@ export async function trainingSnapshot(
     const all = await trainingEntries(tx, playerId);
     const entries = scoped(all, scope);
     if (entries === undefined) return undefined;
-    const reviews = heldReviews(
-      await reviewsOf(tx, playerId),
-      repertoireKeys(all.map((e) => e.repertoire)),
-    );
+    const stored = await reviewsOf(tx, playerId);
+    const held = repertoireKeys(all.map((e) => e.repertoire));
+    const reviews = heldReviews(stored, held);
     return {
       entries,
       others: othersOf(all, entries),
       reviews,
       tracked: new Set(reviews.keys()),
+      known: knownKeys(stored, held),
       learnedToday: await learnedBetween(
         tx,
         playerId,

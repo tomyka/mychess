@@ -106,6 +106,7 @@ const SNAPSHOT: TrainingSnapshot = {
     ['k2|Bf4', review('k2|Bf4')],
   ]),
   tracked: new Set(['k1|d4', 'k2|Bf4']),
+  known: new Set(),
   learnedToday: 3,
   settings: { sessionSize: 20, newPerDay: 5, learnArrows: false },
 };
