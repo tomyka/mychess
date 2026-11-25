@@ -19,7 +19,7 @@
   --color-sunken: light-dark(#e9ecf2, #0b0d12); /* wells, skeletons */
   /* dividers (decorative); the track of a progress bar, the to-learn part
      (sunken is about 1.1:1 on the page and would vanish) */
-  --color-border: light-dark(#dce0e8, #2c3240);
+  --color-border: light-dark(#cfd5df, #343b4a);
   --color-border-strong: light-dark(#7d8597, #6b7385); /* inputs, 3:1 */
   --color-fg: light-dark(#141a26, #e6e9f0); /* body text */
   --color-fg-muted: light-dark(#566075, #9aa3b5); /* secondary text */

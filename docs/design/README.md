@@ -43,6 +43,35 @@ We take the feel, not the pixels: no copied layouts, colours or assets.
    `min-w-touch`), visible focus everywhere, the board and drills fully
    usable from the keyboard, motion off under `prefers-reduced-motion`.
 
+## Shell
+
+Every signed-in page but training sits in one frame (R-218, #381; spec
+`docs/superpowers/specs/2026-11-25-app-shell-and-visual-refresh-design.md`).
+The code is in `apps/web/src/app/shell/`.
+
+- **Tabs:** Today (`/`), Repertoires, Opponents (`/fide`), and Coach for an
+  account with the coach capability. One `<nav aria-label="Main">`: fixed to
+  the bottom of a phone over the home indicator's inset, centred in the
+  sticky top bar from `md` (768px). The current tab has `aria-current`.
+  Today carries an amber `due` badge (99+ above 99); its accessible name is
+  "Today, N due".
+- **Account menu:** the avatar (initials on `accent-subtle`) opens a
+  disclosure with the name, Settings, My coaches, the theme switch (System /
+  Light / Dark, kept in the `theme` cookie so the first paint is right) and
+  Sign out.
+- **Top row on a phone:** wordmark and avatar on a tab's own page only. An
+  inner page's `PageHeader` (back arrow to an explicit parent, "Back to
+  Repertoires", plus the title and the avatar) is its only top row; board
+  pages keep their compact header so the board stays high.
+- **Focus mode:** `/training` has no shell. Sign-in, welcome and invite
+  pages have none either.
+- **Width:** list and form pages use `CONTENT` (`max-w-content`, 1040px,
+  `apps/web/src/app/surfaces.ts`); board pages use the full width.
+  `--shell-chrome` (set on `#content`) is the height the shell takes, so a
+  full-height page sizes itself with `calc(100dvh - var(--shell-chrome))`.
+- **Cards:** `CARD`: `shadow-card` lifts them; the `card-edge` hairline shows
+  only in dark, where shadows do not read.
+
 ## Text length
 
 - No fixed widths on anything holding text: buttons, chips, tabs and badges
@@ -61,15 +90,15 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 
 | Group | Tokens (utility examples) | Use |
 | --- | --- | --- |
-| Surfaces | `bg`, `surface`, `sunken`, `border`, `border-strong` (`bg-surface`, `border-border`) | page, cards, wells; `border` is also the progress-bar track; `border-strong` for inputs (3:1) |
+| Surfaces | `bg`, `surface`, `sunken`, `border`, `border-strong`, `card-edge` (`bg-surface`, `border-border`) | Ocean (R-220): page, cards, wells; `card-edge` is a card's hairline, transparent in light; `border` is also the progress-bar track; `border-strong` for inputs (3:1) |
 | Text | `fg`, `fg-muted` (`text-fg-muted`) | body, secondary |
-| Interactive | `accent`, `accent-fg`, `focus` | primary buttons, links, focus ring |
+| Interactive | `accent`, `accent-fg`, `accent-subtle`, `focus` | primary buttons, links, focus ring; `accent-subtle` behind the avatar and a chosen option |
 | States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` and `skipped` (a bar segment only) | see below |
 | Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-badge-{correct,wrong,glyph}`, `board-focus`, `board-hint`, `board-hint-edge`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
 | Piece glyphs | `piece-white`, `piece-black`, `piece-outline` (`fill-piece-white`, `stroke-piece-outline`) | a side's king off the board (Mano repertuarai headings): the fill is the side's colour in both themes, the outline follows the theme |
-| Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | system UI stack, 12-36px |
-| Spacing | 4px scale, plus `touch` (44px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px) | `min-h-touch`, `px-gutter`, `w-panel` |
-| Radii | `control`, `card`, `board`, `pill` | `rounded-control`, ... |
+| Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | Inter (self-hosted through next/font, R-219), then the system UI stack; 12-36px |
+| Spacing, containers | 4px scale, plus `touch` (44px), `tabbar` (56px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px); `container-content` (1040px) | `min-h-touch`, `px-gutter`, `w-panel` |
+| Radii | `control` (12px), `card` (14px), `board` (8px), `pill` | `rounded-control`, ... |
 | Elevation, motion | `shadow-card`, `shadow-sheet`, `ease-standard`, `duration-move`, `duration-feedback`, `animate-reveal-late` | `animate-reveal-late` shows a slow wait's line after about 1s by CSS alone, so it also works in a streamed loading page React never hydrates |
 
 ### Semantic states
@@ -96,22 +125,22 @@ label, and Mastered is a `success-subtle` pill with the word.
 
 Light and dark. Each colour token is `light-dark(<light>, <dark>)`; the theme
 follows the system, and `data-theme="light"` or `"dark"` on `<html>` (set by
-a future theme switch) overrides it. Tailwind's `dark:` variant follows the
+the account menu's theme switch) overrides it. Tailwind's `dark:` variant follows the
 same rule, but prefer tokens: a component should need no `dark:` class.
 
-### Contrast (checked 2026-10-16)
+### Contrast (checked 2026-10-16; Ocean values 2026-11-25)
 
 | Pair | Light | Dark |
 | --- | --- | --- |
-| `fg` on `bg` / `surface` | 15.9 / 17.4 | 15.5 / 14.1 |
-| `fg-muted` on `bg` / `surface` | 6.7 / 7.3 | 7.5 / 6.9 |
-| `accent` on `bg`; `accent-fg` on `accent` | 6.2; 6.8 | 8.0; 7.8 |
-| `success` / `error` / `due` / `learned` on `bg` | 5.6 / 6.0 / 5.4 / 6.4 | 8.9 / 8.1 / 9.3 / 8.5 |
+| `fg` on `bg` / `surface` | 16.0 / 17.4 | 15.4 / 13.9 |
+| `fg-muted` on `bg` / `surface` | 5.8 / 6.3 | 7.4 / 6.7 |
+| `accent` on `bg`; on `accent-subtle`; `accent-fg` on `accent` | 5.3; 5.0; 5.8 | 8.1; 6.6; 8.0 |
+| `success` / `error` / `due` / `learned` on `bg` | 5.6 / 6.0 / 5.4 / 6.4 | 9.1 / 8.2 / 9.4 / 8.6 |
 | each state on its `-subtle` | 5.2 - 5.9 | 6.9 - 7.3 |
 | `on-state` on each solid state | 5.9 - 6.9 | 8.2 - 9.4 |
 | A disabled (pending) button's label, the button at 85% over `bg` / `surface`: primary; danger (2026-11-16) | 4.9 / 4.9; 5.1 / 5.0 | 6.0 / 6.0; 6.2 / 6.2 |
-| `border-strong` on `bg` / `surface` | 3.3 / 3.6 | 3.5 / 3.2 |
-| `border` (bar track) on `bg` / `surface` (2026-10-27) | 1.4 / 1.5 | 1.7 / 1.5 |
+| `border-strong` on `bg` / `surface` | 3.4 / 3.7 | 3.9 / 3.6 |
+| `border` (bar track) on `bg` / `surface` (2026-11-25) | 1.4 / 1.5 | 1.7 / 1.5 |
 | `skipped` on `border`; on `learned` (2026-10-27; bar segments, the counts carry the meaning) | 1.8; 2.6 | 2.1; 2.4 |
 | `board-focus` on light / dark square | 9.0 / 3.9 | 7.2 / 3.2 |
 | `board-mark-green` / `-red` / `-blue` on light square | 4.1 / 6.7 / 8.6 | 3.3 / 5.4 / 6.9 |
@@ -121,6 +150,10 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `board-hint-edge` on light / dark square (2026-10-26; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.2, a hue cue only) | 10.7 / 4.7 | 8.6 / 3.8 |
 | `board-hint` on `board-hint-edge` | 8.2 | 8.2 |
 
+`apps/web/src/app/tokens.test.ts` enforces the text, control and focus
+pairs above (AA, both themes) on every run, so a token change that drops
+one fails the gate. The board rows are measured by hand at sign-off.
+
 Board coordinates (opposite square colour on a square, about 2.3:1), the
 mark colours on dark squares (1.2 - 3.8) and yellow marks are supplementary,
 as on every chess site; the move list and the screen-reader labels (which
@@ -128,6 +161,6 @@ list each move's arrows and circles) carry the same information.
 
 ## Sign-off
 
-For every visible change: screenshots at 390px and 1280px, LT and EN, light
-and dark (8 per screen), plus a keyboard pass and a 200% zoom check. The
+For every visible change: screenshots at 390px and 1280px, light
+and dark (4 per screen; English only, R-217), plus a keyboard pass and a 200% zoom check. The
 report lists what matches the screen note, what does not, and the fix.
