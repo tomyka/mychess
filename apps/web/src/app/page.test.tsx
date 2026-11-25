@@ -5,14 +5,6 @@ import { MESSAGES } from '../i18n/catalogue';
 import type { TodaySummary } from '../server/training';
 import { HomeView } from './home-view';
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
-}));
-
-vi.mock('../lib/auth-client', () => ({
-  authClient: { signOut: vi.fn() },
-}));
-
 vi.mock('./fork-offer-actions', () => ({
   acceptForkOfferAction: vi.fn(),
   declineForkOfferAction: vi.fn(),
@@ -28,56 +20,29 @@ const QUIET: TodaySummary = {
 };
 
 describe('HomeView', () => {
-  it('names the site and greets the account', () => {
+  it('greets the account', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <HomeView
-          accountId="rokas"
-          displayName="Rūta"
-          isCoach={false}
-          fromCoach={[]}
-          offers={[]}
-          today={QUIET}
-        />
+        <HomeView displayName="Rūta" fromCoach={[]} offers={[]} today={QUIET} />
       </NextIntlClientProvider>,
     );
-    // The brand is a label, as on the other pages; the greeting is the
-    // page's one h1, today's review the first section under it.
-    expect(screen.getByText('MyChess').tagName).toBe('P');
+    // The greeting is the page's one h1, today's review the first section
+    // under it; the wordmark lives in the shell's top bar (#381).
     expect(
       screen.getAllByRole('heading').map((h) => [h.tagName, h.textContent]),
     ).toEqual([
       ['H1', 'Hello, Rūta!'],
       ['H2', MESSAGES.training.today.title],
     ]);
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeDefined();
-    expect(
-      screen.getByRole('link', { name: 'Settings' }).getAttribute('href'),
-    ).toBe('/settings');
-    expect(
-      screen
-        .getByRole('link', { name: MESSAGES.app.repertoires })
-        .getAttribute('href'),
-    ).toBe('/repertoires');
-    // The FIDE ID search (#316), for every account (R-186).
-    expect(
-      screen
-        .getByRole('link', { name: MESSAGES.app.fideSearch })
-        .getAttribute('href'),
-    ).toBe('/fide');
-    expect(
-      screen.queryByRole('link', { name: MESSAGES.app.coachArea }),
-    ).toBeNull();
+    expect(screen.queryByText(MESSAGES.app.title)).toBeNull();
   });
 
-  // C-M1-1: the coach dashboard appears alongside the player's own area.
-  it('links a coach to the coach dashboard', () => {
+  // #381: the ways to the other areas and sign-out moved to the shell.
+  it('has no sign-out button and no links to the other areas', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <HomeView
-          accountId="rokas"
           displayName="Jonas"
-          isCoach
           fromCoach={[]}
           offers={[]}
           today={QUIET}
@@ -85,22 +50,16 @@ describe('HomeView', () => {
       </NextIntlClientProvider>,
     );
     expect(
-      screen
-        .getByRole('link', { name: MESSAGES.app.coachArea })
-        .getAttribute('href'),
-    ).toBe('/coach');
-    expect(
-      screen.getByRole('link', { name: 'Settings' }).getAttribute('href'),
-    ).toBe('/settings');
+      screen.queryByRole('button', { name: MESSAGES.app.signOut }),
+    ).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
   it('shows what a coach assigned and the copies left to keep (R-15, R-44)', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <HomeView
-          accountId="rokas"
           displayName="Rokas"
-          isCoach={false}
           fromCoach={[
             {
               repertoireId: '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10',
@@ -146,9 +105,7 @@ describe('HomeView', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <HomeView
-          accountId="rokas"
           displayName="Rokas"
-          isCoach={false}
           fromCoach={[]}
           offers={[]}
           today={{ ...QUIET, due: 12, minutes: 2 }}

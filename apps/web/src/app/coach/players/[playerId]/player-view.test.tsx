@@ -74,7 +74,7 @@ describe('PlayerView', () => {
     ).toBeDefined();
     expect(screen.getByText('Linked since Oct 18, 2026')).toBeDefined();
     expect(
-      screen.getByRole('link', { name: c.back }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Back to Coach' }).getAttribute('href'),
     ).toBe('/coach');
   });
 

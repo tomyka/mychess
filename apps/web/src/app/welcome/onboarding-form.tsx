@@ -36,7 +36,7 @@ export function OnboardingForm({
   );
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-gutter py-8 sm:px-gutter-wide">
-      <div className="flex flex-col gap-6 sm:rounded-card sm:border sm:border-border sm:bg-surface sm:p-8 sm:shadow-card">
+      <div className="flex flex-col gap-6 sm:rounded-card sm:border sm:border-card-edge sm:bg-surface sm:p-8 sm:shadow-card">
         <header className="flex flex-col gap-2">
           <p className="text-lg font-bold text-accent">{t('app.title')}</p>
           <h1 className="text-2xl font-bold sm:text-3xl">

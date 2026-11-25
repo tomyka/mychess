@@ -1,25 +1,24 @@
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../../lib/routes';
 import { lichessUsername } from '../../../server/provider-links';
 import { myRepertoires } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
-import { TEXT_LINK } from '../../settings/styles';
+import { PageHeader } from '../../shell/page-header';
+import { CONTENT } from '../../surfaces';
 import { ImportFlow } from './import-flow';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 function Header(): JSX.Element {
-  const t = useTranslations('repertoires.import');
+  const t = useTranslations();
   return (
-    <header className="flex flex-col gap-1">
-      <Link href={ROUTES.repertoires} className={TEXT_LINK}>
-        {t('back')}
-      </Link>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
-      <p className="text-fg-muted">{t('intro')}</p>
-    </header>
+    <PageHeader
+      back={{ href: ROUTES.repertoires, parent: t('nav.repertoires') }}
+      title={t('repertoires.import.title')}
+    >
+      <p className="text-fg-muted">{t('repertoires.import.intro')}</p>
+    </PageHeader>
   );
 }
 
@@ -50,7 +49,7 @@ export default async function ImportPage({
   const options = items.map(({ id, name, side }) => ({ id, name, side }));
   const preselected = options.find((option) => option.id === i)?.id ?? null;
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
+    <main className={`${CONTENT} gap-8`}>
       <Header />
       <ImportFlow options={options} preselected={preselected} names={names} />
     </main>

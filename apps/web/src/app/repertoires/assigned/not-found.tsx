@@ -1,20 +1,20 @@
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../../lib/routes';
-import { TEXT_LINK } from '../../settings/styles';
+import { PageHeader } from '../../shell/page-header';
+import { CONTENT } from '../../surfaces';
 
 // Not assigned, no longer assigned, forked, or a malformed id: all read the
 // same (plan decision 12). Here, not in [id]/, so the 404 its layout throws
 // (#331) lands on it.
 export default function AssignedRepertoireNotFound(): JSX.Element {
-  const t = useTranslations('assignment.page');
+  const t = useTranslations();
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-gutter py-8 sm:px-gutter-wide">
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('notFound')}</h1>
-      <Link href={ROUTES.home} className={TEXT_LINK}>
-        {t('home')}
-      </Link>
+    <main className={`${CONTENT} gap-4`}>
+      <PageHeader
+        back={{ href: ROUTES.repertoires, parent: t('nav.repertoires') }}
+        title={t('assignment.page.notFound')}
+      />
     </main>
   );
 }

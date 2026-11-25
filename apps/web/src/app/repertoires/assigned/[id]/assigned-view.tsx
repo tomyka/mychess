@@ -28,7 +28,7 @@ import { useDeadline } from '../../../use-deadline';
 import { PauseControl, usePause, type PauseHandle } from './pause-control';
 
 /**
- * The way home, the repertoire's name, who assigned it, its deadline and
+ * The way back to Repertoires, the repertoire's name, who assigned it, its deadline and
  * badges (docs/design/coach-shared-repertoire.md's top bar).
  */
 function AssignedHeader({
@@ -40,11 +40,15 @@ function AssignedHeader({
   readonly paused: boolean;
 }): JSX.Element {
   const t = useTranslations('assignment');
+  const root = useTranslations();
   const date = useDeadline();
   const { deadline } = data;
   return (
     <HeaderFrame>
-      <BackLink href={ROUTES.home} label={t('page.back')} />
+      <BackLink
+        href={ROUTES.repertoires}
+        label={root('nav.back', { parent: root('nav.repertoires') })}
+      />
       <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
         <h1
           title={data.repertoire.name}

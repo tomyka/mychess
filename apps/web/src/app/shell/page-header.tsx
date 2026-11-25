@@ -13,10 +13,13 @@ import { AccountMenu } from './account-menu';
 export function PageHeader({
   back,
   title,
+  titleId,
   children,
 }: {
   readonly back?: { readonly href: string; readonly parent: string };
   readonly title: string;
+  /** Lets a button name what it acts on (aria-describedby). */
+  readonly titleId?: string;
   /** A line under the title (an intro), if any. */
   readonly children?: ReactNode;
 }): JSX.Element {
@@ -42,7 +45,10 @@ export function PageHeader({
             </svg>
           </Link>
         )}
-        <h1 className="line-clamp-1 flex-1 text-2xl font-bold sm:text-3xl">
+        <h1
+          id={titleId}
+          className="line-clamp-1 flex-1 text-2xl font-bold sm:text-3xl"
+        >
           {title}
         </h1>
         {back === undefined ? null : (

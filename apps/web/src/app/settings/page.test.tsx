@@ -156,7 +156,7 @@ beforeEach(() => {
 });
 
 describe('the settings page', () => {
-  it('has the profile, training, Coach mode, coaches, sign-in methods, data and delete sections, and a way home', async () => {
+  it('has the profile, training, Coach mode, coaches, sign-in methods, data and delete sections, and a way back to Today', async () => {
     await renderPage();
     expect(
       screen.getByRole('heading', { level: 1, name: s.title }),
@@ -175,7 +175,7 @@ describe('the settings page', () => {
       s.delete.title,
     ]);
     expect(
-      screen.getByRole('link', { name: s.home }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Back to Today' }).getAttribute('href'),
     ).toBe('/');
     expect(
       screen

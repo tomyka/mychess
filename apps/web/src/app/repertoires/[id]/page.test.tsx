@@ -207,7 +207,7 @@ describe('the repertoire page', () => {
     ).toBeDefined();
     expect(
       screen
-        .getByRole('link', { name: MESSAGES.repertoires.header.back })
+        .getByRole('link', { name: 'Back to Repertoires' })
         .getAttribute('href'),
     ).toBe('/repertoires');
   });

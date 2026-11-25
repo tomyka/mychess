@@ -138,7 +138,6 @@
   },
   "coach": {
     "title": "Coach dashboard",
-    "home": "Home",
     "notCoach": "Switch Coach mode on in settings first.",
     "stillLinked": "Coach mode cannot be switched off while players are linked to you.",
     "groupLimit": "You cannot create any more groups.",
@@ -183,7 +182,6 @@
       "revokeInvalid": "This invite can no longer be revoked: it has been used, has expired or was already revoked."
     },
     "notFound": "This page does not exist or is not open to you.",
-    "back": "Back to the coach dashboard",
     "player": {
       "linkedSince": "Linked since {date}",
       "groupsTitle": "Groups"
@@ -208,7 +206,6 @@
     "shared": {
       "title": "Shared repertoires",
       "empty": "{name} has not shared a repertoire with you yet.",
-      "back": "Back to {name}",
       "readOnly": "Read-only: you can write coach notes, but not change the repertoire.",
       "notInChapter": "This repertoire is your player's. You can read it and write coach notes, but you cannot change it.",
       "note": "My coach note",
@@ -357,7 +354,6 @@
     "list": {
       "title": "My repertoires",
       "intro": "Build your openings or import PGN.",
-      "home": "Home",
       "white": "White",
       "black": "Black",
       "emptyWhite": "No White repertoire yet.",
@@ -486,7 +482,6 @@
     "import": {
       "title": "Import PGN",
       "intro": "Up to 2 MB and 200 games.",
-      "back": "My repertoires",
       "fileTitle": "PGN and side",
       "file": "Choose PGN file",
       "fileHint": "or drop it here",
@@ -566,10 +561,8 @@
     "deadlineInvalid": "Enter a valid deadline date.",
     "deadlinePast": "This date has already passed. Choose today or a later day.",
     "page": {
-      "back": "Home",
       "assignedBy": "Assigned by {name}",
-      "notFound": "This repertoire is not assigned to you",
-      "home": "Go to home"
+      "notFound": "This repertoire is not assigned to you"
     },
     "pause": {
       "pause": "Pause",
@@ -787,7 +780,6 @@
     }
   },
   "fide": {
-    "home": "Home",
     "title": "Opponent's games",
     "intro": "Enter a player's FIDE ID to list their over-the-board games broadcast on Lichess in the last 12 months.",
     "idLabel": "FIDE ID",

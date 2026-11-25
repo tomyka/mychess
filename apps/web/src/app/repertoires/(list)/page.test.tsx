@@ -53,14 +53,11 @@ async function renderPage(params: Record<string, string> = {}): Promise<void> {
 }
 
 describe('My repertoires', () => {
-  it('shows the title, the way home, the repertoires, the create form and the import link', async () => {
+  it('shows the title, the repertoires, the create form and the import link', async () => {
     await renderPage();
     expect(
       screen.getByRole('heading', { level: 1, name: l.title }),
     ).toBeDefined();
-    expect(
-      screen.getByRole('link', { name: l.home }).getAttribute('href'),
-    ).toBe('/');
     expect(
       screen
         .getByRole('link', { name: 'Londono sistema' })

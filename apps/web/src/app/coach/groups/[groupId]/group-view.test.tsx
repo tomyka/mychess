@@ -103,7 +103,7 @@ describe('GroupView', () => {
       screen.getByRole('heading', { level: 1, name: GROUP.name }),
     ).toBeDefined();
     expect(
-      screen.getByRole('link', { name: c.back }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Back to Coach' }).getAttribute('href'),
     ).toBe('/coach');
   });
 

@@ -39,9 +39,9 @@ function useHeaderRename() {
   };
 }
 
-/** Back to My repertoires: an arrow on a phone, a text link on a desktop. */
+/** Back to Repertoires: an arrow on a phone, a text link on a desktop. */
 function BackLink(): JSX.Element {
-  const t = useTranslations('repertoires.header');
+  const t = useTranslations('nav');
   return (
     <Link
       href={ROUTES.repertoires}
@@ -57,7 +57,9 @@ function BackLink(): JSX.Element {
       >
         <path d="M15 6l-6 6 6 6" />
       </svg>
-      <span className="max-lg:sr-only">{t('back')}</span>
+      <span className="max-lg:sr-only">
+        {t('back', { parent: t('repertoires') })}
+      </span>
     </Link>
   );
 }

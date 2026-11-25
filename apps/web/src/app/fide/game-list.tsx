@@ -8,6 +8,7 @@ import {
 import { useFormatter, useTranslations } from 'next-intl';
 import { useId, type JSX, type ReactNode } from 'react';
 import type { SearchSnapshot } from '../../server/fide-search';
+import { CARD } from '../surfaces';
 import { familyKey, useFamilyDisclosures } from './use-family-disclosures';
 
 type FoundGame = SearchSnapshot['games'][number];
@@ -144,7 +145,7 @@ function FamilyGroup({
       onToggle={(event) => {
         onToggle(event.currentTarget.open);
       }}
-      className="group rounded-card border border-border bg-surface shadow-card has-[>summary:hover]:border-border-strong"
+      className={`${CARD} group has-[>summary:hover]:border-border-strong`}
     >
       <summary className="flex min-h-touch cursor-pointer flex-col justify-center gap-1 rounded-card p-4">
         <span className="flex items-center justify-between gap-3 font-semibold break-words after:mr-1 after:size-2 after:shrink-0 after:rotate-45 after:border-r-2 after:border-b-2 after:border-fg-muted after:transition-transform after:content-[''] group-open:after:-rotate-135">

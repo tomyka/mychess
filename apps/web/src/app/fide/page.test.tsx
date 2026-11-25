@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe('the FIDE ID search page', () => {
-  it('signs in first, then shows the title, the way home, what it does, and the field, and no broadcast link form (R-201)', async () => {
+  it('signs in first, then shows the title, what it does, and the field, and no broadcast link form (R-201)', async () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await FidePage()}
@@ -34,9 +34,6 @@ describe('the FIDE ID search page', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: en.title }),
     ).toBeDefined();
-    expect(
-      screen.getByRole('link', { name: en.home }).getAttribute('href'),
-    ).toBe('/');
     expect(screen.getByText(en.intro)).toBeDefined();
     expect(screen.getByLabelText(en.idLabel)).toBeDefined();
     // Pasting a Lichess broadcast link was removed (R-201, #360).

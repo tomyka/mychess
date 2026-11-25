@@ -62,7 +62,9 @@ describe('the import page', () => {
     ).toBeDefined();
     expect(screen.getByText(i.intro)).toBeDefined();
     expect(
-      screen.getByRole('link', { name: i.back }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: 'Back to Repertoires' })
+        .getAttribute('href'),
     ).toBe('/repertoires');
     const file = screen.getByLabelText<HTMLInputElement>(i.file);
     expect(file.type).toBe('file');

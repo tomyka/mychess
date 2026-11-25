@@ -1,22 +1,17 @@
 import { FOUND_GAMES_LIMIT } from '@mychess/db';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
-import { ROUTES } from '../../lib/routes';
 import { requireOnboarded } from '../../server/session';
-import { TEXT_LINK } from '../settings/styles';
+import { PageHeader } from '../shell/page-header';
+import { CONTENT } from '../surfaces';
 import { FideSearch } from './fide-search';
 
 function Header(): JSX.Element {
   const t = useTranslations('fide');
   return (
-    <header className="flex flex-col gap-1">
-      <Link href={ROUTES.home} className={TEXT_LINK}>
-        {t('home')}
-      </Link>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+    <PageHeader title={t('title')}>
       <p className="text-fg-muted">{t('intro')}</p>
-    </header>
+    </PageHeader>
   );
 }
 
@@ -28,7 +23,7 @@ function Header(): JSX.Element {
 export default async function FidePage(): Promise<JSX.Element> {
   await requireOnboarded();
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-gutter py-8 sm:px-gutter-wide">
+    <main className={`${CONTENT} gap-6`}>
       <Header />
       <FideSearch truncatedLimit={FOUND_GAMES_LIMIT} />
     </main>

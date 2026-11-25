@@ -51,7 +51,9 @@ describe('RepertoireHeader', () => {
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
     expect(
-      screen.getByRole('link', { name: h.back }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: 'Back to Repertoires' })
+        .getAttribute('href'),
     ).toBe('/repertoires');
   });
 

@@ -49,7 +49,7 @@ vi.mock('./actions', () => ({
 const c = MESSAGES.coach;
 
 describe('the coach dashboard', () => {
-  it('shows the players, groups and invites sections and a way home', async () => {
+  it('shows the players, groups and invites sections', async () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         {await CoachPage()}
@@ -63,9 +63,6 @@ describe('the coach dashboard', () => {
         .getAllByRole('heading', { level: 2 })
         .map((heading) => heading.textContent),
     ).toEqual([c.players.title, c.groups.title, c.invites.title]);
-    expect(
-      screen.getByRole('link', { name: c.home }).getAttribute('href'),
-    ).toBe('/');
     const players = screen.getByRole('region', { name: c.players.title });
     expect(within(players).getByRole('link', { name: 'Rokas' })).toBeDefined();
     expect(within(players).getByText(c.progress.neverTrained)).toBeDefined();

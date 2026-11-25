@@ -1,7 +1,6 @@
 import { playerCoaches, trainingSettings } from '@mychess/db';
 import { deletableAccount, isCoach } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { getDb } from '../../server/db';
@@ -17,7 +16,9 @@ import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
 import { TrainingForm } from './training-form';
 import { SECONDARY_BUTTON } from '../buttons';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
+import { PageHeader } from '../shell/page-header';
+import { CONTENT } from '../surfaces';
+import { SECTION, SECTION_TITLE } from './styles';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -52,12 +53,10 @@ function ExportSection({ fresh }: { readonly fresh: boolean }): JSX.Element {
 function Header(): JSX.Element {
   const t = useTranslations();
   return (
-    <header className="flex flex-col gap-1">
-      <Link href={ROUTES.home} className={TEXT_LINK}>
-        {t('settings.home')}
-      </Link>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('settings.title')}</h1>
-    </header>
+    <PageHeader
+      back={{ href: ROUTES.home, parent: t('nav.today') }}
+      title={t('settings.title')}
+    />
   );
 }
 
@@ -77,7 +76,7 @@ export default async function SettingsPage({
   const coaches = await playerCoaches(getDb(), account.id);
   const training = await trainingSettings(getDb(), account.id);
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
+    <main className={`${CONTENT} gap-8`}>
       <Header />
       <ProfileForm displayName={account.displayName} />
       <TrainingForm settings={training} />

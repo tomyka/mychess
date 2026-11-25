@@ -1,5 +1,7 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
+import { PageHeader } from '../../shell/page-header';
+import { CONTENT } from '../../surfaces';
 
 const CARD = 'h-24 rounded-card bg-sunken';
 
@@ -19,14 +21,10 @@ function SkeletonGroup(): JSX.Element {
 export default function RepertoiresLoading(): JSX.Element {
   const t = useTranslations('repertoires.list');
   return (
-    <main
-      aria-busy="true"
-      className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide"
-    >
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+    <main aria-busy="true" className={`${CONTENT} gap-8`}>
+      <PageHeader title={t('title')}>
         <p className="text-fg-muted">{t('intro')}</p>
-      </header>
+      </PageHeader>
       <div className="grid gap-8 sm:grid-cols-2">
         <SkeletonGroup />
         <SkeletonGroup />

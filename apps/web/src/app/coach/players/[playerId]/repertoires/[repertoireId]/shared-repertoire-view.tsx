@@ -31,11 +31,12 @@ function SharedHeader({
   readonly data: SharedRepertoirePage;
 }): JSX.Element {
   const t = useTranslations('coach');
+  const nav = useTranslations('nav');
   return (
     <HeaderFrame>
       <BackLink
         href={coachPlayerPath(data.player.id)}
-        label={t('shared.back', { name: data.player.displayName })}
+        label={nav('back', { parent: data.player.displayName })}
       />
       <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
         <h1

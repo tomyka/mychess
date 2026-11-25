@@ -28,7 +28,7 @@ export function RepertoireLoadingShell({
   return (
     <main
       aria-busy="true"
-      className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8"
+      className="flex h-[calc(100dvh-var(--shell-chrome,0px))] flex-col lg:mx-auto lg:h-auto lg:gap-6 lg:px-gutter-wide lg:py-8"
     >
       {header}
       <div className="flex flex-col lg:flex-row lg:justify-center lg:gap-8">

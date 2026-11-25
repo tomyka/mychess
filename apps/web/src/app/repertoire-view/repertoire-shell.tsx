@@ -89,12 +89,12 @@ export function RepertoireShell({
   const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
   const words = useBoardWords(name, state, board.view.fen, names);
   return (
-    <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
+    <main className="flex h-[calc(100dvh-var(--shell-chrome,0px))] flex-col lg:mx-auto lg:h-auto lg:gap-6 lg:px-gutter-wide lg:py-8">
       {header}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
         {/* On a desktop the panel scrolls with the page, not inside a box
             (#331); the board stays in view beside it. */}
-        <div className="shrink-0 lg:sticky lg:top-8 lg:w-[min(calc(100dvh-12rem),42rem)]">
+        <div className="shrink-0 lg:sticky lg:top-[calc(var(--shell-chrome,0px)+2rem)]lg:w-[min(calc(100dvh-12rem),42rem)]">
           <Board
             view={board.view}
             label={words.label}

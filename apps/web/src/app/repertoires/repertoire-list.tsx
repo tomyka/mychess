@@ -11,10 +11,10 @@ import { CLOCK, shortDateFormat } from '../../lib/date-format';
 import { assignedRepertoirePath, repertoireRoute } from '../../lib/routes';
 import type { AssignedListItem } from '../../server/assignment-pages';
 import { AssignmentFacts } from '../assignment-facts';
+import { CARD } from '../surfaces';
 
 /** A card on the list: the whole card is the link to its page. */
-const CARD =
-  'flex min-h-touch flex-col gap-1 rounded-card border border-border bg-surface p-4';
+const LIST_CARD = `${CARD} flex min-h-touch flex-col gap-1 p-4`;
 
 /** One repertoire as My repertoires lists it. */
 export interface RepertoireCard {
@@ -58,7 +58,7 @@ function Card({
       aria-labelledby={nameId}
       aria-describedby={metaId}
       title={item.name}
-      className={CARD}
+      className={LIST_CARD}
     >
       <span id={nameId} className="line-clamp-2 text-lg font-semibold">
         {item.name}
@@ -113,7 +113,7 @@ function AssignedCard({
       aria-labelledby={nameId}
       aria-describedby={metaId}
       title={item.name}
-      className={CARD}
+      className={LIST_CARD}
     >
       <span id={nameId} className="line-clamp-2 text-lg font-semibold">
         {item.name}

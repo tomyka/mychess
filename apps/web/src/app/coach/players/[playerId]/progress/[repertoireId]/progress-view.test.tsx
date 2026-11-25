@@ -72,6 +72,12 @@ describe('the progress page (R-152)', () => {
     expect(
       within(header).getByRole('link', { name: 'Rokas' }).getAttribute('href'),
     ).toBe('/coach/players/p-1');
+    // Its parent is the player's page, not the dashboard (#381).
+    expect(
+      within(header)
+        .getByRole('link', { name: 'Back to Rokas' })
+        .getAttribute('href'),
+    ).toBe('/coach/players/p-1');
     expect(
       within(header).getByText(MESSAGES.assignment.badge.paused),
     ).toBeTruthy();

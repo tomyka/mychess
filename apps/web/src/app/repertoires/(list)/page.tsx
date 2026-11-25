@@ -5,7 +5,9 @@ import { ROUTES } from '../../../lib/routes';
 import { myAssignedRepertoires } from '../../../server/assignment-pages';
 import { myRepertoires } from '../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../buttons';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../settings/styles';
+import { SECTION, SECTION_TITLE } from '../../settings/styles';
+import { PageHeader } from '../../shell/page-header';
+import { CONTENT } from '../../surfaces';
 import { StatusLine } from '../../status-line';
 import { CreateForm } from '../create-form';
 import { RepertoireList } from '../repertoire-list';
@@ -15,13 +17,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
 function Header(): JSX.Element {
   const t = useTranslations('repertoires.list');
   return (
-    <header className="flex flex-col gap-1">
-      <Link href={ROUTES.home} className={TEXT_LINK}>
-        {t('home')}
-      </Link>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+    <PageHeader title={t('title')}>
       <p className="text-fg-muted">{t('intro')}</p>
-    </header>
+    </PageHeader>
   );
 }
 
@@ -77,7 +75,7 @@ export default async function RepertoiresPage({
   ]);
   const { deleted } = await searchParams;
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
+    <main className={`${CONTENT} gap-8`}>
       <Header />
       <DeletedNotice shown={deleted === '1'} />
       <RepertoireList items={items} assigned={assigned} now={new Date()} />

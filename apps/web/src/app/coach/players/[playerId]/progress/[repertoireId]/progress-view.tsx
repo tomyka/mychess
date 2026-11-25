@@ -72,7 +72,13 @@ export function ProgressView({
   const chaptersId = useId();
   return (
     <main className={COACH_PAGE}>
-      <SubpageHeader title={page.repertoire.name}>
+      <SubpageHeader
+        title={page.repertoire.name}
+        back={{
+          href: coachPlayerPath(page.player.id),
+          parent: page.player.displayName,
+        }}
+      >
         <Link href={coachPlayerPath(page.player.id)} className={TEXT_LINK}>
           {page.player.displayName}
         </Link>

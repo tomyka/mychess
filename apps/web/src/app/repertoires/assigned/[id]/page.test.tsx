@@ -137,7 +137,7 @@ describe('the assigned repertoire page', () => {
 });
 
 describe('the assigned repertoire page when it is not the player’s', () => {
-  it('says so and leads home', () => {
+  it('says so and leads back to Repertoires', () => {
     renderLt(<AssignedRepertoireNotFound />);
     expect(
       screen.getByRole('heading', {
@@ -147,8 +147,8 @@ describe('the assigned repertoire page when it is not the player’s', () => {
     ).toBeDefined();
     expect(
       screen
-        .getByRole('link', { name: MESSAGES.assignment.page.home })
+        .getByRole('link', { name: 'Back to Repertoires' })
         .getAttribute('href'),
-    ).toBe('/');
+    ).toBe('/repertoires');
   });
 });

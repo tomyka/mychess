@@ -1,23 +1,15 @@
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
-import { ROUTES } from '../../lib/routes';
 import { coachHomeData } from '../../server/coach-pages';
-import { TEXT_LINK } from '../settings/styles';
+import { PageHeader } from '../shell/page-header';
+import { CONTENT } from '../surfaces';
 import { GroupsSection } from './groups-section';
 import { InvitesSection } from './invites-section';
 import { PlayersList } from './players-list';
 
 function Header(): JSX.Element {
   const t = useTranslations('coach');
-  return (
-    <header className="flex flex-col gap-1">
-      <Link href={ROUTES.home} className={TEXT_LINK}>
-        {t('home')}
-      </Link>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
-    </header>
-  );
+  return <PageHeader title={t('title')} />;
 }
 
 // The coach dashboard (plan decision 11): only the coach's own players, groups
@@ -26,7 +18,7 @@ function Header(): JSX.Element {
 export default async function CoachPage(): Promise<JSX.Element> {
   const { players, groups, invites } = await coachHomeData();
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
+    <main className={`${CONTENT} gap-8`}>
       <Header />
       <PlayersList players={players} />
       <GroupsSection

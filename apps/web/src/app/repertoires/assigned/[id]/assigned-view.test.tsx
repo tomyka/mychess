@@ -93,15 +93,17 @@ beforeEach(() => {
 });
 
 describe('AssignedView (R-21, R-102)', () => {
-  it('names the repertoire and its coach, and leads back home', () => {
+  it('names the repertoire and its coach, and leads back to Repertoires', () => {
     renderView();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
     expect(screen.getByText('Assigned by Jonas')).toBeDefined();
     expect(
-      screen.getByRole('link', { name: a.page.back }).getAttribute('href'),
-    ).toBe('/');
+      screen
+        .getByRole('link', { name: 'Back to Repertoires' })
+        .getAttribute('href'),
+    ).toBe('/repertoires');
     expect(screen.getByRole('application')).toBeDefined();
   });
 

@@ -27,6 +27,15 @@ describe('PageHeader', () => {
     );
   });
 
+  it('gives the title an id a button can be described by', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <PageHeader title="Rokas" titleId="player-name" />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole('heading', { level: 1 }).id).toBe('player-name');
+  });
+
   it('titles a tab page without a way back', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>

@@ -63,7 +63,7 @@ describe('the coach dashboard’s player page', () => {
       screen.getByRole('heading', { level: 1, name: c.notFound }),
     ).toBeDefined();
     expect(
-      screen.getByRole('link', { name: c.back }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Back to Coach' }).getAttribute('href'),
     ).toBe('/coach');
   });
 });
