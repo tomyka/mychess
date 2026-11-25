@@ -215,9 +215,10 @@ const gabija: readonly Repertoire[] = [
       [
         'Smith-Morra',
         '1. e4 c5 2. d4 cxd4 3. c3 d5 4. exd5 Qxd5 5. cxd4 Nc6 6. Nf3 Bg4 7. Nc3 Bxf3 8. gxf3 Qxd4 9. Qxd4 Nxd4 10. Nb5 Nc6 11. Nc7+ Kd7 12. Nxa8 e5',
-        // The ECO table keeps one line per code; B21's is 2.f4, so the
-        // Smith-Morra (B21 by name) classifies as plain Sicilian, B20.
-        /^B2[01]/,
+        // Over every named line (R-216) this Smith-Morra Declined with
+        // 3...d5 transposes at 6...Bg4 into the Alapin's "Barmen Defense,
+        // Central Exchange" (B22), the deepest named position it reaches.
+        /^B2[12]/,
       ],
     ],
   },
@@ -291,7 +292,9 @@ const dovydas: readonly Repertoire[] = [
       [
         '3...Bb4+',
         '1. d4 Nf6 2. c4 e6 3. g3 Bb4+ 4. Bd2 Be7 5. Bg2 d5 6. Nf3 O-O 7. O-O c6 8. Qc2 b6 9. Bf4 Ba6 10. Nbd2 Nbd7 11. Rfd1 Rc8 12. e4 c5 13. exd5 exd5 14. Rac1 Re8 15. Qa4 Bb7 16. dxc5 Nxc5 17. Qc2 Ne6 18. Be5 dxc4 19. Nxc4 Bxf3 20. Bxf3 Bc5 21. Qa4',
-        /^E0/,
+        // Over every named line (R-216) 6.Nf3 reaches the position of the
+        // Bogo-Indian "Retreat Variation" (E11), the deepest named one.
+        /^E(0|11)/,
       ],
       [
         'Grunfeld fianchetto',

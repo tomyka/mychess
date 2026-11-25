@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
-import { ECO } from './data/eco';
+import { positionKey } from '../position-key';
+import { ECO, ECO_FAMILIES } from './data/eco';
 import { ECO_LT } from './data/eco-lt';
 
 interface LineNode {
@@ -11,11 +12,13 @@ interface LineNode {
 const lineNode = (): LineNode => ({ children: new Map(), ends: [] });
 
 /**
- * The indexes of the lines that are not legal from the start. The lines
+ * The key each line ends in, null when one of its moves is illegal. The lines
  * share long prefixes, so they are replayed as one tree: every position is
  * reached once, which keeps this test fast under coverage and load.
  */
-function illegalLines(lines: readonly (readonly string[])[]): Set<number> {
+function replayedKeys(
+  lines: readonly (readonly string[])[],
+): (string | null)[] {
   const root = lineNode();
   lines.forEach((moves, index) => {
     let node = root;
@@ -26,18 +29,14 @@ function illegalLines(lines: readonly (readonly string[])[]): Set<number> {
     }
     node.ends.push(index);
   });
-  const illegal = new Set<number>();
+  const keys: (string | null)[] = lines.map(() => null);
   const game = new Chess();
-  const allEnds = (node: LineNode): number[] => [
-    ...node.ends,
-    ...[...node.children.values()].flatMap(allEnds),
-  ];
   const walk = (node: LineNode): void => {
+    for (const index of node.ends) keys[index] = positionKey(game.fen());
     for (const [san, child] of node.children) {
       try {
         game.move(san);
       } catch {
-        allEnds(child).forEach((index) => illegal.add(index));
         continue;
       }
       walk(child);
@@ -45,35 +44,36 @@ function illegalLines(lines: readonly (readonly string[])[]): Set<number> {
     }
   };
   walk(root);
-  return illegal;
+  return keys;
 }
 
-// The tree replay is already the least work: about 1,100 chess.js moves for
-// the 500 lines (4,818 moves replayed one by one). It runs in about 130 ms
-// alone and 400 ms under coverage, but a gate run with coverage and a web
-// build on the same machine still passed vitest's 5 s default (#287). Each
-// chess.js move generates every legal move and two FENs, so the test is
-// CPU-bound and gets a budget that survives a starved machine.
+// The tree replay is already the least work: about 8,800 chess.js moves for
+// the 3,865 lines (37,700 moves replayed one by one), plus one position key
+// per line. It runs in about 0.9 s alone and 3.3 s under coverage; with 500
+// lines a gate run with coverage and a web build on the same machine already
+// pushed it towards vitest's 5 s default (#287). Each chess.js move generates
+// every legal move and two FENs, so the test is CPU-bound and gets a budget
+// that survives a starved machine.
 const REPLAYING_THE_ECO_TREE = 30_000;
 
 describe('ECO table', () => {
-  it('has one entry for every code from A00 to E99, in order', () => {
+  it('has a family line for every code from A00 to E99, in order', () => {
     const codes = ['A', 'B', 'C', 'D', 'E'].flatMap((volume) =>
       Array.from(
         { length: 100 },
         (_, n) => `${volume}${String(n).padStart(2, '0')}`,
       ),
     );
-    expect(ECO.map((entry) => entry.code)).toEqual(codes);
+    expect(ECO_FAMILIES.map((entry) => entry.code)).toEqual(codes);
   });
 
   it(
-    'gives every entry an English name and a line legal from the start',
+    'gives every entry an English name and stores the key its line reaches',
     () => {
-      const illegal = illegalLines(ECO.map((entry) => entry.moves));
+      const keys = replayedKeys(ECO.map((entry) => entry.moves));
       const broken = ECO.filter(
         (entry, i) =>
-          illegal.has(i) ||
+          keys[i] !== entry.key ||
           entry.name.trim() === '' ||
           entry.moves.length === 0,
       ).map((entry) => entry.code);
@@ -83,7 +83,9 @@ describe('ECO table', () => {
   );
 
   it('keeps known entries', () => {
-    expect(ECO.find((entry) => entry.code === 'B90')).toEqual({
+    expect(
+      ECO.find((entry) => entry.code === 'B90' && entry.moves.length === 10),
+    ).toEqual({
       code: 'B90',
       name: 'Sicilian Defense: Najdorf Variation',
       moves: [
@@ -98,13 +100,14 @@ describe('ECO table', () => {
         'Nc3',
         'a6',
       ],
+      key: 'rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -',
     });
   });
 });
 
 describe('Lithuanian ECO coverage', () => {
   it('names every code that the English data carries', () => {
-    const missing = ECO.map((entry) => entry.code).filter(
+    const missing = ECO_FAMILIES.map((entry) => entry.code).filter(
       (code) => !(code in ECO_LT),
     );
     // A non-empty list means the English generator introduced codes that the
@@ -115,7 +118,7 @@ describe('Lithuanian ECO coverage', () => {
   });
 
   it('carries no Lithuanian name for a code the English data does not have', () => {
-    const codes = new Set(ECO.map((entry) => entry.code));
+    const codes = new Set(ECO_FAMILIES.map((entry) => entry.code));
     expect(Object.keys(ECO_LT).filter((code) => !codes.has(code))).toEqual([]);
   });
 

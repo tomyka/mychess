@@ -104,7 +104,9 @@ export {
 export {
   chapterName,
   classify,
+  classifyKeys,
   ecoName,
+  openingName,
   type ChapterName,
   type Locale,
 } from './openings/classify';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imported, must } from '../pgn/test-support';
+import { imported, must, SET_UP } from '../pgn/test-support';
 import { START_KEY } from '../position-key';
 import type { Chapter, RepertoireGraph } from './graph';
 import { namedByMoves, renamedByMoves, taxonomyNamed } from './naming';
@@ -59,7 +59,9 @@ describe('namedByMoves (R-104)', () => {
 
 describe('renamedByMoves', () => {
   it('returns the same graph for an unknown chapter or an unchanged name', () => {
-    const g = graphOf('1. a3 *');
+    // From a set-up position the chapter is not classified and keeps its number.
+    const g = graphOf(`${SET_UP}\n\n2. a3 *`);
+    expect(g.chapters[0]?.nameSource).toEqual({ kind: 'index', number: 1 });
     expect(renamedByMoves(g, 'c9')).toBe(g);
     expect(renamedByMoves(g, 'c1')).toBe(g);
   });

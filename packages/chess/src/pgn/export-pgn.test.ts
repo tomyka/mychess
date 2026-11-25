@@ -13,7 +13,7 @@ import { exportPgn } from './export-pgn';
 /** The D-M1-2 persona file (comments, `$1` and `$14`), shared with the db and web tests. */
 import KATALONU from './fixtures/persona-katalonu.pgn?raw';
 import { importPgn } from './import-pgn';
-import { imported, must, START } from './test-support';
+import { imported, must, SET_UP, START } from './test-support';
 
 /**
  * Property runs, bounded so each property stays well under two seconds
@@ -166,8 +166,9 @@ describe('exportPgn', () => {
   });
 
   it('keeps an escaped name and an intro with a brace through a round trip', () => {
-    // 1. a3 matches no ECO entry, so the re-import keeps the header name.
-    const graph = withChapters(graphOf('1. a3 e5 *'), (c) => ({
+    // A game from a set-up position is not classified, so the re-import keeps
+    // the header name.
+    const graph = withChapters(graphOf(`${SET_UP}\n\n2. a3 c5 *`), (c) => ({
       ...c,
       intro: 'Close } early',
       nameSource: { kind: 'custom', name: 'A "B" \\ C' },
@@ -202,10 +203,13 @@ describe('exportPgn', () => {
   });
 
   it('writes a chapter without moves as an empty game', () => {
-    // 1. a3 matches no ECO entry, so the chapter keeps its numbered name.
+    // Renaming the chapter's id leaves 1. a3 in no chapter, so the chapter has
+    // no moves; a chapter without moves is too short to classify (R-104) and
+    // keeps its number.
     const graph = withChapters(graphOf('1. a3 *'), (c) => ({
       ...c,
       id: 'other',
+      nameSource: { kind: 'index', number: 1 },
     }));
     expect(exportPgn(graph)).toBe('[Event "Chapter 1"]\n[Result "*"]\n\n*');
   });

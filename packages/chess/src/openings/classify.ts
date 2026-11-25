@@ -1,12 +1,13 @@
 /**
- * Opening classification by position (R-63): a line is named after the
- * deepest ECO position it passes through, so a transposition into a known
- * opening is recognised whatever the move order.
+ * Opening classification by position (R-63, R-216): a line is named after
+ * the deepest named position it passes through, over every named line of
+ * the table, so a transposition into a known opening is recognised whatever
+ * the move order.
  */
 import { Chess } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { ChapterNameSource } from '../repertoire/graph';
-import { ECO, type EcoEntry } from './data/eco';
+import { ECO, ECO_FAMILIES, type EcoEntry } from './data/eco';
 import { ECO_LT } from './data/eco-lt';
 
 export type Locale = 'en' | 'lt';
@@ -31,46 +32,30 @@ function play(chess: Chess, san: string): boolean {
 }
 
 /**
- * Each ECO line's final position to its entry. When two entries reach one
- * position the later, more specific code wins. An illegal move means the
- * generated data is broken, a programmer error, so it throws.
+ * Each named line's final position to its entry; a later line wins a shared
+ * position (lichess lists the more specific line later).
  */
 export function indexByPosition(
   entries: readonly EcoEntry[],
 ): ReadonlyMap<string, EcoEntry> {
-  return new Map(
-    entries.map((entry) => {
-      const chess = new Chess();
-      for (const san of entry.moves) {
-        if (!play(chess, san)) {
-          throw new Error(`ECO ${entry.code}: illegal move ${san}`);
-        }
-      }
-      return [positionKey(chess.fen()), entry] as const;
-    }),
-  );
+  return new Map(entries.map((entry) => [entry.key, entry] as const));
 }
 
-/** Built once at module load, so broken ECO data fails at startup. */
 const BY_POSITION = indexByPosition(ECO);
 
-const BY_CODE: ReadonlyMap<string, EcoEntry> = new Map(
-  ECO.map((entry) => [entry.code, entry] as const),
+const FAMILY_BY_CODE: ReadonlyMap<string, EcoEntry> = new Map(
+  ECO_FAMILIES.map((entry) => [entry.code, entry] as const),
 );
 
 /**
- * The deepest ECO entry along a line from the standard start: the match
- * furthest along it, or null. A position the line already reached earlier
- * (a repetition) is not a new match, so returning to a shallower opening
- * keeps the one found further on. An illegal move ends the line there.
+ * The deepest named line among `keys`, the positions a line passes through
+ * in order, or null. A position already passed (a repetition) is not a new
+ * match, so returning to a shallower opening keeps the one found further on.
  */
-export function classify(sans: readonly string[]): EcoEntry | null {
-  const chess = new Chess();
+export function classifyKeys(keys: readonly string[]): EcoEntry | null {
   const reached = new Set<string>();
   let found: EcoEntry | null = null;
-  for (const san of sans) {
-    if (!play(chess, san)) break;
-    const key = positionKey(chess.fen());
+  for (const key of keys) {
     if (!reached.has(key)) found = BY_POSITION.get(key) ?? found;
     reached.add(key);
   }
@@ -78,12 +63,36 @@ export function classify(sans: readonly string[]): EcoEntry | null {
 }
 
 /**
- * An ECO code's name: Lithuanian for `lt` (English when it has none),
- * English otherwise, the code itself for a code the table does not have.
+ * The deepest named line along a line from the standard start: the match
+ * furthest along it, or null, as `classifyKeys` counts it. An illegal move
+ * ends the line there.
+ */
+export function classify(sans: readonly string[]): EcoEntry | null {
+  const chess = new Chess();
+  const keys: string[] = [];
+  for (const san of sans) {
+    if (!play(chess, san)) break;
+    keys.push(positionKey(chess.fen()));
+  }
+  return classifyKeys(keys);
+}
+
+/**
+ * An ECO code's family name (its shortest line): Lithuanian for `lt`
+ * (English when it has none), English otherwise, the code itself for a code
+ * the table does not have.
  */
 export function ecoName(eco: string, locale: Locale): string {
-  const english = BY_CODE.get(eco)?.name ?? eco;
+  const english = FAMILY_BY_CODE.get(eco)?.name ?? eco;
   return locale === 'lt' ? (ECO_LT[eco] ?? english) : english;
+}
+
+/**
+ * A named line's name: in English as lichess names the line; in Lithuanian
+ * by its ECO code (R-216), English when the code has no Lithuanian name.
+ */
+export function openingName(entry: EcoEntry, locale: Locale): string {
+  return locale === 'lt' ? (ECO_LT[entry.code] ?? entry.name) : entry.name;
 }
 
 /** What to call a chapter in `locale`. */

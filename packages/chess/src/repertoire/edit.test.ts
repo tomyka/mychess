@@ -397,7 +397,17 @@ describe('a built chapter takes its name from its moves (R-104)', () => {
   });
 
   it('stays numbered while its line matches no opening', () => {
-    expect(nameOf(build('a3'))).toEqual({ kind: 'index', number: 1 });
+    // Every line from the standard start reaches a named line (R-216), so
+    // the chapter starts from a set-up position, after 1. e4 e5.
+    const afterE5 = must(build('e4', 'e5').moves[1]).to;
+    const g: RepertoireGraph = {
+      ...empty,
+      chapters: [chapter('c1', afterE5, 1)],
+    };
+    expect(nameOf(mustAdd(addMove(g, 'c1', afterE5, 'a3')))).toEqual({
+      kind: 'index',
+      number: 1,
+    });
   });
 
   it('follows the main line, not a later alternative', () => {
@@ -460,8 +470,17 @@ describe('a built chapter takes its name from its moves (R-104)', () => {
   });
 
   it('renames only the edited chapter', () => {
-    // Black's repertoire, so 1. a3 and 1. e4 are both the opponent's.
-    const black: RepertoireGraph = { ...withC2(build('a3')), side: 'black' };
+    // Black's repertoire, so 1. a3 and 1. e4 are both the opponent's. c1's
+    // 1. a3 classifies (A00), but c1 keeps the number it was given: only the
+    // edited chapter is named again.
+    const a3 = withC2(build('a3'));
+    const black: RepertoireGraph = {
+      ...a3,
+      side: 'black',
+      chapters: a3.chapters.map((c) =>
+        c.id === 'c1' ? { ...c, nameSource: { kind: 'index', number: 1 } } : c,
+      ),
+    };
     const g = mustAdd(addMove(black, 'c2', START, 'e4'));
     expect(nameOf(g, 'c1')).toEqual({ kind: 'index', number: 1 });
     expect(nameOf(g, 'c2')).toEqual({ kind: 'eco', eco: 'B00' });

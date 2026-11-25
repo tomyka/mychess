@@ -14,6 +14,7 @@ import {
   imported,
   LINEAR_GROWTH,
   must,
+  SET_UP,
   START,
 } from './test-support';
 
@@ -168,7 +169,7 @@ describe('importPgn', () => {
   it('names a chapter by the opening of its main line, else by header', () => {
     const najdorf = '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6';
     const { graph } = imported(
-      `[Event "Mine"]\n\n${najdorf} 6. Be3 (6. Bg5 e6) *\n\n[Event "Odd"]\n\n1. a3 e5 *`,
+      `[Event "Mine"]\n\n${najdorf} 6. Be3 (6. Bg5 e6) *\n\n[Event "Odd"]\n${SET_UP}\n\n2. a3 c5 *`,
       'black',
     );
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([
@@ -203,8 +204,9 @@ describe('importPgn', () => {
 
   it('names a game no header names by its chapter number', () => {
     const { graph } = imported(
-      // 1. a3 matches no ECO entry, so the taxonomy names neither game.
-      '[Event "Same"]\n\n1. a3 e5 *\n\n[Event "Same"]\n\n1. a3 c5 *',
+      // Games from a set-up position are not classified, so the taxonomy
+      // names neither game.
+      `[Event "Same"]\n${SET_UP}\n\n2. a3 Nc6 *\n\n[Event "Same"]\n${SET_UP}\n\n2. a3 c5 *`,
     );
     expect(graph.chapters.map((c) => [c.intro, c.nameSource])).toEqual([
       [null, { kind: 'index', number: 1 }],
@@ -670,7 +672,8 @@ describe('importPgn: the chapter intro (R-66)', () => {
   });
 });
 
-// 1. a3 matches no ECO entry, so these chapters keep the names their headers give.
+// Games from a set-up position are not classified, so these chapters keep the
+// names their headers give.
 describe('importPgn: splitting and naming games', () => {
   const namesOf = (text: string, side: Side = 'white') =>
     clean(text, side).chapters.map((c) => c.nameSource);
@@ -681,18 +684,23 @@ describe('importPgn: splitting and naming games', () => {
     const text = [
       '[Event "Najdorf"]',
       '[White "?"]',
+      SET_UP,
       '',
-      '1. a3 c5 *',
+      '2. a3 c5 *',
       '',
       '[Event "Caro-Kann"]',
+      SET_UP,
       '',
-      '1. a3 c6 *',
+      '2. a3 c6 *',
     ].join('\r\n');
     expect(namesOf(text)).toEqual([header('Najdorf'), header('Caro-Kann')]);
   });
 
   it('splits games on tags even without a blank line or result', () => {
-    const graph = clean('[Event "A"]\n1. a3\n[Event "B"]\n1. h3', 'black');
+    const graph = clean(
+      `[Event "A"]${SET_UP}\n2. a3\n[Event "B"]${SET_UP}\n2. h3`,
+      'black',
+    );
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([
       header('A'),
       header('B'),
@@ -710,9 +718,9 @@ describe('importPgn: splitting and naming games', () => {
     expect(
       namesOf(
         [
-          '[Event "My repertoire"][White "Sicilian"][Black "x"] 1. a3 c5 *',
-          '[Event "My repertoire"][White "?"][Black "French"] 1. a3 e6 *',
-          '[Event "My repertoire"][White ""][Black ""] 1. a3 e5 *',
+          `[Event "My repertoire"][White "Sicilian"][Black "x"]${SET_UP} 2. a3 c5 *`,
+          `[Event "My repertoire"][White "?"][Black "French"]${SET_UP} 2. a3 d6 *`,
+          `[Event "My repertoire"][White ""][Black ""]${SET_UP} 2. a3 Nc6 *`,
         ].join('\n'),
       ),
     ).toEqual([header('Sicilian'), header('French'), index(3)]);
@@ -722,21 +730,23 @@ describe('importPgn: splitting and naming games', () => {
     expect(
       namesOf(
         [
-          '[White "Me"][Black "You"] 1. a3 e5 *',
-          '[White "Me"][Black "You"] 1. a3 c5 *',
+          `[White "Me"][Black "You"]${SET_UP} 2. a3 Nc6 *`,
+          `[White "Me"][Black "You"]${SET_UP} 2. a3 c5 *`,
         ].join('\n'),
       ),
     ).toEqual([index(1), index(2)]);
   });
 
   it('passes over the "?" placeholder when naming a game', () => {
-    expect(namesOf('[Event "?"][White "Sicilian"] 1. a3 c5 *')).toEqual([
-      header('Sicilian'),
-    ]);
+    expect(
+      namesOf(`[Event "?"][White "Sicilian"]${SET_UP} 2. a3 c5 *`),
+    ).toEqual([header('Sicilian')]);
   });
 
   it('trims a header value before naming a game by it', () => {
-    expect(namesOf('[Event "  Scotch  "] 1. a3 *')).toEqual([header('Scotch')]);
+    expect(namesOf(`[Event "  Scotch  "]${SET_UP} 2. a3 *`)).toEqual([
+      header('Scotch'),
+    ]);
   });
 });
 

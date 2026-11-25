@@ -6,6 +6,7 @@ import {
   imported,
   LINEAR_GROWTH,
   must,
+  SET_UP,
   START,
 } from '../pgn/test-support';
 import {
@@ -32,6 +33,10 @@ const keysOf = (g: RepertoireGraph) =>
   new Set(g.moves.map((m) => moveKey(m.from, m.san)));
 
 describe('mergeInto (R-101)', () => {
+  // Games from a set-up position (after 1. e4 e5) are not classified, so they
+  // keep their header names and numbers.
+  const unnamed = (moves: string) => `${SET_UP}\n\n${moves}`;
+
   it('adds the imported games as new chapters after the existing ones', () => {
     const existing = graphOf(
       '[Event "Italian"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bc4 *',
@@ -196,10 +201,14 @@ describe('mergeInto (R-101)', () => {
   });
 
   it('drops a game with nothing new, numbering and naming the games after it as if it were not there', () => {
-    const existing = graphOf('1. a3 a6 *');
+    const existing = graphOf(unnamed('2. a3 a6 *'));
     const r = merged(
       existing,
-      '1. a3 *\n\n[Event "Mine"]\n\n1. a3 h6 *\n\n1. a3 a6 2. h3 *',
+      [
+        unnamed('2. a3 *'),
+        `[Event "Mine"]\n${unnamed('2. a3 h6 *')}`,
+        unnamed('2. a3 a6 3. h3 *'),
+      ].join('\n\n'),
     );
     expect(r.graph.chapters.map((c) => [c.id, c.nameSource])).toEqual([
       ['c1', { kind: 'index', number: 1 }],
@@ -316,8 +325,8 @@ describe('mergeInto (R-101)', () => {
   });
 
   it('numbers imported untitled chapters after the existing chapters', () => {
-    const existing = graphOf('1. a3 *');
-    const { graph } = merged(existing, '1. a3 a6 2. h3 *');
+    const existing = graphOf(unnamed('2. a3 *'));
+    const { graph } = merged(existing, unnamed('2. a3 a6 3. h3 *'));
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([
       { kind: 'index', number: 1 },
       { kind: 'index', number: 2 },
@@ -326,15 +335,15 @@ describe('mergeInto (R-101)', () => {
 
   it('numbers past every number in use, not the chapter count', () => {
     const existing: RepertoireGraph = {
-      ...graphOf('1. a3 *'),
+      ...graphOf(unnamed('2. a3 *')),
       chapters: [
         {
-          ...must(graphOf('1. a3 *').chapters[0]),
+          ...must(graphOf(unnamed('2. a3 *')).chapters[0]),
           nameSource: { kind: 'index', number: 5 },
         },
       ],
     };
-    const { graph } = merged(existing, '1. a3 a6 *');
+    const { graph } = merged(existing, unnamed('2. a3 a6 *'));
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([
       { kind: 'index', number: 5 },
       { kind: 'index', number: 6 },
@@ -344,7 +353,7 @@ describe('mergeInto (R-101)', () => {
   it('keeps a header name and names an added chapter by its merged main line', () => {
     const { graph } = merged(
       graphOf('1. e4 e5 2. Nf3 *', 'black'),
-      '[Event "Mine"]\n\n1. a3 *\n\n[Event "Bishop"]\n\n1. e4 e5 2. Bc4 *',
+      `[Event "Mine"]\n${SET_UP}\n\n2. a3 *\n\n[Event "Bishop"]\n\n1. e4 e5 2. Bc4 *`,
       'black',
     );
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([

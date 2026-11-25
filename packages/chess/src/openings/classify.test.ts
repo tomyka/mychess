@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { chapterName, classify, ecoName, indexByPosition } from './classify';
+import { positionKey } from '../position-key';
+import {
+  chapterName,
+  classify,
+  classifyKeys,
+  ecoName,
+  indexByPosition,
+  openingName,
+} from './classify';
+import { withPositionKeys } from './eco-tsv';
+
+/** The key of the position `sans` reaches from the start. */
+const keyAfter = (sans: string[]): string =>
+  withPositionKeys([{ code: 'X', name: 'X', moves: sans }], positionKey)[0]
+    ?.key ?? '';
 
 describe('classify', () => {
   it('finds the deepest ECO match along the line', () => {
@@ -89,17 +103,87 @@ describe('chapter names', () => {
 });
 
 describe('indexByPosition', () => {
-  it('indexes each line by its final position, the later entry winning', () => {
+  it('indexes each line by its stored key, the later entry winning', () => {
+    const key = keyAfter(['d4', 'd5', 'Nf3']);
     const index = indexByPosition([
-      { code: 'X01', name: 'First', moves: ['Nf3', 'd5', 'd4'] },
-      { code: 'X02', name: 'Second', moves: ['d4', 'd5', 'Nf3'] },
+      { code: 'X01', name: 'First', moves: ['Nf3', 'd5', 'd4'], key },
+      { code: 'X02', name: 'Second', moves: ['d4', 'd5', 'Nf3'], key },
     ]);
-    expect([...index.values()].map((e) => e.code)).toEqual(['X02']);
+    expect([...index.entries()].map(([k, e]) => [k, e.code])).toEqual([
+      [key, 'X02'],
+    ]);
+  });
+});
+
+describe('classify over every named line (R-216, #326)', () => {
+  it('names the Open Catalan reached by the closed move order', () => {
+    const line = [
+      'd4',
+      'Nf6',
+      'c4',
+      'e6',
+      'g3',
+      'd5',
+      'Bg2',
+      'Be7',
+      'Nf3',
+      'O-O',
+      'O-O',
+      'dxc4',
+    ];
+    expect(classify(line)).toMatchObject({
+      code: 'E05',
+      name: 'Catalan Opening: Open Defense, Classical Line',
+    });
   });
 
-  it('throws at an illegal move: the ECO data is broken', () => {
-    expect(() =>
-      indexByPosition([{ code: 'X99', name: 'Bad', moves: ['e4', 'Ke3'] }]),
-    ).toThrow('ECO X99: illegal move Ke3');
+  it('names the Caro-Kann Advance', () => {
+    expect(classify(['e4', 'c6', 'd4', 'd5', 'e5'])).toMatchObject({
+      code: 'B12',
+      name: 'Caro-Kann Defense: Advance Variation',
+    });
+  });
+
+  it('names the Smith-Morra Gambit', () => {
+    expect(classify(['e4', 'c5', 'd4', 'cxd4', 'c3'])).toMatchObject({
+      code: 'B21',
+      name: 'Sicilian Defense: Smith-Morra Gambit',
+    });
+  });
+
+  it('keeps the Moscow Variation', () => {
+    expect(classify(['e4', 'c5', 'Nf3', 'd6', 'Bb5+'])?.name).toBe(
+      'Sicilian Defense: Moscow Variation',
+    );
+  });
+});
+
+describe('classifyKeys', () => {
+  it('takes the deepest named key, ignoring a key already passed', () => {
+    const nf3 = keyAfter(['Nf3']);
+    const nf3nf6 = keyAfter(['Nf3', 'Nf6']);
+    expect(classifyKeys([nf3, nf3nf6, 'none', nf3])?.code).toBe('A05');
+    expect(classifyKeys([nf3])?.code).toBe('A04');
+  });
+
+  it('is null when no key is a named position', () => {
+    expect(classifyKeys([])).toBeNull();
+    expect(classifyKeys(['none'])).toBeNull();
+  });
+});
+
+describe('openingName', () => {
+  it('is the line name in English and its code name in Lithuanian', () => {
+    const entry = classify(['e4', 'c6', 'd4', 'd5', 'e5']);
+    expect(entry && openingName(entry, 'en')).toBe(
+      'Caro-Kann Defense: Advance Variation',
+    );
+    expect(entry && openingName(entry, 'lt')).toBe(ecoName('B12', 'lt'));
+    expect(ecoName('B12', 'lt')).not.toBe(ecoName('B12', 'en'));
+  });
+
+  it('falls back to English for a code without a Lithuanian name', () => {
+    const entry = { code: 'Z99', name: 'Nowhere', moves: [], key: 'k' };
+    expect(openingName(entry, 'lt')).toBe('Nowhere');
   });
 });

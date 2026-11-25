@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ECO } from './data/eco';
+import { ECO_FAMILIES } from './data/eco';
 import { ECO_LT } from './data/eco-lt';
 import {
   correctPieceLetters,
@@ -25,7 +25,7 @@ function asSan(move: string): { ply: number; san: string } {
 }
 
 function ecoMoves(code: string): readonly string[] {
-  return ECO.find((entry) => entry.code === code)?.moves ?? [];
+  return ECO_FAMILIES.find((entry) => entry.code === code)?.moves ?? [];
 }
 
 describe('correctPieceLetters', () => {

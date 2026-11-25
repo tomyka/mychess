@@ -7,6 +7,15 @@ import { importPgn, type ImportedRepertoire } from './import-pgn';
 /** The standard start position's key. */
 export const START = positionKey(DEFAULT_POSITION);
 
+/**
+ * A PGN tag starting a game after 1. e4 e5, so its chapter is never
+ * classified: every line from the standard start reaches a named line
+ * (R-216), so tests of the header and number fallbacks start here. White
+ * moves next, so its moves begin with `2.`.
+ */
+export const SET_UP =
+  '[FEN "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"]';
+
 /** `value`, or a thrown error when it is missing. */
 export function must<T>(value: T | undefined): T {
   if (value === undefined) throw new Error('expected a value');

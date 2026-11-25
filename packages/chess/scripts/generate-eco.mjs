@@ -1,11 +1,13 @@
-// Writes src/openings/data/eco.json: one entry per ECO code from
-// lichess-org/chess-openings (CC0 1.0 Universal). Ported from v1
-// (`scripts/generate-eco-data.ts`). Run from packages/chess on Node 24, which
-// loads the TypeScript parser directly: `node scripts/generate-eco.mjs`.
+// Writes src/openings/data/eco.json: every named line of
+// lichess-org/chess-openings (CC0 1.0 Universal), with its final position key
+// (R-216). Ported from v1 (`scripts/generate-eco-data.ts`). Run from
+// packages/chess on Node 24, which loads the TypeScript parser directly:
+// `node scripts/generate-eco.mjs`.
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { oneEntryPerCode, parseEcoTsv } from '../src/openings/eco-tsv.ts';
+import { parseEcoTsv, withPositionKeys } from '../src/openings/eco-tsv.ts';
+import { positionKey } from '../src/position-key.ts';
 
 const VOLUMES = ['a', 'b', 'c', 'd', 'e'];
 const BASE_URL =
@@ -34,7 +36,7 @@ async function main() {
   for (const letter of VOLUMES) {
     all.push(...(await fetchVolume(letter)));
   }
-  const entries = oneEntryPerCode(all);
+  const entries = withPositionKeys(all, positionKey);
   writeJson(OUT_PATH, entries);
   process.stdout.write(`Wrote ${entries.length} openings to ${OUT_PATH}\n`);
 }

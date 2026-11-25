@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { oneEntryPerCode, parseEcoTsv } from './eco-tsv';
+import { positionKey } from '../position-key';
+import { oneEntryPerCode, parseEcoTsv, withPositionKeys } from './eco-tsv';
 
 // The shape of lichess-org/chess-openings `a.tsv`: a header row, then
 // `eco<TAB>name<TAB>pgn` with move numbers in the PGN.
@@ -77,5 +78,43 @@ describe('oneEntryPerCode', () => {
     expect(oneEntryPerCode(entries)).toEqual([
       { code: 'A00', name: 'Amar Opening', moves: ['Nh3'] },
     ]);
+  });
+});
+
+describe('withPositionKeys', () => {
+  it('adds the key of the position each line ends in', () => {
+    const [entry] = withPositionKeys(
+      [{ code: 'B00', name: "King's Pawn Game", moves: ['e4'] }],
+      positionKey,
+    );
+    expect(entry).toEqual({
+      code: 'B00',
+      name: "King's Pawn Game",
+      moves: ['e4'],
+      key: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -',
+    });
+  });
+
+  it('keys the position, not the move order: transpositions share a key', () => {
+    const [a, b] = withPositionKeys(
+      [
+        { code: 'X', name: 'A', moves: ['Nf3', 'Nf6', 'd4'] },
+        { code: 'X', name: 'B', moves: ['d4', 'Nf6', 'Nf3'] },
+      ],
+      positionKey,
+    );
+    expect(a?.key).toBe(
+      'rnbqkb1r/pppppppp/5n2/8/3P4/5N2/PPP1PPPP/RNBQKB1R b KQkq -',
+    );
+    expect(b?.key).toBe(a?.key);
+  });
+
+  it('throws at an illegal move: the source data is broken', () => {
+    expect(() =>
+      withPositionKeys(
+        [{ code: 'X99', name: 'Bad', moves: ['e4', 'Ke3'] }],
+        positionKey,
+      ),
+    ).toThrow('ECO X99: illegal move Ke3');
   });
 });
