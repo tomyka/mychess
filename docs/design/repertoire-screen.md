@@ -767,3 +767,5 @@ Design decisions only; no product rule changes.
    other mode), except the stale message.
 9. **Side headings** in Mano repertuarai show a king glyph (inline SVG,
    `piece-*` tokens, `aria-hidden`).
+
+> Note (2026-11-25): Lithuanian language support was dropped (R-217, #378). References here to Lithuanian copy, `glossary-lt.md`, the i18n-content role or R-180 are historical.

@@ -107,3 +107,5 @@ the same column, at most `max-w-2xl`.
 - Family names as headings if lists grow long (F8).
 - A per-account poll limit (security L3 of #316, about 120 a minute), only
   if abuse appears: each poll is cheap and capped today.
+
+> Note (2026-11-25): Lithuanian language support was dropped (R-217, #378). References here to Lithuanian copy, `glossary-lt.md`, the i18n-content role or R-180 are historical.

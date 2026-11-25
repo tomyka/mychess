@@ -35,7 +35,7 @@ function baseTitleOf(graph: RepertoireGraph): (chapter: Chapter) => string {
  * opening, or "Chapter N". For the PGN download and the data export, which
  * name chapters from the repertoire they belong to.
  */
-export const plainChapterTitle: ChapterTitles = (graph) => baseTitleOf(graph);
+export const plainChapterTitle: ChapterTitles = baseTitleOf;
 
 /**
  * What to call each of `graph`'s chapters, chapters that share a name told

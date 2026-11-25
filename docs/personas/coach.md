@@ -62,7 +62,7 @@ He owns and assigns tier-fitting repertoires; full lines are in each player's pe
 | "Naidorfo variantas: 6.Be3 e6" (Najdorf: English Attack 6...e6) | Black | Dovydas | Individual; a second answer to 6.Be3, kept in its own repertoire (R-54) |
 | "Karo-Kan gynyba: pagrindai" (Caro-Kann basics) | Black | Group "Šeštadienio grupė" | Group assignment, deadline 2026-12-20 |
 
-Opening titles are working names; the product's canonical LT names come from the šachmatai.lt taxonomy (Q1).
+Opening titles are working names; the product names openings in English from lichess-org/chess-openings (R-216, R-217).
 
 ### Group assignment: "Karo-Kan gynyba: pagrindai"
 

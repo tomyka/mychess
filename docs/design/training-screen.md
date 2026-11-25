@@ -258,3 +258,5 @@ the panel.
 4. **Session size** (R-62): 20 Due Moves by default (player setting 10-100),
    with "continue"; new moves have a separate daily limit (default 10). The
    "12 / 20" counter uses that known total.
+
+> Note (2026-11-25): Lithuanian language support was dropped (R-217, #378). References here to Lithuanian copy, `glossary-lt.md`, the i18n-content role or R-180 are historical.

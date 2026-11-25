@@ -13,7 +13,7 @@ import { chapterLabelOf } from './chapter-names';
 import { requireCoach } from './coaching';
 import { getDb } from './db';
 
-/** A chapter of the progress page, named in the coach's locale. */
+/** A chapter of the progress page, with its title. */
 export interface ChapterRow extends Omit<ChapterProgress, 'chapter'> {
   readonly id: string;
   readonly title: string;

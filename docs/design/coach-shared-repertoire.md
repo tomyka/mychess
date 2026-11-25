@@ -115,3 +115,5 @@ the hint by `aria-describedby`) and two buttons; Save does not submit on
 Enter (multi-line text). Move chips with the coach's note say so in their
 name ("9... Ne5, has a comment, My coach note"; a dedicated catalogue key
 "has my coach note" is requested from i18n-content).
+
+> Note (2026-11-25): Lithuanian language support was dropped (R-217, #378). References here to Lithuanian copy, `glossary-lt.md`, the i18n-content role or R-180 are historical.
