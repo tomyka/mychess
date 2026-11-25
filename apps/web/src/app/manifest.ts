@@ -3,8 +3,8 @@ import { BRAND } from '../lib/brand';
 
 // The light theme's accent and page colours from tokens.css: a manifest
 // takes one colour, not light-dark(); manifest.test.ts keeps them in step.
-const ACCENT = '#2453c4';
-const PAGE = '#f6f5f2';
+const ACCENT = '#0b63c5';
+const PAGE = '#f4f5f8';
 
 /**
  * The web app manifest (R-7: installable as a PWA; R-170: the brand is
