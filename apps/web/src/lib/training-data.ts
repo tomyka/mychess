@@ -55,6 +55,12 @@ export interface TrainingData {
   readonly reviews: readonly ReviewState[];
   /** Tracked keys among them, a Review exists (R-181). */
   readonly tracked: readonly string[];
+  /**
+   * The tracked keys whose Review entered by "I know this" (R-58): the
+   * player's own, so they may reach the browser (#383). R-151 counts such a
+   * move as skipped until its Review is first graded.
+   */
+  readonly known: readonly string[];
   /** Moves learned in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;

@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { ProgressCounts } from '@mychess/chess';
-import type { AssignedListItem } from '../../server/assignment-pages';
+import type { AssignedFacts } from '../../server/assignment-pages';
 import type { TodayPageRow } from '../../server/today-page';
 import { RepertoireRows } from './repertoire-rows';
 
@@ -30,10 +30,7 @@ const row = (over: Partial<TodayPageRow> = {}): TodayPageRow => ({
   ...over,
 });
 
-const FACTS: AssignedListItem = {
-  repertoireId: ASSIGNED_ID,
-  name: 'Caro-Kann',
-  side: 'black',
+const FACTS: AssignedFacts = {
   coachName: 'Rimantas',
   deadline: '2026-12-03',
   badges: { overdue: true, paused: true, forked: false, updated: false },

@@ -9,6 +9,7 @@ import {
   START_KEY,
   startReview,
   startState,
+  todayRows,
   trainingCounts,
 } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
@@ -50,6 +51,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     others: [],
     reviews: [],
     tracked: [],
+    known: [],
     learnedToday: 0,
     coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
@@ -144,6 +146,26 @@ describe('a snapshot with a focus (R-206)', () => {
 
   it('learns every repertoire without one', () => {
     expect(dayOf(data({ mode: 'learn' })).focus).toBeUndefined();
+  });
+});
+
+describe('the moves entered by "I know this" (R-58, #383)', () => {
+  it('reach the day, so a known move counts as skipped, a learned one as learned', () => {
+    const later = (key: string) => reviewDue(key, LATER);
+    const day = dayOf(
+      data({
+        entries: data().entries.slice(0, 1),
+        reviews: LONDON_KEYS.map(later),
+        tracked: LONDON_KEYS,
+        known: [D4],
+      }),
+    );
+    expect(day.known).toEqual(new Set([D4]));
+    const [row] = todayRows(day, NOW);
+    expect(row?.standing.counts).toMatchObject({
+      skipped: 1,
+      learned: LONDON_KEYS.length - 1,
+    });
   });
 });
 

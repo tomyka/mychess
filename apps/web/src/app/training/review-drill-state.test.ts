@@ -53,6 +53,7 @@ function drill(size: number): DrillState {
   const day = {
     repertoires: REPERTOIRES,
     reviews: dueEverything(),
+    known: new Set<string>(),
     learnedToday: 0,
     limits: { reviews: size, newPerDay: 0 },
   };

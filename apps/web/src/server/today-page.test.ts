@@ -1,12 +1,13 @@
+import type { TodayRow } from '@mychess/chess';
 import type { Account, BadgeSet, RepertoireKind } from '@mychess/domain';
 import { describe, expect, it, vi } from 'vitest';
 import type { AssignedListItem, TodayAssignments } from './assignment-pages';
-import { joinFacts, todayPage } from './today-page';
-import type { TodayListRow, TodaySummary } from './training';
+import { pageRows, todayPage } from './today-page';
+import type { TodayEntry, TodaySummary, TodayTraining } from './training';
 
 const server = vi.hoisted(() => ({
   assignments: vi.fn<(account: Account) => Promise<TodayAssignments>>(),
-  list: vi.fn<(account: Account) => Promise<TodayListRow[]>>(),
+  training: vi.fn<(account: Account) => Promise<TodayTraining>>(),
   summary: vi.fn<(account: Account) => Promise<TodaySummary>>(),
 }));
 
@@ -16,14 +17,12 @@ vi.mock('./assignment-pages', () => ({
 }));
 vi.mock('./training', () => ({
   todaySummary: server.summary,
-  todayList: server.list,
+  todayTraining: server.training,
 }));
 
-const row = (id: string, kind: RepertoireKind): TodayListRow => ({
+/** Repertoire `id`'s row as todayRows gives it. */
+const row = (id: string): TodayRow => ({
   repertoireId: id,
-  name: id,
-  side: 'white',
-  kind,
   due: 0,
   canLearn: false,
   action: null,
@@ -33,6 +32,14 @@ const row = (id: string, kind: RepertoireKind): TodayListRow => ({
   },
 });
 
+/** Repertoire `id`'s entry, named after it. */
+const entry = (id: string, kind: RepertoireKind): TodayEntry => ({
+  id,
+  name: `Name ${id}`,
+  side: 'black',
+  kind,
+});
+
 const BADGES: BadgeSet = {
   overdue: false,
   paused: false,
@@ -40,39 +47,73 @@ const BADGES: BadgeSet = {
   updated: true,
 };
 
+/** An assignment's list item: its own name and side, which the row ignores. */
 const facts = (repertoireId: string): AssignedListItem => ({
   repertoireId,
-  name: repertoireId,
+  name: 'Not the row name',
   side: 'white',
   coachName: 'Rimantas',
-  deadline: null,
+  deadline: '2026-12-03',
   badges: BADGES,
 });
 
-describe('joinFacts (R-222)', () => {
-  it('attaches an assignment its facts by repertoire id', () => {
+/** The facts a row keeps: coach, deadline and badges only. */
+const KEPT = { coachName: 'Rimantas', deadline: '2026-12-03', badges: BADGES };
+
+/** The finished row of `id`, with its entry and `assignment`. */
+const finished = (
+  id: string,
+  kind: RepertoireKind,
+  assignment: typeof KEPT | null,
+) => ({
+  ...row(id),
+  name: `Name ${id}`,
+  side: 'black',
+  kind,
+  assignment,
+});
+
+describe('pageRows (R-221, R-222)', () => {
+  it("names each row by its entry and gives an assignment its facts, in the rows' order", () => {
     expect(
-      joinFacts(
-        [row('a', 'assigned'), row('o', 'own'), row('b', 'assigned')],
+      pageRows(
+        {
+          rows: [row('a'), row('o'), row('b')],
+          entries: [
+            entry('o', 'own'),
+            entry('b', 'assigned'),
+            entry('a', 'assigned'),
+          ],
+        },
         [facts('b'), facts('a')],
       ),
     ).toEqual([
-      { ...row('a', 'assigned'), assignment: facts('a') },
-      { ...row('o', 'own'), assignment: null },
-      { ...row('b', 'assigned'), assignment: facts('b') },
+      finished('a', 'assigned', KEPT),
+      finished('o', 'own', null),
+      finished('b', 'assigned', KEPT),
     ]);
   });
 
   it('never gives an own repertoire assignment facts, even with its id', () => {
-    expect(joinFacts([row('o', 'own')], [facts('o')])).toEqual([
-      { ...row('o', 'own'), assignment: null },
-    ]);
+    expect(
+      pageRows({ rows: [row('o')], entries: [entry('o', 'own')] }, [
+        facts('o'),
+      ]),
+    ).toEqual([finished('o', 'own', null)]);
   });
 
   it('shows an assignment whose facts are gone as a plain row', () => {
-    expect(joinFacts([row('a', 'assigned')], [])).toEqual([
-      { ...row('a', 'assigned'), assignment: null },
-    ]);
+    expect(
+      pageRows({ rows: [row('a')], entries: [entry('a', 'assigned')] }, []),
+    ).toEqual([finished('a', 'assigned', null)]);
+  });
+
+  it('leaves out a row with no entry', () => {
+    expect(
+      pageRows({ rows: [row('x'), row('o')], entries: [entry('o', 'own')] }, [
+        facts('x'),
+      ]),
+    ).toEqual([finished('o', 'own', null)]);
   });
 });
 
@@ -98,9 +139,12 @@ describe('todayPage', () => {
   };
   const OFFER = { id: 'f1', name: 'Kita', coachName: 'Rimantas', daysLeft: 3 };
 
-  it("greets the account and joins the list's rows to the assignments", async () => {
+  it('greets the account and builds the rows from the training and the assignments', async () => {
     server.summary.mockResolvedValue(SUMMARY);
-    server.list.mockResolvedValue([row('a', 'assigned'), row('o', 'own')]);
+    server.training.mockResolvedValue({
+      rows: [row('a'), row('o')],
+      entries: [entry('o', 'own'), entry('a', 'assigned')],
+    });
     server.assignments.mockResolvedValue({
       assigned: [facts('a')],
       offers: [OFFER],
@@ -108,15 +152,12 @@ describe('todayPage', () => {
     expect(await todayPage(ROKAS)).toEqual({
       displayName: 'Rokas',
       summary: SUMMARY,
-      rows: [
-        { ...row('a', 'assigned'), assignment: facts('a') },
-        { ...row('o', 'own'), assignment: null },
-      ],
+      rows: [finished('a', 'assigned', KEPT), finished('o', 'own', null)],
       offers: [OFFER],
     });
     // Every part is the session account's, read once (no second session read).
     expect(server.summary).toHaveBeenCalledExactlyOnceWith(ROKAS);
-    expect(server.list).toHaveBeenCalledExactlyOnceWith(ROKAS);
+    expect(server.training).toHaveBeenCalledExactlyOnceWith(ROKAS);
     expect(server.assignments).toHaveBeenCalledExactlyOnceWith(ROKAS);
   });
 });

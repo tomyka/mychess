@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import type { AssignedListItem } from '../server/assignment-pages';
+import type { AssignedFacts } from '../server/assignment-pages';
 import { AssignmentBadges } from './assignment-badges';
 import { useDeadline } from './use-deadline';
 
@@ -15,10 +15,7 @@ export function AssignmentFacts({
   id,
   className = '',
 }: {
-  readonly assignment: Pick<
-    AssignedListItem,
-    'coachName' | 'deadline' | 'badges'
-  >;
+  readonly assignment: AssignedFacts;
   readonly id?: string;
   readonly className?: string;
 }): JSX.Element {

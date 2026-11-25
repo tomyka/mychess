@@ -86,6 +86,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     others: [],
     reviews: [],
     tracked: [],
+    known: [],
     learnedToday: 0,
     coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },

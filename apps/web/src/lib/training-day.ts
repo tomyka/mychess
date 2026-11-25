@@ -1,11 +1,22 @@
 // A training snapshot as chess's training day: the rules of what is due,
 // what may be learned and where the repertoires stand are chess's
 // (training-day); this only reads the snapshot's plain data into it, with
-// the focus the page names and the moves the browser still queues, the same
-// way on the server (home's counts) and in the browser (the drills).
-import { withLearned, type TrainingDay } from '@mychess/chess';
-import { dayStart } from '@mychess/domain';
+// the focus the page names and the moves the browser still queues, for the
+// drills in the browser. The server's loaders build their day straight from
+// the snapshot's Maps and Sets (server/training.ts), with the same limits.
+import {
+  withLearned,
+  type QueueLimits,
+  type TrainingDay,
+} from '@mychess/chess';
+import { dayStart, type TrainingSettings } from '@mychess/domain';
 import type { TrainingData } from './training-data';
+
+/** The player's session size and new moves a day as a day's limits (R-146). */
+export const limitsOf = (settings: TrainingSettings): QueueLimits => ({
+  reviews: settings.sessionSize,
+  newPerDay: settings.newPerDay,
+});
 
 /** The training day `data` holds, caught up with the moves still queued. */
 export function dayOf(
@@ -14,6 +25,7 @@ export function dayOf(
     | 'entries'
     | 'reviews'
     | 'tracked'
+    | 'known'
     | 'learnedToday'
     | 'settings'
     | 'now'
@@ -29,11 +41,9 @@ export function dayOf(
     })),
     reviews: new Map(data.reviews.map((r) => [r.key, r])),
     tracked: new Set(data.tracked),
+    known: new Set(data.known),
     learnedToday: data.learnedToday,
-    limits: {
-      reviews: data.settings.sessionSize,
-      newPerDay: data.settings.newPerDay,
-    },
+    limits: limitsOf(data.settings),
     ...(data.focus === undefined ? {} : { focus: data.focus }),
   };
   return data.queued === undefined

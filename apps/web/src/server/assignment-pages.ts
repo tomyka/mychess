@@ -103,6 +103,15 @@ export type AssignedListItem = Pick<
   'repertoireId' | 'name' | 'side' | 'coachName' | 'deadline' | 'badges'
 >;
 
+/**
+ * What an assignment adds to its repertoire wherever it is listed: who
+ * assigned it, the deadline and the badges (R-51, R-46, R-133).
+ */
+export type AssignedFacts = Pick<
+  AssignedListItem,
+  'coachName' | 'deadline' | 'badges'
+>;
+
 /** One open fork offer on Today (R-44, R-130). */
 export type TodayForkOffer = Pick<
   OpenForkOffer,

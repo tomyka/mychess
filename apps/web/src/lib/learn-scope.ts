@@ -3,10 +3,10 @@
 // count itself is chess's learn plan, over this repertoire alone, within
 // the Allowance.
 import type {
+  LearnDay,
   LearnFocus,
   QueueLimits,
   RepertoireGraph,
-  TrainingDay,
 } from '@mychess/chess';
 
 /** The player's learning of one repertoire, as its page counts it. */
@@ -17,13 +17,17 @@ export interface LearnScope {
   readonly limits: QueueLimits;
 }
 
-/** The learn day of one repertoire, its whole or one chapter or line of it. */
+/**
+ * The learn day of one repertoire, its whole or one chapter or line of it.
+ * Built here, not narrowed with chess's repertoireDay: the page holds this
+ * repertoire's LearnScope, not a whole training day.
+ */
 export function learnDayOf(
   repertoireId: string,
   graph: RepertoireGraph,
   scope: LearnScope,
   focus?: Omit<LearnFocus, 'repertoireId'>,
-): Omit<TrainingDay, 'reviews'> {
+): LearnDay {
   return {
     repertoires: [{ id: repertoireId, graph, active: true }],
     tracked: new Set(scope.tracked),

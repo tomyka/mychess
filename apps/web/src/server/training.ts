@@ -5,8 +5,8 @@ import 'server-only';
 // starts from the session account: a value from the URL only narrows the
 // scope, and the snapshot query checks it is a repertoire the player trains.
 import {
-  learnStart,
   nextDue,
+  repertoireLearn,
   todayRows,
   trackedIn,
   trainingCounts,
@@ -32,9 +32,9 @@ import {
 } from '@mychess/domain';
 import { cache } from 'react';
 import { z } from 'zod';
-import { learnDayOf, type LearnScope } from '../lib/learn-scope';
+import type { LearnScope } from '../lib/learn-scope';
 import { CHAPTER_PARAM, LINE_PARAM } from '../lib/routes';
-import { dayOf } from '../lib/training-day';
+import { limitsOf } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
 import { getDb } from './db';
 import { chapterIdSchema } from './repertoire-edit';
@@ -126,30 +126,39 @@ async function ownCoachNotes(
   ];
 }
 
-/**
- * The session account's training data for `scope`, or undefined when the
- * scope names a repertoire they do not train (the page's 404). The coach
- * notes are read for their own repertoires only: an assigned one's are its
- * comments (R-102), named with its entry's coachName. A `focus` (R-206)
- * narrows what a learn session plans; one the repertoire does not have
- * plans nothing.
- */
-export async function loadTraining(
+/** A snapshot of the session account's training, and the instant it was read at. */
+interface SnapshotRead {
+  readonly snapshot: TrainingSnapshot;
+  readonly now: Date;
+}
+
+/** The session account's snapshot for `scope`, read now. */
+async function readSnapshot(
   account: Account,
-  mode: TrainingMode,
   scope: TrainingScope,
-  focus: LearnFocus | null = null,
-): Promise<TrainingData | undefined> {
-  const data = await snapshotData(account, mode, scope);
-  if (data === undefined) return undefined;
-  const own = data.entries.filter((entry) => entry.kind === 'own');
-  const notes = await Promise.all(
-    own.map((entry) => ownCoachNotes(account, entry.id)),
-  );
+): Promise<SnapshotRead | undefined> {
+  const now = new Date();
+  const snapshot = await trainingSnapshot(getDb(), account.id, scope, now);
+  return snapshot === undefined ? undefined : { snapshot, now };
+}
+
+/**
+ * The training day a snapshot holds, straight from its Maps and Sets: the
+ * server's loaders skip the plain-data round trip the browser's `dayOf`
+ * makes, with the same limits (lib/training-day.ts).
+ */
+function snapshotDay(snapshot: TrainingSnapshot): TrainingDay {
   return {
-    ...data,
-    coachNotes: notes.flat(),
-    ...(focus === null ? {} : { focus }),
+    repertoires: snapshot.entries.map(({ repertoire }) => ({
+      id: repertoire.id,
+      graph: repertoire.graph,
+      active: repertoire.active,
+    })),
+    reviews: snapshot.reviews,
+    tracked: snapshot.tracked,
+    known: snapshot.known,
+    learnedToday: snapshot.learnedToday,
+    limits: limitsOf(snapshot.settings),
   };
 }
 
@@ -175,22 +184,12 @@ function dataEntry(entry: SnapshotEntry): TrainingData['entries'][number] {
   return { ...base, kind: 'assigned', coachName: entry.coachName };
 }
 
-/**
- * The session account's snapshot for `scope`, read now: its plain data and
- * the keys entered by "I know this", which stay on the server.
- */
-async function readSnapshot(
-  account: Account,
+/** A snapshot as the plain data the browser gets, for `mode`. */
+function snapshotData(
+  { snapshot, now }: SnapshotRead,
   mode: TrainingMode,
-  scope: TrainingScope,
-): Promise<
-  | { readonly data: SnapshotData; readonly known: ReadonlySet<string> }
-  | undefined
-> {
-  const now = new Date();
-  const snapshot = await trainingSnapshot(getDb(), account.id, scope, now);
-  if (snapshot === undefined) return undefined;
-  const data: SnapshotData = {
+): SnapshotData {
+  return {
     mode,
     entries: snapshot.entries.map(dataEntry),
     others: snapshot.others.map(({ id, name, side, graph }) => ({
@@ -201,20 +200,39 @@ async function readSnapshot(
     })),
     reviews: [...snapshot.reviews.values()],
     tracked: [...snapshot.tracked],
+    known: [...snapshot.known],
     learnedToday: snapshot.learnedToday,
     settings: snapshot.settings,
     now,
   };
-  return { data, known: snapshot.known };
 }
 
-/** The session account's snapshot for `scope` as plain data, read now. */
-async function snapshotData(
+/**
+ * The session account's training data for `scope`, or undefined when the
+ * scope names a repertoire they do not train (the page's 404). The coach
+ * notes are read for their own repertoires only: an assigned one's are its
+ * comments (R-102), named with its entry's coachName. A `focus` (R-206)
+ * narrows what a learn session plans; one the repertoire does not have
+ * plans nothing.
+ */
+export async function loadTraining(
   account: Account,
   mode: TrainingMode,
   scope: TrainingScope,
-): Promise<SnapshotData | undefined> {
-  return (await readSnapshot(account, mode, scope))?.data;
+  focus: LearnFocus | null = null,
+): Promise<TrainingData | undefined> {
+  const read = await readSnapshot(account, scope);
+  if (read === undefined) return undefined;
+  const data = snapshotData(read, mode);
+  const own = data.entries.filter((entry) => entry.kind === 'own');
+  const notes = await Promise.all(
+    own.map((entry) => ownCoachNotes(account, entry.id)),
+  );
+  return {
+    ...data,
+    coachNotes: notes.flat(),
+    ...(focus === null ? {} : { focus }),
+  };
 }
 
 /**
@@ -225,7 +243,7 @@ async function snapshotData(
  * caller in a request passes the same Account object.
  */
 const allSnapshot = cache((account: Account) =>
-  readSnapshot(account, 'review', { kind: 'all' }),
+  readSnapshot(account, { kind: 'all' }),
 );
 
 /** Today's summary (U1-M1-3): what is due and to learn, before starting. */
@@ -246,54 +264,57 @@ async function loadTodaySummary(account: Account): Promise<TodaySummary> {
   const read = await allSnapshot(account);
   if (read === undefined)
     return { due: 0, toLearn: 0, minutes: 0, nextDue: null };
-  const { data } = read;
-  const day = dayOf(data);
-  const counts = trainingCounts(day, data.now);
+  const day = snapshotDay(read.snapshot);
+  const counts = trainingCounts(day, read.now);
   return {
     ...counts,
     minutes: Math.ceil((counts.due * SECONDS_PER_REVIEW) / 60),
-    nextDue: nextDue(day, data.now),
+    nextDue: nextDue(day, read.now),
   };
 }
 
 /** todaySummary once per request: Today and the shell's badge share it. */
 export const todaySummary = cache(loadTodaySummary);
 
-/** One repertoire on Today's list (R-221): a todayRows row with its entry's name, side and kind. */
-export interface TodayListRow extends TodayRow {
+/** A repertoire Today lists, as its row names it. */
+export interface TodayEntry {
+  readonly id: string;
   readonly name: string;
   readonly side: Side;
   readonly kind: RepertoireKind;
 }
 
-/** Each todayRows row with its entry's name, side and kind. */
-function listRows(
-  data: SnapshotData,
-  day: TrainingDay,
-  known: ReadonlySet<string>,
-): TodayListRow[] {
-  const entries = new Map(data.entries.map((e) => [e.id, e]));
-  return todayRows(day, known, data.now).flatMap((row) => {
-    const entry = entries.get(row.repertoireId);
-    return entry === undefined
-      ? []
-      : [{ ...row, name: entry.name, side: entry.side, kind: entry.kind }];
-  });
+/**
+ * What Today's list is built from (R-221): todayRows' rows, those with due
+ * moves first, each with its standing and its action, and the entries they
+ * name. The page joins them into its rows (server/today-page.ts).
+ */
+export interface TodayTraining {
+  readonly rows: readonly TodayRow[];
+  readonly entries: readonly TodayEntry[];
 }
 
 /**
- * Today's list (R-221): every repertoire the session account trains, those
- * with due moves first, each with its standing and its action. Only Today
- * reads it; the per-repertoire work stays off the shell's badge.
+ * The session account's Today list training. Only Today reads it; the
+ * per-repertoire work stays off the shell's badge.
  */
-async function loadTodayList(account: Account): Promise<TodayListRow[]> {
+async function loadTodayTraining(account: Account): Promise<TodayTraining> {
   const read = await allSnapshot(account);
-  if (read === undefined) return [];
-  return listRows(read.data, dayOf(read.data), read.known);
+  if (read === undefined) return { rows: [], entries: [] };
+  const { snapshot, now } = read;
+  return {
+    rows: todayRows(snapshotDay(snapshot), now),
+    entries: snapshot.entries.map(({ repertoire, name, side, kind }) => ({
+      id: repertoire.id,
+      name,
+      side,
+      kind,
+    })),
+  };
 }
 
-/** todayList once per request. */
-export const todayList = cache(loadTodayList);
+/** todayTraining once per request. */
+export const todayTraining = cache(loadTodayTraining);
 
 /**
  * A repertoire page's training: its counts, what learning one chapter or
@@ -314,23 +335,21 @@ export async function repertoireTraining(
   account: Account,
   repertoireId: string,
 ): Promise<RepertoireTraining | null> {
-  const data = await snapshotData(account, 'review', {
+  const read = await readSnapshot(account, {
     kind: 'repertoire',
     repertoireId,
   });
-  const entry = data?.entries[0];
-  if (data === undefined || entry === undefined) return null;
-  const day = dayOf(data);
-  const learn: LearnScope = {
-    tracked: trackedIn(entry.graph, data.tracked),
-    learnedToday: data.learnedToday,
-    limits: day.limits,
-  };
+  const entry = read?.snapshot.entries[0];
+  if (read === undefined || entry === undefined) return null;
+  const day = snapshotDay(read.snapshot);
   return {
-    counts: trainingCounts(day, data.now),
-    learn,
+    counts: trainingCounts(day, read.now),
+    learn: {
+      tracked: trackedIn(entry.repertoire.graph, [...day.tracked]),
+      learnedToday: day.learnedToday,
+      limits: day.limits,
+    },
     limitReached:
-      learnStart(learnDayOf(entry.id, entry.graph, learn)).kind ===
-      'limitReached',
+      repertoireLearn(day, entry.repertoire.id).kind === 'limitReached',
   };
 }
