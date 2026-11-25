@@ -111,7 +111,9 @@ test('D-M1-5: Dovydas reviews from a backlog of 150: sessions of 20, every answe
     .click();
   await expect(page.getByText(en.training.review.hinted)).toBeVisible();
   await answer(drill);
-  expect(await counter(page)).toEqual({ done: 1, total: 20 });
+  // R-223: the hinted move is owed its repeat, so it is not finished yet,
+  // and the session still holds 20 moves.
+  expect(await counter(page)).toEqual({ done: 0, total: 20 });
   await expect(async () => {
     const results = await loggedResults(email);
     expect(results).toHaveLength(21);
