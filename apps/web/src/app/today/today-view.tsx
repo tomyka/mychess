@@ -11,7 +11,9 @@ import { TodayHero } from './today-hero';
  * Today (#381 part 2): the greeting, the hero, the list of every trained
  * repertoire and the copies left to keep. One column on a phone (hero,
  * list, offers); from md two columns, the hero and offers on the left, the
- * list on the right. The h1 is for screen readers; the hero's count is the
+ * list on the right. The first row is the hero's height (the list spans
+ * both rows, so its height goes to the second), keeping the offers right
+ * under the hero. The h1 is for screen readers; the hero's count is the
  * visual headline.
  */
 export function TodayView({
@@ -32,7 +34,7 @@ export function TodayView({
       <p className="text-fg-muted">
         {t('app.greeting', { name: displayName })}
       </p>
-      <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-start">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:grid-rows-[auto_1fr] md:items-start">
         <div className="md:col-start-1 md:row-start-1">
           <TodayHero state={state} summary={summary} />
         </div>

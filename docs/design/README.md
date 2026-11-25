@@ -72,6 +72,55 @@ The code is in `apps/web/src/app/shell/`.
 - **Cards:** `CARD`: `shadow-card` lifts them; the `card-edge` hairline shows
   only in dark, where shadows do not read.
 
+## Today
+
+The Today tab (`/`, #381 part 2, R-221, R-222; spec
+`docs/superpowers/specs/2026-11-25-today-design.md`). The code is in
+`apps/web/src/app/today/`.
+
+- **Phone (below `md`):** one column: the muted greeting line, the hero
+  card, the "My repertoires" card, then "Copies you can keep" when there is
+  any offer. The page's `h1` ("Today") is visually hidden; the hero's count
+  is the visual headline.
+- **Desktop (`md` and up):** inside `CONTENT`, the greeting over a two
+  column grid, about 40 / 60. Left: the hero, the offers card right under
+  it (the first grid row is the hero's height, `grid-rows-[auto_1fr]`, so a
+  long list never pushes the offers down). Right: the list. Top aligned,
+  nothing sticky. In the `empty` state the hero stands alone in the left
+  column.
+- **Hero card ("Today's review"):** an `accent` card with `accent-fg` text;
+  the `h2` stays "Today's review" in every state (R-148).
+
+  | State | When | Shows | Buttons |
+  | --- | --- | --- | --- |
+  | `due` | due > 0 | "N due" (`text-4xl`), "about N min" | Start review; Learn N new moves (secondary) when any |
+  | `learn` | nothing due, new moves left today | "Nothing due now.", the next review time | Learn N new moves |
+  | `done` | nothing due, no new moves today | "All done for today", the next review time | none |
+  | `empty` | no trained repertoire | the welcome line | Create a repertoire; Import a PGN (secondary) |
+
+  Buttons on the card: the main one inverted (`surface` fill, `accent`
+  text), the second outlined (`accent-fg` border and text, no fill); both
+  44px and with an `accent-fg` focus ring, as the page's `focus` ring is the
+  card's own colour.
+- **Row anatomy (one per trained repertoire, own and assigned, paused
+  included):** the name as an `accent` underlined link (wraps, never
+  truncates; its hit area reaches 44px) to the repertoire, or the assigned
+  repertoire page; the side, muted, beside it; for an assignment the
+  `AssignmentFacts` (assigned by, deadline, Overdue / Paused / Updated
+  badges); the learned bar (`learned` on the `border` track, decorative,
+  `aria-hidden`) and "N% learned" (`fg-muted`, R-177), then the Mastered
+  badge (R-178); no bar or percentage for a repertoire without own moves.
+  On the right, the row's action, a secondary `accent-subtle` button at
+  least 44px: "Review N" when due, else "Learn" when it can learn today,
+  else none (a paused assignment never has one). It is described by the
+  row's name, so it reads "Review 8, Sicilian Najdorf". Rows are divided by
+  `border` hairlines; due rows come first (R-207), then the R-145 order.
+- **Copies you can keep:** `ForkOffers` in a `CARD`; Keep a copy (primary)
+  and No, thanks (secondary).
+- **Keyboard order:** the shell, the hero's buttons, each row's name then
+  its button, the offers. On desktop the offers come after the list though
+  they sit under the hero: the DOM follows the phone's reading order.
+
 ## Text length
 
 - No fixed widths on anything holding text: buttons, chips, tabs and badges
@@ -139,6 +188,10 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | each state on its `-subtle` | 5.2 - 5.9 | 6.9 - 7.3 |
 | `on-state` on each solid state | 5.9 - 6.9 | 8.2 - 9.4 |
 | A disabled (pending) button's label, the button at 85% over `bg` / `surface`: primary; danger (2026-11-16) | 4.9 / 4.9; 5.1 / 5.0 | 6.0 / 6.0; 6.2 / 6.2 |
+| Today's hero (2026-11-25): main button, `accent` text on its `surface` fill; the fill against the `accent` card | 5.8; 5.8 | 7.3; 7.3 |
+| Today's hero: heading and text, the secondary button's `accent-fg` outline and text, and the `accent-fg` focus ring, all on `accent` | 5.8 | 8.0 |
+| Today's row button: `accent` on `accent-subtle` | 5.0 | 6.6 |
+| Today's learned bar: `learned` on its `border` track (decorative; "N% learned" carries the value) | 4.7 | 5.2 |
 | `border-strong` on `bg` / `surface` | 3.4 / 3.7 | 3.9 / 3.6 |
 | `border` (bar track) on `bg` / `surface` (2026-11-25) | 1.4 / 1.5 | 1.7 / 1.5 |
 | `skipped` on `border`; on `learned` (2026-10-27; bar segments, the counts carry the meaning) | 1.8; 2.6 | 2.1; 2.4 |
