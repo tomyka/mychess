@@ -1,13 +1,12 @@
-import type { TodayRow } from '@mychess/chess';
 import type { Account, BadgeSet, RepertoireKind } from '@mychess/domain';
 import { describe, expect, it, vi } from 'vitest';
-import type { AssignedListItem, TodayAssignments } from './assignment-pages';
+import type { TodayAssigned, TodayAssignments } from './assignment-pages';
 import { pageRows, todayPage } from './today-page';
-import type { TodayEntry, TodaySummary, TodayTraining } from './training';
+import type { TodayListRow, TodaySummary } from './training';
 
 const server = vi.hoisted(() => ({
   assignments: vi.fn<(account: Account) => Promise<TodayAssignments>>(),
-  training: vi.fn<(account: Account) => Promise<TodayTraining>>(),
+  list: vi.fn<(account: Account) => Promise<TodayListRow[]>>(),
   summary: vi.fn<(account: Account) => Promise<TodaySummary>>(),
 }));
 
@@ -17,12 +16,15 @@ vi.mock('./assignment-pages', () => ({
 }));
 vi.mock('./training', () => ({
   todaySummary: server.summary,
-  todayTraining: server.training,
+  todayList: server.list,
 }));
 
-/** Repertoire `id`'s row as todayRows gives it. */
-const row = (id: string): TodayRow => ({
+/** Repertoire `id`'s row on Today's list, named after it. */
+const row = (id: string, kind: RepertoireKind): TodayListRow => ({
   repertoireId: id,
+  name: `Name ${id}`,
+  side: 'black',
+  kind,
   due: 0,
   canLearn: false,
   action: null,
@@ -32,14 +34,6 @@ const row = (id: string): TodayRow => ({
   },
 });
 
-/** Repertoire `id`'s entry, named after it. */
-const entry = (id: string, kind: RepertoireKind): TodayEntry => ({
-  id,
-  name: `Name ${id}`,
-  side: 'black',
-  kind,
-});
-
 const BADGES: BadgeSet = {
   overdue: false,
   paused: false,
@@ -47,73 +41,39 @@ const BADGES: BadgeSet = {
   updated: true,
 };
 
-/** An assignment's list item: its own name and side, which the row ignores. */
-const facts = (repertoireId: string): AssignedListItem => ({
+/** The facts a row keeps: coach, deadline and badges. */
+const FACTS = { coachName: 'Rimantas', deadline: '2026-12-03', badges: BADGES };
+
+/** Repertoire `repertoireId`'s assignment, as todayAssignments gives it. */
+const assigned = (repertoireId: string): TodayAssigned => ({
   repertoireId,
-  name: 'Not the row name',
-  side: 'white',
-  coachName: 'Rimantas',
-  deadline: '2026-12-03',
-  badges: BADGES,
+  ...FACTS,
 });
 
-/** The facts a row keeps: coach, deadline and badges only. */
-const KEPT = { coachName: 'Rimantas', deadline: '2026-12-03', badges: BADGES };
-
-/** The finished row of `id`, with its entry and `assignment`. */
-const finished = (
-  id: string,
-  kind: RepertoireKind,
-  assignment: typeof KEPT | null,
-) => ({
-  ...row(id),
-  name: `Name ${id}`,
-  side: 'black',
-  kind,
-  assignment,
-});
-
-describe('pageRows (R-221, R-222)', () => {
-  it("names each row by its entry and gives an assignment its facts, in the rows' order", () => {
+describe('pageRows (R-222)', () => {
+  it("gives each assignment its facts by repertoire id, in the rows' order", () => {
     expect(
       pageRows(
-        {
-          rows: [row('a'), row('o'), row('b')],
-          entries: [
-            entry('o', 'own'),
-            entry('b', 'assigned'),
-            entry('a', 'assigned'),
-          ],
-        },
-        [facts('b'), facts('a')],
+        [row('a', 'assigned'), row('o', 'own'), row('b', 'assigned')],
+        [assigned('b'), assigned('a')],
       ),
     ).toEqual([
-      finished('a', 'assigned', KEPT),
-      finished('o', 'own', null),
-      finished('b', 'assigned', KEPT),
+      { ...row('a', 'assigned'), assignment: FACTS },
+      { ...row('o', 'own'), assignment: null },
+      { ...row('b', 'assigned'), assignment: FACTS },
     ]);
   });
 
   it('never gives an own repertoire assignment facts, even with its id', () => {
-    expect(
-      pageRows({ rows: [row('o')], entries: [entry('o', 'own')] }, [
-        facts('o'),
-      ]),
-    ).toEqual([finished('o', 'own', null)]);
+    expect(pageRows([row('o', 'own')], [assigned('o')])).toEqual([
+      { ...row('o', 'own'), assignment: null },
+    ]);
   });
 
   it('shows an assignment whose facts are gone as a plain row', () => {
-    expect(
-      pageRows({ rows: [row('a')], entries: [entry('a', 'assigned')] }, []),
-    ).toEqual([finished('a', 'assigned', null)]);
-  });
-
-  it('leaves out a row with no entry', () => {
-    expect(
-      pageRows({ rows: [row('x'), row('o')], entries: [entry('o', 'own')] }, [
-        facts('x'),
-      ]),
-    ).toEqual([finished('o', 'own', null)]);
+    expect(pageRows([row('a', 'assigned')], [])).toEqual([
+      { ...row('a', 'assigned'), assignment: null },
+    ]);
   });
 });
 
@@ -139,25 +99,25 @@ describe('todayPage', () => {
   };
   const OFFER = { id: 'f1', name: 'Kita', coachName: 'Rimantas', daysLeft: 3 };
 
-  it('greets the account and builds the rows from the training and the assignments', async () => {
+  it("greets the account and gives the list's rows their assignments' facts", async () => {
     server.summary.mockResolvedValue(SUMMARY);
-    server.training.mockResolvedValue({
-      rows: [row('a'), row('o')],
-      entries: [entry('o', 'own'), entry('a', 'assigned')],
-    });
+    server.list.mockResolvedValue([row('a', 'assigned'), row('o', 'own')]);
     server.assignments.mockResolvedValue({
-      assigned: [facts('a')],
+      assigned: [assigned('a')],
       offers: [OFFER],
     });
     expect(await todayPage(ROKAS)).toEqual({
       displayName: 'Rokas',
       summary: SUMMARY,
-      rows: [finished('a', 'assigned', KEPT), finished('o', 'own', null)],
+      rows: [
+        { ...row('a', 'assigned'), assignment: FACTS },
+        { ...row('o', 'own'), assignment: null },
+      ],
       offers: [OFFER],
     });
     // Every part is the session account's, read once (no second session read).
     expect(server.summary).toHaveBeenCalledExactlyOnceWith(ROKAS);
-    expect(server.training).toHaveBeenCalledExactlyOnceWith(ROKAS);
+    expect(server.list).toHaveBeenCalledExactlyOnceWith(ROKAS);
     expect(server.assignments).toHaveBeenCalledExactlyOnceWith(ROKAS);
   });
 });

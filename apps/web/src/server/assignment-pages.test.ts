@@ -184,11 +184,10 @@ describe('todayAssignments', () => {
       server.mine.mockResolvedValue([MINE]);
       server.offers.mockResolvedValue([OFFER]);
       expect(await todayAssignments(GABIJA)).toEqual({
+        // Only the facts: the row is named from the training snapshot.
         assigned: [
           {
             repertoireId: ID,
-            name: 'Londono sistema',
-            side: 'white',
             coachName: 'Jonas',
             deadline: '2026-11-30',
             badges: {

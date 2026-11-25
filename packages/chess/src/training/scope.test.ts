@@ -30,6 +30,13 @@ describe('trackedIn', () => {
       keyOf(white, 'e4'),
     ]);
   });
+  it('reads a set of tracked keys in its order', () => {
+    const tracked = new Set([keyOf(white, 'Nf3'), keyOf(white, 'e4')]);
+    expect(trackedIn(white, tracked)).toEqual([
+      keyOf(white, 'Nf3'),
+      keyOf(white, 'e4'),
+    ]);
+  });
   it('leaves out the opponent’s moves of the graph', () => {
     expect(trackedIn(white, [keyOf(white, 'e5'), keyOf(white, 'e4')])).toEqual([
       keyOf(white, 'e4'),

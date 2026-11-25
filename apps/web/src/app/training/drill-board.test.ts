@@ -124,7 +124,7 @@ const data: TrainingData = {
   others: [],
   reviews: [],
   tracked: [],
-  known: [],
+  knownWithoutLearning: [],
   learnedToday: 0,
   coachNotes: [],
   settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },

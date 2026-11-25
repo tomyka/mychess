@@ -1351,12 +1351,17 @@ async function sessionToday(): ReturnType<typeof todayAssignments> {
   return todayAssignments(await requireOnboarded());
 }
 
-/** Today's lists for `who`, as "name (coach)". */
+/**
+ * Today's lists for `who`: each assignment as "repertoire id (coach)" (its
+ * row is named from the training snapshot), each offer as "name (coach)".
+ */
 async function todayNames(who: Person): Promise<unknown> {
   actAs(who);
   const today = await sessionToday();
   return {
-    assigned: today.assigned.map((one) => `${one.name} (${one.coachName})`),
+    assigned: today.assigned.map(
+      (one) => `${one.repertoireId} (${one.coachName})`,
+    ),
     offers: today.offers.map((one) => `${one.name} (${one.coachName})`),
   };
 }
@@ -1368,11 +1373,11 @@ describe('Today’s assignment facts and fork offers', () => {
     await rokasOffer(people);
     const before = await state();
     expect(await todayNames(people.rokas)).toEqual({
-      assigned: ['Taimanovas (Rimantas)'],
+      assigned: [`${people.taimanov} (Rimantas)`],
       offers: ['Londono sistema (Rimantas)'],
     });
     expect(await todayNames(people.gabija)).toEqual({
-      assigned: ['Taimanovas (Rimantas)'],
+      assigned: [`${people.taimanov} (Rimantas)`],
       offers: [],
     });
     expect(await todayNames(people.jonas)).toEqual({

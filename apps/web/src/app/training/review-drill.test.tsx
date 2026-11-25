@@ -109,7 +109,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     others: [],
     reviews: [dueReview(D4, 2), dueReview(BF4, 1)],
     tracked: [D4, BF4],
-    known: [],
+    knownWithoutLearning: [],
     learnedToday: 0,
     coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },

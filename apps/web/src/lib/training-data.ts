@@ -60,7 +60,7 @@ export interface TrainingData {
    * player's own, so they may reach the browser (#383). R-151 counts such a
    * move as skipped until its Review is first graded.
    */
-  readonly known: readonly string[];
+  readonly knownWithoutLearning: readonly string[];
   /** Moves learned in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;

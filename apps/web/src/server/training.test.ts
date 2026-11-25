@@ -7,7 +7,7 @@ import {
   loadTraining,
   parseTrainingSearch,
   repertoireTraining,
-  todayTraining,
+  todayList,
   todaySummary,
 } from './training';
 
@@ -107,7 +107,7 @@ const SNAPSHOT: TrainingSnapshot = {
     ['k2|Bf4', review('k2|Bf4')],
   ]),
   tracked: new Set(['k1|d4', 'k2|Bf4']),
-  known: new Set(['k2|Bf4']),
+  knownWithoutLearning: new Set(['k2|Bf4']),
   learnedToday: 3,
   settings: { sessionSize: 20, newPerDay: 5, learnArrows: false },
 };
@@ -236,7 +236,7 @@ describe('loadTraining', () => {
       reviews: [review('k1|d4'), review('k2|Bf4')],
       tracked: ['k1|d4', 'k2|Bf4'],
       // The player's own "I know this" keys reach the browser (#383).
-      known: ['k2|Bf4'],
+      knownWithoutLearning: ['k2|Bf4'],
       learnedToday: 3,
       // The arrows setting reaches the page as stored (R-205).
       settings: { sessionSize: 20, newPerDay: 5, learnArrows: false },
@@ -401,9 +401,9 @@ describe('todaySummary (U1-M1-3)', () => {
   });
 });
 
-describe('todayTraining (R-221)', () => {
+describe('todayList (R-221)', () => {
   it("reads the session account's every repertoire as of now", async () => {
-    await todayTraining(ROKAS);
+    await todayList(ROKAS);
     expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
       DB,
       'rokas',
@@ -412,31 +412,29 @@ describe('todayTraining (R-221)', () => {
     );
   });
 
-  it('gives each repertoire its due count, action and standing, and names the entries', async () => {
+  it('gives each repertoire its name, side, kind, due count, action and standing', async () => {
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS));
-    expect(await todayTraining(ROKAS)).toEqual({
-      rows: [
-        {
-          repertoireId: ID,
-          due: 8,
-          // Every move is tracked: nothing is left to learn.
-          canLearn: false,
-          action: 'review',
-          standing: {
-            counts: { notStarted: 0, skipped: 0, due: 8, learned: 0 },
-            mastered: false,
-          },
+    expect(await todayList(ROKAS)).toEqual([
+      {
+        repertoireId: ID,
+        name: 'Londono sistema',
+        side: 'white',
+        kind: 'own',
+        due: 8,
+        // Every move is tracked: nothing is left to learn.
+        canLearn: false,
+        action: 'review',
+        standing: {
+          counts: { notStarted: 0, skipped: 0, due: 8, learned: 0 },
+          mastered: false,
         },
-      ],
-      entries: [
-        { id: ID, name: 'Londono sistema', side: 'white', kind: 'own' },
-      ],
-    });
+      },
+    ]);
   });
 
   it('still lists a repertoire with nothing due', async () => {
     server.snapshot.mockResolvedValue(londonDue([]));
-    expect((await todayTraining(ROKAS)).rows).toMatchObject([
+    expect(await todayList(ROKAS)).toMatchObject([
       {
         repertoireId: ID,
         due: 0,
@@ -450,9 +448,9 @@ describe('todayTraining (R-221)', () => {
     const [known = ''] = LONDON_KEYS;
     server.snapshot.mockResolvedValue({
       ...londonDue([]),
-      known: new Set([known]),
+      knownWithoutLearning: new Set([known]),
     });
-    const [row] = (await todayTraining(ROKAS)).rows;
+    const [row] = await todayList(ROKAS);
     expect(row?.standing.counts).toEqual({
       notStarted: 0,
       skipped: 1,
@@ -463,7 +461,7 @@ describe('todayTraining (R-221)', () => {
 
   it('lists nothing when the player trains nothing', async () => {
     server.snapshot.mockResolvedValue(undefined);
-    expect(await todayTraining(ROKAS)).toEqual({ rows: [], entries: [] });
+    expect(await todayList(ROKAS)).toEqual([]);
   });
 
   it('lists every repertoire, the ones with due moves first (R-207, R-221)', async () => {
@@ -482,15 +480,13 @@ describe('todayTraining (R-221)', () => {
       ]),
       tracked: new Set([...london.tracked, taimanovKey]),
     });
-    const { rows, entries } = await todayTraining(ROKAS);
-    expect(rows.map((r) => [r.repertoireId, r.due, r.action])).toEqual([
-      [OTHER, 1, 'review'],
-      [ID, 0, null],
-    ]);
-    // The entries in the snapshot's (learn) order, each named once.
-    expect(entries).toEqual([
-      { id: ID, name: 'Londono sistema', side: 'white', kind: 'own' },
-      { id: OTHER, name: 'Taimanovas', side: 'black', kind: 'assigned' },
+    const rows = await todayList(ROKAS);
+    // Each row named by its own entry, whatever the order.
+    expect(
+      rows.map((r) => [r.repertoireId, r.name, r.kind, r.due, r.action]),
+    ).toEqual([
+      [OTHER, 'Taimanovas', 'assigned', 1, 'review'],
+      [ID, 'Londono sistema', 'own', 0, null],
     ]);
   });
 
@@ -511,10 +507,10 @@ describe('todayTraining (R-221)', () => {
       ]),
       tracked: new Set([...london.tracked, taimanovKey]),
     });
-    const { rows } = await todayTraining(ROKAS);
-    expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
-      [OTHER, 1],
-      [ID, 1],
+    const rows = await todayList(ROKAS);
+    expect(rows.map((r) => [r.repertoireId, r.name, r.side, r.due])).toEqual([
+      [OTHER, 'Taimanovas', 'black', 1],
+      [ID, 'Londono sistema', 'white', 1],
     ]);
   });
 });

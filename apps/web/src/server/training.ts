@@ -34,7 +34,7 @@ import { cache } from 'react';
 import { z } from 'zod';
 import type { LearnScope } from '../lib/learn-scope';
 import { CHAPTER_PARAM, LINE_PARAM } from '../lib/routes';
-import { limitsOf } from '../lib/training-day';
+import { trainingDay } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
 import { getDb } from './db';
 import { chapterIdSchema } from './repertoire-edit';
@@ -143,24 +143,23 @@ async function readSnapshot(
 }
 
 /**
- * The training day a snapshot holds, straight from its Maps and Sets: the
- * server's loaders skip the plain-data round trip the browser's `dayOf`
- * makes, with the same limits (lib/training-day.ts).
+ * The training day a snapshot holds, built from its Maps and Sets by the
+ * builder the browser's `dayOf` uses too (lib/training-day.ts), without the
+ * plain-data arrays the page's payload needs.
  */
-function snapshotDay(snapshot: TrainingSnapshot): TrainingDay {
-  return {
+const snapshotDay = (snapshot: TrainingSnapshot): TrainingDay =>
+  trainingDay({
     repertoires: snapshot.entries.map(({ repertoire }) => ({
       id: repertoire.id,
       graph: repertoire.graph,
       active: repertoire.active,
     })),
-    reviews: snapshot.reviews,
+    reviews: snapshot.reviews.values(),
     tracked: snapshot.tracked,
-    known: snapshot.known,
+    knownWithoutLearning: snapshot.knownWithoutLearning,
     learnedToday: snapshot.learnedToday,
-    limits: limitsOf(snapshot.settings),
-  };
-}
+    settings: snapshot.settings,
+  });
 
 type SnapshotEntry = TrainingSnapshot['entries'][number];
 
@@ -200,7 +199,7 @@ function snapshotData(
     })),
     reviews: [...snapshot.reviews.values()],
     tracked: [...snapshot.tracked],
-    known: [...snapshot.known],
+    knownWithoutLearning: [...snapshot.knownWithoutLearning],
     learnedToday: snapshot.learnedToday,
     settings: snapshot.settings,
     now,
@@ -276,45 +275,49 @@ async function loadTodaySummary(account: Account): Promise<TodaySummary> {
 /** todaySummary once per request: Today and the shell's badge share it. */
 export const todaySummary = cache(loadTodaySummary);
 
-/** A repertoire Today lists, as its row names it. */
-export interface TodayEntry {
-  readonly id: string;
+/**
+ * One repertoire on Today's list (R-221): its todayRows row (due count,
+ * whether it can learn, its action and standing) with its entry's name,
+ * side and kind.
+ */
+export interface TodayListRow extends TodayRow {
   readonly name: string;
   readonly side: Side;
   readonly kind: RepertoireKind;
 }
 
 /**
- * What Today's list is built from (R-221): todayRows' rows, those with due
- * moves first, each with its standing and its action, and the entries they
- * name. The page joins them into its rows (server/today-page.ts).
+ * The snapshot entry of `repertoireId`. todayRows gives one row per entry
+ * of the day built from these entries, so a miss is a programmer error.
  */
-export interface TodayTraining {
-  readonly rows: readonly TodayRow[];
-  readonly entries: readonly TodayEntry[];
+function entryOf(
+  entries: ReadonlyMap<string, SnapshotEntry>,
+  repertoireId: string,
+): SnapshotEntry {
+  const entry = entries.get(repertoireId);
+  if (entry === undefined)
+    throw new Error('a Today row names an entry of its snapshot');
+  return entry;
 }
 
 /**
- * The session account's Today list training. Only Today reads it; the
+ * The session account's Today list: every repertoire they train, those
+ * with due moves first, each named by its entry. Only Today reads it; the
  * per-repertoire work stays off the shell's badge.
  */
-async function loadTodayTraining(account: Account): Promise<TodayTraining> {
+async function loadTodayList(account: Account): Promise<TodayListRow[]> {
   const read = await allSnapshot(account);
-  if (read === undefined) return { rows: [], entries: [] };
+  if (read === undefined) return [];
   const { snapshot, now } = read;
-  return {
-    rows: todayRows(snapshotDay(snapshot), now),
-    entries: snapshot.entries.map(({ repertoire, name, side, kind }) => ({
-      id: repertoire.id,
-      name,
-      side,
-      kind,
-    })),
-  };
+  const entries = new Map(snapshot.entries.map((e) => [e.repertoire.id, e]));
+  return todayRows(snapshotDay(snapshot), now).map((row) => {
+    const { name, side, kind } = entryOf(entries, row.repertoireId);
+    return { ...row, name, side, kind };
+  });
 }
 
-/** todayTraining once per request. */
-export const todayTraining = cache(loadTodayTraining);
+/** todayList once per request. */
+export const todayList = cache(loadTodayList);
 
 /**
  * A repertoire page's training: its counts, what learning one chapter or
@@ -345,7 +348,7 @@ export async function repertoireTraining(
   return {
     counts: trainingCounts(day, read.now),
     learn: {
-      tracked: trackedIn(entry.repertoire.graph, [...day.tracked]),
+      tracked: trackedIn(entry.repertoire.graph, day.tracked),
       learnedToday: day.learnedToday,
       limits: day.limits,
     },

@@ -47,7 +47,7 @@ function day(
     repertoires,
     reviews: new Map(reviews.map((r) => [r.key, r])),
     tracked: new Set(reviews.map((r) => r.key)),
-    known: new Set(),
+    knownWithoutLearning: new Set(),
     learnedToday: 0,
     limits: { reviews: 20, newPerDay: 10 },
     ...overrides,
@@ -152,7 +152,9 @@ describe('todayRows', () => {
 
   it('counts each own move in its one state', () => {
     const rows = todayRows(
-      day([W], [dueNow(E4), fresh(NF3), fresh(BC4)], { known: new Set([BC4]) }),
+      day([W], [dueNow(E4), fresh(NF3), fresh(BC4)], {
+        knownWithoutLearning: new Set([BC4]),
+      }),
       NOW,
     );
     expect(rows.map((r) => r.standing)).toEqual([

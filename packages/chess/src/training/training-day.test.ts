@@ -59,7 +59,7 @@ function day(overrides: Partial<TrainingDay> = {}): TrainingDay {
     repertoires: [repertoire(white)],
     reviews: new Map(),
     tracked: new Set(),
-    known: new Set(),
+    knownWithoutLearning: new Set(),
     learnedToday: 0,
     limits: { reviews: 20, newPerDay: 10 },
     ...overrides,
@@ -444,14 +444,14 @@ describe('withLearned (decision 2)', () => {
     expect(base.reviews.has(NF3)).toBe(false);
     expect(caught.limits).toBe(base.limits);
   });
-  it('keeps the known keys: a move learned is not known', () => {
+  it('keeps the keys known without learning: a learned move is not one', () => {
     const base = day({
       ...reviewed(reviewIn(E4, DAY_MS)),
-      known: new Set([E4]),
+      knownWithoutLearning: new Set([E4]),
     });
     const caught = withLearned(base, [{ key: NF3, at: NOW }], DAY_START);
     expect(caught).not.toBe(base);
-    expect([...caught.known]).toEqual([E4]);
+    expect([...caught.knownWithoutLearning]).toEqual([E4]);
   });
 });
 
@@ -461,7 +461,7 @@ describe('repertoireDay', () => {
   const base = day({
     repertoires: [W, B],
     ...reviewed(reviewIn(E4, DAY_MS), reviewIn(BLACK_KEYS[0] ?? '', DAY_MS)),
-    known: new Set([E4]),
+    knownWithoutLearning: new Set([E4]),
     learnedToday: 4,
     limits: { reviews: 5, newPerDay: 6 },
   });
@@ -471,7 +471,7 @@ describe('repertoireDay', () => {
     expect(narrowed.repertoires).toEqual([B]);
     expect(narrowed.reviews).toBe(base.reviews);
     expect(narrowed.tracked).toBe(base.tracked);
-    expect(narrowed.known).toBe(base.known);
+    expect(narrowed.knownWithoutLearning).toBe(base.knownWithoutLearning);
     expect(narrowed.learnedToday).toBe(4);
     expect(narrowed.limits).toBe(base.limits);
     expect(base.repertoires).toEqual([W, B]);
@@ -481,6 +481,13 @@ describe('repertoireDay', () => {
     expect(repertoireDay({ ...base, focus }, 'w').focus).toEqual(focus);
     expect('focus' in repertoireDay({ ...base, focus }, 'b')).toBe(false);
     expect('focus' in repertoireDay(base, 'w')).toBe(false);
+  });
+  it('narrows part of a day, keeping only what it holds', () => {
+    const held = { repertoires: [W, B], reviews: base.reviews };
+    expect(repertoireDay(held, 'w')).toEqual({
+      repertoires: [W],
+      reviews: base.reviews,
+    });
   });
   it('holds no repertoire for an id the day does not hold', () => {
     const narrowed = repertoireDay(base, 'nope');

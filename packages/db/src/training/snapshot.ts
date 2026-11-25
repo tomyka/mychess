@@ -57,7 +57,7 @@ export interface TrainingSnapshot {
    * Held keys whose Review entered by "I know this" (skippedAt set), for the
    * skipped state of R-151; a subset of `tracked`.
    */
-  readonly known: ReadonlySet<string>;
+  readonly knownWithoutLearning: ReadonlySet<string>;
   /** Moves learned (not skipped) in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;
@@ -100,7 +100,7 @@ function heldReviews(
 }
 
 /** The keys of `held` whose stored Review entered by "I know this". */
-const knownKeys = (
+const knownWithoutLearningKeys = (
   stored: ReadonlyMap<string, StoredReview>,
   held: ReadonlySet<string>,
 ): Set<string> =>
@@ -136,7 +136,7 @@ export async function trainingSnapshot(
       others: othersOf(all, entries),
       reviews,
       tracked: new Set(reviews.keys()),
-      known: knownKeys(stored, held),
+      knownWithoutLearning: knownWithoutLearningKeys(stored, held),
       learnedToday: await learnedBetween(
         tx,
         playerId,

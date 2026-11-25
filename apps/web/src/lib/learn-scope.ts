@@ -19,8 +19,8 @@ export interface LearnScope {
 
 /**
  * The learn day of one repertoire, its whole or one chapter or line of it.
- * Built here, not narrowed with chess's repertoireDay: the page holds this
- * repertoire's LearnScope, not a whole training day.
+ * Built from the page's LearnScope, this repertoire's learning alone: the
+ * page has no whole training day, and a LearnDay needs no Reviews.
  */
 export function learnDayOf(
   repertoireId: string,

@@ -30,14 +30,14 @@ export interface TodayRow {
   readonly standing: Standing;
 }
 
-/** The day's Reviews with how each entered training (`known`: "I know this"). */
+/** The day's Reviews with how each entered training ("I know this" or not). */
 const trackedOf = (
-  day: Pick<TrainingDay, 'reviews' | 'known'>,
+  day: Pick<TrainingDay, 'reviews' | 'knownWithoutLearning'>,
 ): Map<string, TrackedReview> =>
   new Map(
     [...day.reviews].map(([key, review]) => [
       key,
-      { review, knownWithoutLearning: day.known.has(key) },
+      { review, knownWithoutLearning: day.knownWithoutLearning.has(key) },
     ]),
   );
 
@@ -53,6 +53,7 @@ function rowOf(
   due: number,
   standing: Standing,
 ): TodayRow {
+  // Honours a focus naming this repertoire; Today's day has none.
   const learn = repertoireLearn(day, repertoire.id).kind === 'drill';
   return {
     repertoireId: repertoire.id,

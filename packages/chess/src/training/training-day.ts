@@ -34,7 +34,7 @@ export interface TrainingDay {
    * than a learn pass: a subset of `tracked`. R-151 counts such a move as
    * skipped until its Review is first graded.
    */
-  readonly known: ReadonlySet<string>;
+  readonly knownWithoutLearning: ReadonlySet<string>;
   /** Moves learned, not skipped, in the player's day so far (R-147). */
   readonly learnedToday: number;
   /** The player's session size and new moves a day, already parsed (R-146). */
@@ -47,9 +47,9 @@ type Held = Pick<TrainingDay, 'repertoires' | 'reviews'>;
 
 /**
  * What learning reads of a day: the tracked keys, never how a key entered
- * (`known`) nor the Reviews.
+ * (`knownWithoutLearning`) nor the Reviews.
  */
-export type LearnDay = Omit<TrainingDay, 'reviews' | 'known'>;
+export type LearnDay = Omit<TrainingDay, 'reviews' | 'knownWithoutLearning'>;
 
 export type TrainingMode = 'review' | 'learn';
 
@@ -158,18 +158,25 @@ export interface RepertoireDue {
   readonly due: number;
 }
 
+/** Any day, or part of one, that names its repertoires. */
+type Narrowable = Pick<TrainingDay, 'repertoires' | 'focus'>;
+
+/** `D` with only one repertoire, and a focus only when it names that one. */
+type Narrowed<D extends Narrowable> = Omit<D, 'focus'> & Narrowable;
+
 /**
  * `day` narrowed to one repertoire: what training that repertoire alone
- * (its page, its row on Today) reads. The Reviews, tracked and known keys,
- * allowance and limits stay the day's, so moves shared with other
- * repertoires and moves learned today count as they do for the whole day.
- * The focus stays only when it names this repertoire. An id the day does
- * not hold narrows to no repertoire: nothing due, nothing left to learn.
+ * (its page, its row on Today) reads. Everything else the day holds (the
+ * Reviews, tracked keys, allowance, limits) stays the day's, so moves
+ * shared with other repertoires and moves learned today count as they do
+ * for the whole day. The focus stays only when it names this repertoire.
+ * An id the day does not hold narrows to no repertoire: nothing due,
+ * nothing left to learn.
  */
-export function repertoireDay(
-  day: TrainingDay,
+export function repertoireDay<D extends Narrowable>(
+  day: D,
   repertoireId: string,
-): TrainingDay {
+): Narrowed<D> {
   const { focus, ...rest } = day;
   const repertoires = day.repertoires.filter((r) => r.id === repertoireId);
   return focus?.repertoireId === repertoireId
@@ -178,11 +185,7 @@ export function repertoireDay(
 }
 
 /** The Reviews of one repertoire due at `now`, as a review of it alone counts them. */
-const dueIn = (
-  day: TrainingDay,
-  repertoireId: string,
-  now: Date,
-): ReviewState[] =>
+const dueIn = (day: Held, repertoireId: string, now: Date): ReviewState[] =>
   heldReviews(repertoireDay(day, repertoireId)).filter((r) => isDue(r, now));
 
 /**
@@ -190,7 +193,7 @@ const dueIn = (
  * review of it alone counts them (R-142, R-207), the most urgent first: by
  * its earliest due Review, as the session orders them, then learn order.
  */
-export function dueByRepertoire(day: TrainingDay, now: Date): RepertoireDue[] {
+export function dueByRepertoire(day: Held, now: Date): RepertoireDue[] {
   return day.repertoires
     .map((repertoire, order) => {
       const due = dueIn(day, repertoire.id, now);
@@ -219,7 +222,7 @@ export function trainingProgress(day: Held, now: Date): TrainingProgress {
  * limits out of range are a programmer error, not a refusal.
  */
 export function dueReviews(
-  day: Omit<TrainingDay, 'tracked' | 'known'>,
+  day: Omit<TrainingDay, 'tracked' | 'knownWithoutLearning'>,
   now: Date,
 ): readonly QueueItem[] {
   const queue = buildQueue(day, now, day.limits);

@@ -77,10 +77,10 @@ export function scopeKeys(scope: Scope): string[] {
  */
 export function trackedIn(
   graph: RepertoireGraph,
-  tracked: readonly string[],
+  tracked: Iterable<string>,
 ): string[] {
   const own = new Set(playerKeys(graph));
-  return tracked.filter((key) => own.has(key));
+  return [...tracked].filter((key) => own.has(key));
 }
 
 /**

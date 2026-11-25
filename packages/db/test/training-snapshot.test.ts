@@ -156,7 +156,7 @@ describe('trainingSnapshot', () => {
       skippedAt: hoursAgo(2),
     });
     const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
-    expect(snapshot && [...snapshot.known]).toEqual([BF4]);
+    expect(snapshot && [...snapshot.knownWithoutLearning]).toEqual([BF4]);
   });
 
   describe('scoped to one repertoire', () => {

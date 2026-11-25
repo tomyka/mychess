@@ -1,22 +1,47 @@
 // A training snapshot as chess's training day: the rules of what is due,
 // what may be learned and where the repertoires stand are chess's
-// (training-day); this only reads the snapshot's plain data into it, with
-// the focus the page names and the moves the browser still queues, for the
-// drills in the browser. The server's loaders build their day straight from
-// the snapshot's Maps and Sets (server/training.ts), with the same limits.
+// (training-day); this only reads a snapshot's parts into it. One builder
+// serves both sides: the browser's drills read the page's plain data
+// (`dayOf`, with the focus the page names and the moves the browser still
+// queues), the server's loaders the snapshot's Maps and Sets
+// (server/training.ts).
 import {
   withLearned,
-  type QueueLimits,
+  type ReviewState,
   type TrainingDay,
+  type TrainingRepertoire,
 } from '@mychess/chess';
 import { dayStart, type TrainingSettings } from '@mychess/domain';
 import type { TrainingData } from './training-data';
 
-/** The player's session size and new moves a day as a day's limits (R-146). */
-export const limitsOf = (settings: TrainingSettings): QueueLimits => ({
-  reviews: settings.sessionSize,
-  newPerDay: settings.newPerDay,
-});
+/** What a training day is built from, as arrays or as a snapshot's Maps and Sets. */
+export interface DayParts {
+  /** In the learn order (R-145). */
+  readonly repertoires: Iterable<TrainingRepertoire>;
+  readonly reviews: Iterable<ReviewState>;
+  readonly tracked: Iterable<string>;
+  readonly knownWithoutLearning: Iterable<string>;
+  readonly learnedToday: number;
+  readonly settings: TrainingSettings;
+}
+
+/**
+ * The training day of `parts`, without a focus: the Reviews by key, and the
+ * player's session size and new moves a day as its limits (R-146).
+ */
+export function trainingDay(parts: DayParts): TrainingDay {
+  return {
+    repertoires: [...parts.repertoires],
+    reviews: new Map(Array.from(parts.reviews, (r) => [r.key, r])),
+    tracked: new Set(parts.tracked),
+    knownWithoutLearning: new Set(parts.knownWithoutLearning),
+    learnedToday: parts.learnedToday,
+    limits: {
+      reviews: parts.settings.sessionSize,
+      newPerDay: parts.settings.newPerDay,
+    },
+  };
+}
 
 /** The training day `data` holds, caught up with the moves still queued. */
 export function dayOf(
@@ -25,7 +50,7 @@ export function dayOf(
     | 'entries'
     | 'reviews'
     | 'tracked'
-    | 'known'
+    | 'knownWithoutLearning'
     | 'learnedToday'
     | 'settings'
     | 'now'
@@ -34,16 +59,14 @@ export function dayOf(
   >,
 ): TrainingDay {
   const day: TrainingDay = {
-    repertoires: data.entries.map(({ id, graph, active }) => ({
-      id,
-      graph,
-      active,
-    })),
-    reviews: new Map(data.reviews.map((r) => [r.key, r])),
-    tracked: new Set(data.tracked),
-    known: new Set(data.known),
-    learnedToday: data.learnedToday,
-    limits: limitsOf(data.settings),
+    ...trainingDay({
+      ...data,
+      repertoires: data.entries.map(({ id, graph, active }) => ({
+        id,
+        graph,
+        active,
+      })),
+    }),
     ...(data.focus === undefined ? {} : { focus: data.focus }),
   };
   return data.queued === undefined

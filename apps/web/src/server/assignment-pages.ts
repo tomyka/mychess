@@ -94,10 +94,7 @@ async function loadAssignedRepertoire(
   };
 }
 
-/**
- * One assignment's facts on its Today row (R-15, R-51, R-133, R-222) and
- * under its side on My repertoires (#328).
- */
+/** An assignment under its side on My repertoires (#328). */
 export type AssignedListItem = Pick<
   PlayerAssignment,
   'repertoireId' | 'name' | 'side' | 'coachName' | 'deadline' | 'badges'
@@ -108,9 +105,13 @@ export type AssignedListItem = Pick<
  * assigned it, the deadline and the badges (R-51, R-46, R-133).
  */
 export type AssignedFacts = Pick<
-  AssignedListItem,
+  PlayerAssignment,
   'coachName' | 'deadline' | 'badges'
 >;
+
+/** An assignment's facts by its repertoire, for its row on Today (R-222). */
+export type TodayAssigned = AssignedFacts &
+  Pick<PlayerAssignment, 'repertoireId'>;
 
 /** One open fork offer on Today (R-44, R-130). */
 export type TodayForkOffer = Pick<
@@ -119,16 +120,18 @@ export type TodayForkOffer = Pick<
 >;
 
 export interface TodayAssignments {
-  readonly assigned: readonly AssignedListItem[];
+  readonly assigned: readonly TodayAssigned[];
   readonly offers: readonly TodayForkOffer[];
 }
 
-/** `playerId`'s live assignments as of `now`, individual and group merged (R-16). */
-async function assignedOf(
-  playerId: string,
-  now: Date,
-): Promise<AssignedListItem[]> {
-  const mine = await playerAssignments(getDb(), playerId, now);
+/**
+ * The session player's live assignments for My repertoires (#328),
+ * individual and group merged (R-16), with their badges as Today shows
+ * them; forked ones are left out (R-128).
+ */
+export async function myAssignedRepertoires(): Promise<AssignedListItem[]> {
+  const player = await requireOnboarded();
+  const mine = await playerAssignments(getDb(), player.id, new Date());
   return mine.map(
     ({ repertoireId, name, side, coachName, deadline, badges }) => ({
       repertoireId,
@@ -142,29 +145,26 @@ async function assignedOf(
 }
 
 /**
- * The session player's live assignments for My repertoires (#328), with
- * their badges as Today shows them; forked ones are left out (R-128).
- */
-export async function myAssignedRepertoires(): Promise<AssignedListItem[]> {
-  const player = await requireOnboarded();
-  return assignedOf(player.id, new Date());
-}
-
-/**
  * `player`'s live assignments, with their badges decided by the domain
  * (assignmentStatus, assignmentBadges), and their open fork offers, both as
- * of now. `player` is the session account the page already holds (Today
- * reads it once), never an id from the request.
+ * of now. An assignment carries only its facts: its row names it from the
+ * training snapshot. `player` is the session account the page already
+ * holds (Today reads it once), never an id from the request.
  */
 export async function todayAssignments(
   player: Account,
 ): Promise<TodayAssignments> {
   const db = getDb();
   const now = new Date();
-  const assigned = await assignedOf(player.id, now);
+  const mine = await playerAssignments(db, player.id, now);
   const offers = await openForkOffers(db, player.id, now);
   return {
-    assigned,
+    assigned: mine.map(({ repertoireId, coachName, deadline, badges }) => ({
+      repertoireId,
+      coachName,
+      deadline,
+      badges,
+    })),
     offers: offers.map(({ id, name, coachName, daysLeft }) => ({
       id,
       name,

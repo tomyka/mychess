@@ -14,7 +14,7 @@ import {
 } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../test/fixtures/repertoires';
-import { dayOf } from './training-day';
+import { dayOf, trainingDay } from './training-day';
 import type { TrainingData } from './training-data';
 
 const NOW = new Date('2026-10-25T08:00:00Z');
@@ -51,7 +51,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     others: [],
     reviews: [],
     tracked: [],
-    known: [],
+    knownWithoutLearning: [],
     learnedToday: 0,
     coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
@@ -149,6 +149,38 @@ describe('a snapshot with a focus (R-206)', () => {
   });
 });
 
+describe('one builder for arrays and for a snapshot’s Maps and Sets', () => {
+  it('builds the same day from either, with the settings as its limits (R-146)', () => {
+    const reviews = [reviewDue(D4, LATER)];
+    const parts = {
+      repertoires: [{ id: 'r1', graph: london, active: true }],
+      learnedToday: 2,
+      settings: { sessionSize: 15, newPerDay: 4, learnArrows: false },
+    };
+    const fromArrays = trainingDay({
+      ...parts,
+      reviews,
+      tracked: [D4],
+      knownWithoutLearning: [D4],
+    });
+    const fromSets = trainingDay({
+      ...parts,
+      reviews: new Map(reviews.map((r) => [r.key, r])).values(),
+      tracked: new Set([D4]),
+      knownWithoutLearning: new Set([D4]),
+    });
+    expect(fromSets).toEqual(fromArrays);
+    expect(fromArrays).toEqual({
+      repertoires: parts.repertoires,
+      reviews: new Map([[D4, reviews[0]]]),
+      tracked: new Set([D4]),
+      knownWithoutLearning: new Set([D4]),
+      learnedToday: 2,
+      limits: { reviews: 15, newPerDay: 4 },
+    });
+  });
+});
+
 describe('the moves entered by "I know this" (R-58, #383)', () => {
   it('reach the day, so a known move counts as skipped, a learned one as learned', () => {
     const later = (key: string) => reviewDue(key, LATER);
@@ -157,10 +189,10 @@ describe('the moves entered by "I know this" (R-58, #383)', () => {
         entries: data().entries.slice(0, 1),
         reviews: LONDON_KEYS.map(later),
         tracked: LONDON_KEYS,
-        known: [D4],
+        knownWithoutLearning: [D4],
       }),
     );
-    expect(day.known).toEqual(new Set([D4]));
+    expect(day.knownWithoutLearning).toEqual(new Set([D4]));
     const [row] = todayRows(day, NOW);
     expect(row?.standing.counts).toMatchObject({
       skipped: 1,
