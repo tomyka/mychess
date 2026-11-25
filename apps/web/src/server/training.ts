@@ -1,3 +1,4 @@
+import 'server-only';
 // What the training page starts from (S6 decision 1): the session
 // account's snapshot as plain data the browser builds its queue and learn
 // plan from. The page reads the database only through this loader, which

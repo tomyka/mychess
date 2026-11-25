@@ -1,3 +1,4 @@
+import 'server-only';
 import { DEFAULT_LOCALE, type Locale } from '@mychess/domain';
 import { parseCookies } from 'better-auth/cookies';
 import { isLocale, LOCALE_COOKIE } from '../i18n/locales';

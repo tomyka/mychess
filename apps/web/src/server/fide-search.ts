@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * The FIDE ID search's use cases (#316, spec decisions 4 to 7): start a
  * search, then poll its progress while months are being indexed. Built

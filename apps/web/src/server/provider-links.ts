@@ -1,3 +1,4 @@
+import 'server-only';
 import { isProvider, type Provider } from '@mychess/domain';
 import { headers } from 'next/headers';
 import { z } from 'zod';

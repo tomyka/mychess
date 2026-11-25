@@ -1,3 +1,4 @@
+import 'server-only';
 // A Player's repertoires as the pages and actions reach them (S3). Access is
 // decided in the domain (canViewRepertoire, canEditRepertoire) and enforced
 // again by the queries, which filter by owner (CLAUDE.md, decision 12), or

@@ -1,3 +1,4 @@
+import 'server-only';
 // The PGN import's use cases (R-64, R-66, R-101), shared by the preview and
 // the confirm action. Both re-import the uploaded text, so every R-66 limit
 // is checked on the server whatever the browser did, and the confirm never

@@ -1,3 +1,4 @@
+import 'server-only';
 import { personaEmail, personaSignInAvailable } from '@mychess/domain';
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint } from 'better-auth/api';

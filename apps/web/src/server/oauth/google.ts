@@ -1,3 +1,4 @@
+import 'server-only';
 import type { GoogleProfile } from 'better-auth/social-providers';
 import { z } from 'zod';
 

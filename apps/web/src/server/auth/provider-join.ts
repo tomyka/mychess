@@ -1,3 +1,4 @@
+import 'server-only';
 // A provider's getUserInfo is handed tokens only, no endpoint context; the
 // proof below needs the callback's own context (its path, the adapter and the
 // cookies its account hooks set), which Better Auth exposes only from core.

@@ -1,3 +1,4 @@
+import 'server-only';
 // One loader per coach page (plan decision 14). Each starts with
 // requireCoach() and parses its ids; the page's data then comes from one
 // db read, in one snapshot, that decides access through the domain and

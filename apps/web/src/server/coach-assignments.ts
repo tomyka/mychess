@@ -1,3 +1,4 @@
+import 'server-only';
 // What the owner's repertoire page shows of its assignments (R-15, R-131).
 // Everything is read for the session account: an id from the path names
 // only the repertoire, and every query filters by the coach again.

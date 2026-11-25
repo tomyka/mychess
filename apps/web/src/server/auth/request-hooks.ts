@@ -1,3 +1,4 @@
+import 'server-only';
 import { countRateLimited, type Db } from '@mychess/db';
 import {
   canLinkProvider,

@@ -1,3 +1,4 @@
+import 'server-only';
 import { parseSetCookieHeader, toCookieOptions } from 'better-auth/cookies';
 import { cookies, headers } from 'next/headers';
 import { getAuth } from './auth';

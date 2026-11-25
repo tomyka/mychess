@@ -1,3 +1,4 @@
+import 'server-only';
 import { findAccountById } from '@mychess/db';
 import { accountStage, isFreshSession, type Account } from '@mychess/domain';
 import { headers } from 'next/headers';

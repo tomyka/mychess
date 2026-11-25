@@ -1,3 +1,4 @@
+import 'server-only';
 import { createDb, type Db } from '@mychess/db';
 import { readWebEnv } from './env';
 

@@ -1,3 +1,4 @@
+import 'server-only';
 // The coach's progress page loader (R-152). It starts with requireCoach()
 // and parses its ids before any read; the acting coach is always the
 // session's. The db read decides access through the domain and filters

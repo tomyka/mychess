@@ -1,3 +1,4 @@
+import 'server-only';
 import { getDb } from './db';
 import { readWebEnv } from './env';
 import { createMailer, type Mailer } from './mail';

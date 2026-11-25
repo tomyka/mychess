@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * The broadcast runner's job for one queued tournament (#349, spec
  * decisions 1 and 2): fetched once, when finished.

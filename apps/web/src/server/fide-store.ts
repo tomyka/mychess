@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * The repositories Opponent's games uses, bound to one database (#316,
  * #349): what the composition root (fide-services.ts) hands the use cases

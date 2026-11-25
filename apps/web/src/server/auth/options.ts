@@ -1,3 +1,4 @@
+import 'server-only';
 import { authSchema, findAccountById, type Db } from '@mychess/db';
 import {
   canOpenSession,

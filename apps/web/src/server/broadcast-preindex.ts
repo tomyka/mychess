@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * The nightly upkeep of the broadcast index (#354, R-195; #349 spec
  * decision 3), built with its dependencies by the services

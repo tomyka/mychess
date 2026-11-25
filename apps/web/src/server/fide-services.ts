@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * The composition root of Opponent's games (#316, #349): the one place
  * that builds the FIDE search's long-lived parts and hands each use case

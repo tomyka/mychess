@@ -1,3 +1,4 @@
+import 'server-only';
 import { providerSessionStands } from '@mychess/domain';
 import type { BetterAuthOptions } from 'better-auth';
 import { APIError } from 'better-auth/api';

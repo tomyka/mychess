@@ -1,3 +1,4 @@
+import 'server-only';
 import { databaseEnvSchema } from '@mychess/db';
 import { lichessTokenSchema } from '@mychess/integrations';
 import { z } from 'zod';

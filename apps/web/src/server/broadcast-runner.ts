@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * Builds the broadcast index of the months searches need (#316, spec
  * decisions 2 and 3, security requirements of task 4) and fetches the

@@ -1,3 +1,4 @@
+import 'server-only';
 // What a player sees of their assignments: the page of a repertoire they
 // have by assignment (plan decisions 11 and 12), and "From my coach" and
 // the fork offers on home. The pages read the database only through these

@@ -1,3 +1,4 @@
+import 'server-only';
 import type { Locale } from '@mychess/domain';
 import { createTranslator } from 'next-intl';
 import { MESSAGES, resolveLocale } from '../i18n/locales';

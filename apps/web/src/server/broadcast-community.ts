@@ -1,3 +1,4 @@
+import 'server-only';
 /**
  * The community broadcast side of the index (#349), one per process
  * (fide-services.ts), present only with a Lichess token: the nightly run
