@@ -6,6 +6,7 @@ import {
   learnLines,
   moveKey,
   newKeys,
+  positionAfterMove,
   START_KEY,
   startReview,
 } from '@mychess/chess';
@@ -16,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingData } from '../../lib/training-data';
-import type { DrillClock } from './drill-input';
+import { FEEDBACK_MS, type DrillClock } from './drill-input';
 import type { FrameParts } from './drill';
 import { LearnDrill } from './learn-drill';
 import { dayOf } from '../../lib/training-day';
@@ -35,6 +36,13 @@ const AFTER_D5 = (() => {
   return d5.to;
 })();
 const BF4 = moveKey(AFTER_D5, 'Bf4');
+/** The position after 1. e4, a wrong answer to 1. d4. */
+const AFTER_E4 = positionAfterMove(START_KEY, {
+  orig: 'e2',
+  dest: 'e4',
+  san: 'e4',
+  promotion: null,
+});
 
 /** What the board was told to show, newest last; and its move handler. */
 const ground = vi.hoisted(() => {
@@ -175,10 +183,16 @@ function wait(ms: number): void {
   });
 }
 
+/** Plays a wrong move and lets its hold run out (#381). */
+function miss(move: string): void {
+  type(move);
+  wait(FEEDBACK_MS);
+}
+
 /** Plays a right move and lets its flash, and any reply after it, run. */
 function play(move: string): void {
   type(move);
-  wait(400);
+  wait(FEEDBACK_MS);
   wait(150);
 }
 
@@ -214,7 +228,7 @@ describe('the learn drill, arrows round', () => {
   it('keeps saying “correct” while the reply slides in, until the next move is asked (UX sign-off)', () => {
     renderDrill();
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     // The reply 1...d5 is sliding in: nothing is asked yet.
     expect(panel()).toContain(T.learn.correct);
     expect(panel()).not.toContain(T.learn.arrows);
@@ -247,7 +261,7 @@ describe('the learn drill, arrows round', () => {
     type('d4');
     expect(panel()).toContain(T.learn.correct);
     expect(arrows()).toEqual([]);
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(lastWith('fen')).toBe(fenOf(AFTER_D5));
     expect(lastWith('lastMove')).toEqual(['d7', 'd5']);
     expect(lastWith('movable')?.dests?.size ?? 0).toBe(0);
@@ -273,19 +287,26 @@ describe('the learn drill, arrows round', () => {
   it('takes a move typed while the reply still slides in (#324)', () => {
     renderDrill();
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     type('Bf4');
     expect(panel()).toContain(T.learn.correct);
     expect(screen.getByLabelText<HTMLInputElement>(MOVE_INPUT).value).toBe('');
     expect(lastWith('lastMove')).toEqual(['c1', 'f4']);
   });
 
-  it('puts a wrong move back and keeps the arrow, recording nothing', () => {
+  it('holds a wrong move for its flash, then puts it back and keeps the arrow, recording nothing (#381)', () => {
     renderDrill();
     type('e4');
+    expect(lastWith('fen')).toBe(fenOf(AFTER_E4));
+    expect(arrows()).toEqual([]);
+    expect(panel()).toContain(T.learn.wrong);
+    type('d4');
+    expect(panel()).not.toContain(T.learn.correct);
+    wait(FEEDBACK_MS - 1);
+    expect(lastWith('fen')).toBe(fenOf(AFTER_E4));
+    wait(1);
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
     expect(arrows()).toEqual(['d2d4']);
-    expect(panel()).toContain(T.learn.wrong);
     expect(recorded).toEqual([]);
   });
 
@@ -294,7 +315,7 @@ describe('the learn drill, arrows round', () => {
     expect(counter()).toBe('0 / 1');
     expect(arrows()).toEqual([]);
     expect(panel()).toContain(T.learn.known);
-    type('e4');
+    miss('e4');
     expect(arrows()).toEqual(['d2d4']);
     play('d4');
     expect(arrows()).toEqual(['c1f4']);
@@ -302,7 +323,7 @@ describe('the learn drill, arrows round', () => {
     expect(arrows()).toEqual([]);
     play('d4');
     play('Bf4');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(learnedKeys()).toEqual([BF4]);
   });
 
@@ -357,7 +378,7 @@ describe('the learn drill, blind round', () => {
   it('shows the arrow after a wrong move; the arrow move then asks it blind again', () => {
     renderDrill();
     arrowsRound();
-    type('e4');
+    miss('e4');
     expect(arrows()).toEqual(['d2d4']);
     expect(panel()).toContain(T.learn.wrong);
     play('d4');
@@ -533,7 +554,7 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
     expect(panel()).toContain(T.learn.blind);
     expect(note()).toBeNull();
     // A wrong move goes back to the arrow, where the move is taught again.
-    type('e4');
+    miss('e4');
     expect(arrows()).toEqual(['d2d4']);
     expect(note()).toContain('Take the centre first.');
   });
@@ -641,7 +662,7 @@ describe('the learn drill with arrows off (R-205, #330 decision 1)', () => {
   it('shows the arrow after a wrong move, as after a lapse (R-59)', () => {
     renderDrill(noArrows());
     type('e4');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(arrows()).toEqual(['d2d4']);
     expect(panel()).toContain(T.learn.wrong);
     expect(recorded).toEqual([]);
@@ -699,13 +720,13 @@ describe('the learn drill with arrows off (R-205, #330 decision 1)', () => {
       wait(150);
       type('Bf4');
       expect(next()).toBeNull();
-      wait(400);
+      wait(FEEDBACK_MS);
       expect(screen.getByRole('main').dataset['finished']).toBe('yes');
     });
 
     it('shows the note with the arrow a wrong answer brings', () => {
       renderDrill(noted());
-      type('e4');
+      miss('e4');
       expect(arrows()).toEqual(['d2d4']);
       expect(note()).toContain('Take the centre first.');
     });

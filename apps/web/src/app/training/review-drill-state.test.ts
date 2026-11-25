@@ -1,6 +1,8 @@
 import {
   answerReview,
   dueReviews,
+  legalMoves,
+  positionAfterMove,
   playerKeys,
   reviewProgress,
   startReview,
@@ -15,9 +17,12 @@ import {
   advanced,
   afterAnswer,
   answeredMove,
+  canType,
   isDone,
   isRepeat,
+  positionOf,
   sessionCounts,
+  shownKey,
   startDrill,
   type DrillState,
 } from './review-drill-state';
@@ -63,13 +68,18 @@ function drill(size: number): DrillState {
   });
 }
 
-const MOVE: BoardMove = { orig: 'a1', dest: 'a2', san: 'x', promotion: null };
+/** A legal move on the board of `s`: the board move behind any answer. */
+function aMove(s: DrillState): BoardMove {
+  const [move] = legalMoves(shownKey(s));
+  if (move === undefined) throw new Error('the position has a legal move');
+  return move;
+}
 
 /** Plays `san` for the current item, then lets the drill go on. */
 function play(s: DrillState, san: string): DrillState {
   const answered = afterAnswer(
     s,
-    MOVE,
+    aMove(s),
     answerReview(s.session, san, { now: at, reviews: s.reviews }),
   );
   return answered.session.phase === 'correct'
@@ -165,6 +175,39 @@ describe('the review drill state', () => {
       repeat.session.current?.item.key,
     );
     expect(sessionCounts(again)).toMatchObject({ reviewed: 10, lapses: 1 });
+  });
+
+  it('holds a wrong move for the flash and takes no move meanwhile (#381)', () => {
+    const start = drill(10);
+    const move = aMove(start);
+    const wrong = play(start, 'wrong');
+    expect(wrong.flash).toEqual({
+      square: move.dest,
+      kind: 'wrong',
+      after: {
+        key: positionAfterMove(shownKey(start), move),
+        uci: `${move.orig}${move.dest}`,
+      },
+    });
+    expect(canType(wrong)).toBe(false);
+    expect(positionOf(wrong).playable).toBe(false);
+    const unflashed = { ...wrong, flash: null };
+    expect(canType(unflashed)).toBe(true);
+    expect(positionOf(unflashed).key).toBe(shownKey(start));
+    expect(positionOf(unflashed).arrow).toBeDefined();
+  });
+
+  it('flashes a right move without holding a position', () => {
+    const start = drill(10);
+    const right = afterAnswer(
+      start,
+      aMove(start),
+      answerReview(start.session, expected(start), {
+        now: at,
+        reviews: start.reviews,
+      }),
+    );
+    expect(right.flash).toEqual({ square: aMove(start).dest, kind: 'correct' });
   });
 
   it('is not a repeat at the start', () => {

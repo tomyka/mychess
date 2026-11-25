@@ -4,17 +4,40 @@
 // stamps each result, the timer that runs their timed steps, and the way a
 // move reaches them from the board, the move field or the promotion choice.
 import type { Key } from '@lichess-org/chessground/types';
-import { findLegalMove, type BoardMove, type Promotion } from '@mychess/chess';
+import {
+  findLegalMove,
+  positionAfterMove,
+  type BoardMove,
+  type Promotion,
+} from '@mychess/chess';
 import { useEffect, useState } from 'react';
 import { movesBetween } from '../repertoire-view';
 
-/** The `duration-feedback` token (tokens.css): a square's answer flash. */
-export const FEEDBACK_MS = 400;
+/** The `duration-feedback` token (tokens.css): an answer's flash, and a wrong move's hold. */
+export const FEEDBACK_MS = 700;
 
 /** A square's answer flash (docs/design/training-screen.md, Move feedback). */
 export interface Flash {
   readonly square: string;
   readonly kind: 'correct' | 'wrong';
+  /** A wrong move, held on the board while its flash shows (#381). */
+  readonly after?: { readonly key: string; readonly uci: string };
+}
+
+/** Is a wrong move held on the board now? No move is taken meanwhile. */
+export const holdsWrong = (flash: Flash | null): boolean =>
+  flash?.kind === 'wrong' && flash.after !== undefined;
+
+/** The flash of the player's `move` from `key`: a wrong one holds its position. */
+export function answerFlash(
+  key: string,
+  move: BoardMove,
+  right: boolean,
+): Flash {
+  if (right) return { square: move.dest, kind: 'correct' };
+  const uci = `${move.orig}${move.dest}${move.promotion ?? ''}`;
+  const after = { key: positionAfterMove(key, move), uci };
+  return { square: move.dest, kind: 'wrong', after };
 }
 
 /** The drill's time and result ids, so a test can fix them. */

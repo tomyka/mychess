@@ -57,12 +57,33 @@ function markedOf(p: DrillPosition): Map<Key, string> {
 
 const NO_DESTS: ReadonlyMap<Key, readonly Key[]> = new Map();
 
-/** What the board shows of `p`, from `side`, with the position's `legal` moves. */
+/**
+ * `p` as the board shows it: a wrong move held for its flash in place of
+ * the asked position, with no arrow, hint or move taken (#381, R-59).
+ */
+function shownPosition(p: DrillPosition): DrillPosition {
+  const held = p.flash?.kind === 'wrong' ? p.flash.after : undefined;
+  if (held === undefined) return p;
+  return {
+    ...p,
+    key: held.key,
+    last: held.uci,
+    playable: false,
+    arrow: undefined,
+    hint: undefined,
+  };
+}
+
+/**
+ * What the board shows of `asked`, from `side`, with the position's `legal`
+ * moves (the asked position's: while a wrong move is held none are taken).
+ */
 export function drillBoard(
-  p: DrillPosition,
+  asked: DrillPosition,
   side: Side,
   legal: readonly BoardMove[],
 ): BoardView {
+  const p = shownPosition(asked);
   return {
     fen: fenOf(p.key),
     orientation: side,

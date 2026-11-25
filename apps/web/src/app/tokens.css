@@ -122,7 +122,7 @@
   --shadow-sheet: 0 -4px 16px rgb(0 0 0 / 0.16);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --duration-move: 150ms; /* piece slide */
-  --duration-feedback: 400ms; /* correct/wrong square flash */
+  --duration-feedback: 700ms; /* correct/wrong flash and the wrong move's hold */
 
   /* A slow wait's line ("Loading") shows after about a second (no spinner
      first). Pure CSS, so it also shows in a server-streamed loading page
@@ -172,6 +172,12 @@
      it that reaches 3:1 on both squares (the amber alone does not). */
   --color-board-hint: #ffb300;
   --color-board-hint-edge: #3d2200;
+  /* The side-to-move dot by the prompt: a white disc ringed dark for White,
+     a dark disc ringed light for Black, the same in both themes so the dot
+     never inverts with the page; each ring shows on either page colour. */
+  --color-side-white: #ffffff;
+  --color-side-black: #141a26;
+  --color-side-ring: #cfd5df;
 
   /* Arrows and circles drawn on a move ([%cal] / [%csl], builder draw mode).
    * The board reads these from script into chessground's brushes g, r, y, b,

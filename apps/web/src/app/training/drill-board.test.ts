@@ -1,10 +1,17 @@
 import { act, renderHook } from '@testing-library/react';
-import { fenOf, positionKey, START_KEY, type BoardMove } from '@mychess/chess';
+import {
+  fenOf,
+  legalMoves,
+  positionAfterMove,
+  positionKey,
+  START_KEY,
+  type BoardMove,
+} from '@mychess/chess';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import type { TrainingData } from '../../lib/training-data';
 import { drillBoard, useDrillBoard, type DrillPosition } from './drill-board';
-import type { Flash } from './drill-input';
+import { FEEDBACK_MS, type Flash } from './drill-input';
 
 const AFTER_D4 = positionKey(
   'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1',
@@ -86,6 +93,38 @@ describe('the drill board', () => {
     expect(markedOf(position())).toEqual([]);
     const offBoard = position({ flash: { square: 'z9', kind: 'wrong' } });
     expect(markedOf(offBoard)).toEqual([]);
+  });
+
+  it('holds a wrong move on the board for its flash, without the arrow, hint or moves (#381)', () => {
+    const a3: BoardMove = {
+      orig: 'a2',
+      dest: 'a3',
+      san: 'a3',
+      promotion: null,
+    };
+    const after = positionAfterMove(START_KEY, a3);
+    const flash: Flash = {
+      square: 'a3',
+      kind: 'wrong',
+      after: { key: after, uci: 'a2a3' },
+    };
+    const held = position({ arrow: 'e2e4', hint: 'e2e4', flash });
+    const view = drillBoard(held, 'white', legalMoves(START_KEY));
+    expect(view.fen).toBe(fenOf(after));
+    expect(view.turnColor).toBe('black');
+    expect(view.lastMove).toEqual(['a2', 'a3']);
+    expect(view.autoShapes).toEqual([]);
+    expect(view.dests.size).toBe(0);
+    expect([...(view.marked ?? [])]).toEqual([['a3', 'wrong']]);
+  });
+
+  it('shows the asked position under a flash that holds no move', () => {
+    const flash: Flash = { square: 'e4', kind: 'correct' };
+    const shown = position({ arrow: 'e2e4', flash });
+    const view = drillBoard(shown, 'white', [E2_E4]);
+    expect(view.fen).toBe(fenOf(START_KEY));
+    expect(view.autoShapes).toHaveLength(1);
+    expect(view.dests.size).toBe(1);
   });
 
   it('passes the revision on, nothing drawn by hand', () => {
@@ -231,10 +270,11 @@ describe('the drill board hook', () => {
     expect(board.hook.result.current.view).toBe(first);
   });
 
-  it('ends a flash after the feedback time', () => {
+  it('ends a flash after the feedback time, 700ms (#381)', () => {
+    expect(FEEDBACK_MS).toBe(700);
     const flash: Flash = { square: 'e4', kind: 'wrong' };
     const board = renderBoard({ flash, repertoireId: LONDON_ID });
-    wait(399);
+    wait(FEEDBACK_MS - 1);
     expect(board.current().flash).toBe(flash);
     wait(1);
     expect(board.current().flash).toBeNull();
@@ -246,10 +286,10 @@ describe('the drill board hook', () => {
     wait(200);
     const second: Flash = { square: 'd4', kind: 'correct' };
     board.hook.rerender({ s: { flash: second, repertoireId: LONDON_ID } });
-    wait(200);
+    wait(FEEDBACK_MS - 1);
     expect(board.hook.result.current.view.marked?.get('d4')).toBe('correct');
     expect(board.setState).not.toHaveBeenCalled();
-    wait(200);
+    wait(1);
     expect(board.setState).toHaveBeenCalledTimes(1);
   });
 });

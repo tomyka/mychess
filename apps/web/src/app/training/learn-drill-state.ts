@@ -22,7 +22,7 @@ import {
   type ReviewState,
 } from '@mychess/chess';
 import type { DrillPosition } from './drill-board';
-import type { Flash } from './drill-input';
+import { answerFlash, holdsWrong, type Flash } from './drill-input';
 
 export interface LearnDrillState {
   readonly lines: readonly LearnLine[];
@@ -157,7 +157,10 @@ function learnedAt(
   };
 }
 
-/** After the player's `move`: right, it is held and flashes; wrong, it goes back. */
+/**
+ * After the player's `move`: right, it is held and flashes; wrong, it is
+ * held for its flash, then goes back (#381).
+ */
 export function afterPlay(
   s: LearnDrillState,
   move: BoardMove,
@@ -173,7 +176,7 @@ export function afterPlay(
     session: played.state,
     hold: correct ? index + 1 : null,
     wrong: !correct,
-    flash: { square: move.dest, kind: correct ? 'correct' : 'wrong' },
+    flash: answerFlash(shownKey(s), move, correct),
     revision: correct ? s.revision : s.revision + 1,
     unknownTyped: false,
   };
@@ -205,8 +208,12 @@ export const advanced = (s: LearnDrillState): LearnDrillState =>
 export const answering = (s: LearnDrillState): LearnDrillState =>
   opponentMoving(s) ? advanced(s) : s;
 
-/** Does the move field take a move now? Also while the opponent's move slides in (#324). */
-export const canType = (s: LearnDrillState): boolean => canPlay(answering(s));
+/**
+ * Does the move field take a move now? Also while the opponent's move
+ * slides in (#324); not while a wrong move is held on the board (#381).
+ */
+export const canType = (s: LearnDrillState): boolean =>
+  !holdsWrong(s.flash) && canPlay(answering(s));
 
 /** The new moves the plan teaches, and how many of them are learned. */
 export function learnCounts(s: LearnDrillState): {

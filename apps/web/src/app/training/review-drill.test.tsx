@@ -6,6 +6,7 @@ import {
   legalMoves,
   moveKey,
   playerKeys,
+  positionAfterMove,
   positionKey,
   START_KEY,
   startReview,
@@ -26,7 +27,7 @@ import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts } from './drill';
 import { ReviewDrill } from './review-drill';
 import { TrainingFrame } from './training-frame';
-import type { DrillClock } from './drill-input';
+import { FEEDBACK_MS, type DrillClock } from './drill-input';
 
 const T = MESSAGES.training;
 const MOVE_INPUT = MESSAGES.board.moveInput.label;
@@ -43,6 +44,13 @@ const afterD5 = (() => {
 })();
 const D4 = moveKey(START_KEY, 'd4');
 const BF4 = moveKey(afterD5, 'Bf4');
+/** The position after 1. e4, a wrong answer to 1. d4. */
+const AFTER_E4 = positionAfterMove(START_KEY, {
+  orig: 'e2',
+  dest: 'e4',
+  san: 'e4',
+  promotion: null,
+});
 
 /** What the board was told to show, newest last; and its move handler. */
 const ground = vi.hoisted(() => {
@@ -238,14 +246,14 @@ describe('the review drill', () => {
     expect(panel()).toContain(T.review.correct);
     expect(marked()?.get('d4')).toContain('correct');
     expect(counter()).toBe('1 / 2');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(kinds()).toEqual(['pass']);
   });
 
   it('plays the opponent’s reply first on a chained item, the board locked meanwhile', () => {
     renderDrill();
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(lastWith('fen')).toBe(fenOf(afterD5));
     expect(lastWith('lastMove')).toEqual(['d7', 'd5']);
     expect(panel()).toContain('1... d5');
@@ -260,14 +268,14 @@ describe('the review drill', () => {
   it('takes a move typed while the reply still slides in (#324)', () => {
     renderDrill();
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     // The position is the player's already; only the board waits.
     type('Bf4');
     expect(kinds()).toEqual(['pass', 'pass']);
     expect(panel()).toContain(T.review.correct);
     expect(screen.getByLabelText<HTMLInputElement>(MOVE_INPUT).value).toBe('');
     wait(150);
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
   });
 
@@ -285,8 +293,9 @@ describe('the review drill', () => {
   it('grades a wrong move typed during the reply’s slide as a lapse', () => {
     renderDrill();
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     type('c4');
+    wait(FEEDBACK_MS);
     expect(kinds()).toEqual(['pass', 'lapse']);
     expect(arrows()).toEqual(['c1f4']);
     wait(150);
@@ -295,19 +304,28 @@ describe('the review drill', () => {
     expect(panel()).toContain(T.review.correct);
   });
 
-  it('records a wrong move as a lapse, shows the arrow, and the right move then goes on without a second record', () => {
+  it('records a wrong move as a lapse, holds it for its flash, then shows the arrow, and the right move then goes on without a second record (#381)', () => {
     renderDrill();
     type('e4');
     expect(kinds()).toEqual(['lapse']);
     expect(panel()).toContain(T.review.lapse);
-    expect(arrows()).toEqual(['d2d4']);
+    // The wrong move stays on the board for the flash, no arrow yet (#381).
+    expect(arrows()).toEqual([]);
     expect(marked()?.get('e4')).toContain('wrong');
+    expect(lastWith('fen')).toBe(fenOf(AFTER_E4));
+    type('d4');
+    expect(panel()).not.toContain(T.review.correct);
+    wait(FEEDBACK_MS - 1);
+    expect(lastWith('fen')).toBe(fenOf(AFTER_E4));
+    wait(1);
+    expect(arrows()).toEqual(['d2d4']);
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
     type('Nf3');
+    wait(FEEDBACK_MS);
     type('d4');
     expect(kinds()).toEqual(['lapse']);
     expect(panel()).toContain(T.review.correct);
-    wait(400);
+    wait(FEEDBACK_MS);
     wait(150);
     // The lapsed move is asked again at the end (R-78); owing its repeat,
     // it is not finished (R-223).
@@ -343,12 +361,12 @@ describe('the review drill', () => {
     });
     expect(kinds()).toEqual(['lapse']);
     expect(document.activeElement).toBe(board);
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(document.activeElement).toBe(board);
     act(() => {
       ground.handlers.after?.('d2', 'd4');
     });
-    wait(400);
+    wait(FEEDBACK_MS);
     wait(150);
     expect(screen.getByRole('main').textContent).toContain(T.review.prompt);
     expect(document.activeElement).toBe(board);
@@ -374,6 +392,7 @@ describe('the review drill', () => {
     ).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: T.review.hint }));
     type('e4');
+    wait(FEEDBACK_MS);
     expect(arrows()).toEqual(['d2d4']);
     expect(kinds()).toEqual(['hint']);
   });
@@ -443,6 +462,7 @@ describe('the review drill', () => {
     it('shows with the arrow after a wrong answer', () => {
       renderDrill(twoOthers());
       type('e4');
+      wait(FEEDBACK_MS);
       expect(arrows()).toEqual(['d2d4']);
       expect(screen.getByRole('note').textContent).toContain(
         sentence('Angliška', 'c4'),
@@ -466,10 +486,10 @@ describe('the review drill', () => {
   it('shows the done summary with the session’s counts and the graded progress', () => {
     renderDrill();
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     wait(150);
     type('Bf4');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
     expect(screen.getByRole('main').dataset['finished']).toBe('yes');
     expect(counter()).toBe('2 / 2');
@@ -495,16 +515,17 @@ describe('the review drill', () => {
   it('asks a lapsed move again at the end of the session, repeats on top of the count, until today is done (#319, R-78, R-223)', () => {
     renderDrill();
     type('e4');
+    wait(FEEDBACK_MS);
     // The repeat comes on top of the session's two moves (R-223): the
     // lapsed move owes it, so it is not finished.
     expect(counter()).toBe('0 / 2');
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(counter()).toBe('0 / 2');
     wait(150);
     type('Bf4');
     expect(counter()).toBe('1 / 2');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(panel()).toContain(T.review.again);
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
     expect(screen.queryByRole('heading', { name: T.done.title })).toBeNull();
@@ -513,10 +534,10 @@ describe('the review drill', () => {
     // A move in its learning steps comes back once more: 1 min, then
     // 10 min (R-78); still owed, it is not finished (R-223).
     expect(counter()).toBe('1 / 2');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(panel()).toContain(T.review.again);
     type('d4');
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(kinds()).toEqual(['lapse', 'pass', 'pass', 'pass']);
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
     expect(screen.getByText(T.done.dayDone)).toBeDefined();
@@ -563,14 +584,15 @@ describe('the review drill', () => {
     const moves = () => legalMoves(positionKey(lastWith('fen') ?? ''));
     const [right, wrong] = moves();
     type(wrong?.san ?? 'no move');
+    wait(FEEDBACK_MS);
     type(right?.san ?? 'no move');
-    wait(400);
+    wait(FEEDBACK_MS);
     wait(150);
     // Inside the step: the next due move.
     expect(panel()).toContain(T.review.prompt);
     type(moves()[0]?.san ?? 'no move');
     clock.at = new Date(NOW.getTime() + 2 * 60_000);
-    wait(400);
+    wait(FEEDBACK_MS);
     wait(150);
     expect(panel()).toContain(T.review.again);
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
@@ -605,7 +627,7 @@ describe('the review drill', () => {
       // The repertoire holds one White move in each position.
       const [move] = legalMoves(positionKey(lastWith('fen') ?? ''));
       type(move?.san ?? 'no move');
-      wait(400);
+      wait(FEEDBACK_MS);
       wait(150);
     }
     expect(kinds()).toEqual(Array<string>(10).fill('pass'));
@@ -726,7 +748,7 @@ describe('the review drill and NAGs', () => {
         tracked: [BF4],
       }),
     );
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(panel()).toContain('1. d4 d5');
     expect(panel()).not.toContain('!');
     expect(panel()).not.toContain('⩲');
@@ -776,7 +798,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
     expect(note()).toBeNull();
     type('Bf4');
     expect(next()).toBeNull();
-    wait(400);
+    wait(FEEDBACK_MS);
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
   });
 
@@ -825,6 +847,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
   it('shows the note with the arrow after a lapse', () => {
     renderDrill(noted('assigned'));
     type('e4');
+    wait(FEEDBACK_MS);
     expect(arrows()).toEqual(['d2d4']);
     // Named with the assigning coach (R-107, #338).
     expect(note()).toBe(`${byCoach('Rasa')}Take the centre first.`);

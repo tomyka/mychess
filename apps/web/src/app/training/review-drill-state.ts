@@ -24,7 +24,7 @@ import {
 } from '@mychess/chess';
 import type { SessionCounts } from './done-summary';
 import type { DrillPosition } from './drill-board';
-import type { Flash } from './drill-input';
+import { answerFlash, holdsWrong, type Flash } from './drill-input';
 
 export interface DrillState {
   /** Chess's review session: what is asked, its repeats included (R-78). */
@@ -72,8 +72,9 @@ function graded(
 }
 
 /**
- * After the player's `move`: right, it stays and flashes; wrong, it goes
- * back. A move typed during the reply's slide ends the slide.
+ * After the player's `move`: right, it stays and flashes; wrong, it is
+ * held for its flash, then goes back (#381). A move typed during the
+ * reply's slide ends the slide.
  */
 export function afterAnswer(
   s: DrillState,
@@ -86,7 +87,7 @@ export function afterAnswer(
     session: answer.state,
     reviews: graded(s.reviews, answer.emit),
     replying: false,
-    flash: { square: move.dest, kind: right ? 'correct' : 'wrong' },
+    flash: answerFlash(shownKey(s), move, right),
     revision: right ? s.revision : s.revision + 1,
     unknownTyped: false,
   };
@@ -127,9 +128,12 @@ export const isDone = (s: DrillState): boolean => s.session.current === null;
 export const isRepeat = (s: DrillState): boolean =>
   s.session.current?.repeat === true;
 
-/** Does the move field take a move now? Also while the reply slides in (#324). */
+/**
+ * Does the move field take a move now? Also while the reply slides in
+ * (#324); not while a wrong move is held on the board (#381).
+ */
 export const canType = (s: DrillState): boolean =>
-  !isDone(s) && s.session.phase !== 'correct';
+  !isDone(s) && s.session.phase !== 'correct' && !holdsWrong(s.flash);
 
 /** Does the board take a move now? */
 export const canPlay = (s: DrillState): boolean => canType(s) && !s.replying;
