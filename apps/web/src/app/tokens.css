@@ -13,21 +13,25 @@
  */
 
 @theme {
-  /* ---- Surfaces and text ---- */
-  --color-bg: light-dark(#f6f5f2, #131416); /* page */
-  --color-surface: light-dark(#ffffff, #1c1d20); /* cards, panels, sheets */
-  --color-sunken: light-dark(#eceae5, #0e0f10); /* wells, skeletons */
+  /* ---- Surfaces and text (Ocean, R-220) ---- */
+  --color-bg: light-dark(#f4f5f8, #0f1218); /* page */
+  --color-surface: light-dark(#ffffff, #181d26); /* cards, panels, sheets */
+  --color-sunken: light-dark(#e9ecf2, #0b0d12); /* wells, skeletons */
   /* dividers (decorative); the track of a progress bar, the to-learn part
      (sunken is about 1.1:1 on the page and would vanish) */
-  --color-border: light-dark(#d6d3cc, #3a3b40);
-  --color-border-strong: light-dark(#8a867e, #6f6c66); /* inputs, 3:1 */
-  --color-fg: light-dark(#1b1a18, #ecebe7); /* body text */
-  --color-fg-muted: light-dark(#595650, #a8a59e); /* secondary text */
+  --color-border: light-dark(#dce0e8, #2c3240);
+  --color-border-strong: light-dark(#7d8597, #6b7385); /* inputs, 3:1 */
+  --color-fg: light-dark(#141a26, #e6e9f0); /* body text */
+  --color-fg-muted: light-dark(#566075, #9aa3b5); /* secondary text */
+  /* A card edge: none in light (the shadow lifts it), a hairline in dark
+     where shadows do not read (R-219). */
+  --color-card-edge: light-dark(transparent, #2c3240);
 
-  /* ---- Brand / interactive ---- */
-  --color-accent: light-dark(#2453c4, #86a8ff); /* primary buttons, links */
-  --color-accent-fg: light-dark(#ffffff, #0c1430); /* text on accent */
-  --color-focus: light-dark(#2453c4, #86a8ff); /* focus ring off the board */
+  /* ---- Brand / interactive (Ocean, R-220) ---- */
+  --color-accent: light-dark(#0b63c5, #6aaeff); /* primary buttons, links */
+  --color-accent-fg: light-dark(#ffffff, #06142a); /* text on accent */
+  --color-accent-subtle: light-dark(#e3eefb, #16263d); /* avatar, active tint */
+  --color-focus: light-dark(#0b63c5, #6aaeff); /* focus ring off the board */
 
   /* ---- Semantic states ----
    * <state>        text, icons and solid fills
@@ -65,12 +69,13 @@
   --color-piece-outline: light-dark(#000000, #ecebe7);
 
   /* ---- Typography ----
-   * System UI stack: no web-font download, full Lithuanian diacritics
-   * (ą č ę ė į š ų ū ž). Move lists use tabular-nums.
+   * Inter (R-219, self-hosted by next/font, see layout.tsx) with the system
+   * UI stack behind it; full Latin Extended diacritics (ą č ę ė į š ų ū ž).
+   * Move lists use tabular-nums.
    */
   --font-sans:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue',
-    Arial, sans-serif;
+    var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
   --font-mono:
     ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
     monospace;
@@ -101,15 +106,19 @@
   --spacing-gutter: 1rem; /* 16px: phone page padding */
   --spacing-gutter-wide: 2rem; /* 32px: desktop page padding */
   --spacing-panel: 22.5rem; /* 360px: desktop side panel next to the board */
+  --spacing-tabbar: 3.5rem; /* 56px: the phone tab bar and the desktop top bar */
+
+  /* ---- Containers ---- */
+  --container-content: 65rem; /* 1040px: list and form pages (max-w-content) */
 
   /* ---- Radii ---- */
-  --radius-control: 0.5rem; /* buttons, inputs, chips */
-  --radius-card: 0.75rem; /* cards, panels, sheets */
-  --radius-board: 0.25rem; /* the board's outer corners */
+  --radius-control: 0.75rem; /* buttons, inputs, chips */
+  --radius-card: 0.875rem; /* cards, panels, sheets */
+  --radius-board: 0.5rem; /* the board's outer corners (desktop) */
   --radius-pill: 9999px; /* badges, progress bars */
 
   /* ---- Elevation and motion ---- */
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.1);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.04);
   --shadow-sheet: 0 -4px 16px rgb(0 0 0 / 0.16);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --duration-move: 150ms; /* piece slide */
@@ -142,8 +151,8 @@
    * the board does not glare. Coordinates use the opposite square colour.
    * Overlays are translucent so they read on both square colours.
    */
-  --color-board-light: light-dark(#f0d9b5, #d8c3a0);
-  --color-board-dark: light-dark(#b58863, #a07a59);
+  --color-board-light: light-dark(#f0d9b5, #d7c2a0);
+  --color-board-dark: light-dark(#b58863, #946f4f);
   --color-board-last-move: rgb(205 210 106 / 0.6);
   --color-board-selected: rgb(20 85 30 / 0.5);
   --color-board-target: rgb(20 85 30 / 0.35); /* legal-move dot and ring */
