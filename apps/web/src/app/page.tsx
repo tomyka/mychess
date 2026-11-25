@@ -4,6 +4,7 @@ import { homeAssignments } from '../server/assignment-pages';
 import { requireOnboarded } from '../server/session';
 import { todaySummary } from '../server/training';
 import { HomeView } from './home-view';
+import { AppShell } from './shell/app-shell';
 
 // Signed-out visitors go to sign-in, new accounts to onboarding first.
 export default async function HomePage(): Promise<JSX.Element> {
@@ -11,13 +12,15 @@ export default async function HomePage(): Promise<JSX.Element> {
   const { fromCoach, offers } = await homeAssignments();
   const today = await todaySummary(account);
   return (
-    <HomeView
-      accountId={account.id}
-      displayName={account.displayName}
-      isCoach={isCoach(account)}
-      fromCoach={fromCoach}
-      offers={offers}
-      today={today}
-    />
+    <AppShell>
+      <HomeView
+        accountId={account.id}
+        displayName={account.displayName}
+        isCoach={isCoach(account)}
+        fromCoach={fromCoach}
+        offers={offers}
+        today={today}
+      />
+    </AppShell>
   );
 }

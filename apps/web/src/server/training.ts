@@ -27,6 +27,7 @@ import {
   type Account,
   type OwnCoachNote,
 } from '@mychess/domain';
+import { cache } from 'react';
 import { z } from 'zod';
 import { learnDayOf, type LearnScope } from '../lib/learn-scope';
 import { CHAPTER_PARAM, LINE_PARAM } from '../lib/routes';
@@ -234,7 +235,7 @@ function dueRepertoires(
  * (R-142): every due move, not a session's worth, each repertoire's own
  * (R-207), and the new moves today's allowance leaves (R-146).
  */
-export async function todaySummary(account: Account): Promise<TodaySummary> {
+async function loadTodaySummary(account: Account): Promise<TodaySummary> {
   const data = await snapshotData(account, 'review', { kind: 'all' });
   if (data === undefined)
     return { due: 0, toLearn: 0, minutes: 0, nextDue: null, repertoires: [] };
@@ -247,6 +248,14 @@ export async function todaySummary(account: Account): Promise<TodaySummary> {
     repertoires: dueRepertoires(data, day),
   };
 }
+
+/**
+ * todaySummary once per request: home and the shell's badge share it.
+ * `cache` matches arguments by identity, which holds: `getAccount`
+ * (server/session.ts) is itself request-cached, so every caller in a
+ * request passes the same Account object.
+ */
+export const todaySummary = cache(loadTodaySummary);
 
 /**
  * A repertoire page's training: its counts, what learning one chapter or
