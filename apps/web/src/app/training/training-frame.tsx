@@ -147,10 +147,17 @@ export interface TrainingFrameProps extends FrameParts {
   readonly banner: ReactNode;
 }
 
-/** Is the board only shown, not played on? */
+/**
+ * Is the board only shown, not played on? Then it is dimmed; on a phone the
+ * done summary hides it, and an empty state crops it to a strip so its card
+ * is in view (the board inside stays square and is clipped, not squashed).
+ */
 const boardClass = (live: boolean, finished: boolean): string => {
   if (live) return FRAME_BOARD;
-  return `${FRAME_BOARD} opacity-60 ${finished ? 'max-lg:hidden' : ''}`;
+  const still = finished
+    ? 'max-lg:hidden'
+    : 'max-lg:aspect-[5/2] max-lg:overflow-hidden';
+  return `${FRAME_BOARD} opacity-60 ${still}`;
 };
 
 /**

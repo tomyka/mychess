@@ -70,6 +70,19 @@ describe('the training page when the session could not load', () => {
     ]);
   });
 
+  it('shows the line and both actions on one plain card', () => {
+    renderError();
+    const card = screen.getByText(T.loadFailed).closest('.bg-surface');
+    expect(card).not.toBeNull();
+    expect(card?.className).toContain('rounded-card');
+    expect(
+      card?.contains(screen.getByRole('button', { name: T.tryAgain })),
+    ).toBe(true);
+    expect(card?.contains(screen.getByRole('link', { name: T.back }))).toBe(
+      true,
+    );
+  });
+
   it('logs the digest only', () => {
     renderError();
     expect(errors).toHaveBeenCalledExactlyOnceWith(

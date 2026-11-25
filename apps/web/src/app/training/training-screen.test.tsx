@@ -158,6 +158,41 @@ describe('the training screen with nothing due', () => {
     const board = screen.getByRole('application', { hidden: true });
     expect(board.closest('[inert]')).not.toBeNull();
   });
+
+  it('shows nothing due as an accent card with the learn button inverted', () => {
+    renderScreen(
+      data({ settings: { sessionSize: 20, newPerDay: 3, learnArrows: true } }),
+    );
+    const card = heading(T.empty.nothingDue.title).closest('section');
+    expect(card?.className).toContain('bg-accent');
+    expect(card?.className).toContain('text-accent-fg');
+    const learn = screen.getByRole('link', { name: /^Learn \d/ });
+    expect(learn.className).toContain('bg-surface');
+    expect(learn.className).toContain('text-accent');
+  });
+
+  it('shows the next review in the card’s own text colour', () => {
+    const due = startReview(D4, NOW);
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+    renderScreen(
+      data({
+        reviews: [{ ...due, fsrs: { ...due.fsrs, due: NEXT } }],
+        tracked: [D4],
+      }),
+    );
+    const next = screen.getByText('Next review: tomorrow at 10:00');
+    expect(next.className).toContain('text-accent-fg');
+    expect(next.className).not.toContain('text-fg-muted');
+  });
+
+  it('shrinks the still board to a strip on a phone, so the card is in view', () => {
+    renderScreen(data());
+    const board = screen.getByRole('application', { hidden: true });
+    const still = board.closest('[inert]');
+    expect(still?.className).toContain('max-lg:aspect-[5/2]');
+    expect(still?.className).toContain('max-lg:overflow-hidden');
+    expect(still?.className).not.toContain('max-lg:hidden');
+  });
 });
 
 describe('the training screen with nothing to learn', () => {
@@ -170,6 +205,18 @@ describe('the training screen with nothing to learn', () => {
     );
     expect(heading(T.empty.limitReached.title)).toBeDefined();
     expect(screen.getByText(T.empty.limitReached.body)).toBeDefined();
+  });
+
+  it('shows the notice on a plain surface card', () => {
+    renderScreen(
+      data({
+        mode: 'learn',
+        settings: { sessionSize: 20, newPerDay: 0, learnArrows: true },
+      }),
+    );
+    const card = heading(T.empty.limitReached.title).closest('section');
+    expect(card?.className).toContain('bg-surface');
+    expect(card?.className).not.toContain('bg-accent');
   });
 
   it('says every move is learned', () => {
@@ -206,6 +253,9 @@ describe('the training screen with no moves of the player’s side', () => {
     expect(heading(T.empty.noMoves.title)).toBeDefined();
     expect(href(T.empty.noMoves.edit)).toBe(`/repertoires/${ID}`);
     expect(href(T.empty.noMoves.import)).toContain(ID);
+    const card = heading(T.empty.noMoves.title).closest('section');
+    expect(card?.className).toContain('bg-surface');
+    expect(card?.className).not.toContain('bg-accent');
   });
 
   it('offers no edit or import for an assigned repertoire, only the way back', () => {

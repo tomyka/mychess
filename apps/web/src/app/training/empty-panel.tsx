@@ -6,7 +6,12 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
 import { importIntoRoute, repertoireRoute, ROUTES } from '../../lib/routes';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import {
+  HERO_PRIMARY_BUTTON,
+  PRIMARY_BUTTON,
+  SECONDARY_BUTTON,
+} from '../buttons';
+import { CARD } from '../surfaces';
 import type { TrainingLinks } from './drill';
 import { useReviewTime } from './review-time';
 
@@ -20,22 +25,27 @@ export interface ScopedRepertoire {
 type EmptyState = Exclude<StartState, { readonly kind: 'drill' }>;
 
 /**
- * An empty state's section. On a desktop its heading sits in the side card
- * under the text-xl title, so it steps down to text-lg below a divider.
+ * An empty state's card: Nothing due is Today's accent hero (its text and
+ * buttons in the accent's foreground), the others a plain surface card
+ * (docs/design/training-screen.md, States).
  */
+const EMPTY_CLASS = {
+  hero: 'flex flex-col gap-3 rounded-card bg-accent p-5 text-accent-fg shadow-card',
+  plain: `${CARD} flex flex-col gap-3 p-5`,
+} as const;
+
 function Empty({
   title,
+  tone = 'plain',
   children,
 }: {
   readonly title: string;
+  readonly tone?: keyof typeof EMPTY_CLASS;
   readonly children: ReactNode;
 }): JSX.Element {
   return (
-    <section
-      aria-labelledby="training-empty"
-      className="flex flex-col gap-3 lg:border-t lg:border-border lg:pt-4"
-    >
-      <h2 id="training-empty" className="text-xl font-semibold lg:text-lg">
+    <section aria-labelledby="training-empty" className={EMPTY_CLASS[tone]}>
+      <h2 id="training-empty" className="text-xl font-semibold">
         {title}
       </h2>
       {children}
@@ -56,14 +66,14 @@ function NothingDue({
   const t = useTranslations('training.empty.nothingDue');
   const reviewTime = useReviewTime();
   return (
-    <Empty title={t('title')}>
+    <Empty title={t('title')} tone="hero">
       {nextDue === null ? null : (
-        <p className="text-fg-muted">
+        <p className="text-accent-fg">
           {t('next', { when: reviewTime(nextDue) })}
         </p>
       )}
       {toLearn > 0 ? (
-        <Link href={learnHref} className={`${PRIMARY_BUTTON} self-start`}>
+        <Link href={learnHref} className={`${HERO_PRIMARY_BUTTON} self-start`}>
           {t('learn', { count: toLearn })}
         </Link>
       ) : null}

@@ -6,6 +6,7 @@ import { useEffect, useRef, type JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { EMPTY_BOARD } from '../repertoire-view';
+import { CARD } from '../surfaces';
 import {
   FRAME_BOARD,
   FRAME_CARD,
@@ -43,8 +44,8 @@ function ErrorIcon(): JSX.Element {
 /**
  * The training page when the session could not load
  * (docs/design/training-screen.md, Error case 1): the board as while
- * loading, empty, and in the panel one line of what failed, "Try again"
- * and "Back". Focus moves to the line. Only the error's digest is logged:
+ * loading, empty, and in the panel a plain card with one line of what
+ * failed, "Try again" and "Back". Focus moves to the line. Only the error's digest is logged:
  * it matches the server's log and names no one.
  */
 export default function TrainingError({
@@ -72,19 +73,21 @@ export default function TrainingError({
         className={`${FRAME_BOARD} aspect-square w-full lg:rounded-board`}
       />
       <div className={FRAME_PANEL}>
-        <div className="flex items-start gap-2">
-          <ErrorIcon />
-          <p ref={message} tabIndex={-1} className="min-w-0 flex-1">
-            {t('loadFailed')}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={retry} className={PRIMARY_BUTTON}>
-            {t('tryAgain')}
-          </button>
-          <Link href={ROUTES.home} className={SECONDARY_BUTTON}>
-            {t('back')}
-          </Link>
+        <div className={`${CARD} flex flex-col gap-3 p-5`}>
+          <div className="flex items-start gap-2">
+            <ErrorIcon />
+            <p ref={message} tabIndex={-1} className="min-w-0 flex-1">
+              {t('loadFailed')}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={retry} className={PRIMARY_BUTTON}>
+              {t('tryAgain')}
+            </button>
+            <Link href={ROUTES.home} className={SECONDARY_BUTTON}>
+              {t('back')}
+            </Link>
+          </div>
         </div>
       </div>
     </main>
