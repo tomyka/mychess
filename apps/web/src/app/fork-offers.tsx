@@ -9,7 +9,7 @@ import {
   declineForkOfferAction,
   type ForkOfferState,
 } from './fork-offer-actions';
-import { SECTION, SECTION_TITLE } from './settings/styles';
+import { SECTION_TITLE } from './settings/styles';
 import { RefusalLine } from './coach/refusal-line';
 import { useLatestAction } from './use-latest-action';
 
@@ -84,9 +84,9 @@ function OfferItem({ offer }: { readonly offer: HomeForkOffer }): JSX.Element {
 }
 
 /**
- * The player's open fork offers on home (R-44, R-45, R-130, R-131): each
+ * The player's open fork offers on Today (R-44, R-45, R-130, R-131): each
  * repertoire they no longer have, to keep as their own copy within the
- * days left. Not shown when there is none.
+ * days left. Not shown when there is none; the page gives it its card.
  */
 export function ForkOffers({
   offers,
@@ -97,7 +97,7 @@ export function ForkOffers({
   const titleId = useId();
   if (offers.length === 0) return null;
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
+    <section aria-labelledby={titleId} className="flex flex-col gap-4">
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('title')}
       </h2>

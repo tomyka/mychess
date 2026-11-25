@@ -773,6 +773,18 @@
       "other": "Your other repertoire {name} plays {move} here."
     }
   },
+  "today": {
+    "title": "Today",
+    "dueCount": "{count} due",
+    "minutes": "about {minutes} min",
+    "allDone": "All done for today",
+    "welcome": "Build your first repertoire to start training.",
+    "create": "Create a repertoire",
+    "import": "Import a PGN",
+    "repertoires": "My repertoires",
+    "review": "Review {count}",
+    "learn": "Learn"
+  },
   "fide": {
     "title": "Opponent's games",
     "intro": "Enter a player's FIDE ID to list their over-the-board games broadcast on Lichess in the last 12 months.",

@@ -1352,7 +1352,7 @@ async function homeNames(who: Person): Promise<unknown> {
   };
 }
 
-describe('home’s "From my coach" and fork offers', () => {
+describe('Today’s assignment facts and fork offers', () => {
   it('list only the session player’s own assignments and offers', async () => {
     const people = await cast();
     await secondCoach();

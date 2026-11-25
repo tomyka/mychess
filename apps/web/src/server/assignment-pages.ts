@@ -1,7 +1,7 @@
 import 'server-only';
 // What a player sees of their assignments: the page of a repertoire they
-// have by assignment (plan decisions 11 and 12), and "From my coach" and
-// the fork offers on home. The pages read the database only through these
+// have by assignment (plan decisions 11 and 12), and each assignment's facts
+// and the fork offers on Today. The pages read the database only through these
 // loaders, which start from the session account: an id from the path never
 // decides whose assignment is read.
 import {
@@ -93,8 +93,8 @@ async function loadAssignedRepertoire(
 }
 
 /**
- * One repertoire on home's "From my coach" (R-15, R-51, R-133) and under
- * its side on My repertoires (#328).
+ * One assignment's facts on its Today row (R-15, R-51, R-133, R-222) and
+ * under its side on My repertoires (#328).
  */
 export type AssignedListItem = Pick<
   PlayerAssignment,

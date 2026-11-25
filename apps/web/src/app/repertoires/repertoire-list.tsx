@@ -98,7 +98,7 @@ function King({ side }: { readonly side: Side }): JSX.Element {
 
 /**
  * A repertoire a coach assigned to the player: its page, who assigned it,
- * the deadline and the badges, as home's "From my coach" shows them.
+ * the deadline and the badges, as its row on Today shows them.
  */
 function AssignedCard({
   item,
