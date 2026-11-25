@@ -120,6 +120,20 @@ describe('chapterDistinctions (R-158)', () => {
     });
   });
 
+  it('prefers the named line its main line reaches over the stored code (R-216)', () => {
+    // The Open Catalan by transposition; a chapter stored as E06 (its name
+    // under the one-line-per-code table) now reaches E05.
+    const graph = renamed(
+      graphOf(
+        '1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O dxc4 *',
+        'white',
+      ),
+      'c1',
+      { kind: 'eco', eco: 'E06' },
+    );
+    expect(chapterDistinctions(graph).get('c1')?.eco).toBe('E05');
+  });
+
   it('classifies the main line of a header-named chapter from the start', () => {
     const graph = renamed(
       renamed(graphOf(`${ADVANCE}\n\n${TWO_KNIGHTS}`), 'c1', {

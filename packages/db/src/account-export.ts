@@ -6,7 +6,12 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import { exportPgn, type Chapter, type Side } from '@mychess/chess';
+import {
+  exportPgn,
+  type Chapter,
+  type RepertoireGraph,
+  type Side,
+} from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
@@ -145,10 +150,13 @@ export interface AccountExport {
 
 export interface AccountExportOptions {
   /**
-   * How a chapter's PGN game is titled: its display name in the account's
-   * language (decision 14). The default is the name source itself.
+   * How a chapter's PGN game is titled, given its repertoire (names are
+   * derived from it, R-216): its display name in the account's language
+   * (decision 14). The default is the name source itself.
    */
-  readonly chapterTitle?: (chapter: Chapter) => string;
+  readonly chapterTitle?: (
+    graph: RepertoireGraph,
+  ) => (chapter: Chapter) => string;
 }
 
 const exportRowSchema = accountSchema.extend({

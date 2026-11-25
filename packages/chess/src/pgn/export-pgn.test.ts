@@ -104,15 +104,29 @@ describe('exportPgn', () => {
   it('names chapters through the title option', () => {
     const graph = graphOf('1. e4 e5 *');
     const titled = exportPgn(graph, {
-      title: (c) => `Atvirasis debiutas ${c.id}`,
+      title: () => (c) => `Atvirasis debiutas ${c.id}`,
     });
     expect(titled).toContain('[Event "Atvirasis debiutas c1"]');
     expect(titled).not.toContain('C20');
   });
 
+  it('builds the title from the repertoire being exported (R-216)', () => {
+    const graph = graphOf('1. e4 e5 *\n\n1. d4 d5 *', 'black');
+    const seen: RepertoireGraph[] = [];
+    const titled = exportPgn(graph, {
+      title: (g) => {
+        seen.push(g);
+        return (c) => `${c.id}/${String(g.chapters.length)}`;
+      },
+    });
+    expect(titled).toContain('[Event "c1/2"]');
+    expect(titled).toContain('[Event "c2/2"]');
+    expect(seen).toEqual([graph]);
+  });
+
   it('escapes a title like any tag value', () => {
     const graph = graphOf('1. e4 e5 *');
-    expect(exportPgn(graph, { title: () => 'A "B"' })).toContain(
+    expect(exportPgn(graph, { title: () => () => 'A "B"' })).toContain(
       '[Event "A \\"B\\""]',
     );
   });

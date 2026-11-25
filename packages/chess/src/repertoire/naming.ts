@@ -1,11 +1,19 @@
 /**
  * How a chapter is named from its moves. R-63: an imported game is named
- * from the šachmatai.lt taxonomy first. R-104: a chapter built on the board
- * is named the same way as its moves grow, and is "Chapter N" only while its
- * line is too short to classify. A name its owner typed, or one a PGN header
+ * from the opening taxonomy first: the named lines of
+ * lichess-org/chess-openings (R-216), in Lithuanian by ECO code
+ * (šachmatai.lt). R-104: a chapter built on the board is named the same way
+ * as its moves grow, and is "Chapter N" only while its line is too short to
+ * classify. A name its owner typed, or one a PGN header
  * gave, is never replaced.
  */
-import { classify } from '../openings/classify';
+import {
+  classifyKeys,
+  ecoName,
+  openingName,
+  type Locale,
+} from '../openings/classify';
+import type { EcoEntry } from '../openings/data/eco';
 import { START_KEY } from '../position-key';
 import {
   chapterOf,
@@ -17,17 +25,36 @@ import {
 import { chapterWalks } from './walk';
 
 /**
- * `chapter` named after the deepest ECO position its main line passes
- * through from the standard start, or unchanged when there is none.
+ * The named line a chapter's main line reaches (R-216), read from the
+ * graph's position keys; null when the chapter does not start from the
+ * standard start or reaches none.
+ */
+export function chapterOpening(
+  chapter: Chapter,
+  mainLine: readonly RepertoireMove[],
+): EcoEntry | null {
+  if (chapter.rootKey !== START_KEY) return null;
+  return classifyKeys(mainLine.map((move) => move.to));
+}
+
+/**
+ * `chapter` named after the deepest named line its main line reaches from
+ * the standard start; the same chapter when there is none or its stored
+ * code is already that line's.
  */
 export function taxonomyNamed(
   chapter: Chapter,
   mainLine: readonly RepertoireMove[],
 ): Chapter {
-  if (chapter.rootKey !== START_KEY) return chapter;
-  const entry = classify(mainLine.map((m) => m.san));
-  if (entry === null) return chapter;
-  return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
+  const entry = chapterOpening(chapter, mainLine);
+  return entry === null ? chapter : withCode(chapter, entry.code);
+}
+
+/** `chapter` named by ECO `code`; the same chapter when it already is. */
+function withCode(chapter: Chapter, code: string): Chapter {
+  const source = chapter.nameSource;
+  if (source.kind === 'eco' && source.eco === code) return chapter;
+  return { ...chapter, nameSource: { kind: 'eco', eco: code } };
 }
 
 /**
@@ -43,8 +70,9 @@ export function namedByMoves(
 ): Chapter {
   const { kind } = chapter.nameSource;
   if (kind === 'custom' || kind === 'header') return chapter;
-  const named = taxonomyNamed(chapter, mainLine);
-  if (named !== chapter || kind === 'index') return named;
+  const entry = chapterOpening(chapter, mainLine);
+  if (entry !== null) return withCode(chapter, entry.code);
+  if (kind === 'index') return chapter;
   const others = chapters.filter((c) => c.id !== chapter.id);
   const number = nextChapterNumber(others);
   return { ...chapter, nameSource: { kind: 'index', number } };
@@ -62,4 +90,28 @@ export function renamedByMoves(
   if (named === chapter) return graph;
   const chapters = graph.chapters.map((c) => (c === chapter ? named : c));
   return { ...graph, chapters };
+}
+
+/**
+ * Each taxonomy-named chapter's opening name in `locale`, by chapter id:
+ * the named line its main line reaches, else its stored code's family name.
+ * Derived whenever titles are built, so nothing is stored (R-216).
+ */
+export function taxonomyNames(
+  graph: RepertoireGraph,
+  locale: Locale,
+): ReadonlyMap<string, string> {
+  const walks = chapterWalks(graph);
+  return new Map(
+    graph.chapters.flatMap((chapter) => {
+      const source = chapter.nameSource;
+      if (source.kind !== 'eco') return [];
+      const entry = chapterOpening(chapter, walks(chapter.id).mainLine());
+      const name =
+        entry === null
+          ? ecoName(source.eco, locale)
+          : openingName(entry, locale);
+      return [[chapter.id, name] as const];
+    }),
+  );
 }

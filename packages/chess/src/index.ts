@@ -50,6 +50,7 @@ export {
   type ChapterDistinction,
   type DistinctMove,
 } from './repertoire/distinctions';
+export { chapterOpening, taxonomyNames } from './repertoire/naming';
 export { lineText, moveNumber } from './repertoire/notation';
 export { annotatedSan, hasGlyph } from './repertoire/nags';
 export {

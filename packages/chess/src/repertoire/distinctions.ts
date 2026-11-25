@@ -3,14 +3,14 @@
  * (R-158): each chapter's opening ECO code and the first move of its main
  * line where it parts from the others, as in "Karo-Kano gynyba (B12, 3. e5)".
  */
-import { classify } from '../openings/classify';
-import { sideToMove, START_KEY } from '../position-key';
+import { sideToMove } from '../position-key';
 import {
   moveKey,
   type Chapter,
   type RepertoireGraph,
   type RepertoireMove,
 } from './graph';
+import { chapterOpening } from './naming';
 import { chapterWalks } from './walk';
 
 /** The first move of a chapter's main line that no other chapter's shares. */
@@ -30,16 +30,16 @@ export interface ChapterDistinction {
 }
 
 /**
- * The chapter's ECO code: its taxonomy name's, else the classification of its
- * main line when it starts from the standard start, else none.
+ * The chapter's ECO code: that of the named line its main line reaches
+ * (R-216), else its stored taxonomy code, else none.
  */
 function ecoOf(
   chapter: Chapter,
   line: readonly RepertoireMove[],
 ): string | null {
-  if (chapter.nameSource.kind === 'eco') return chapter.nameSource.eco;
-  if (chapter.rootKey !== START_KEY) return null;
-  return classify(line.map((m) => m.san))?.code ?? null;
+  const code = chapterOpening(chapter, line)?.code;
+  if (code !== undefined) return code;
+  return chapter.nameSource.kind === 'eco' ? chapter.nameSource.eco : null;
 }
 
 /** How many leading move keys `a` and `b` share. */

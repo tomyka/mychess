@@ -30,9 +30,13 @@ function chapterName(chapter: Chapter): string {
 
 const tagValue = (value: string): string => value.replace(/[\\"]/g, '\\$&');
 
-/** How export names a chapter's game; the default is the name source itself. */
+/** Options of `exportPgn`. */
 export interface ExportOptions {
-  readonly title?: (chapter: Chapter) => string;
+  /**
+   * How export names a chapter's game, given the repertoire (names are
+   * derived from it, R-216); the default is the name source itself.
+   */
+  readonly title?: (graph: RepertoireGraph) => (chapter: Chapter) => string;
 }
 
 type Title = (chapter: Chapter) => string;
@@ -140,7 +144,7 @@ export function exportPgn(
   options: ExportOptions = {},
 ): string {
   const walks = chapterWalks(graph);
-  const title = options.title ?? chapterName;
+  const title = options.title?.(graph) ?? chapterName;
   return graph.chapters
     .map((chapter) => game(walks(chapter.id), chapter, title))
     .join('\n\n');

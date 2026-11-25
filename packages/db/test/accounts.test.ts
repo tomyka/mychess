@@ -392,7 +392,7 @@ describe('exportAccount', () => {
       now: RT0,
     });
     const data = await exportAccount(db, 'a1', NOW, {
-      chapterTitle: (c) => c.id,
+      chapterTitle: () => (c) => c.id,
     });
     expect(data?.repertoires.map((r) => [r.name, r.side, r.createdAt])).toEqual(
       [['Londono sistema', 'white', '2026-10-17T08:00:00.000Z']],
