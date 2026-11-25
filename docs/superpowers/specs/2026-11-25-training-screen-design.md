@@ -224,19 +224,21 @@ the button, which is in the tab order after the board.
   Continue (the queue has more, R-62), Start review (moves due now, after a
   learn pass), Learn new moves (today's allowance has room), else Done.
   The labels stay as today.
-  Done is a quiet button when another action is primary. On a phone the
-  primary is full width with Done under it.
+  Done is a quiet button when another action is primary; any other step
+  offered is tonal. On a phone the primary is full width with the rest
+  under it.
 - On a phone the board stays hidden (as now); on desktop it stays beside
   the card, dimmed.
 
 ### Nothing due
 
 The panel shows the same accent hero card as Today's `learn` and `done`
-states (`TodayHero`'s look, not its component): the eyebrow "Today's
-review" (or the repertoire), "Nothing due now.", the next review time, and
-the inverted "Learn N new moves" button when there are new moves. On a
-phone the dimmed start board shrinks to a strip (40% of its height,
-cropped) so the card is in view; on desktop the dimmed board stays.
+states (`TodayHero`'s look, not its component): "Nothing due now.", the
+next review time, and the inverted "Learn N new moves" button when there
+are new moves. No eyebrow: the top bar's title already names the session
+(settled at sign-off). On a phone the dimmed start board shrinks to a
+strip of the player's own two back ranks (cropped) so the card is in
+view, in every empty state; on desktop the dimmed board stays.
 "No moves", "limit reached" and "nothing left" use the same card in its
 plain (`bg-surface`) form with their existing text and buttons.
 
