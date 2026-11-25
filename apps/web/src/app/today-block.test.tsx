@@ -19,9 +19,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** A summary; with no repertoires listed unless given. */
-type Summary = Omit<TodaySummary, 'repertoires'> &
-  Partial<Pick<TodaySummary, 'repertoires'>>;
+/** A summary; with no rows unless given. */
+type Summary = Omit<TodaySummary, 'rows'> & Partial<Pick<TodaySummary, 'rows'>>;
 
 function renderBlock(summary: Summary): void {
   render(
@@ -30,7 +29,7 @@ function renderBlock(summary: Summary): void {
       messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
-      <TodayBlock summary={{ repertoires: [], ...summary }} />
+      <TodayBlock summary={{ rows: [], ...summary }} />
     </NextIntlClientProvider>,
   );
 }
@@ -118,7 +117,7 @@ describe('TodayBlock (U1-M1-3)', () => {
             toLearn: 0,
             minutes: 0,
             nextDue: NEXT,
-            repertoires: [],
+            rows: [],
           }}
         />
       </NextIntlClientProvider>,
@@ -136,10 +135,27 @@ describe('TodayBlock (U1-M1-3)', () => {
 });
 
 describe('TodayBlock’s due moves per repertoire (R-207)', () => {
-  const REPERTOIRES = [
-    { id: 'r2', name: 'Taimanovas', side: 'black', due: 2 },
-    { id: 'r1', name: 'Londonas', side: 'white', due: 1 },
-  ] as const;
+  const row = (
+    id: string,
+    name: string,
+    side: 'white' | 'black',
+    due: number,
+  ): TodaySummary['rows'][number] => ({
+    id,
+    name,
+    side,
+    kind: 'own',
+    due,
+    canLearn: false,
+    counts: { notStarted: 0, skipped: 0, due, learned: 1 },
+    mastered: false,
+  });
+  const ROWS = [
+    row('r2', 'Taimanovas', 'black', 2),
+    row('r1', 'Londonas', 'white', 1),
+    // Nothing due: not on this list.
+    row('r3', 'Karo-Kanas', 'black', 0),
+  ];
 
   it('lists each repertoire with due moves, each linking to its own review', () => {
     renderBlock({
@@ -147,7 +163,7 @@ describe('TodayBlock’s due moves per repertoire (R-207)', () => {
       toLearn: 0,
       minutes: 1,
       nextDue: null,
-      repertoires: REPERTOIRES,
+      rows: ROWS,
     });
     const list = within(screen.getByRole('list'));
     const links = list.getAllByRole('link');

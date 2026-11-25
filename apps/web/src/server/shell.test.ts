@@ -44,7 +44,7 @@ const summary = (due: number): TodaySummary => ({
   toLearn: 0,
   minutes: 0,
   nextDue: null,
-  repertoires: [],
+  rows: [],
 });
 
 beforeEach(() => {

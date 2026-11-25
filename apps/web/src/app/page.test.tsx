@@ -16,7 +16,7 @@ const QUIET: TodaySummary = {
   toLearn: 0,
   minutes: 0,
   nextDue: null,
-  repertoires: [],
+  rows: [],
 };
 
 describe('HomeView', () => {

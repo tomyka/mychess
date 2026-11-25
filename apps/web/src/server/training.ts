@@ -5,14 +5,16 @@ import 'server-only';
 // starts from the session account: a value from the URL only narrows the
 // scope, and the snapshot query checks it is a repertoire the player trains.
 import {
-  dueByRepertoire,
   learnStart,
   nextDue,
+  todayRows,
   trackedIn,
   trainingCounts,
   type LearnFocus,
+  type ProgressCounts,
   type Side,
   type TrainingCounts,
+  type TrainingDay,
   type TrainingMode,
 } from '@mychess/chess';
 import {
@@ -172,16 +174,22 @@ function dataEntry(entry: SnapshotEntry): TrainingData['entries'][number] {
   return { ...base, kind: 'assigned', coachName: entry.coachName };
 }
 
-/** The session account's snapshot for `scope` as plain data, read now. */
-async function snapshotData(
+/**
+ * The session account's snapshot for `scope`, read now: its plain data and
+ * the keys entered by "I know this", which stay on the server.
+ */
+async function readSnapshot(
   account: Account,
   mode: TrainingMode,
   scope: TrainingScope,
-): Promise<SnapshotData | undefined> {
+): Promise<
+  | { readonly data: SnapshotData; readonly known: ReadonlySet<string> }
+  | undefined
+> {
   const now = new Date();
   const snapshot = await trainingSnapshot(getDb(), account.id, scope, now);
   if (snapshot === undefined) return undefined;
-  return {
+  const data: SnapshotData = {
     mode,
     entries: snapshot.entries.map(dataEntry),
     others: snapshot.others.map(({ id, name, side, graph }) => ({
@@ -196,15 +204,32 @@ async function snapshotData(
     settings: snapshot.settings,
     now,
   };
+  return { data, known: snapshot.known };
 }
 
-/** One repertoire on home's list of due moves (R-207). */
-interface TodayRepertoire {
+/** The session account's snapshot for `scope` as plain data, read now. */
+async function snapshotData(
+  account: Account,
+  mode: TrainingMode,
+  scope: TrainingScope,
+): Promise<SnapshotData | undefined> {
+  return (await readSnapshot(account, mode, scope))?.data;
+}
+
+/** One repertoire on Today's list (R-221): every one the player trains. */
+export interface TodaySummaryRow {
   readonly id: string;
   readonly name: string;
   readonly side: Side;
-  /** Its due moves, as a review of it alone counts them. */
+  readonly kind: 'own' | 'assigned';
+  /** Its due moves, as a review of it alone counts them; 0 when paused. */
   readonly due: number;
+  /** Whether a learn session of it alone would start today. */
+  readonly canLearn: boolean;
+  /** Its moves' R-151 states, for the learned percentage (R-177). */
+  readonly counts: ProgressCounts;
+  /** R-178. */
+  readonly mastered: boolean;
 }
 
 /** Home's "Today" block (U1-M1-3): what is due and to learn, before starting. */
@@ -213,39 +238,52 @@ export interface TodaySummary extends TrainingCounts {
   readonly minutes: number;
   /** The earliest Review due after now, or null. */
   readonly nextDue: Date | null;
-  /** The repertoires with due moves, most urgent first (R-207). */
-  readonly repertoires: readonly TodayRepertoire[];
+  /** Every repertoire the player trains, those with due moves first (R-221). */
+  readonly rows: readonly TodaySummaryRow[];
 }
 
-/** The repertoires with due moves, named, in the order the chess rule gives. */
-function dueRepertoires(
+/** Each todayRows row with its entry's name, side and kind. */
+function summaryRows(
   data: SnapshotData,
-  day: ReturnType<typeof dayOf>,
-): TodayRepertoire[] {
-  return dueByRepertoire(day, data.now).flatMap(({ repertoireId, due }) => {
-    const entry = data.entries.find((e) => e.id === repertoireId);
+  day: TrainingDay,
+  known: ReadonlySet<string>,
+): TodaySummaryRow[] {
+  return todayRows(day, known, data.now).flatMap((row) => {
+    const entry = data.entries.find((e) => e.id === row.repertoireId);
     return entry === undefined
       ? []
-      : [{ id: entry.id, name: entry.name, side: entry.side, due }];
+      : [
+          {
+            id: entry.id,
+            name: entry.name,
+            side: entry.side,
+            kind: entry.kind,
+            due: row.due,
+            canLearn: row.canLearn,
+            counts: row.standing.counts,
+            mastered: row.standing.mastered,
+          },
+        ];
   });
 }
 
 /**
  * The session account's "Today" block over every repertoire they train
- * (R-142): every due move, not a session's worth, each repertoire's own
- * (R-207), and the new moves today's allowance leaves (R-146).
+ * (R-142): every due move, not a session's worth, each repertoire's row
+ * (R-221), and the new moves today's allowance leaves (R-146).
  */
 async function loadTodaySummary(account: Account): Promise<TodaySummary> {
-  const data = await snapshotData(account, 'review', { kind: 'all' });
-  if (data === undefined)
-    return { due: 0, toLearn: 0, minutes: 0, nextDue: null, repertoires: [] };
+  const read = await readSnapshot(account, 'review', { kind: 'all' });
+  if (read === undefined)
+    return { due: 0, toLearn: 0, minutes: 0, nextDue: null, rows: [] };
+  const { data, known } = read;
   const day = dayOf(data);
   const counts = trainingCounts(day, data.now);
   return {
     ...counts,
     minutes: Math.ceil((counts.due * SECONDS_PER_REVIEW) / 60),
     nextDue: nextDue(day, data.now),
-    repertoires: dueRepertoires(data, day),
+    rows: summaryRows(data, day, known),
   };
 }
 

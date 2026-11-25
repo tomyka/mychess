@@ -37,11 +37,12 @@ function DueLine({ summary }: { readonly summary: TodaySummary }): JSX.Element {
  * which never wrap apart on a phone (UX sign-off).
  */
 function DueRepertoires({
-  repertoires,
+  rows,
 }: {
-  readonly repertoires: TodaySummary['repertoires'];
+  readonly rows: TodaySummary['rows'];
 }): JSX.Element | null {
   const t = useTranslations();
+  const repertoires = rows.filter((r) => r.due > 0);
   if (repertoires.length === 0) return null;
   return (
     <ul className="flex flex-col gap-1">
@@ -87,7 +88,7 @@ export function TodayBlock({
         {t('title')}
       </h2>
       <DueLine summary={summary} />
-      <DueRepertoires repertoires={summary.repertoires} />
+      <DueRepertoires rows={summary.rows} />
       <div className="flex flex-wrap gap-3">
         {summary.due > 0 ? (
           <Link href={trainingPath('review')} className={PRIMARY_BUTTON}>

@@ -356,24 +356,91 @@ describe('todaySummary (U1-M1-3)', () => {
       toLearn: 0,
       minutes: 2,
       nextDue: null,
-      repertoires: [{ id: ID, name: 'Londono sistema', side: 'white', due: 8 }],
+      rows: [
+        {
+          id: ID,
+          name: 'Londono sistema',
+          side: 'white',
+          kind: 'own',
+          due: 8,
+          // Every move is tracked: nothing is left to learn.
+          canLearn: false,
+          counts: { notStarted: 0, skipped: 0, due: 8, learned: 0 },
+          mastered: false,
+        },
+      ],
     });
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 1)));
     expect(await todaySummary(ROKAS)).toMatchObject({ due: 1, minutes: 1 });
   });
 
-  it('gives the next review time when nothing is due', async () => {
+  it('gives the next review time when nothing is due, and still lists the repertoire (R-221)', async () => {
     server.snapshot.mockResolvedValue(londonDue([]));
     expect(await todaySummary(ROKAS)).toEqual({
       due: 0,
       toLearn: 0,
       minutes: 0,
       nextDue: new Date('2026-10-22T08:00:00Z'),
-      repertoires: [],
+      rows: [
+        expect.objectContaining({
+          id: ID,
+          due: 0,
+          counts: { notStarted: 0, skipped: 0, due: 0, learned: 8 },
+        }),
+      ],
     });
   });
 
-  it('lists each repertoire with due moves, the most urgent first (R-207)', async () => {
+  it('counts a move entered by "I know this" as skipped (R-151)', async () => {
+    const [known = ''] = LONDON_KEYS;
+    server.snapshot.mockResolvedValue({
+      ...londonDue([]),
+      known: new Set([known]),
+    });
+    const [row] = (await todaySummary(ROKAS)).rows;
+    expect(row?.counts).toEqual({
+      notStarted: 0,
+      skipped: 1,
+      due: 0,
+      learned: 7,
+    });
+  });
+
+  it('lists no rows when the player trains nothing', async () => {
+    server.snapshot.mockResolvedValue(undefined);
+    expect(await todaySummary(ROKAS)).toEqual({
+      due: 0,
+      toLearn: 0,
+      minutes: 0,
+      nextDue: null,
+      rows: [],
+    });
+  });
+
+  it('lists every repertoire, the ones with due moves first (R-207, R-221)', async () => {
+    // The London is first in the learn order but has nothing due.
+    const london = londonDue([]);
+    const [taimanovKey = ''] = playerKeys(TAIMANOV_GRAPH);
+    const early = review(taimanovKey);
+    server.snapshot.mockResolvedValue({
+      ...london,
+      entries: [...SNAPSHOT.entries]
+        .reverse()
+        .map((e) => ({ ...e, repertoire: { ...e.repertoire, active: true } })),
+      reviews: new Map([
+        ...london.reviews,
+        [taimanovKey, { ...early, fsrs: { ...early.fsrs, due: NOW } }],
+      ]),
+      tracked: new Set([...london.tracked, taimanovKey]),
+    });
+    const { rows } = await todaySummary(ROKAS);
+    expect(rows.map((r) => [r.name, r.kind, r.due, r.canLearn])).toEqual([
+      ['Taimanovas', 'assigned', 1, true],
+      ['Londono sistema', 'own', 0, false],
+    ]);
+  });
+
+  it('orders repertoires with due moves the most urgent first (R-207)', async () => {
     const london = londonDue(LONDON_KEYS.slice(0, 1));
     const [taimanovKey = ''] = playerKeys(TAIMANOV_GRAPH);
     const early = review(taimanovKey);
@@ -390,9 +457,10 @@ describe('todaySummary (U1-M1-3)', () => {
       ]),
       tracked: new Set([...london.tracked, taimanovKey]),
     });
-    expect((await todaySummary(ROKAS)).repertoires).toEqual([
-      { id: OTHER, name: 'Taimanovas', side: 'black', due: 1 },
-      { id: ID, name: 'Londono sistema', side: 'white', due: 1 },
+    const { rows } = await todaySummary(ROKAS);
+    expect(rows.map((r) => [r.id, r.name, r.side, r.due])).toEqual([
+      [OTHER, 'Taimanovas', 'black', 1],
+      [ID, 'Londono sistema', 'white', 1],
     ]);
   });
 
@@ -403,12 +471,11 @@ describe('todaySummary (U1-M1-3)', () => {
       reviews: new Map(),
       tracked: new Set(),
     });
-    expect(await todaySummary(ROKAS)).toEqual({
+    expect(await todaySummary(ROKAS)).toMatchObject({
       due: 0,
       toLearn: 2,
       minutes: 0,
       nextDue: null,
-      repertoires: [],
     });
   });
 });
