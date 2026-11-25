@@ -179,7 +179,7 @@ const pageHeader = (page: Page): Locator =>
 /**
  * Rokas's progress page (R-152): the whole repertoire's counts as seeded;
  * the first chapter opens to its lines, the first holding his three seeded
- * moves. Back to his player page by the header's link.
+ * moves. Back to his player page by the header's back link (#381).
  */
 async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
   const t = cast.messages.coach.progress;
@@ -212,7 +212,12 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
   await expect(lines).toContainText(/^1\. e4 c6 2\. d4 d5 3\. e5 Bf5/);
   await expect(lines.getByText(counts, { exact: true })).toBeVisible();
   await expectNoPrivateName(coach);
-  await header.getByRole('link', { name: ROKAS, exact: true }).click();
+  await expect(header.getByText(ROKAS, { exact: true })).toBeVisible();
+  await header
+    .getByRole('link', {
+      name: format(cast.messages.nav.back, { parent: ROKAS }),
+    })
+    .click();
   await expect(coach).toHaveURL(/\/coach\/players\/[^/]+$/);
 }
 
