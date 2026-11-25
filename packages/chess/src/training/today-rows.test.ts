@@ -1,0 +1,185 @@
+import { describe, expect, it } from 'vitest';
+import { importPgn } from '../pgn/import-pgn';
+import {
+  playerKeys,
+  type RepertoireGraph,
+  type Side,
+} from '../repertoire/graph';
+import { DAY_MS, startReview, type ReviewState } from './schedule';
+import type { TrainingRepertoire } from './scope';
+import { todayRows } from './today-rows';
+import type { TrainingDay } from './training-day';
+
+const NOW = new Date('2026-11-25T08:00:00Z');
+
+function graph(pgn: string, side: Side): RepertoireGraph {
+  const r = importPgn(pgn, side);
+  if (!r.ok) throw new Error(r.refusal.reason);
+  return r.value.graph;
+}
+
+// Three White moves and two Black moves.
+const white = graph('1. e4 e5 2. Nf3 Nc6 3. Bc4 *', 'white');
+const black = graph('1. e4 c6 2. d4 d5 *', 'black');
+const empty: RepertoireGraph = { side: 'white', chapters: [], moves: [] };
+const [E4 = '', NF3 = '', BC4 = ''] = playerKeys(white);
+const [C6 = '', D5 = ''] = playerKeys(black);
+
+const repertoire = (
+  g: RepertoireGraph,
+  id: string,
+  active = true,
+): TrainingRepertoire => ({ id, graph: g, active });
+
+/** A Review of `key` started at NOW: learned, due a day later. */
+const fresh = (key: string): ReviewState => startReview(key, NOW);
+
+/** A Review of `key` started a day before NOW: due now. */
+const dueNow = (key: string): ReviewState =>
+  startReview(key, new Date(NOW.getTime() - DAY_MS));
+
+function day(
+  repertoires: readonly TrainingRepertoire[],
+  reviews: readonly ReviewState[] = [],
+  overrides: Partial<TrainingDay> = {},
+): TrainingDay {
+  return {
+    repertoires,
+    reviews: new Map(reviews.map((r) => [r.key, r])),
+    tracked: new Set(reviews.map((r) => r.key)),
+    learnedToday: 0,
+    limits: { reviews: 20, newPerDay: 10 },
+    ...overrides,
+  };
+}
+
+const none: ReadonlySet<string> = new Set();
+const W = repertoire(white, 'w');
+const B = repertoire(black, 'b');
+
+describe('todayRows', () => {
+  it('lists the repertoires with due moves first, then the learn order', () => {
+    const rows = todayRows(day([W, B], [dueNow(C6)]), none, NOW);
+    expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
+      ['b', 1],
+      ['w', 0],
+    ]);
+  });
+
+  it('orders due repertoires by their earliest due Review', () => {
+    const later = startReview(
+      E4,
+      new Date(NOW.getTime() - DAY_MS / 2 - DAY_MS),
+    );
+    const rows = todayRows(
+      day([W, B], [dueNow(C6), dueNow(D5), later]),
+      none,
+      NOW,
+    );
+    expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
+      ['w', 1],
+      ['b', 2],
+    ]);
+  });
+
+  it('keeps the learn order with nothing due', () => {
+    const third = repertoire(white, 'x');
+    const rows = todayRows(day([B, third, W]), none, NOW);
+    expect(rows.map((r) => [r.repertoireId, r.due])).toEqual([
+      ['b', 0],
+      ['x', 0],
+      ['w', 0],
+    ]);
+  });
+
+  it('can learn while moves are left and the allowance allows', () => {
+    const rows = todayRows(day([W, B], [fresh(C6), fresh(D5)]), none, NOW);
+    expect(rows.map((r) => [r.repertoireId, r.canLearn])).toEqual([
+      ['w', true],
+      ['b', false],
+    ]);
+  });
+
+  it('cannot learn once today has learned the new moves a day', () => {
+    const rows = todayRows(day([W], [], { learnedToday: 10 }), none, NOW);
+    expect(rows.map((r) => r.canLearn)).toEqual([false]);
+  });
+
+  it('can learn with one new move of the day left', () => {
+    const rows = todayRows(day([W], [], { learnedToday: 9 }), none, NOW);
+    expect(rows.map((r) => r.canLearn)).toEqual([true]);
+  });
+
+  it('gives a paused repertoire no due moves and nothing to learn', () => {
+    const paused = repertoire(white, 'p', false);
+    const rows = todayRows(day([paused], [dueNow(E4)]), none, NOW);
+    expect(rows).toEqual([
+      {
+        repertoireId: 'p',
+        due: 0,
+        canLearn: false,
+        standing: {
+          counts: { notStarted: 2, skipped: 0, due: 1, learned: 0 },
+          mastered: false,
+        },
+      },
+    ]);
+  });
+
+  it('counts each own move in its one state', () => {
+    const rows = todayRows(
+      day([W], [dueNow(E4), fresh(NF3), fresh(BC4)]),
+      new Set([BC4]),
+      NOW,
+    );
+    expect(rows.map((r) => r.standing)).toEqual([
+      {
+        counts: { notStarted: 0, skipped: 1, due: 1, learned: 1 },
+        mastered: false,
+      },
+    ]);
+  });
+
+  it('is mastered when every move is learned and recalled well', () => {
+    const rows = todayRows(
+      day([W, B], [fresh(E4), fresh(NF3), fresh(BC4), fresh(C6)]),
+      none,
+      NOW,
+    );
+    expect(rows.map((r) => [r.repertoireId, r.standing])).toEqual([
+      [
+        'w',
+        {
+          counts: { notStarted: 0, skipped: 0, due: 0, learned: 3 },
+          mastered: true,
+        },
+      ],
+      [
+        'b',
+        {
+          counts: { notStarted: 1, skipped: 0, due: 0, learned: 1 },
+          mastered: false,
+        },
+      ],
+    ]);
+  });
+
+  it('gives a repertoire without own moves zero counts and nothing to learn', () => {
+    const rows = todayRows(day([repertoire(empty, 'e')]), none, NOW);
+    expect(rows).toEqual([
+      {
+        repertoireId: 'e',
+        due: 0,
+        canLearn: false,
+        standing: {
+          counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 },
+          mastered: false,
+        },
+      },
+    ]);
+  });
+
+  it('lists nothing without repertoires', () => {
+    expect(todayRows(day([]), none, NOW)).toEqual([]);
+  });
+});
