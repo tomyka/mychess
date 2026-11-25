@@ -57,7 +57,7 @@ The colour a Repertoire is played from: White or Black. Fixed per Repertoire.
 _Avoid_: Colour (in prose fine), perspective
 
 **Chapter**:
-A named part of a Repertoire covering one opening (named from the šachmatai.lt taxonomy).
+A named part of a Repertoire covering one opening. A chapter named by the taxonomy takes, in English, the name of the deepest named line of lichess-org/chess-openings its main line reaches (by position, derived whenever titles are built; R-216), and in Lithuanian the šachmatai.lt name of that line's ECO code.
 _Avoid_: Section, study chapter, folder
 
 **PGN game**:
