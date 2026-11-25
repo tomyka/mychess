@@ -8,7 +8,13 @@ import { useSquareWords } from '../board/square-words';
 import { QUIET_ACTION } from '../buttons';
 import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps } from './drill';
-import { LineSoFar, MoveRow, ToMove } from './drill-panel';
+import {
+  LineSoFar,
+  MoveRow,
+  StatusLine,
+  ToMove,
+  type StatusTone,
+} from './drill-panel';
 import {
   askedStep,
   isDone,
@@ -50,13 +56,13 @@ function newMovePrompt(state: LearnDrillState): PromptKey {
   return state.options.arrows ? 'blind' : 'recall';
 }
 
-const TONES: Record<PromptKey, string> = {
-  correct: 'text-success',
-  wrong: 'text-error',
-  known: 'text-fg',
-  arrows: 'text-fg',
-  blind: 'text-fg',
-  recall: 'text-fg',
+const TONES: Record<PromptKey, StatusTone> = {
+  correct: 'success',
+  wrong: 'error',
+  known: 'prompt',
+  arrows: 'prompt',
+  blind: 'prompt',
+  recall: 'prompt',
 };
 
 /**
@@ -70,9 +76,7 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
   return (
     <div aria-live="polite" className="flex flex-col gap-1">
       <ToMove color={drill.view.turnColor} />
-      <p className={`text-lg font-medium ${TONES[prompt]}`}>
-        {t(`training.learn.${prompt}`)}
-      </p>
+      <StatusLine tone={TONES[prompt]} text={t(`training.learn.${prompt}`)} />
       {state.unknownTyped ? (
         <p className="text-error">{t('board.moveInput.unknown')}</p>
       ) : null}

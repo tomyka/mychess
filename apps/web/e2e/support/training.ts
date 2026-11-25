@@ -144,11 +144,15 @@ export async function openMoveField(
   return field;
 }
 
-/** The line so far, as its moves' SAN (the panel writes it with numbers). */
+/**
+ * The line so far, as its moves' SAN (the panel writes it with numbers):
+ * the whole line, the first paragraph after the heading (the phone's cut
+ * line follows it).
+ */
 async function lineSans(d: Drill): Promise<string[]> {
   const line = d.page
     .getByRole('heading', { name: d.messages.training.drill.line })
-    .locator('xpath=following-sibling::p');
+    .locator('xpath=following-sibling::p[1]');
   if ((await line.count()) === 0) return [];
   const text = (await line.textContent()) ?? '';
   return text.split(/\s+/).filter((t) => t !== '' && !/^\d+\.+$/.test(t));

@@ -11,7 +11,13 @@ import { NextButton } from './next-button';
 import { DrillCoachNote } from './coach-note';
 import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps } from './drill';
-import { LineSoFar, MoveRow, ToMove } from './drill-panel';
+import {
+  LineSoFar,
+  MoveRow,
+  StatusLine,
+  ToMove,
+  type StatusTone,
+} from './drill-panel';
 import {
   canHint,
   isRepeat,
@@ -33,12 +39,12 @@ function statusOf(state: DrillState): StatusKey {
   return isRepeat(state) ? 'again' : 'prompt';
 }
 
-const TONES: Record<StatusKey, string> = {
-  correct: 'text-success',
-  lapse: 'text-error',
-  hinted: 'text-fg',
-  again: 'text-fg',
-  prompt: 'text-fg',
+const TONES: Record<StatusKey, StatusTone> = {
+  correct: 'success',
+  lapse: 'error',
+  hinted: 'due',
+  again: 'due',
+  prompt: 'prompt',
 };
 
 /**
@@ -59,9 +65,7 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
       {reply === null ? null : (
         <p>{t('training.review.replied', { move: reply })}</p>
       )}
-      <p className={`text-lg font-medium ${TONES[status]}`}>
-        {t(`training.review.${status}`)}
-      </p>
+      <StatusLine tone={TONES[status]} text={t(`training.review.${status}`)} />
       {state.unknownTyped ? (
         <p className="text-error">{t('board.moveInput.unknown')}</p>
       ) : null}

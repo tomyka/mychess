@@ -19,7 +19,7 @@ export function TwoAnswersNotice({
   return (
     <div
       role="note"
-      className="rounded-control bg-sunken px-3 py-2 text-sm text-fg-muted"
+      className="rounded-card bg-accent-subtle px-4 py-3 text-sm text-fg"
     >
       {answers.map((a) => (
         <p key={a.repertoireId}>{t('other', { name: a.name, move: a.san })}</p>

@@ -14,8 +14,15 @@ import { useLayoutEffect, useRef, type JSX, type ReactNode } from 'react';
 import { PromotionPicker } from '../board/promotion-picker';
 import type { MoveInput as DrillMoveInput } from './drill-input';
 import { MoveEntry } from './move-entry';
+import { phoneLine } from './phone-line';
 
 type Color = 'white' | 'black';
+
+/** The dot's disc and ring: fixed colours, the same in both themes. */
+const DOT: Record<Color, string> = {
+  white: 'border-side-black bg-side-white',
+  black: 'border-side-ring bg-side-black',
+};
 
 /** The side-to-move dot and its words. */
 export function ToMove({ color }: { readonly color: Color }): JSX.Element {
@@ -24,9 +31,57 @@ export function ToMove({ color }: { readonly color: Color }): JSX.Element {
     <p className="flex items-center gap-2 text-sm text-fg-muted">
       <span
         aria-hidden="true"
-        className={`size-3 rounded-full border border-border-strong ${color === 'white' ? 'bg-white' : 'bg-black'}`}
+        className={`size-3 rounded-full border ${DOT[color]}`}
       />
       {t(`toMove.${color}`)}
+    </p>
+  );
+}
+
+export type StatusTone = 'prompt' | 'success' | 'error' | 'due';
+
+const PILL =
+  'flex items-center gap-2 self-start rounded-control px-3 py-2 text-base font-semibold';
+const STATUS_CLASS: Record<StatusTone, string> = {
+  prompt: 'text-lg font-bold',
+  success: `${PILL} bg-success-subtle text-success`,
+  error: `${PILL} bg-error-subtle text-error`,
+  due: `${PILL} bg-due-subtle text-due`,
+};
+/** Each result's icon: a tick, a cross, an exclamation mark. */
+const ICON: Record<StatusTone, string | null> = {
+  prompt: null,
+  success: 'M5 12l5 5 9-10',
+  error: 'M6 6l12 12M18 6L6 18',
+  due: 'M12 8v5M12 16h.01',
+};
+
+/** The prompt, plain and bold, or an answer's result as a tinted pill with its icon. */
+export function StatusLine({
+  tone,
+  text,
+}: {
+  readonly tone: StatusTone;
+  readonly text: string;
+}): JSX.Element {
+  const path = ICON[tone];
+  return (
+    <p className={STATUS_CLASS[tone]}>
+      {path === null ? null : (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="size-5 shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d={path} />
+        </svg>
+      )}
+      {text}
     </p>
   );
 }
@@ -85,6 +140,7 @@ function listRows(
 
 interface Layouts {
   readonly text: string;
+  readonly phone: string;
   readonly rows: readonly ListRow[];
 }
 
@@ -94,21 +150,24 @@ function layoutsOf(
 ): Layouts | null {
   if (rootKey === undefined || moves.length === 0) return null;
   const whiteFirst = sideToMove(rootKey) === 'w';
+  const sans = moves.map(shownSan);
   return {
-    text: lineText(moves.map(shownSan), whiteFirst),
+    text: lineText(sans, whiteFirst),
+    phone: phoneLine(sans, whiteFirst),
     rows: listRows(moves, whiteFirst),
   };
 }
 
 /**
  * The moves so far on the line from `rootKey`, newest last. A phone shows
- * them as one row that scrolls sideways; a desktop as the design's
- * two-column move list in the panel, in a box of its own that takes the
- * panel's spare height and scrolls itself, so a long line never scrolls the
- * panel and hides the move field above it (#323). Only one of the two is
- * displayed at a width, so a screen reader hears the line once. Whenever
- * the line changes the shown layout jumps to its newest move (no smooth
- * scroll, so reduced motion holds).
+ * them as wrapping text cut to the last full moves (phoneLine), with the
+ * whole line kept for screen readers; a desktop as the design's two-column
+ * move list in the panel, in a box of its own that takes the panel's spare
+ * height and scrolls itself, so a long line never scrolls the panel and
+ * hides the move field above it (#323). Only one of the two is announced
+ * at a width, so a screen reader hears the line once. Whenever the line
+ * changes the list jumps to its newest move (no smooth scroll, so reduced
+ * motion holds).
  */
 export function LineSoFar({
   moves,
@@ -119,12 +178,9 @@ export function LineSoFar({
 }): JSX.Element {
   const t = useTranslations('training.drill');
   const layouts = layoutsOf(moves, rootKey);
-  const row = useRef<HTMLParagraphElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const text = layouts?.text;
   useLayoutEffect(() => {
-    const element = row.current;
-    if (element !== null) element.scrollLeft = element.scrollWidth;
     const scroller = box.current;
     if (scroller !== null) scroller.scrollTop = scroller.scrollHeight;
   }, [text]);
@@ -133,15 +189,16 @@ export function LineSoFar({
       <h2 className="sr-only">{t('line')}</h2>
       {layouts === null ? null : (
         <>
+          <p className="sr-only lg:hidden">{layouts.text}</p>
           <p
-            ref={row}
-            className="overflow-x-auto text-sm whitespace-nowrap text-fg-muted tabular-nums lg:hidden"
+            aria-hidden="true"
+            className="text-sm leading-relaxed text-fg-muted tabular-nums lg:hidden"
           >
-            {layouts.text}
+            {layouts.phone}
           </p>
           {/* On a portrait tablet (`tall:`) the panel is board-wide under
               the board: fixed move columns keep the list compact. */}
-          <ol className="hidden grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 tabular-nums lg:grid tall:grid-cols-[auto_8rem_8rem] tall:justify-start">
+          <ol className="hidden gap-x-4 gap-y-1 tabular-nums lg:grid lg:grid-cols-[2.5rem_5rem_5rem] tall:grid-cols-[auto_8rem_8rem] tall:justify-start">
             {layouts.rows.map(({ number, white, black }) => (
               <li key={number} className="col-span-3 grid grid-cols-subgrid">
                 <span className="text-fg-muted">{number}</span>
