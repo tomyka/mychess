@@ -160,7 +160,8 @@ async function lineSans(d: Drill): Promise<string[]> {
 
 /**
  * The repertoire of the item asked (R-224): the title of a scoped session,
- * else the context line under the session's name, without its side and
+ * else the context line under the session's name (the whole line kept for
+ * screen readers, the one `p` after the title), without its side and
  * chapter.
  */
 export async function itemRepertoire(

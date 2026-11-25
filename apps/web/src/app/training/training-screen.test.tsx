@@ -189,9 +189,16 @@ describe('the training screen with nothing due', () => {
     renderScreen(data());
     const board = screen.getByRole('application', { hidden: true });
     const still = board.closest('[inert]');
-    expect(still?.className).toContain('max-lg:aspect-[5/2]');
-    expect(still?.className).toContain('max-lg:overflow-hidden');
-    expect(still?.className).not.toContain('max-lg:hidden');
+    const classes = still?.className.split(' ') ?? [];
+    // Two ranks of the eight, cut from the bottom: the player's own back
+    // ranks, the board inside kept square.
+    expect(classes).toContain('max-lg:aspect-[4/1]');
+    expect(classes).toContain('max-lg:overflow-hidden');
+    expect(classes).toContain('max-lg:flex');
+    expect(classes).toContain('max-lg:flex-col');
+    expect(classes).toContain('max-lg:justify-end');
+    expect(classes).toContain('max-lg:*:shrink-0');
+    expect(classes).not.toContain('max-lg:hidden');
   });
 });
 

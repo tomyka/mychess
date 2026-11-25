@@ -92,6 +92,14 @@
   color: var(--color-board-light);
 }
 
+/* Arrows and circles at their tokens' own colours: base.css draws the shapes
+   layer at 0.6 opacity, which left the Learn and lapse arrow see-through
+   and the marks below the contrast measured for them (docs/design/README.md,
+   Contrast). */
+.cg-wrap .cg-shapes {
+  opacity: 1;
+}
+
 /* A piece in the promotion choice (promotion-picker.tsx) fills its box
    instead of one eighth of a board. */
 .cg-wrap.promotion-piece piece {

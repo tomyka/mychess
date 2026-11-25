@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { MoveInput } from '../board/move-input';
 import { TONAL_BUTTON } from '../buttons';
+import { Icon } from '../line-icon';
 
 export interface MoveEntryProps {
   /** As `MoveInput`'s: whether the drill took the typed move. */
@@ -24,23 +25,9 @@ export interface MoveEntryProps {
   readonly children?: ReactNode;
 }
 
-function KeyboardIcon(): JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="6" width="18" height="12" rx="2" />
-      <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
-    </svg>
-  );
-}
+/** A keyboard: its rounded case, a row of keys and the space bar. */
+const KEYBOARD_ICON =
+  'M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM7 10h.01M11 10h.01M15 10h.01M7 14h10';
 
 /** The typed-move field with the buttons beside it, and Type on a phone. */
 export function MoveEntry({ onTyped, children }: MoveEntryProps): JSX.Element {
@@ -80,11 +67,12 @@ export function MoveEntry({ onTyped, children }: MoveEntryProps): JSX.Element {
           type="button"
           aria-expanded={open}
           onClick={() => {
-            setOpen(true);
+            if (open) close();
+            else setOpen(true);
           }}
           className={`${TONAL_BUTTON} gap-2 lg:hidden`}
         >
-          <KeyboardIcon />
+          <Icon path={KEYBOARD_ICON} />
           {t('type')}
         </button>
       </div>

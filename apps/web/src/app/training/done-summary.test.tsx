@@ -219,6 +219,6 @@ describe('primaryAction', () => {
     ).toBe('continue');
     expect(primaryAction({ reviewHref: '/r', learnHref: '/l' })).toBe('review');
     expect(primaryAction({ learnHref: '/l' })).toBe('learn');
-    expect(primaryAction({})).toBe('done');
+    expect(primaryAction({})).toBe('finish');
   });
 });

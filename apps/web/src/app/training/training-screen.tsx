@@ -71,6 +71,7 @@ function useHeaderWords(): HeaderWords {
     word: (key) => t(key),
     repertoire: (values) => t('context.repertoire', values),
     chapter: (values) => t('context.chapter', values),
+    side: (values) => t('context.side', values),
   };
 }
 

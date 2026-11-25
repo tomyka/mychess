@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, type JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { Icon } from '../line-icon';
 import { EMPTY_BOARD } from '../repertoire-view';
 import { CARD } from '../surfaces';
 import {
@@ -26,18 +27,10 @@ interface TrainingErrorProps {
 /** A circle with an exclamation mark, in the error colour; the words carry the meaning. */
 function ErrorIcon(): JSX.Element {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5 shrink-0 text-error"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v5M12 16h.01" />
-    </svg>
+    <Icon
+      path="M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v5M12 16h.01"
+      className="size-5 text-error"
+    />
   );
 }
 

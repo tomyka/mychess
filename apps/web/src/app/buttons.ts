@@ -35,6 +35,14 @@ export const HERO_PRIMARY_BUTTON = `${HERO_BUTTON} bg-surface text-accent`;
 export const HERO_SECONDARY_BUTTON = `${HERO_BUTTON} border border-accent-fg text-accent-fg`;
 
 /**
+ * The way back to the parent page (the shell's inner pages, the training
+ * screen): an icon-only 44px square, pulled left so the icon lines up with
+ * the page's edge rather than the button's.
+ */
+export const BACK_BUTTON =
+  '-ml-2 flex size-touch shrink-0 items-center justify-center rounded-control text-accent hover:bg-sunken';
+
+/**
  * A rare action kept out of the way, such as asking to unlink: underlined
  * muted text, still a 44px touch target, so it never outweighs the row's
  * main link (#329).

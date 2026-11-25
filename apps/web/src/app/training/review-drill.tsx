@@ -61,7 +61,7 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
       : replyText(state.shown);
   return (
     <div aria-live="polite" className="flex flex-col gap-1">
-      <ToMove color={drill.view.turnColor} />
+      <ToMove color={drill.toMove} />
       {reply === null ? null : (
         <p>{t('training.review.replied', { move: reply })}</p>
       )}
@@ -82,7 +82,7 @@ function ReviewPanel({ drill }: { readonly drill: Drill }): JSX.Element {
           it and Next count: the move field and Hint cannot be used, and on
           a portrait tablet they would push the note out of the panel. */}
       {drill.next === null ? (
-        <MoveRow input={drill} color={drill.view.turnColor}>
+        <MoveRow input={drill} color={drill.toMove}>
           <button
             type="button"
             onClick={drill.hint}
@@ -127,7 +127,7 @@ export function ReviewDrill({
   const drill = useReviewDrill(data, sync, clock);
   const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
-  const parts = { item: drill.item, progress: reviewProgress(state.session) };
+  const progress = reviewProgress(state.session);
   const board = (
     <Board
       view={drill.view}
@@ -137,8 +137,9 @@ export function ReviewDrill({
     />
   );
   if (state.session.current === null)
+    // Done names no item: it has no context line (training-screen.md).
     return frame({
-      ...parts,
+      progress,
       board,
       finished: true,
       panel: (
@@ -157,7 +158,8 @@ export function ReviewDrill({
       ),
     });
   return frame({
-    ...parts,
+    item: drill.item,
+    progress,
     board,
     panel: <ReviewPanel drill={drill} />,
     actions: (

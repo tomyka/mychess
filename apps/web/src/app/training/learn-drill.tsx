@@ -75,7 +75,7 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
   const prompt = promptOf(state);
   return (
     <div aria-live="polite" className="flex flex-col gap-1">
-      <ToMove color={drill.view.turnColor} />
+      <ToMove color={drill.toMove} />
       <StatusLine tone={TONES[prompt]} text={t(`training.learn.${prompt}`)} />
       {state.unknownTyped ? (
         <p className="text-error">{t('board.moveInput.unknown')}</p>
@@ -94,7 +94,7 @@ function LearnPanel({ drill }: { readonly drill: Drill }): JSX.Element {
     <>
       <Status drill={drill} />
       {drill.next === null ? (
-        <MoveRow input={drill} color={drill.view.turnColor} />
+        <MoveRow input={drill} color={drill.toMove} />
       ) : null}
       <DrillCoachNote notes={drill.notes} />
       <TwoAnswersNotice answers={drill.answers} />
@@ -125,7 +125,6 @@ export function LearnDrill({
   const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
   const counts = learnCounts(state);
-  const parts = { item: drill.item, progress: counts };
   const board = (
     <Board
       view={drill.view}
@@ -136,8 +135,9 @@ export function LearnDrill({
   );
   if (isDone(state)) {
     const standing = drill.standing();
+    // Done names no item: it has no context line (training-screen.md).
     return frame({
-      ...parts,
+      progress: counts,
       board,
       finished: true,
       panel: (
@@ -156,7 +156,8 @@ export function LearnDrill({
     });
   }
   return frame({
-    ...parts,
+    item: drill.item,
+    progress: counts,
     board,
     panel: <LearnPanel drill={drill} />,
     actions: (

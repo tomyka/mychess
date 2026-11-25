@@ -300,6 +300,9 @@ describe('the learn drill, arrows round', () => {
     expect(lastWith('fen')).toBe(fenOf(AFTER_E4));
     expect(arrows()).toEqual([]);
     expect(panel()).toContain(T.learn.wrong);
+    // The panel names the side asked, not the held board's (#381).
+    expect(panel()).toContain(T.drill.toMove.white);
+    expect(panel()).not.toContain(T.drill.toMove.black);
     type('d4');
     expect(panel()).not.toContain(T.learn.correct);
     wait(FEEDBACK_MS - 1);
@@ -410,6 +413,10 @@ describe('the learn drill’s done summary', () => {
     play('d4');
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
     expect(screen.getByRole('main').dataset['finished']).toBe('yes');
+    // No context line on Done (docs/design/training-screen.md).
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'no item' }),
+    ).toBeDefined();
     expect(screen.getByText(/^1 learned · 0 due · 1 to learn/)).toBeDefined();
     expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
     expect(screen.queryByRole('link', { name: T.done.learn })).toBeNull();

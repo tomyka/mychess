@@ -34,22 +34,53 @@ export interface HeaderWords {
     readonly item: string;
     readonly chapter: string;
   }) => string;
+  /** `training.context.side`: the side as shown after the repertoire's name. */
+  readonly side: (values: { readonly side: string }) => string;
+}
+
+/**
+ * The context line, whole for screen readers and in parts for the eye, so
+ * the name and the chapter can each be cut short and the side never is.
+ */
+export interface HeaderContext {
+  /** The whole line, read once by a screen reader. */
+  readonly text: string;
+  /** The repertoire's name; null in a scoped session, whose title names it. */
+  readonly name: string | null;
+  /** The side: after a name in its pattern, else the word alone. */
+  readonly side: string;
+  /** The chapter's title; null when the entry has none for it. */
+  readonly chapter: string | null;
 }
 
 export interface SessionHeader {
   readonly title: string;
   /** The item's repertoire, side and chapter; null without an item. */
-  readonly context: string | null;
+  readonly context: HeaderContext | null;
 }
 
-/** The item's repertoire with its side, or the side alone when the title names it. */
-function repertoireOf(
+/** The context line's parts: the name only when the title does not give it. */
+function partsOf(
   item: HeaderItem,
   scoped: boolean,
   words: HeaderWords,
-): string {
+): Omit<HeaderContext, 'text'> {
   const side = words.word(`side.${item.side}`);
-  return scoped ? side : words.repertoire({ name: item.name, side });
+  const { chapter } = item;
+  if (scoped) return { name: null, side, chapter };
+  return { name: item.name, side: words.side({ side }), chapter };
+}
+
+/** The item's repertoire with its side, or the side alone when the title names it, then the chapter. */
+function textOf(item: HeaderItem, scoped: boolean, words: HeaderWords): string {
+  const side = words.word(`side.${item.side}`);
+  const repertoire = scoped
+    ? side
+    : words.repertoire({ name: item.name, side });
+  const { chapter } = item;
+  return chapter === null
+    ? repertoire
+    : words.chapter({ item: repertoire, chapter });
 }
 
 /**
@@ -62,11 +93,12 @@ export function sessionHeader(
 ): SessionHeader {
   const title = scopedName ?? words.word(`title.${mode}`);
   if (item === undefined) return { title, context: null };
-  const repertoire = repertoireOf(item, scopedName !== null, words);
-  const { chapter } = item;
-  const context =
-    chapter === null || chapter === ''
-      ? repertoire
-      : words.chapter({ item: repertoire, chapter });
-  return { title, context };
+  const scoped = scopedName !== null;
+  return {
+    title,
+    context: {
+      text: textOf(item, scoped, words),
+      ...partsOf(item, scoped, words),
+    },
+  };
 }

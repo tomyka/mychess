@@ -196,7 +196,7 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `border` (bar track) on `bg` / `surface` (2026-11-25) | 1.4 / 1.5 | 1.7 / 1.5 |
 | `skipped` on `border`; on `learned` (2026-10-27; bar segments, the counts carry the meaning) | 1.8; 2.6 | 2.1; 2.4 |
 | `board-focus` on light / dark square (2026-11-25; static, both themes; dark-theme squares `#d7c2a0` / `#946f4f`) | 11.2 / 4.9 | 8.9 / 3.4 |
-| `board-mark-green` / `-red` / `-blue` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`) | 4.1 / 6.7 / 8.6 | 3.2 / 5.3 / 6.8 |
+| `board-mark-green` / `-red` / `-blue` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`; drawn at full opacity since 2026-11-26, board.css lifting chessground's 0.6 on the shapes layer, #381) | 4.1 / 6.7 / 8.6 | 3.2 / 5.3 / 6.8 |
 | `board-mark-yellow` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`) | 1.8 | 1.5 |
 | `piece-outline` on `bg` (king glyph, 2026-10-18) | 19.0 | 15.5 |
 | `board-badge-glyph` on `board-badge-correct` / `-wrong` (2026-11-26, owner choice D, #381; static, both themes; graphic, 3:1) | 3.9 / 3.9 | 3.9 / 3.9 |

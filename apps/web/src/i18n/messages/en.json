@@ -635,7 +635,9 @@
     },
     "context": {
       "repertoire": "{name} ({side})",
-      "chapter": "{item} · {chapter}"
+      "chapter": "{item} · {chapter}",
+      "side": "({side})",
+      "separator": "·"
     },
     "back": "Back",
     "counter": "{done} / {total}",

@@ -313,6 +313,9 @@ describe('the review drill', () => {
     expect(arrows()).toEqual([]);
     expect(marked()?.get('e4')).toContain('wrong');
     expect(lastWith('fen')).toBe(fenOf(AFTER_E4));
+    // The panel names the side asked, not the held board's (#381).
+    expect(panel()).toContain(T.drill.toMove.white);
+    expect(panel()).not.toContain(T.drill.toMove.black);
     type('d4');
     expect(panel()).not.toContain(T.review.correct);
     wait(FEEDBACK_MS - 1);
@@ -493,6 +496,10 @@ describe('the review drill', () => {
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
     expect(screen.getByRole('main').dataset['finished']).toBe('yes');
     expect(counter()).toBe('2 / 2');
+    // No context line on Done (docs/design/training-screen.md).
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'no item' }),
+    ).toBeDefined();
     const left = new Set(playerKeys(london)).size - 2;
     // Both passes moved their Reviews out of today: none is due.
     expect(

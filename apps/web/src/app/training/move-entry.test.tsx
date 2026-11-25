@@ -39,6 +39,18 @@ describe('MoveEntry', () => {
     expect(document.activeElement).toBe(field());
   });
 
+  it('closes the open field from Type again, the focus staying on Type', () => {
+    renderEntry(() => true);
+    fireEvent.click(toggle());
+    toggle().focus();
+    fireEvent.click(toggle());
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle());
+    fireEvent.click(toggle());
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(field());
+  });
+
   it('keeps the field mounted while closed, hidden only below lg', () => {
     renderEntry(() => true);
     const row = field().closest('form')?.parentElement;

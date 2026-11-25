@@ -184,8 +184,10 @@
    * so they are plain colours, the same in both themes. They are the colours
    * players know from lichess and PGN. An arrow always crosses light squares:
    * green, red and blue reach 3:1 there; yellow and most dark-square pairs do
-   * not. The marks are supplementary: the panel repeats them as text for
-   * screen readers (docs/design/repertoire-screen.md, Board styling).
+   * not (measured at full opacity: board.css lifts chessground's 0.6 on the
+   * shapes layer). The marks are supplementary: the panel repeats them as
+   * text for screen readers (docs/design/repertoire-screen.md, Board
+   * styling).
    */
   --color-board-mark-green: #15781b;
   --color-board-mark-red: #882020;

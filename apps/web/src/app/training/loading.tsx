@@ -8,7 +8,9 @@ import {
   FRAME_HEAD,
   FRAME_MAIN,
   FRAME_PANEL,
+  FRAME_TITLE,
   FRAME_TOP,
+  FRAME_TRACK,
 } from './frame-classes';
 
 // The training page while it loads (docs/design/training-screen.md,
@@ -20,14 +22,23 @@ export default function TrainingLoading(): JSX.Element {
   return (
     <main aria-busy="true" className={FRAME_MAIN}>
       <div aria-hidden="true" className={FRAME_CARD} />
+      {/* The drill's header in its geometry: the back button's square, the
+          title and context lines at their line heights, the counter, and
+          Today's track, so the board does not move when the drill comes. */}
       <div className={FRAME_HEAD}>
         <div className={FRAME_TOP}>
-          <div className="flex min-h-touch min-w-touch items-center">
-            <div className={`${SKELETON_LINE} w-5`} />
+          <div className="-ml-2 flex size-touch shrink-0 items-center justify-center">
+            <div className={`${SKELETON_LINE} w-6`} />
           </div>
-          <div className={`${SKELETON_LINE} w-40 flex-1 lg:flex-none`} />
+          <div className={FRAME_TITLE}>
+            <div className="flex h-7 items-center">
+              <div className={`${SKELETON_LINE} w-40`} />
+            </div>
+            <div className={`${SKELETON_LINE} w-56 max-w-full`} />
+          </div>
           <div className={`${SKELETON_LINE} w-12`} />
         </div>
+        <div className={FRAME_TRACK} />
       </div>
       <div
         aria-hidden="true"

@@ -4,6 +4,12 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { TrainingData } from '../../lib/training-data';
+import {
+  FRAME_HEAD,
+  FRAME_TITLE,
+  FRAME_TOP,
+  FRAME_TRACK,
+} from './frame-classes';
 import TrainingLoading from './loading';
 import TrainingNotFound from './not-found';
 import TrainingPage from './page';
@@ -150,6 +156,19 @@ describe('the training page while it loads', () => {
     renderIn(<TrainingLoading />);
     expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
     expect(screen.queryByRole('application')).toBeNull();
+  });
+
+  it('keeps the drill’s header geometry, so the board does not move when it arrives (#381)', () => {
+    const { container } = renderIn(<TrainingLoading />);
+    const head = container.querySelector('main > div:nth-child(2)');
+    expect(head?.className).toBe(FRAME_HEAD);
+    // The top bar's back, title and context lines, and counter.
+    const top = head?.firstElementChild;
+    expect(top?.className).toBe(FRAME_TOP);
+    const title = top?.querySelector(`[class="${FRAME_TITLE}"]`);
+    expect(title?.children).toHaveLength(2);
+    // Today's track under it, with its gap above the board on a phone.
+    expect(top?.nextElementSibling?.className).toBe(FRAME_TRACK);
   });
 
   it('says it is loading only after about a second', () => {

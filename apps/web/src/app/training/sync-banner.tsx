@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { SECONDARY_BUTTON } from '../buttons';
+import { Icon } from '../line-icon';
 
 /**
  * R-60: results not saved yet. The drill goes on while the queue retries in
@@ -30,18 +31,10 @@ export function SyncBanner({
       }
     >
       {waiting ? (
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="size-5 shrink-0 text-fg-muted"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2" />
-        </svg>
+        <Icon
+          path="M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2"
+          className="size-5 text-fg-muted"
+        />
       ) : null}
       <p role="status" className="min-w-0 flex-1 text-sm">
         {waiting ? t('unsynced', { count: unsynced }) : ''}

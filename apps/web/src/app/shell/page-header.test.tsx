@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
+import { BACK_BUTTON } from '../buttons';
 import { PageHeader } from './page-header';
 import { ShellProvider } from './shell-context';
 
@@ -17,11 +18,10 @@ describe('PageHeader', () => {
         />
       </NextIntlClientProvider>,
     );
-    expect(
-      screen
-        .getByRole('link', { name: 'Back to Repertoires' })
-        .getAttribute('href'),
-    ).toBe('/repertoires');
+    const back = screen.getByRole('link', { name: 'Back to Repertoires' });
+    expect(back.getAttribute('href')).toBe('/repertoires');
+    // The same back button as the training screen's (#381).
+    expect(back.className).toBe(BACK_BUTTON);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       'Import PGN',
     );

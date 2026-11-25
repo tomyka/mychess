@@ -3,6 +3,8 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
+import { BACK_BUTTON } from '../buttons';
+import { BACK_ICON, Icon } from '../line-icon';
 import { PhoneAccountMenu } from './account-menu';
 
 /** An inner page's parent: where its way back leads, and its name. */
@@ -37,18 +39,9 @@ export function PageHeader({
           <Link
             href={back.href}
             aria-label={t('back', { parent: back.parent })}
-            className="-ml-2 flex size-touch shrink-0 items-center justify-center rounded-control text-accent hover:bg-sunken"
+            className={BACK_BUTTON}
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="size-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
+            <Icon path={BACK_ICON} className="size-6" />
           </Link>
         )}
         <h1

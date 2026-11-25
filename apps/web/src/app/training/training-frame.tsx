@@ -6,6 +6,8 @@ import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
 import { Board } from '../board/board';
 import type { BoardView } from '../board/board-config';
+import { BACK_BUTTON } from '../buttons';
+import { BACK_ICON, Icon } from '../line-icon';
 import type { FrameParts } from './drill';
 import {
   FRAME_ACTIONS,
@@ -14,8 +16,11 @@ import {
   FRAME_HEAD,
   FRAME_MAIN,
   FRAME_PANEL,
+  FRAME_TITLE,
   FRAME_TOP,
+  FRAME_TRACK,
 } from './frame-classes';
+import type { HeaderContext } from './session-header';
 
 /** The start position, for a screen with nothing to drill. */
 const stillView = (side: Side): BoardView => ({
@@ -58,26 +63,13 @@ function BackButton({
   readonly label: string;
 }): JSX.Element {
   return (
-    <Link
-      href={href}
-      aria-label={label}
-      className="inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-control text-accent hover:bg-accent-subtle"
-    >
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        className="size-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M15 6l-6 6 6 6" />
-      </svg>
+    <Link href={href} aria-label={label} className={BACK_BUTTON}>
+      <Icon path={BACK_ICON} className="size-6" />
     </Link>
   );
 }
 
-/** Today's track: 6px, rounded, with gutters on a phone. */
+/** Today's track (FRAME_TRACK), filled to the session's share done. */
 function ProgressBar({
   done,
   total,
@@ -87,10 +79,7 @@ function ProgressBar({
 }): JSX.Element {
   const share = total === 0 ? 0 : Math.min(1, done / total);
   return (
-    <div
-      aria-hidden="true"
-      className="mx-gutter h-1.5 overflow-hidden rounded-pill bg-border lg:mx-0"
-    >
+    <div aria-hidden="true" className={FRAME_TRACK}>
       <div
         className="h-full rounded-pill bg-accent"
         style={{ width: `${String(share * 100)}%` }}
@@ -99,10 +88,42 @@ function ProgressBar({
   );
 }
 
+/**
+ * The item under the title (R-224): read whole, once, by a screen reader;
+ * shown in parts on one line, the name and the chapter each cut short and
+ * the side never, so all three stay in view.
+ */
+function ContextLine({
+  context,
+}: {
+  readonly context: HeaderContext;
+}): JSX.Element {
+  const t = useTranslations('training.context');
+  const { name, side, chapter } = context;
+  return (
+    <>
+      <p className="sr-only">{context.text}</p>
+      <div
+        aria-hidden="true"
+        className="flex min-w-0 gap-1 text-sm whitespace-nowrap text-fg-muted"
+      >
+        {name === null ? null : <span className="truncate">{name}</span>}
+        <span className="shrink-0">{side}</span>
+        {chapter === null ? null : (
+          <>
+            <span className="shrink-0">{t('separator')}</span>
+            <span className="truncate">{chapter}</span>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 interface TopBarProps {
   readonly backHref: string;
   readonly title: string;
-  readonly context: string | null;
+  readonly context: HeaderContext | null;
   readonly progress: FrameParts['progress'];
 }
 
@@ -118,11 +139,9 @@ function TopBar({
     <div className={FRAME_HEAD}>
       <header className={FRAME_TOP}>
         <BackButton href={backHref} label={t('back')} />
-        <div className="min-w-0 flex-1">
+        <div className={FRAME_TITLE}>
           <h1 className="truncate text-lg font-semibold lg:text-xl">{title}</h1>
-          {context === null ? null : (
-            <p className="truncate text-sm text-fg-muted">{context}</p>
-          )}
+          {context === null ? null : <ContextLine context={context} />}
         </div>
         {progress === undefined ? null : (
           <p className="shrink-0 text-base font-semibold tabular-nums">
@@ -140,7 +159,7 @@ export interface TrainingFrameProps extends FrameParts {
   /** The session's name (R-224). */
   readonly title: string;
   /** Under the title: the item's repertoire, side and chapter, if any (R-224). */
-  readonly context: string | null;
+  readonly context: HeaderContext | null;
   /** The side the still board is seen from. */
   readonly side: Side;
   /** The sync banner, at the top of the panel (R-60). */
@@ -148,15 +167,22 @@ export interface TrainingFrameProps extends FrameParts {
 }
 
 /**
+ * On a phone, an empty state's board as a strip of its bottom two ranks
+ * (the player's own back ranks, the side it is seen from): the board inside
+ * stays square, does not shrink, and is pushed to the strip's bottom, its
+ * top clipped, not squashed.
+ */
+const STRIP =
+  'max-lg:aspect-[4/1] max-lg:overflow-hidden max-lg:flex max-lg:flex-col max-lg:justify-end max-lg:*:shrink-0';
+
+/**
  * Is the board only shown, not played on? Then it is dimmed; on a phone the
  * done summary hides it, and an empty state crops it to a strip so its card
- * is in view (the board inside stays square and is clipped, not squashed).
+ * is in view.
  */
 const boardClass = (live: boolean, finished: boolean): string => {
   if (live) return FRAME_BOARD;
-  const still = finished
-    ? 'max-lg:hidden'
-    : 'max-lg:aspect-[5/2] max-lg:overflow-hidden';
+  const still = finished ? 'max-lg:hidden' : STRIP;
   return `${FRAME_BOARD} opacity-60 ${still}`;
 };
 

@@ -72,7 +72,10 @@ interface DrillInput extends MoveInput {
 }
 
 export interface ReviewDrill
-  extends DrillInput, DrillNotices, Pick<DrillBoard, 'view' | 'item'> {
+  extends
+    DrillInput,
+    DrillNotices,
+    Pick<DrillBoard, 'view' | 'item' | 'toMove'> {
   readonly state: DrillState;
   /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
   readonly canContinue: boolean;
@@ -300,7 +303,7 @@ export function useReviewDrill(
   );
   const held = hasNotices(notices);
   const next = useDrillTimers({ state, setState, repertoires, held, clock });
-  const { view, legal, item } = useDrillBoard({
+  const { view, legal, item, toMove } = useDrillBoard({
     data,
     state,
     setState,
@@ -323,6 +326,7 @@ export function useReviewDrill(
     state,
     view,
     item,
+    toMove,
     learnable,
     ...notices,
     // Only a right answer held by what it shows waits for the button;

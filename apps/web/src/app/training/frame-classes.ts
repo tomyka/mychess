@@ -44,6 +44,16 @@ export const FRAME_BOARD = `shrink-0 sm:mx-auto sm:w-[min(100%,calc(100dvh-3.75r
 export const FRAME_TOP =
   'flex min-h-14 items-center gap-2 px-gutter lg:min-h-0 lg:px-0';
 
+/** The top bar's middle: the title and the context line under it. */
+export const FRAME_TITLE = 'min-w-0 flex-1';
+
+/**
+ * Today's track under the top bar: 6px, rounded, with gutters on a phone,
+ * and a small gap under it there so it does not sit on the board.
+ */
+export const FRAME_TRACK =
+  'mx-gutter h-1.5 overflow-hidden rounded-pill bg-border max-lg:mb-2 lg:mx-0';
+
 /** With no bottom bar, its margin and the empty row's gap make the card's padding. */
 export const FRAME_PANEL =
   'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:col-start-2 lg:row-start-2 lg:mx-4 lg:mb-1 lg:min-w-0 lg:px-0 lg:py-0 tall:col-start-1 tall:row-start-3 tall:mt-4';

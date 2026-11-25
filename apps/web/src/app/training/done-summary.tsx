@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, type JSX } from 'react';
 import { PRIMARY_BUTTON, QUIET_ACTION, TONAL_BUTTON } from '../buttons';
+import { Icon, TICK_ICON } from '../line-icon';
 import { CARD } from '../surfaces';
 import { useReviewTime } from './review-time';
 import type { DayStanding, TrainingProgress } from '@mychess/chess';
@@ -125,8 +126,11 @@ function Standing({
   );
 }
 
-/** The Done state's next steps, the first that applies taking the main button. */
-export type DoneStep = 'continue' | 'review' | 'learn' | 'done';
+/**
+ * The Done state's next steps, the first that applies taking the main
+ * button; `finish` is the Done button, back to where the player came from.
+ */
+export type DoneStep = 'continue' | 'review' | 'learn' | 'finish';
 
 /** The one main next step: Continue, else Start review, else Learn new moves, else Done. */
 export function primaryAction(
@@ -135,7 +139,7 @@ export function primaryAction(
   if (p.onContinue !== undefined) return 'continue';
   if (p.reviewHref !== undefined) return 'review';
   if (p.learnHref !== undefined) return 'learn';
-  return 'done';
+  return 'finish';
 }
 
 /**
@@ -145,7 +149,7 @@ export function primaryAction(
 function stepClass(step: DoneStep, primary: DoneStep): string {
   if (step === primary)
     return `${PRIMARY_BUTTON} grow basis-full lg:basis-auto`;
-  return step === 'done' ? QUIET_ACTION : `${TONAL_BUTTON} grow`;
+  return step === 'finish' ? QUIET_ACTION : `${TONAL_BUTTON} grow`;
 }
 
 /**
@@ -178,7 +182,7 @@ export function DoneActions(props: DoneActionsProps): JSX.Element {
           {t('learn')}
         </Link>
       )}
-      <Link href={doneHref} className={stepClass('done', primary)}>
+      <Link href={doneHref} className={stepClass('finish', primary)}>
         {t('done')}
       </Link>
     </>
@@ -217,17 +221,7 @@ export function DoneSummary({
         aria-hidden="true"
         className="mx-auto flex size-12 items-center justify-center rounded-full bg-success-subtle text-success"
       >
-        <svg
-          viewBox="0 0 24 24"
-          className="size-6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 12l5 5 9-10" />
-        </svg>
+        <Icon path={TICK_ICON} className="size-6" strokeWidth={3} />
       </span>
       <h2
         id="training-done"

@@ -57,6 +57,10 @@ function markedOf(p: DrillPosition): Map<Key, string> {
 
 const NO_DESTS: ReadonlyMap<Key, readonly Key[]> = new Map();
 
+/** The side to move in the position `key`, in the board's words. */
+const colorToMove = (key: string): BoardView['turnColor'] =>
+  sideToMove(key) === 'w' ? 'white' : 'black';
+
 /**
  * `p` as the board shows it: a wrong move held for its flash in place of
  * the asked position, with no arrow, hint or move taken (#381, R-59).
@@ -87,7 +91,7 @@ export function drillBoard(
   return {
     fen: fenOf(p.key),
     orientation: side,
-    turnColor: sideToMove(p.key) === 'w' ? 'white' : 'black',
+    turnColor: colorToMove(p.key),
     check: inCheck(p.key),
     lastMove: p.last === undefined ? [] : squaresOf(p.last),
     dests: p.playable ? destsOf(legal) : NO_DESTS,
@@ -143,6 +147,11 @@ export interface DrillBoard {
   readonly legal: readonly BoardMove[];
   /** The item drilled, for the header's context line (R-224). */
   readonly item: HeaderItem | undefined;
+  /**
+   * The side asked to move: the asked position's, also while a wrong move
+   * is held on the board (#381).
+   */
+  readonly toMove: BoardView['turnColor'];
 }
 
 /** Ends each flash after its time, unless a newer one took its place. */
@@ -177,5 +186,10 @@ export function useDrillBoard<S extends Flashing>(
     [position, side, legal],
   );
   useUnflash(state.flash, source.setState);
-  return { view, legal, item: itemOf(entry, source.chapterOf(state)) };
+  return {
+    view,
+    legal,
+    item: itemOf(entry, source.chapterOf(state)),
+    toMove: colorToMove(key),
+  };
 }

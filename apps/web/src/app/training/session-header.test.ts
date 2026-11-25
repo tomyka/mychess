@@ -13,6 +13,7 @@ const words: HeaderWords = {
   word: (key) => t(key),
   repertoire: (values) => t('context.repertoire', values),
   chapter: (values) => t('context.chapter', values),
+  side: (values) => t('context.side', values),
 };
 const CARO = {
   name: 'Caro-Kann',
@@ -21,12 +22,17 @@ const CARO = {
 };
 
 describe('sessionHeader (R-224)', () => {
-  it('titles a session over every repertoire by its name, the item under it', () => {
+  it('titles a session over every repertoire by its name, the item under it in parts', () => {
     expect(
       sessionHeader({ mode: 'review', scopedName: null, item: CARO }, words),
     ).toEqual({
       title: "Today's review",
-      context: 'Caro-Kann (Black) · Main line',
+      context: {
+        text: 'Caro-Kann (Black) · Main line',
+        name: 'Caro-Kann',
+        side: '(Black)',
+        chapter: 'Main line',
+      },
     });
     expect(
       sessionHeader({ mode: 'learn', scopedName: null, item: CARO }, words)
@@ -40,7 +46,15 @@ describe('sessionHeader (R-224)', () => {
         { mode: 'review', scopedName: 'Caro-Kann', item: CARO },
         words,
       ),
-    ).toEqual({ title: 'Caro-Kann', context: 'Black · Main line' });
+    ).toEqual({
+      title: 'Caro-Kann',
+      context: {
+        text: 'Black · Main line',
+        name: null,
+        side: 'Black',
+        chapter: 'Main line',
+      },
+    });
   });
 
   it('has no context line without an item, and leaves out a missing chapter', () => {
@@ -59,7 +73,12 @@ describe('sessionHeader (R-224)', () => {
         },
         words,
       ).context,
-    ).toBe('Caro-Kann (Black)');
+    ).toEqual({
+      text: 'Caro-Kann (Black)',
+      name: 'Caro-Kann',
+      side: '(Black)',
+      chapter: null,
+    });
   });
 
   it('names the side in its own words for a white item', () => {
@@ -72,6 +91,9 @@ describe('sessionHeader (R-224)', () => {
         },
         words,
       ),
-    ).toEqual({ title: 'London', context: 'White' });
+    ).toEqual({
+      title: 'London',
+      context: { text: 'White', name: null, side: 'White', chapter: null },
+    });
   });
 });

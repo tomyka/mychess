@@ -12,6 +12,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useLayoutEffect, useRef, type JSX, type ReactNode } from 'react';
 import { PromotionPicker } from '../board/promotion-picker';
+import { Icon, TICK_ICON } from '../line-icon';
 import type { MoveInput as DrillMoveInput } from './drill-input';
 import { MoveEntry } from './move-entry';
 import { phoneLine } from './phone-line';
@@ -51,7 +52,7 @@ const STATUS_CLASS: Record<StatusTone, string> = {
 /** Each result's icon: a tick, a cross, an exclamation mark. */
 const ICON: Record<StatusTone, string | null> = {
   prompt: null,
-  success: 'M5 12l5 5 9-10',
+  success: TICK_ICON,
   error: 'M6 6l12 12M18 6L6 18',
   due: 'M12 8v5M12 16h.01',
 };
@@ -67,20 +68,7 @@ export function StatusLine({
   const path = ICON[tone];
   return (
     <p className={STATUS_CLASS[tone]}>
-      {path === null ? null : (
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="size-5 shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d={path} />
-        </svg>
-      )}
+      {path === null ? null : <Icon path={path} strokeWidth={2.5} />}
       {text}
     </p>
   );
