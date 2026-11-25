@@ -143,6 +143,6 @@ export type {
   DayStanding,
 } from './training-day';
 export { todayRows } from './today-rows';
-export type { TodayRow } from './today-rows';
+export type { TodayAction, TodayRow } from './today-rows';
 export { learnAgainKeys, twoAnswers } from './answers';
 export type { OtherAnswer } from './answers';

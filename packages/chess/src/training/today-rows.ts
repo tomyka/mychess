@@ -10,6 +10,9 @@ import type { TrackedReview } from './move-state';
 import type { TrainingRepertoire } from './scope';
 import { dueByRepertoire, learnStart, type TrainingDay } from './training-day';
 
+/** What a row's button starts: due moves before new ones, or nothing. */
+export type TodayAction = 'review' | 'learn' | null;
+
 /** One repertoire as Today lists it. */
 export interface TodayRow {
   readonly repertoireId: string;
@@ -17,11 +20,15 @@ export interface TodayRow {
   readonly due: number;
   /** Whether a learn session of it alone would start (R-146 allowance left). */
   readonly canLearn: boolean;
+  /** Review when moves are due, else learn when it can, else nothing. */
+  readonly action: TodayAction;
   /** Its moves' R-151 states and whether it is mastered. */
   readonly standing: Standing;
 }
 
 /** The day's Reviews with how each entered training (`known`: "I know this"). */
+// The snapshot keeps "I know this" as its own key set so the browser's
+// training payload (plain ReviewStates) does not carry it; joined here.
 const trackedOf = (
   reviews: TrainingDay['reviews'],
   known: ReadonlySet<string>,
@@ -45,6 +52,28 @@ const canLearn = (day: TrainingDay, repertoire: TrainingRepertoire): boolean =>
     limits: day.limits,
   }).kind === 'drill';
 
+const actionOf = (due: number, learn: boolean): TodayAction => {
+  if (due > 0) return 'review';
+  return learn ? 'learn' : null;
+};
+
+/** A row of `repertoire` with `due` Reviews due now. */
+function rowOf(
+  day: TrainingDay,
+  repertoire: TrainingRepertoire,
+  due: number,
+  standing: Standing,
+): TodayRow {
+  const learn = canLearn(day, repertoire);
+  return {
+    repertoireId: repertoire.id,
+    due,
+    canLearn: learn,
+    action: actionOf(due, learn),
+    standing,
+  };
+}
+
 /**
  * Today's rows at `now`. `known` holds the keys whose Review entered
  * training by "I know this" (R-58), so skipped moves count as skipped.
@@ -62,10 +91,12 @@ export function todayRows(
   // The sort is stable: rows of equal rank keep the learn order.
   return [...day.repertoires]
     .sort((a, b) => rankOf(a.id) - rankOf(b.id))
-    .map((repertoire) => ({
-      repertoireId: repertoire.id,
-      due: dueOf.get(repertoire.id) ?? 0,
-      canLearn: canLearn(day, repertoire),
-      standing: repertoireStanding(repertoire.graph, tracked, now),
-    }));
+    .map((repertoire) =>
+      rowOf(
+        day,
+        repertoire,
+        dueOf.get(repertoire.id) ?? 0,
+        repertoireStanding(repertoire.graph, tracked, now),
+      ),
+    );
 }
