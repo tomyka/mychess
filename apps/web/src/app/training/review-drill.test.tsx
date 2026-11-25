@@ -505,11 +505,11 @@ describe('the review drill', () => {
       screen.getByRole('link', { name: T.done.learn }).getAttribute('href'),
     ).toBe('/training?mode=learn');
     expect(screen.queryByRole('link', { name: T.drill.end })).toBeNull();
-    // The ways on sit in the bottom bar, Done first.
+    // The ways on sit in the bottom bar, the next step first, Done last.
     const bar = screen.getByRole('main').querySelector('footer');
     expect(
       Array.from(bar?.querySelectorAll('a') ?? [], (a) => a.textContent),
-    ).toEqual([T.done.done, T.done.learn]);
+    ).toEqual([T.done.learn, T.done.done]);
   });
 
   it('asks a lapsed move again at the end of the session, repeats on top of the count, until today is done (#319, R-78, R-223)', () => {
@@ -546,7 +546,7 @@ describe('the review drill', () => {
     const stat = (label: string) =>
       screen.getByText(label).parentElement?.querySelector('dd')?.textContent;
     expect(stat(T.done.reviewed)).toBe('2');
-    expect(stat(T.done.correct)).toBe('1');
+    expect(stat(T.done.firstTry)).toBe('1');
     expect(stat(T.done.lapses)).toBe('1');
     expect(counter()).toBe('2 / 2');
   });

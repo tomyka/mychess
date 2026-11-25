@@ -3,7 +3,8 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, type JSX } from 'react';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { PRIMARY_BUTTON, QUIET_ACTION, TONAL_BUTTON } from '../buttons';
+import { CARD } from '../surfaces';
 import { useReviewTime } from './review-time';
 import type { DayStanding, TrainingProgress } from '@mychess/chess';
 
@@ -57,11 +58,14 @@ const segment = (part: number, whole: number): string =>
 
 /**
  * Where the day stands (#319): the moves still due, else today's review
- * done or not, and when the next review is.
+ * done or not (said only after a review, never after a learn pass), and
+ * when the next review is.
  */
 function DayLine({
+  kind,
   standing,
 }: {
+  readonly kind: SessionCounts['kind'];
   readonly standing: DayStanding;
 }): JSX.Element {
   const t = useTranslations('training.done');
@@ -75,7 +79,7 @@ function DayLine({
   const { next } = standing;
   return (
     <div className="flex flex-col gap-1 text-center">
-      {standing.kind === 'dayDone' ? (
+      {kind === 'review' && standing.kind === 'dayDone' ? (
         <p className="font-medium">{t('dayDone')}</p>
       ) : null}
       {next === null ? null : (
@@ -90,9 +94,11 @@ function DayLine({
  * bar of learned, due and to-learn moves with the same counts in words.
  */
 function Standing({
+  kind,
   progress,
   standing,
 }: {
+  readonly kind: SessionCounts['kind'];
   readonly progress: TrainingProgress;
   readonly standing: DayStanding;
 }): JSX.Element {
@@ -101,7 +107,7 @@ function Standing({
   const whole = reviewed + toLearn;
   return (
     <div className="flex flex-col gap-3">
-      <DayLine standing={standing} />
+      <DayLine kind={kind} standing={standing} />
       <div
         aria-hidden="true"
         className="flex h-2 overflow-hidden rounded-pill bg-border"
@@ -119,42 +125,62 @@ function Standing({
   );
 }
 
+/** The Done state's next steps, the first that applies taking the main button. */
+export type DoneStep = 'continue' | 'review' | 'learn' | 'done';
+
+/** The one main next step: Continue, else Start review, else Learn new moves, else Done. */
+export function primaryAction(
+  p: Pick<DoneActionsProps, 'onContinue' | 'learnHref' | 'reviewHref'>,
+): DoneStep {
+  if (p.onContinue !== undefined) return 'continue';
+  if (p.reviewHref !== undefined) return 'review';
+  if (p.learnHref !== undefined) return 'learn';
+  return 'done';
+}
+
 /**
- * The Done state's ways on, for the frame's bottom bar: Done first, the new
- * moves last as in the design, and Continue, when offered, between them.
- * Each grows to share the bar; long labels wrap to a second row.
+ * A step's look: the main one full width on a phone (the rest wrap under
+ * it), any other next step tonal, Done quiet beside them.
  */
-export function DoneActions({
-  onContinue,
-  learnHref,
-  reviewHref,
-  doneHref,
-}: DoneActionsProps): JSX.Element {
+function stepClass(step: DoneStep, primary: DoneStep): string {
+  if (step === primary)
+    return `${PRIMARY_BUTTON} grow basis-full lg:basis-auto`;
+  return step === 'done' ? QUIET_ACTION : `${TONAL_BUTTON} grow`;
+}
+
+/**
+ * The Done state's ways on, for the frame's bottom bar: the steps offered in
+ * the order Continue, Start review, Learn new moves, the first of them the
+ * main button, then Done.
+ */
+export function DoneActions(props: DoneActionsProps): JSX.Element {
+  const { onContinue, learnHref, reviewHref, doneHref } = props;
   const t = useTranslations('training.done');
+  const primary = primaryAction(props);
   return (
     <>
-      <Link href={doneHref} className={`${SECONDARY_BUTTON} grow`}>
-        {t('done')}
-      </Link>
-      {reviewHref === undefined ? null : (
-        <Link href={reviewHref} className={`${PRIMARY_BUTTON} grow`}>
-          {t('review')}
-        </Link>
-      )}
       {onContinue === undefined ? null : (
         <button
           type="button"
           onClick={onContinue}
-          className={`${PRIMARY_BUTTON} grow`}
+          className={stepClass('continue', primary)}
         >
           {t('continue')}
         </button>
       )}
+      {reviewHref === undefined ? null : (
+        <Link href={reviewHref} className={stepClass('review', primary)}>
+          {t('review')}
+        </Link>
+      )}
       {learnHref === undefined ? null : (
-        <Link href={learnHref} className={`${SECONDARY_BUTTON} grow`}>
+        <Link href={learnHref} className={stepClass('learn', primary)}>
           {t('learn')}
         </Link>
       )}
+      <Link href={doneHref} className={stepClass('done', primary)}>
+        {t('done')}
+      </Link>
     </>
   );
 }
@@ -178,12 +204,31 @@ export function DoneSummary({
     counts.kind === 'review'
       ? [
           [t('reviewed'), counts.reviewed, 'text-fg'],
-          [t('correct'), counts.passed, 'text-success'],
+          [t('firstTry'), counts.passed, 'text-success'],
           [t('lapses'), counts.lapses, 'text-error'],
         ]
       : [[t('learned'), counts.learned, 'text-learned']];
   return (
-    <section aria-labelledby="training-done" className="flex flex-col gap-6">
+    <section
+      aria-labelledby="training-done"
+      className={`${CARD} flex flex-col gap-6 p-6`}
+    >
+      <span
+        aria-hidden="true"
+        className="mx-auto flex size-12 items-center justify-center rounded-full bg-success-subtle text-success"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="size-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12l5 5 9-10" />
+        </svg>
+      </span>
       <h2
         id="training-done"
         ref={heading}
@@ -193,7 +238,7 @@ export function DoneSummary({
         {t('title')}
       </h2>
       <Stats stats={stats} />
-      <Standing progress={progress} standing={standing} />
+      <Standing kind={counts.kind} progress={progress} standing={standing} />
     </section>
   );
 }

@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { DoneActions, DoneSummary } from './done-summary';
+import { DoneActions, DoneSummary, primaryAction } from './done-summary';
 
 const T = MESSAGES.training.done;
 
@@ -49,7 +49,7 @@ describe('the done summary', () => {
     const heading = screen.getByRole('heading', { name: T.title });
     expect(document.activeElement).toBe(heading);
     expect(stat(T.reviewed)).toBe('30');
-    expect(stat(T.correct)).toBe('27');
+    expect(stat(T.firstTry)).toBe('27');
     expect(stat(T.lapses)).toBe('3');
   });
 
@@ -57,6 +57,32 @@ describe('the done summary', () => {
     renderIn(<DoneSummary {...DUE} counts={{ kind: 'learn', learned: 8 }} />);
     expect(stat(T.learned)).toBe('8');
     expect(screen.queryByText(T.lapses)).toBeNull();
+  });
+
+  it('does not call a learn pass the end of today’s review, only says when the next one is', () => {
+    vi.useFakeTimers({
+      now: new Date('2026-10-25T07:00:00Z'),
+      toFake: ['Date'],
+    });
+    renderIn(
+      <DoneSummary
+        progress={{ ...PROGRESS, due: 0 }}
+        standing={{ kind: 'dayDone', next: NEXT }}
+        counts={{ kind: 'learn', learned: 3 }}
+      />,
+    );
+    expect(screen.queryByText(T.dayDone)).toBeNull();
+    expect(screen.getByText('Next review: tomorrow at 10:00')).toBeDefined();
+  });
+
+  it('shows the session as a card with a success tick above its heading', () => {
+    renderIn(<DoneSummary {...DUE} counts={REVIEW} />);
+    const card = screen.getByRole('region', { name: T.title });
+    expect(card.className).toContain('rounded-card');
+    const tick = card.firstElementChild;
+    expect(tick?.getAttribute('aria-hidden')).toBe('true');
+    expect(tick?.className).toContain('text-success');
+    expect(tick?.querySelector('svg')).not.toBeNull();
   });
 
   it('says how many moves are still due, not a later review, while some are (#319, R-62)', () => {
@@ -145,7 +171,7 @@ describe('the done summary’s buttons', () => {
     ).toBe('/training?mode=learn');
   });
 
-  it('offers to start review when given its way there, after Done', () => {
+  it('offers to start review when given its way there, before Done', () => {
     const { unmount } = renderIn(<DoneActions doneHref="/" />);
     expect(screen.queryByRole('link', { name: T.review })).toBeNull();
     unmount();
@@ -153,10 +179,10 @@ describe('the done summary’s buttons', () => {
     expect(
       screen.getByRole('link', { name: T.review }).getAttribute('href'),
     ).toBe('/training?mode=review');
-    expect(actionNames()).toEqual([T.done, T.review]);
+    expect(actionNames()).toEqual([T.review, T.done]);
   });
 
-  it('puts Done first and new moves last, Continue between them', () => {
+  it('puts the one next step first and Done last, quiet beside it', () => {
     renderIn(
       <DoneActions
         onContinue={vi.fn()}
@@ -164,6 +190,35 @@ describe('the done summary’s buttons', () => {
         doneHref="/"
       />,
     );
-    expect(actionNames()).toEqual([T.done, T.continue, T.learn]);
+    expect(actionNames()).toEqual([T.continue, T.learn, T.done]);
+    const main = screen.getByRole('button', { name: T.continue }).className;
+    expect(main).toContain('bg-accent ');
+    expect(main).toContain('basis-full');
+    const learn = screen.getByRole('link', { name: T.learn }).className;
+    expect(learn).toContain('bg-accent-subtle');
+    expect(learn).not.toContain('basis-full');
+    const done = screen.getByRole('link', { name: T.done }).className;
+    expect(done).toContain('text-fg-muted');
+    expect(done).not.toContain('bg-accent');
+  });
+
+  it('makes Done the main button when nothing else is offered', () => {
+    renderIn(<DoneActions doneHref="/" />);
+    const done = screen.getByRole('link', { name: T.done }).className;
+    expect(done).toContain('bg-accent ');
+    expect(done).toContain('basis-full');
+    expect(done).not.toContain('text-fg-muted');
+  });
+});
+
+describe('primaryAction', () => {
+  it('picks the first next step that applies', () => {
+    const go = (): void => undefined;
+    expect(
+      primaryAction({ onContinue: go, reviewHref: '/r', learnHref: '/l' }),
+    ).toBe('continue');
+    expect(primaryAction({ reviewHref: '/r', learnHref: '/l' })).toBe('review');
+    expect(primaryAction({ learnHref: '/l' })).toBe('learn');
+    expect(primaryAction({})).toBe('done');
   });
 });

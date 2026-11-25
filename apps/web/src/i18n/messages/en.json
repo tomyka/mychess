@@ -671,7 +671,7 @@
     "done": {
       "title": "Session done",
       "reviewed": "reviewed",
-      "correct": "correct",
+      "firstTry": "first try",
       "lapses": "lapses",
       "learned": "learned",
       "next": "Next review: {when}",
