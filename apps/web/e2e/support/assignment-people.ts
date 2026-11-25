@@ -8,7 +8,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
-import { assignmentRow, deadlineText, homeAssignment } from './assignments';
+import { assignmentRow, deadlineText } from './assignments';
 import { acceptInvite, expectInviteFrom, switchOnCoachMode } from './coaching';
 import {
   format,
@@ -16,6 +16,7 @@ import {
   newOnboardedAccount,
   type Messages,
 } from './journey';
+import { todayRow } from './today';
 
 export const COACH = 'Rimantas Vaitkus';
 export const GROUP = 'Šeštadienio grupė';
@@ -73,7 +74,7 @@ export async function linkedPlayer(
   return { page, email };
 }
 
-/** On home: `name` from the coach, with `deadline` (a day) or none. */
+/** On Today: the row of `name` from the coach, with `deadline` (a day) or none. */
 export async function expectAssigned(
   page: Page,
   cast: Cast,
@@ -81,7 +82,7 @@ export async function expectAssigned(
   deadline: string | null,
 ): Promise<void> {
   const t = cast.messages.assignment;
-  const item = homeAssignment(page, cast.messages, name);
+  const item = todayRow(page, cast.messages, name);
   await expect(item).toBeVisible();
   await expect(
     item.getByText(format(t.page.assignedBy, { name: COACH })),

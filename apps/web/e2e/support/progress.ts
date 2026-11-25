@@ -11,9 +11,9 @@ import {
 } from '@mychess/chess';
 import { expect, type Page } from '@playwright/test';
 import { COACH } from './assignment-people';
-import { homeAssignment } from './assignments';
 import { en, format, type Messages } from './journey';
 import { plural } from './repertoires';
+import { todayRow } from './today';
 
 /**
  * The player's own move keys of `file` as the app imports it for `side`,
@@ -89,7 +89,7 @@ export async function shareWithCoach(
   ).toBeVisible();
 }
 
-/** From home, the player makes their own copy of `name`; returns its id. */
+/** From Today, the player makes their own copy of `name`; returns its id. */
 export async function makeOwnCopy(
   page: Page,
   messages: Messages,
@@ -97,7 +97,7 @@ export async function makeOwnCopy(
 ): Promise<string> {
   const t = messages.assignment.fork;
   await page.goto('/');
-  await homeAssignment(page, messages, name)
+  await todayRow(page, messages, name)
     .getByRole('link', { name, exact: true })
     .click();
   await expect(page).toHaveURL(/\/repertoires\/assigned\//);

@@ -149,15 +149,21 @@ export async function onboard(
   await expect(page).toHaveURL(/\/$/);
 }
 
-/** The home page greets `name` in `messages`' language. */
+/**
+ * Today (the home page, its h1 "Today" for screen readers) greets `name`
+ * in `messages`' language.
+ */
 export async function expectGreeting(
   page: Page,
   messages: Messages,
   name: string,
 ): Promise<void> {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    format(messages.app.greeting, { name }),
+    messages.today.title,
   );
+  await expect(
+    page.getByText(format(messages.app.greeting, { name }), { exact: true }),
+  ).toBeVisible();
 }
 
 /** A new account, signed in by magic link and onboarded. */

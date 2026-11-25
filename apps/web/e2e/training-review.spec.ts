@@ -18,15 +18,8 @@ import {
   setTrainingLimits,
   type Drill,
 } from './support/training';
-import {
-  BACKLOG,
-  BACKLOG_PGN,
-  backlog,
-  dueLine,
-  startTodayReview,
-  stat,
-  today,
-} from './support/training-cast';
+import { BACKLOG, BACKLOG_PGN, backlog, stat } from './support/training-cast';
+import { expectDue, startTodayReview, today } from './support/today';
 import { importRepertoire } from './support/assignments';
 
 /** The End session link of a drill. */
@@ -53,7 +46,7 @@ test(
     await seedDue(email, due);
     const drill: Drill = { page, messages: en, books: [backlog], isMobile };
     await page.goto('/');
-    await expect(today(page, en)).toContainText(dueLine(85));
+    await expectDue(page, en, 85);
     await startTodayReview(page, en);
     await expectCounter(page, 0, 60);
     const first = await answer(drill);
@@ -64,7 +57,7 @@ test(
     await endSession(drill).click();
     await expect(page).toHaveURL(/\/$/);
     await page.reload();
-    await expect(today(page, en)).toContainText(dueLine(55));
+    await expectDue(page, en, 55);
     await startTodayReview(page, en);
     await expectCounter(page, 0, 55);
     expect(await drillToDone(drill)).toHaveLength(55);
@@ -91,7 +84,7 @@ test('D-M1-5: Dovydas reviews from a backlog of 150: sessions of 20, every answe
   await seedDue(email, ownKeys(backlog).slice(0, 150));
   const drill: Drill = { page, messages: en, books: [backlog], isMobile };
   await page.goto('/');
-  await expect(today(page, en)).toContainText(dueLine(150));
+  await expectDue(page, en, 150);
   await startTodayReview(page, en);
   // The default session is 20 of the 150 (R-62).
   await expectCounter(page, 0, 20);

@@ -27,8 +27,6 @@ import {
   badge,
   fixture,
   forkOffers,
-  fromMyCoach,
-  homeAssignment,
   importRepertoire,
   untilAfterReload,
   vilniusDay,
@@ -37,6 +35,7 @@ import { passGroupDeadline } from './support/assignment-db';
 import { createGroup, createInvite } from './support/coaching';
 import { en, format, test } from './support/journey';
 import { chip, typeMove } from './support/repertoires';
+import { todayRow } from './support/today';
 
 const KARO_KAN = 'Karo-Kan gynyba: pagrindai';
 const ITALIAN = 'Itališkoji partija';
@@ -127,7 +126,7 @@ async function assignToRokas(
   await expect(rokas).toHaveURL(/\/repertoires\/assigned\/[0-9a-f-]{36}$/);
   await expectCoachNote(rokas, cast);
   await gabija.reload();
-  await expect(homeAssignment(gabija, messages, KARO_KAN)).toBeVisible();
+  await expect(todayRow(gabija, messages, KARO_KAN)).toBeVisible();
   await expect(
     gabija.getByRole('link', { name: ITALIAN, exact: true }),
   ).toHaveCount(0);
@@ -160,7 +159,7 @@ async function laterMember(
   await passGroupDeadline(email, KARO_KAN, vilniusDay(-1));
   await fourth.reload();
   await expectAssigned(fourth, cast, KARO_KAN, vilniusDay(0));
-  const item = homeAssignment(fourth, cast.messages, KARO_KAN);
+  const item = todayRow(fourth, cast.messages, KARO_KAN);
   await expect(badge(item, cast.messages, 'overdue')).toHaveCount(0);
 }
 
@@ -191,7 +190,7 @@ async function leaveAndRejoin(
 
   await setInGroup(coach, messages, { name: ROKAS, member: true });
   await rokas.reload();
-  await expect(homeAssignment(rokas, messages, KARO_KAN)).toBeVisible();
+  await expect(todayRow(rokas, messages, KARO_KAN)).toBeVisible();
   await expectAssigned(rokas, cast, ITALIAN, null);
   await expect(forkOffers(rokas, messages)).toHaveCount(0);
 }
@@ -209,13 +208,13 @@ async function coachAddsMove(coach: Page, cast: Cast): Promise<void> {
 }
 
 /**
- * R-133: "Updated" on home and what changed on the page; once opened,
+ * R-133: "Updated" on Today and what changed on the page; once opened,
  * neither. Returns the assigned page.
  */
 async function updatedOnce(rokas: Page, cast: Cast): Promise<string> {
   const { messages } = cast;
   const t = messages.assignment.changes;
-  const item = homeAssignment(rokas, messages, ITALIAN);
+  const item = todayRow(rokas, messages, ITALIAN);
   await rokas.reload();
   await expect(badge(item, messages, 'updated')).toBeVisible();
   await item.getByRole('link', { name: ITALIAN, exact: true }).click();
@@ -236,7 +235,7 @@ async function updatedOnce(rokas: Page, cast: Cast): Promise<string> {
   return assigned;
 }
 
-/** R-46: Rokas pauses (home and the coach show it), then resumes. */
+/** R-46: Rokas pauses (Today and the coach show it), then resumes. */
 async function pauseAndResume(
   rokas: Page,
   coach: Page,
@@ -244,7 +243,7 @@ async function pauseAndResume(
 ): Promise<void> {
   const { messages } = cast;
   const t = messages.assignment.pause;
-  const item = homeAssignment(rokas, messages, ITALIAN);
+  const item = todayRow(rokas, messages, ITALIAN);
   const assigned = rokas.url();
   await rokas.getByRole('button', { name: t.pause, exact: true }).click();
   const resume = rokas.getByRole('button', { name: t.resume, exact: true });
@@ -268,7 +267,7 @@ async function pauseAndResume(
 
 /**
  * R-47, R-128: "Make my own copy" opens the copy, where the coach's comment
- * is a read-only note under his name; the assignment leaves home, and the
+ * is a read-only note under his name; on Today the row is his copy, and the
  * coach sees "forked".
  */
 async function makeOwnCopy(
@@ -302,8 +301,16 @@ async function makeOwnCopy(
   await expect(kept.getByText(C3_COMMENT)).toBeVisible();
   await expect(kept.getByRole('textbox')).toHaveCount(0);
 
+  // On Today the Italian is his own copy now: its row opens the copy and
+  // names no coach.
   await rokas.goto('/');
-  await expect(fromMyCoach(rokas, messages)).toHaveCount(0);
+  const own = todayRow(rokas, messages, ITALIAN);
+  await expect(
+    own.getByRole('link', { name: ITALIAN, exact: true }),
+  ).toHaveAttribute('href', /^\/repertoires\/[0-9a-f-]{36}$/);
+  await expect(
+    own.getByText(format(messages.assignment.page.assignedBy, { name: COACH })),
+  ).toHaveCount(0);
   const opened = await rokas.goto(assigned);
   expect(opened?.status()).toBe(404);
   await expectNotAssigned(rokas, cast);
@@ -360,7 +367,7 @@ test(`a coach edit shows as Updated once; pause, resume, then make my own copy`,
     });
     await assignTo(coach, messages, { target: ROKAS });
     await rokas.reload();
-    const item = homeAssignment(rokas, messages, ITALIAN);
+    const item = todayRow(rokas, messages, ITALIAN);
     await expect(badge(item, messages, 'updated')).toHaveCount(0);
 
     await coachAddsMove(coach, cast);

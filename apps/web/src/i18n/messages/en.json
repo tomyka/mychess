@@ -614,9 +614,6 @@
       "unassignQuestion": "{kind, select, player {Unassign it from {name}? The repertoire leaves their list, and they have {days, plural, one {# day} other {# days}} to keep their own copy.} other {Unassign it from {name}? The repertoire leaves the players’ lists, and they have {days, plural, one {# day} other {# days}} to keep their own copy. Anyone who has it another way keeps it.}}",
       "unassignConfirm": "Unassign",
       "unassignCancel": "Keep it"
-    },
-    "home": {
-      "title": "From my coach"
     }
   },
   "forkOffer": {
@@ -717,8 +714,6 @@
     "notTrained": "This cannot be changed: you do not train this repertoire, it is paused, or it has changed.",
     "today": {
       "title": "Today's review",
-      "due": "{count} due · about {minutes} min",
-      "repertoireCounts": "{side} · {count} due",
       "start": "Start review",
       "learn": "{count, plural, one {Learn # new move} other {Learn # new moves}}",
       "nothingDue": "Nothing due now.",

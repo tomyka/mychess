@@ -23,16 +23,14 @@ import {
 import { chip, disclosure, plural } from './support/repertoires';
 import {
   arrow,
-  dueLine,
   ITALIAN,
   italian,
   learnPianissimo,
   rokasWithItalian,
-  startTodayReview,
   stat,
-  today,
   trainLink,
 } from './support/training-cast';
+import { expectDue, startTodayReview } from './support/today';
 
 /** The Pianissimo's eight White moves (1.e4 to 8.Bb3). */
 const PIANISSIMO = ['e4', 'Nf3', 'Bc4', 'c3', 'd3', 'O-O', 'Re1', 'Bb3'];
@@ -103,7 +101,7 @@ test(
     await allDue(email);
     await page.goto('/');
     // Shown before starting: eight due, about 2 minutes.
-    await expect(today(page, en)).toContainText(dueLine(8));
+    await expectDue(page, en, 8);
     await startTodayReview(page, en);
     await expectCounter(page, 0, 8);
     await answer(drill);

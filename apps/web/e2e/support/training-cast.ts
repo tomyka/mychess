@@ -1,7 +1,7 @@
 // The S6 journeys' repertoires and the screens they pass through (plan
 // Task D3): the PGN fixtures as the books a drill answers from, the
-// repertoire page's train links and "I know this" menus, home's Today block
-// and the done summary.
+// repertoire page's train links and "I know this" menus, and the done
+// summary. Today's hero and rows are in ./today.
 import {
   expect,
   type APIRequestContext,
@@ -63,28 +63,6 @@ export const trainLink = (
     }),
     exact: true,
   });
-
-/** Home's Today block. */
-export const today = (page: Page, messages: Messages): Locator =>
-  page.getByRole('region', { name: messages.training.today.title });
-
-/** Home's due line: `count` due, about `minutes` (8 s a move, rounded up). */
-export const dueLine = (count: number): string =>
-  plural(en.training.today.due, {
-    count,
-    minutes: Math.ceil((count * 8) / 60),
-  });
-
-/** From home, starts today's review of every repertoire. */
-export async function startTodayReview(
-  page: Page,
-  messages: Messages,
-): Promise<void> {
-  await today(page, messages)
-    .getByRole('link', { name: messages.training.today.start, exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/training\?mode=review$/);
-}
 
 /** A done summary's number under `label`. */
 export const stat = (page: Page, label: string): Locator =>

@@ -26,9 +26,9 @@ import {
   catalan,
   catalanA4,
   markChaptersKnown,
-  startTodayReview,
   trainLink,
 } from './support/training-cast';
+import { startTodayReview } from './support/today';
 
 const HOUR = 3_600_000;
 

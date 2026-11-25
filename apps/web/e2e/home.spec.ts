@@ -16,9 +16,14 @@ import {
   KARO_KAN_PGN,
   italian,
   karoKan,
-  startTodayReview,
-  today,
 } from './support/training-cast';
+import {
+  expectDue,
+  rowAction,
+  startTodayReview,
+  todayList,
+  todayRow,
+} from './support/today';
 
 test('a signed-out visitor to the home page lands on sign-in, in English', async ({
   page,
@@ -31,7 +36,7 @@ test('a signed-out visitor to the home page lands on sign-in, in English', async
 });
 
 test(
-  'R-207: home lists each repertoire’s due moves, most urgent first; Start review is titled as several; each link reviews one',
+  'R-207: Today lists each repertoire with its due moves, most urgent first; Start review is titled as several; each row reviews one',
   { tag: '@mobile' },
   async ({ page, request, isMobile }) => {
     test.setTimeout(180_000);
@@ -46,18 +51,22 @@ test(
       ...ownKeys(karoKan).slice(0, 3),
       ...ownKeys(italian).slice(0, 2),
     ]);
-    // The name is the link; side and count follow it (#330 UX sign-off).
-    const due = (name: string, side: 'white' | 'black', count: number) =>
-      `${name} ${format(en.training.today.repertoireCounts, {
-        side: en.repertoires.create[side],
-        count: String(count),
-      })}`;
     await page.goto('/');
-    const block = today(page, en);
-    await expect(block.getByRole('listitem')).toHaveText([
-      due(KARO_KAN, 'black', 3),
-      due(ITALIAN, 'white', 2),
-    ]);
+    await expectDue(page, en, 5);
+    // One row each, the most urgent first, each with its side and count.
+    const rows = todayList(page, en).getByRole('listitem');
+    await expect(rows).toHaveCount(2);
+    for (const [i, name, side, due] of [
+      [0, KARO_KAN, 'black', 3],
+      [1, ITALIAN, 'white', 2],
+    ] as const) {
+      const row = rows.nth(i);
+      await expect(row.getByRole('link', { name, exact: true })).toBeVisible();
+      await expect(
+        row.getByText(en.repertoires.create[side], { exact: true }),
+      ).toBeVisible();
+      await expect(rowAction(row, en, due)).toBeVisible();
+    }
     // Start review trains both: titled as several, the item's under it.
     await startTodayReview(page, en);
     await expectCounter(page, 0, 5);
@@ -65,9 +74,9 @@ test(
       en.training.title.mixed,
     );
     expect(await itemRepertoire(page, en)).toBe(KARO_KAN);
-    // The Italian's link: its two due moves alone, under its own name.
+    // The Italian row's Review 2: its two due moves alone, under its name.
     await page.goto('/');
-    await block.getByRole('link', { name: ITALIAN, exact: true }).click();
+    await rowAction(todayRow(page, en, ITALIAN), en, 2).click();
     await expect(page).toHaveURL(/\/training\?mode=review&r=[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(ITALIAN);
     await expectCounter(page, 0, 2);
@@ -79,9 +88,15 @@ test(
     };
     const asked = await drillToDone(drill);
     expect(asked.map((a) => a.book)).toEqual([ITALIAN, ITALIAN]);
+    // Back on Today only the Caro-Kann has a review; the Italian row stays.
     await page.goto('/');
-    await expect(block.getByRole('listitem')).toHaveText([
-      due(KARO_KAN, 'black', 3),
-    ]);
+    await expectDue(page, en, 3);
+    await expect(rowAction(todayRow(page, en, KARO_KAN), en, 3)).toBeVisible();
+    const review = format(en.today.review, { count: '' }).trim();
+    await expect(
+      todayRow(page, en, ITALIAN).getByRole('link', {
+        name: new RegExp(`^${review}`),
+      }),
+    ).toHaveCount(0);
   },
 );

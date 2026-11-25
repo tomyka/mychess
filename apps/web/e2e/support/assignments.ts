@@ -1,6 +1,6 @@
 // Assignment steps for the S5 E2E journeys (plan Task C8): importing the
-// coach's repertoires, the assign panel, "From my coach" and fork offers on
-// home, and the dates they show.
+// coach's repertoires, the assign panel, fork offers on Today, and the dates
+// they show. An assignment on Today is a row of its list (./today).
 import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { format, LOCALE, type Messages } from './journey';
@@ -89,21 +89,7 @@ export async function assignTo(
   await expect(assignmentRow(page, messages, target)).toBeVisible();
 }
 
-/** "From my coach" on home. */
-export const fromMyCoach = (page: Page, messages: Messages): Locator =>
-  page.getByRole('region', { name: messages.assignment.home.title });
-
-/** One assignment under "From my coach", found by its link. */
-export const homeAssignment = (
-  page: Page,
-  messages: Messages,
-  name: string,
-): Locator =>
-  fromMyCoach(page, messages)
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('link', { name, exact: true }) });
-
-/** The open fork offers on home. */
+/** The open fork offers on Today ("Copies you can keep"). */
 export const forkOffers = (page: Page, messages: Messages): Locator =>
   page.getByRole('region', { name: messages.forkOffer.title });
 
