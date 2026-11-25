@@ -77,7 +77,7 @@ function FlowStatus({
 function ConfirmBar({ flow }: { readonly flow: Flow }): JSX.Element {
   const t = useTranslations('repertoires.import');
   return (
-    <div className="fixed inset-x-0 bottom-0 z-10 bg-surface px-gutter pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-sheet md:static md:z-auto md:bg-transparent md:p-0 md:shadow-none">
+    <div className="fixed inset-x-0 bottom-[var(--shell-chrome,0px)] z-10 bg-surface px-gutter py-3 shadow-sheet md:static md:z-auto md:bg-transparent md:p-0 md:shadow-none">
       <button
         type="button"
         disabled={flow.pending || previewRefusal(flow) !== null}
