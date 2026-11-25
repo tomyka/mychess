@@ -31,6 +31,7 @@ gh issue create --title "..." --label size/small,area/chess,role/chess-dev --mil
 | `role/*` | the agent role that owns it (lead, architect, backend-dev, web-dev, qa, security-reviewer, devops, chess-dev, ux-designer, i18n-content, integrations-dev) |
 | `auto-ok` | an unattended run may take it (only with `size/small`; set by a human) |
 | `blocked` | waiting on something outside the issue; the comment says what |
+| `parked` | lowest priority, set by the owner: taken only when no other open issue can be worked; only the owner removes it |
 | `kickoff` | the v2 kickoff epic (#225) |
 | `archived-v1` | v1 issue, closed at the restart |
 
