@@ -4,7 +4,7 @@
  * other package needs chess.js.
  */
 import { Chess, type PieceSymbol } from 'chess.js';
-import { fenOf } from './position-key';
+import { fenOf, positionKey } from './position-key';
 
 export type Promotion = 'q' | 'r' | 'b' | 'n';
 
@@ -28,6 +28,20 @@ export function legalMoves(key: string): BoardMove[] {
     san: m.san,
     promotion: promotionOf(m.promotion),
   }));
+}
+
+/**
+ * The key of the position `move` leads to from `key`'s. The move is one of
+ * `legalMoves(key)`: an illegal one is a programmer error and throws.
+ */
+export function positionAfterMove(key: string, move: BoardMove): string {
+  const chess = new Chess(fenOf(key));
+  chess.move({
+    from: move.orig,
+    to: move.dest,
+    ...(move.promotion === null ? {} : { promotion: move.promotion }),
+  });
+  return positionKey(chess.fen());
 }
 
 /** Is the side to move in check? */

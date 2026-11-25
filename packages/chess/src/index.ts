@@ -90,6 +90,7 @@ export {
   findLegalMove,
   inCheck,
   legalMoves,
+  positionAfterMove,
   type BoardMove,
   type Promotion,
 } from './legal-moves';

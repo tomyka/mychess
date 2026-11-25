@@ -123,7 +123,7 @@ function outOfTime(
   if (!view.repeat) return waiting && view.reply === null ? ['late'] : [];
   const due = reviews.get(view.item.key)?.fsrs.due.getTime() ?? NaN;
   const open = s.order.some((i) => !s.outcomes.has(i.key));
-  const room = s.size - s.asked - s.repeats.length - 1 > 0;
+  const room = s.size - s.outcomes.size > 0;
   return due > now.getTime() && open && room ? ['early'] : [];
 }
 
@@ -132,9 +132,9 @@ describe('repeats within a review session (R-78)', () => {
     const d = start([item('e4'), item('c3')]);
     const lapse = answerReview(d.s, 'a3', clockOf(d, at(0))).state;
     expect(lapse.repeats.map((r) => r.item.san)).toEqual(['e4']);
-    expect(reviewProgress(lapse)).toEqual({ done: 1, total: 3 });
+    expect(reviewProgress(lapse)).toEqual({ done: 0, total: 2 });
     const hint = hintReview(d.s, clockOf(d, at(0))).state;
-    expect(reviewProgress(hint)).toEqual({ done: 1, total: 3 });
+    expect(reviewProgress(hint)).toEqual({ done: 0, total: 2 });
     const pass = answerReview(d.s, 'e4', clockOf(d, at(0))).state;
     expect(pass.repeats).toEqual([]);
     expect(reviewProgress(pass)).toEqual({ done: 1, total: 2 });
@@ -207,7 +207,7 @@ describe('repeats within a review session (R-78)', () => {
       passed: 1,
       lapses: 1,
     });
-    expect(reviewProgress(t.state)).toEqual({ done: 3, total: 3 });
+    expect(reviewProgress(t.state)).toEqual({ done: 2, total: 2 });
   });
   it('a hint or a wrong answer on a repeat is a Lapse, recorded once', () => {
     const lapsed = answer(start([item('e4'), item('c3')]), at(0), true);
@@ -231,7 +231,7 @@ describe('repeats within a review session (R-78)', () => {
     expect(dueOf(d, 'e4')).toBeGreaterThanOrEqual(DAY_END.getTime());
     expect(d.s.current).toBeNull();
     expect(d.s.repeats).toEqual([]);
-    expect(reviewProgress(d.s)).toEqual({ done: 3, total: 3 });
+    expect(reviewProgress(d.s)).toEqual({ done: 2, total: 2 });
   });
   it('a chained move is asked at once, before a due repeat (R-143)', () => {
     const lapsed = answer(
@@ -272,23 +272,28 @@ describe('repeats within a review session (R-78)', () => {
     expect(currentSan(d)).toBe('e4');
     expect(answer(d, at(30)).s.current?.item.san).toBe('c3');
   });
-  it('counts repeats toward the session size, leaving later moves for "continue" (R-62)', () => {
+  it('asks the size in moves, repeats on top, leaving later moves for "continue" (R-62, R-223)', () => {
     const d = answer(
       start([item('e4'), item('c3'), item('d3')], 2),
       at(0),
       true,
     );
-    expect(currentSan(d)).toBe('e4');
-    expect(d.s.current?.repeat).toBe(true);
-    expect(reviewProgress(d.s)).toEqual({ done: 1, total: 2 });
-    const end = answer(d, at(30));
+    // The lapse took no slot: the second move is still asked.
+    expect(currentSan(d)).toBe('c3');
+    expect(reviewProgress(d.s)).toEqual({ done: 0, total: 2 });
+    const second = answer(d, at(0));
+    // No first ask is left: the repeat is asked early.
+    expect(currentSan(second)).toBe('e4');
+    expect(second.s.current?.repeat).toBe(true);
+    expect(reviewProgress(second.s)).toEqual({ done: 1, total: 2 });
+    const end = answer(second, at(30));
     expect(end.s.current).toBeNull();
     expect(reviewProgress(end.s)).toEqual({ done: 2, total: 2 });
-    expect(end.s.outcomes.has(item('c3').key)).toBe(false);
+    expect(end.s.outcomes.has(item('d3').key)).toBe(false);
   });
   it('does not chain past the session size', () => {
     const d = answer(
-      start([item('e4'), item('Nf3'), item('c3')], 2),
+      start([item('e4'), item('Nf3'), item('c3')], 1),
       at(0),
       true,
     );
@@ -330,6 +335,36 @@ describe('repeats within a review session (R-78)', () => {
     const d = nextReview(right, edited, at(30));
     expect(d.current).toBeNull();
     expect(d.repeats).toEqual([]);
+  });
+  it('keeps the total fixed and the done count rising to it, whatever the answers (R-223)', () => {
+    const items = ['e4', 'Nf3', 'Bc4', 'c3', 'd3'].map(item);
+    fc.assert(
+      fc.property(
+        fc.array(fc.tuple(fc.boolean(), fc.integer({ min: 0, max: 15 })), {
+          maxLength: 30,
+        }),
+        fc.integer({ min: 1, max: 8 }),
+        (answers, size) => {
+          let d = start(items, size);
+          const total = Math.min(size, items.length);
+          let minutes = 0;
+          let last = 0;
+          for (let step = 0; d.s.current !== null && step < 200; step += 1) {
+            const [wrong, wait] = answers[step] ?? [false, 15];
+            const now = at(minutes);
+            minutes += wait;
+            d = answer(d, now, wrong, at(minutes));
+            const progress = reviewProgress(d.s);
+            expect(progress.total).toBe(total);
+            expect(progress.done).toBeGreaterThanOrEqual(last);
+            last = progress.done;
+          }
+          expect(reviewProgress(d.s)).toEqual({ done: total, total });
+          // No first ask was dropped for a repeat.
+          expect(d.s.outcomes.size).toBe(total);
+        },
+      ),
+    );
   });
   it('every session ends with nothing left due today, each answer in time order', () => {
     const items = ['e4', 'Nf3', 'Bc4', 'c3', 'd3'].map(item);

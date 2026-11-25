@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { findLegalMove, inCheck, legalMoves } from './legal-moves';
+import {
+  findLegalMove,
+  inCheck,
+  legalMoves,
+  positionAfterMove,
+} from './legal-moves';
 import { positionKey, START_KEY } from './position-key';
 
 const PROMOTE = positionKey('8/P7/8/8/8/8/8/k6K w - - 0 1');
@@ -79,5 +84,23 @@ describe('inCheck', () => {
   it('says whether the side to move is in check', () => {
     expect(inCheck(START_KEY)).toBe(false);
     expect(inCheck(positionKey('4k3/8/8/8/8/8/8/4K2r w - - 0 1'))).toBe(true);
+  });
+});
+
+describe('positionAfterMove', () => {
+  it('is the key of the position the move leads to', () => {
+    const e4 = legalMoves(START_KEY).find((m) => m.san === 'e4');
+    expect(e4 && positionAfterMove(START_KEY, e4)).toBe(
+      positionKey(
+        'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+      ),
+    );
+  });
+  it('promotes to the move’s piece', () => {
+    const key = positionKey('8/P7/8/8/8/8/8/k6K w - - 0 1');
+    const knight = legalMoves(key).find((m) => m.promotion === 'n');
+    expect(knight && positionAfterMove(key, knight)).toBe(
+      positionKey('N7/8/8/8/8/8/8/k6K b - - 0 1'),
+    );
   });
 });

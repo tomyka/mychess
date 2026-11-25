@@ -7,7 +7,7 @@
  * the caller to grade; replaying the move after a Lapse records nothing.
  * A move whose Review, so graded, comes due again before the player's day
  * ends (a Lapse's relearning step, R-78) is asked again once that step runs
- * out, and counts toward the session size from the moment it is answered.
+ * out, on top of the session size, which counts moves (R-223).
  */
 import {
   isPlayerMove,
@@ -46,7 +46,7 @@ export interface Repeat {
 
 /** How far a session goes. */
 export interface ReviewBounds {
-  /** R-62: the answers the session takes, its repeats included (R-78). */
+  /** R-62, R-223: the moves the session asks; repeats (R-78) come on top. */
   readonly size: number;
   /** When the player's day ends: a move due again before then comes back. */
   readonly dayEnd: Date;
@@ -114,7 +114,7 @@ export function reviewCounts(s: ReviewSessionState): ReviewCounts {
   return { done, total: s.order.length, passed, lapses: done - passed };
 }
 
-/** Answers given, repeats included, and how many the session takes in all. */
+/** Moves finished, of the moves the session holds (R-223). */
 export interface ReviewProgress {
   readonly done: number;
   readonly total: number;
@@ -126,18 +126,24 @@ type Asks = Pick<
   'order' | 'outcomes' | 'size' | 'dayEnd' | 'asked' | 'repeats'
 >;
 
-/** Room left for first asks: the size less the answers given and owed. */
-const room = (s: Asks): number => s.size - s.asked - s.repeats.length;
+/** Room left for first asks: the size less the moves answered (R-223). */
+const room = (s: Asks): number => s.size - s.outcomes.size;
+
+/** The keys still owed an answer: the repeats, and a repeat being asked. */
+function owedKeys(s: ReviewSessionState): Set<string> {
+  const owed = new Set(s.repeats.map((r) => r.item.key));
+  if (s.current?.repeat === true && !s.recorded) owed.add(s.current.item.key);
+  return owed;
+}
 
 /**
- * The session's progress: the repeats it owes are counted in, and the first
- * asks only as far as the size has room for them (R-62, R-78).
+ * The session's progress in moves (R-223): the moves answered with no
+ * repeat owed, of the moves the session holds, a total fixed at its start.
  */
 export function reviewProgress(s: ReviewSessionState): ReviewProgress {
-  const owed = s.current?.repeat === true && !s.recorded ? 1 : 0;
-  const open = s.order.filter((i) => !s.outcomes.has(i.key)).length;
-  const firsts = Math.min(open, Math.max(0, room(s) - owed));
-  return { done: s.asked, total: s.asked + s.repeats.length + owed + firsts };
+  const owed = owedKeys(s);
+  const done = [...s.outcomes.keys()].filter((k) => !owed.has(k)).length;
+  return { done, total: Math.min(s.size, s.order.length) };
 }
 
 const graphOf = (
@@ -205,9 +211,9 @@ const asking = (
 });
 
 /**
- * A session over `items` within `bounds`: it takes `size` answers, its
- * repeats included (R-62, R-78), and leaves the items it has no room for
- * to "continue".
+ * A session over `items` within `bounds`: it asks `size` moves, repeats on
+ * top (R-62, R-78, R-223), and leaves the items it has no room for to
+ * "continue".
  */
 export function startReviewSession(
   items: readonly QueueItem[],

@@ -127,15 +127,16 @@ describe('the review drill state', () => {
     const repeat = play(inside, expected(inside));
     expect(isRepeat(repeat)).toBe(true);
     expect(repeat.session.current?.item.key).toBe(missed);
-    expect(progress(repeat)).toEqual({ done: 3, total: 10 });
+    // Two moves finished; the missed one is owed its repeat (R-223).
+    expect(progress(repeat)).toEqual({ done: 2, total: 10 });
   });
 
   it('asks a lapsed move again at the end when the clock stands still, until it no longer comes back today (R-78)', () => {
     const start = drill(10);
     const missed = start.session.current?.item.key;
     const afterLapse = lapse(start);
-    // The repeat counts toward the session size: one due move less is asked.
-    expect(progress(afterLapse)).toEqual({ done: 1, total: 10 });
+    // The repeat takes no slot (R-223): all ten moves are asked.
+    expect(progress(afterLapse)).toEqual({ done: 0, total: 10 });
     const repeat = passUntil(afterLapse, isRepeat);
     expect(progress(repeat).done).toBe(9);
     expect(repeat.session.current?.item.key).toBe(missed);
@@ -146,13 +147,13 @@ describe('the review drill state', () => {
     // The summary counts moves: the first answer of each.
     expect(sessionCounts(done)).toEqual({
       kind: 'review',
-      reviewed: 9,
-      passed: 8,
+      reviewed: 10,
+      passed: 9,
       lapses: 1,
     });
     const { done: asked, total } = progress(done);
-    expect(asked).toBe(total);
-    expect(asked).toBeGreaterThanOrEqual(10);
+    expect(asked).toBe(10);
+    expect(total).toBe(10);
   });
 
   it('asks a move missed again on its repeat once more', () => {
@@ -163,7 +164,7 @@ describe('the review drill state', () => {
     expect(again.session.current?.item.key).toBe(
       repeat.session.current?.item.key,
     );
-    expect(sessionCounts(again)).toMatchObject({ reviewed: 9, lapses: 1 });
+    expect(sessionCounts(again)).toMatchObject({ reviewed: 10, lapses: 1 });
   });
 
   it('is not a repeat at the start', () => {
