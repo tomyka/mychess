@@ -90,8 +90,9 @@ function IdField({
         {t('idLabel')}
       </label>
       {/* In source order field, hint, button: stacked so on a phone; on a
-          wide screen the button moves up beside the field. */}
-      <div className="grid gap-x-3 gap-y-2 sm:grid-cols-[1fr_auto]">
+          wide screen the button moves up beside the field, and the row
+          stops at max-w-lg: an eight-digit ID needs no wide field. */}
+      <div className="grid gap-x-3 gap-y-2 sm:max-w-lg sm:grid-cols-[1fr_auto]">
         <input
           id={inputId}
           type="text"

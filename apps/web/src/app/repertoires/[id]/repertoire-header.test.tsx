@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/catalogue';
+import { ShellProvider } from '../../shell/shell-context';
 import type { DeleteState, RenameState } from './actions';
 import { RepertoireActions } from './repertoire-actions';
 import { RepertoireHeader } from './repertoire-header';
@@ -55,6 +56,19 @@ describe('RepertoireHeader', () => {
         .getByRole('link', { name: 'Back to Repertoires' })
         .getAttribute('href'),
     ).toBe('/repertoires');
+  });
+
+  it('carries the account menu on a phone inside the shell', () => {
+    renderWith(
+      <ShellProvider
+        value={{ accountId: 'a1', displayName: 'Rokas', theme: 'system' }}
+      >
+        <RepertoireHeader id={ID} name="Londono sistema" />
+      </ShellProvider>,
+    );
+    const avatar = button(MESSAGES.nav.account.open);
+    expect(avatar.closest('header')).not.toBeNull();
+    expect(avatar.closest('[class~="md:hidden"]')).not.toBeNull();
   });
 
   it('renames in place of the name and says it was saved', async () => {

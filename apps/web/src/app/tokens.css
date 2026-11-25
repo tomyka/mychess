@@ -114,7 +114,7 @@
   /* ---- Radii ---- */
   --radius-control: 0.75rem; /* buttons, inputs, chips */
   --radius-card: 0.875rem; /* cards, panels, sheets */
-  --radius-board: 0.5rem; /* the board's outer corners (desktop) */
+  --radius-board: 0.5rem; /* the board's outer corners (lg and up, where the board has a frame) */
   --radius-pill: 9999px; /* badges, progress bars */
 
   /* ---- Elevation and motion ---- */
@@ -166,7 +166,7 @@
   --color-board-badge-correct: #18703a;
   --color-board-badge-wrong: #b3261e;
   --color-board-badge-glyph: #ffffff; /* the badge's glyph and ring */
-  --color-board-focus: #0f2e7a; /* keyboard cursor, >= 3:1 on both squares */
+  --color-board-focus: #0a1f5c; /* keyboard cursor, >= 3:1 on all four squares */
   /* A review hint's piece (R-61): an amber ring, apart from the green of a
      selection or a correct move and the navy cursor, with a dark edge inside
      it that reaches 3:1 on both squares (the amber alone does not). */

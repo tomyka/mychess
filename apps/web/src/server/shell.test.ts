@@ -1,5 +1,6 @@
 import type { Account } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Theme } from '../lib/theme';
 import type { TodaySummary } from './training';
 import { shellData } from './shell';
 
@@ -8,14 +9,12 @@ const NOW = new Date('2026-11-25T08:00:00Z');
 const server = vi.hoisted(() => ({
   account: vi.fn<() => Promise<Account>>(),
   today: vi.fn<(account: Account) => Promise<TodaySummary>>(),
-  cookie: vi.fn<(name: string) => { value: string } | undefined>(),
+  theme: vi.fn<() => Promise<Theme>>(),
 }));
 
 vi.mock('./session', () => ({ requireOnboarded: server.account }));
 vi.mock('./training', () => ({ todaySummary: server.today }));
-vi.mock('next/headers', () => ({
-  cookies: () => Promise.resolve({ get: server.cookie }),
-}));
+vi.mock('./theme-cookie', () => ({ readThemeCookie: server.theme }));
 
 /** Rokas, signed in and onboarded: a player. */
 const ROKAS: Account = {
@@ -51,7 +50,7 @@ const summary = (due: number): TodaySummary => ({
 beforeEach(() => {
   server.account.mockReset().mockResolvedValue(ROKAS);
   server.today.mockReset().mockResolvedValue(summary(7));
-  server.cookie.mockReset().mockReturnValue(undefined);
+  server.theme.mockReset().mockResolvedValue('system');
 });
 
 describe('shellData', () => {
@@ -83,15 +82,8 @@ describe('shellData', () => {
     errors.mockRestore();
   });
 
-  it('reads the theme cookie', async () => {
-    server.cookie.mockImplementation((name) =>
-      name === 'theme' ? { value: 'dark' } : undefined,
-    );
+  it("shows the theme cookie's theme", async () => {
+    server.theme.mockResolvedValue('dark');
     await expect(shellData()).resolves.toMatchObject({ theme: 'dark' });
-  });
-
-  it('takes an unknown theme cookie for the system theme', async () => {
-    server.cookie.mockReturnValue({ value: 'neon' });
-    await expect(shellData()).resolves.toMatchObject({ theme: 'system' });
   });
 });

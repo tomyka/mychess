@@ -63,15 +63,14 @@ function chapterOf(title: string): HTMLDetailsElement {
 }
 
 describe('the progress page (R-152)', () => {
-  it('heads with the repertoire, a link to the player, badges and the whole bar', () => {
+  it('heads with the repertoire, the player named, one way back, badges and the whole bar', () => {
     show();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Karo-Kan gynyba' }),
     ).toBeTruthy();
     const header = screen.getByRole('banner');
-    expect(
-      within(header).getByRole('link', { name: 'Rokas' }).getAttribute('href'),
-    ).toBe('/coach/players/p-1');
+    expect(within(header).getByText('Rokas')).toBeTruthy();
+    expect(within(header).getAllByRole('link')).toHaveLength(1);
     // Its parent is the player's page, not the dashboard (#381).
     expect(
       within(header)

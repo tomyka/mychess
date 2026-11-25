@@ -166,7 +166,7 @@ export function FileStep(props: FileStepProps): JSX.Element {
   const t = useTranslations('repertoires.import');
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className={`${SECTION} max-w-2xl`}>
+    <section aria-labelledby={titleId} className={SECTION}>
       <h2 id={titleId} className={SECTION_TITLE}>
         <StepNumber n={1} />
         {t('fileTitle')}

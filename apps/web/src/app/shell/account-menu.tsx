@@ -29,29 +29,48 @@ export const initials = (name: string): string => {
 const AVATAR =
   'flex size-touch items-center justify-center rounded-pill bg-accent-subtle text-sm font-semibold text-accent focus-visible:ring-2 focus-visible:ring-focus';
 const PANEL =
-  'absolute right-0 top-full z-30 mt-2 flex w-64 flex-col gap-1 rounded-card border border-card-edge bg-surface py-2 shadow-card';
+  'absolute right-0 top-full z-30 mt-2 flex w-max max-w-[calc(100vw-2rem)] min-w-56 flex-col gap-1 rounded-card border border-card-edge bg-surface py-2 shadow-card';
 const ITEM = 'flex min-h-touch items-center px-3 text-fg hover:bg-sunken';
 
-/** Closes the menu on Escape or a press outside it. */
+/**
+ * Closes the menu on Escape, a press outside it, or focus leaving it (to
+ * outside or to nowhere). Focus going nowhere during a press inside it is
+ * not leaving: a browser that does not focus a pressed button or radio
+ * (Safari) sends focus to the page then.
+ */
 function useDismiss(
   open: boolean,
   close: (refocus: boolean) => void,
   root: RefObject<HTMLDivElement | null>,
 ): void {
   useEffect(() => {
-    if (!open) return undefined;
+    const node = root.current;
+    if (!open || node === null) return undefined;
+    let pressing = false;
+    const inside = (target: EventTarget | null): boolean =>
+      target instanceof Node && node.contains(target);
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') close(true);
     };
     const onPointer = (e: PointerEvent): void => {
-      if (!(e.target instanceof Node && root.current?.contains(e.target)))
-        close(false);
+      pressing = inside(e.target);
+      if (!pressing) close(false);
+    };
+    const onRelease = (): void => {
+      pressing = false;
+    };
+    const onFocusOut = (e: FocusEvent): void => {
+      if (!pressing && !inside(e.relatedTarget)) close(false);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('pointerup', onRelease);
+    node.addEventListener('focusout', onFocusOut);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('pointerup', onRelease);
+      node.removeEventListener('focusout', onFocusOut);
     };
   }, [open, close, root]);
 }
@@ -87,7 +106,9 @@ export function AccountMenu(): JSX.Element | null {
       </button>
       {open ? (
         <div id={panel} className={PANEL}>
-          <p className="px-3 py-2 font-semibold">{account.displayName}</p>
+          <p className="px-3 py-2 font-semibold break-words">
+            {account.displayName}
+          </p>
           <Link
             href={ROUTES.settings}
             className={ITEM}
@@ -112,6 +133,19 @@ export function AccountMenu(): JSX.Element | null {
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The account menu in an inner page's own header, below md only: there the
+ * shell's top row (and its avatar) is hidden. Nothing outside the shell.
+ */
+export function PhoneAccountMenu(): JSX.Element | null {
+  if (useShellAccount() === null) return null;
+  return (
+    <div className="ml-auto md:hidden">
+      <AccountMenu />
     </div>
   );
 }

@@ -3,10 +3,10 @@ import 'server-only';
 // name for the avatar, whether it coaches (the Coach tab), the Today
 // badge's due count and the theme cookie.
 import { isCoach, type Account } from '@mychess/domain';
-import { cookies } from 'next/headers';
-import { THEME_COOKIE, parseTheme, type Theme } from '../lib/theme';
+import type { Theme } from '../lib/theme';
 import { logText } from './log-text';
 import { requireOnboarded } from './session';
+import { readThemeCookie } from './theme-cookie';
 import { todaySummary } from './training';
 
 export interface ShellData {
@@ -34,12 +34,15 @@ async function dueCount(account: Account): Promise<number> {
 /** What the app shell shows about the session account (#381). */
 export async function shellData(): Promise<ShellData> {
   const account = await requireOnboarded();
-  const [due, cookieStore] = await Promise.all([dueCount(account), cookies()]);
+  const [due, theme] = await Promise.all([
+    dueCount(account),
+    readThemeCookie(),
+  ]);
   return {
     accountId: account.id,
     displayName: account.displayName,
     isCoach: isCoach(account),
     due,
-    theme: parseTheme(cookieStore.get(THEME_COOKIE)?.value),
+    theme,
   };
 }

@@ -3,6 +3,7 @@
 import { expect } from '@playwright/test';
 import { en, format, newOnboardedAccount, test } from './support/journey';
 import { mainNav, openTab } from './support/nav';
+import { createRepertoire } from './support/repertoires';
 
 test(
   'R-218: the tabs reach every area, an inner page leads back up, and a drill has no tabs',
@@ -20,6 +21,19 @@ test(
     await expect(page).toHaveURL(/\/repertoires$/);
     await page.getByRole('link', { name: en.repertoires.list.import }).click();
     await expect(page).toHaveURL(/\/repertoires\/import$/);
+    await expect(nav).toBeVisible();
+    await page
+      .getByRole('link', {
+        name: format(en.nav.back, { parent: en.nav.repertoires }),
+      })
+      .click();
+    await expect(page).toHaveURL(/\/repertoires$/);
+
+    // A board page is an inner page too: it keeps the tabs and leads back.
+    await createRepertoire(page, en, {
+      name: 'Londono sistema',
+      side: 'white',
+    });
     await expect(nav).toBeVisible();
     await page
       .getByRole('link', {

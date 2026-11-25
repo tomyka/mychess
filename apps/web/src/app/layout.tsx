@@ -1,11 +1,11 @@
 import type { JSX, ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { cookies } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale } from 'next-intl/server';
 import { BRAND } from '../lib/brand';
-import { THEME_COOKIE, parseTheme, themeAttribute } from '../lib/theme';
+import { themeAttribute } from '../lib/theme';
+import { readThemeCookie } from '../server/theme-cookie';
 import './globals.css';
 
 // Inter (R-219), downloaded at build time and served from this site: no
@@ -34,7 +34,7 @@ export default async function RootLayout({
   children: ReactNode;
 }): Promise<JSX.Element> {
   const locale = await getLocale();
-  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const theme = await readThemeCookie();
   return (
     <html
       lang={locale}

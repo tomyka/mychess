@@ -5,13 +5,15 @@
 // spelled out over the name.
 import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
+import { PhoneAccountMenu } from '../shell/account-menu';
 
 const FRAME =
   'flex items-center gap-x-3 px-gutter py-1 lg:flex-col lg:items-start lg:gap-1 lg:px-0 lg:py-0';
 
 /**
  * The top bar's frame: a `header` on the page, a plain `div` in the
- * loading skeleton.
+ * loading skeleton. On a phone it ends with the account menu, as the
+ * shell's own top row is hidden there.
  */
 export function HeaderFrame({
   element: Element = 'header',
@@ -20,7 +22,12 @@ export function HeaderFrame({
   readonly element?: 'header' | 'div';
   readonly children: ReactNode;
 }): JSX.Element {
-  return <Element className={FRAME}>{children}</Element>;
+  return (
+    <Element className={FRAME}>
+      {children}
+      <PhoneAccountMenu />
+    </Element>
+  );
 }
 
 /**

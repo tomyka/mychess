@@ -36,6 +36,18 @@ describe('PageHeader', () => {
     expect(screen.getByRole('heading', { level: 1 }).id).toBe('player-name');
   });
 
+  it('wraps a long title rather than cutting it (Text length)', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <PageHeader title="Sicilian Defence, Najdorf Variation, English Attack" />
+      </NextIntlClientProvider>,
+    );
+    const title = screen.getByRole('heading', { level: 1 }).className;
+    expect(title).not.toContain('line-clamp');
+    expect(title).not.toContain('truncate');
+    expect(title).toContain('break-words');
+  });
+
   it('titles a tab page without a way back', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>

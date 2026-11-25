@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useState, type JSX, type ReactNode } from 'react';
 import { ROUTES } from '../../../lib/routes';
+import { PhoneAccountMenu } from '../../shell/account-menu';
 import { StatusLine } from '../../status-line';
 import { RenameForm } from './rename-form';
 import {
@@ -112,6 +113,7 @@ export function RepertoireHeader({
         />
       </div>
       <div className="lg:ml-auto">{children}</div>
+      <PhoneAccountMenu />
     </header>
   );
 }

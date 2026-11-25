@@ -1,7 +1,7 @@
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
 import { ROUTES } from '../../lib/routes';
-import { PageHeader } from '../shell/page-header';
+import { PageHeader, type BackTarget } from '../shell/page-header';
 import { CONTENT } from '../surfaces';
 
 /** The column every page of the coach dashboard is laid out in. */
@@ -21,7 +21,7 @@ export function SubpageHeader({
   /** Lets a button name what it acts on (aria-describedby). */
   readonly titleId?: string;
   /** The parent page, when it is not the dashboard. */
-  readonly back?: { readonly href: string; readonly parent: string };
+  readonly back?: BackTarget;
   /** Lines under the title, such as when a player linked. */
   readonly children?: ReactNode;
 }): JSX.Element {

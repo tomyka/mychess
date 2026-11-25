@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { AccountMenu, initials } from './account-menu';
+import { AccountMenu, PhoneAccountMenu, initials } from './account-menu';
 import { ShellProvider } from './shell-context';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -66,6 +66,37 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
+  it('closes when focus leaves it', () => {
+    show();
+    fireEvent.click(opener());
+    const settings = screen.getByRole('link', { name: 'Settings' });
+    fireEvent.focusOut(settings, { relatedTarget: opener() });
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy();
+    fireEvent.focusOut(settings, {
+      relatedTarget: screen.getByRole('button', { name: 'outside' }),
+    });
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+  });
+
+  it('closes when focus leaves the page', () => {
+    show();
+    fireEvent.click(opener());
+    fireEvent.focusOut(opener(), { relatedTarget: null });
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+  });
+
+  it('stays open when a press inside it sends focus nowhere', () => {
+    show();
+    fireEvent.click(opener());
+    const dark = screen.getByRole('radio', { name: 'Dark' });
+    fireEvent.pointerDown(dark);
+    fireEvent.focusOut(opener(), { relatedTarget: null });
+    expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy();
+    fireEvent.pointerUp(dark);
+    fireEvent.focusOut(opener(), { relatedTarget: null });
+    expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
+  });
+
   it('keeps a chosen theme when the menu is closed and reopened', () => {
     show();
     fireEvent.click(opener());
@@ -111,5 +142,30 @@ describe('initials', () => {
     ['ąžuolas Jonas', 'ĄJ'],
   ])('of %j are %s', (name, expected) => {
     expect(initials(name)).toBe(expected);
+  });
+});
+
+describe('PhoneAccountMenu', () => {
+  it('carries the avatar below md only', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <ShellProvider
+          value={{ accountId: 'a1', displayName: 'Rokas', theme: 'system' }}
+        >
+          <PhoneAccountMenu />
+        </ShellProvider>
+      </NextIntlClientProvider>,
+    );
+    const avatar = screen.getByRole('button', { name: 'Account menu' });
+    expect(avatar.closest('[class~="md:hidden"]')).not.toBeNull();
+  });
+
+  it('renders nothing outside the shell', () => {
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <PhoneAccountMenu />
+      </NextIntlClientProvider>,
+    );
+    expect(container.innerHTML).toBe('');
   });
 });

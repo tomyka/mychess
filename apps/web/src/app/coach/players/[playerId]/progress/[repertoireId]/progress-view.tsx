@@ -1,6 +1,5 @@
 import { lineText } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { coachPlayerPath } from '../../../../../../lib/routes';
 import type {
@@ -8,11 +7,7 @@ import type {
   ProgressPage,
 } from '../../../../../../server/coach-progress';
 import { AssignmentBadges } from '../../../../../assignment-badges';
-import {
-  SECTION,
-  SECTION_TITLE,
-  TEXT_LINK,
-} from '../../../../../settings/styles';
+import { SECTION, SECTION_TITLE } from '../../../../../settings/styles';
 import { StateBar } from '../../../../state-bar';
 import { COACH_PAGE, SubpageHeader } from '../../../../subpage-header';
 
@@ -79,9 +74,7 @@ export function ProgressView({
           parent: page.player.displayName,
         }}
       >
-        <Link href={coachPlayerPath(page.player.id)} className={TEXT_LINK}>
-          {page.player.displayName}
-        </Link>
+        <p className="break-words text-fg-muted">{page.player.displayName}</p>
         {page.badges === null ? null : <AssignmentBadges flags={page.badges} />}
         <StateBar
           counts={page.standing.counts}

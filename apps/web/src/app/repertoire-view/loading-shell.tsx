@@ -35,7 +35,7 @@ export function RepertoireLoadingShell({
         <div
           aria-hidden="true"
           style={EMPTY_BOARD}
-          className="aspect-square w-full lg:w-[min(calc(100dvh-12rem),42rem)] lg:rounded-board"
+          className="aspect-square w-full lg:w-[min(calc(100dvh-12rem-var(--shell-chrome,0px)),42rem)] lg:rounded-board"
         />
         <div className="flex flex-col gap-3 px-gutter py-3 lg:w-panel lg:px-0">
           <div className={`${SKELETON_LINE} w-40`} />

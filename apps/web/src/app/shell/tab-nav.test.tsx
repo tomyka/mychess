@@ -39,6 +39,17 @@ describe('TabNav', () => {
     expect(coach.getAttribute('aria-current')).toBe('page');
   });
 
+  it('marks the current tab with a shape, not colour alone', () => {
+    const nav = show({ isCoach: false, due: 0 }, '/repertoires');
+    const icon = (name: string) =>
+      within(nav).getByRole('link', { name }).querySelector('svg')
+        ?.parentElement?.className ?? '';
+    expect(icon('Repertoires')).toContain('rounded-pill');
+    expect(icon('Repertoires')).toContain('bg-accent-subtle');
+    expect(icon('Today')).not.toContain('bg-accent-subtle');
+    expect(icon('Opponents')).not.toContain('bg-accent-subtle');
+  });
+
   it('names the due count on Today, capped at 99+ on the badge', () => {
     const nav = show({ isCoach: false, due: 120 }, '/');
     const today = within(nav).getByRole('link', { name: 'Today, 120 due' });

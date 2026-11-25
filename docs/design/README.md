@@ -142,12 +142,12 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `border-strong` on `bg` / `surface` | 3.4 / 3.7 | 3.9 / 3.6 |
 | `border` (bar track) on `bg` / `surface` (2026-11-25) | 1.4 / 1.5 | 1.7 / 1.5 |
 | `skipped` on `border`; on `learned` (2026-10-27; bar segments, the counts carry the meaning) | 1.8; 2.6 | 2.1; 2.4 |
-| `board-focus` on light / dark square | 9.0 / 3.9 | 7.2 / 3.2 |
-| `board-mark-green` / `-red` / `-blue` on light square | 4.1 / 6.7 / 8.6 | 3.3 / 5.4 / 6.9 |
-| `board-mark-yellow` on light square | 1.8 | 1.5 |
+| `board-focus` on light / dark square (2026-11-25; static, both themes; dark-theme squares `#d7c2a0` / `#946f4f`) | 11.2 / 4.9 | 8.9 / 3.4 |
+| `board-mark-green` / `-red` / `-blue` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`) | 4.1 / 6.7 / 8.6 | 3.2 / 5.3 / 6.8 |
+| `board-mark-yellow` on light square (dark theme re-measured 2026-11-25 on `#d7c2a0`) | 1.8 | 1.5 |
 | `piece-outline` on `bg` (king glyph, 2026-10-18) | 19.0 | 15.5 |
 | `board-badge-glyph` on `board-badge-correct` / `-wrong` (2026-10-26; static, both themes) | 6.1 / 6.5 | 6.1 / 6.5 |
-| `board-hint-edge` on light / dark square (2026-10-26; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.2, a hue cue only) | 10.7 / 4.7 | 8.6 / 3.8 |
+| `board-hint-edge` on light / dark square (2026-10-26, dark theme re-measured 2026-11-25 on `#d7c2a0` / `#946f4f`; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.5, a hue cue only) | 10.7 / 4.7 | 8.5 / 3.3 |
 | `board-hint` on `board-hint-edge` | 8.2 | 8.2 |
 
 `apps/web/src/app/tokens.test.ts` enforces the text, control and focus

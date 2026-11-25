@@ -94,7 +94,7 @@ export function RepertoireShell({
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
         {/* On a desktop the panel scrolls with the page, not inside a box
             (#331); the board stays in view beside it. */}
-        <div className="shrink-0 lg:sticky lg:top-[calc(var(--shell-chrome,0px)+2rem)] lg:w-[min(calc(100dvh-12rem),42rem)]">
+        <div className="shrink-0 lg:sticky lg:top-[calc(var(--shell-chrome,0px)+2rem)] lg:w-[min(calc(100dvh-12rem-var(--shell-chrome,0px)),42rem)]">
           <Board
             view={board.view}
             label={words.label}
