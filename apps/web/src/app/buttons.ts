@@ -17,6 +17,24 @@ export const SECONDARY_BUTTON = `${BUTTON} border border-border-strong bg-surfac
 export const DANGER_BUTTON = `${BUTTON} bg-error text-on-state`;
 
 /**
+ * An action that belongs to the content (Today's rows, the drill's Hint and
+ * Type): tinted with the accent, not outlined. Unavailable, it fades to
+ * half and says so to the pointer (aria-disabled).
+ */
+export const TONAL_BUTTON = `${BUTTON} bg-accent-subtle text-accent aria-disabled:cursor-not-allowed aria-disabled:opacity-50`;
+
+/** A way out that must not compete with the page's work (End session, Done beside a next step). */
+export const QUIET_ACTION = `${BUTTON} text-fg-muted hover:text-fg`;
+
+// The buttons on an accent card (Today's hero, training's Nothing due): the
+// main one inverted (surface on accent), the second outlined in the card's
+// text colour. The focus ring takes the card's text colour, as the page's
+// accent ring would vanish on the accent card.
+const HERO_BUTTON = `${BUTTON} focus-visible:outline-accent-fg`;
+export const HERO_PRIMARY_BUTTON = `${HERO_BUTTON} bg-surface text-accent`;
+export const HERO_SECONDARY_BUTTON = `${HERO_BUTTON} border border-accent-fg text-accent-fg`;
+
+/**
  * A rare action kept out of the way, such as asking to unlink: underlined
  * muted text, still a 44px touch target, so it never outweighs the row's
  * main link (#329).

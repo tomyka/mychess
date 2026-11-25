@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { JSX } from 'react';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
-import { SECONDARY_BUTTON } from '../buttons';
+import { QUIET_ACTION } from '../buttons';
 import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps } from './drill';
 import { LineSoFar, MoveRow, ToMove } from './drill-panel';
@@ -158,7 +158,7 @@ export function LearnDrill({
     actions: (
       <>
         {drill.next === null ? null : <NextButton onNext={drill.next} />}
-        <Link href={links.back} className={SECONDARY_BUTTON}>
+        <Link href={links.back} className={QUIET_ACTION}>
           {t('training.drill.end')}
         </Link>
       </>

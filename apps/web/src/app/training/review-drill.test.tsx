@@ -378,6 +378,15 @@ describe('the review drill', () => {
     expect(kinds()).toEqual(['hint']);
   });
 
+  it('fades a used Hint and marks it unavailable (R-61)', () => {
+    renderDrill();
+    const hint = screen.getByRole('button', { name: T.review.hint });
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-disabled')).toBe('true');
+    expect(hint.className).toContain('aria-disabled:opacity-50');
+    expect(hint.className).toContain('aria-disabled:cursor-not-allowed');
+  });
+
   describe('the two-answers notice (R-54, R-174, #330 decision 4)', () => {
     const other = (id: string, name: string, pgn: string) => ({
       id,

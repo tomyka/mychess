@@ -5,17 +5,9 @@ import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { ROUTES, trainingPath } from '../../lib/routes';
 import type { TodaySummary } from '../../server/training';
+import { HERO_PRIMARY_BUTTON, HERO_SECONDARY_BUTTON } from '../buttons';
 import { useReviewTime } from '../training/review-time';
 import type { HeroState } from './hero-state';
-
-// The buttons on the accent card: the main one inverted (surface on
-// accent), the second outlined in the card's text colour; 44px targets.
-// The focus ring takes the card's text colour, as the page's accent ring
-// would vanish on the accent card.
-const HERO_BUTTON =
-  'inline-flex min-h-touch items-center justify-center rounded-control px-4 py-2 text-base font-semibold focus-visible:outline-accent-fg';
-const HERO_PRIMARY = `${HERO_BUTTON} bg-surface text-accent`;
-const HERO_SECONDARY = `${HERO_BUTTON} border border-accent-fg text-accent-fg`;
 
 interface HeroProps {
   readonly state: HeroState;
@@ -81,16 +73,19 @@ function Actions({ state, summary }: HeroProps): JSX.Element | null {
   return (
     <div className="flex flex-wrap gap-3">
       {state === 'due' ? (
-        <Link href={trainingPath('review')} className={HERO_PRIMARY}>
+        <Link href={trainingPath('review')} className={HERO_PRIMARY_BUTTON}>
           {t('training.today.start')}
         </Link>
       ) : null}
       {state === 'empty' ? (
         <>
-          <Link href={ROUTES.repertoires} className={HERO_PRIMARY}>
+          <Link href={ROUTES.repertoires} className={HERO_PRIMARY_BUTTON}>
             {t('today.create')}
           </Link>
-          <Link href={ROUTES.repertoireImport} className={HERO_SECONDARY}>
+          <Link
+            href={ROUTES.repertoireImport}
+            className={HERO_SECONDARY_BUTTON}
+          >
             {t('today.import')}
           </Link>
         </>
@@ -98,7 +93,9 @@ function Actions({ state, summary }: HeroProps): JSX.Element | null {
       {state !== 'empty' && summary.toLearn > 0 ? (
         <LearnLink
           count={summary.toLearn}
-          className={state === 'due' ? HERO_SECONDARY : HERO_PRIMARY}
+          className={
+            state === 'due' ? HERO_SECONDARY_BUTTON : HERO_PRIMARY_BUTTON
+          }
         />
       ) : null}
     </div>

@@ -9,6 +9,7 @@ import {
 } from '../../lib/routes';
 import type { TodayPageRow } from '../../server/today-page';
 import { AssignmentFacts } from '../assignment-facts';
+import { TONAL_BUTTON } from '../buttons';
 import { MasteredBadge } from '../coach/state-bar';
 import { CARD } from '../surfaces';
 import { LearnedBar } from './learned-bar';
@@ -21,9 +22,8 @@ import { LearnedBar } from './learned-bar';
 const NAME_LINK =
   "relative min-w-0 break-words font-semibold text-accent underline after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']";
 
-/** The row's own action: a secondary control, a 44px target. */
-const ROW_BUTTON =
-  'inline-flex min-h-touch shrink-0 items-center justify-center rounded-control bg-accent-subtle px-4 py-2 font-semibold text-accent';
+/** The row's own action: a tonal control, a 44px target. */
+const ROW_BUTTON = `${TONAL_BUTTON} shrink-0`;
 
 /**
  * The row's action as todayRows decided it (R-221): Review N, Learn, or
