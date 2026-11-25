@@ -35,10 +35,10 @@ function chapterId(graph: RepertoireGraph, index: number): string {
   return chapter.id;
 }
 
-/** The London's chapters are named after their openings. */
-const ECO_NAMES = {
-  D00: 'Londono sistema',
-  A45: 'Ferzio pėstininko partija',
+/** The London's chapters are named after their openings, by chapter id. */
+const TAXONOMY_NAMES = {
+  [chapterId(LONDON_GRAPH, 0)]: 'Londono sistema',
+  [chapterId(LONDON_GRAPH, 1)]: 'Ferzio pėstininko partija',
 };
 
 const NONE: MoveChanges = { added: [], removed: [], commentsChanged: 0 };
@@ -53,7 +53,7 @@ function renderSummary(
       <ChangesSummary
         graph={graph}
         changes={changes}
-        names={{ ecoNames: ECO_NAMES, distinctions: {} }}
+        names={{ taxonomyNames: TAXONOMY_NAMES, distinctions: {} }}
       />
     </NextIntlClientProvider>,
   );
@@ -189,7 +189,10 @@ describe('ChangesSummary (R-133)', () => {
             commentsChanged: 0,
           }}
           names={{
-            ecoNames: { D00: 'London System', A45: 'London System' },
+            taxonomyNames: {
+              [chapterId(LONDON_GRAPH, 0)]: 'London System',
+              [chapterId(LONDON_GRAPH, 1)]: 'London System',
+            },
             distinctions: {
               [chapterId(LONDON_GRAPH, 0)]: {
                 eco: 'D00',

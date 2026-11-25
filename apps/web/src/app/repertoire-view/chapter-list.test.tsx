@@ -46,7 +46,10 @@ function renderList(chapterId = 'c2', chapters = CHAPTERS) {
       <ChapterList
         chapters={chapters}
         chapterId={chapterId}
-        names={{ ecoNames: { D02: 'Londono sistema' }, distinctions: {} }}
+        names={{
+          taxonomyNames: { c1: 'Londono sistema' },
+          distinctions: {},
+        }}
         onSelect={onSelect}
       />
     </NextIntlClientProvider>,
@@ -108,7 +111,7 @@ describe('ChapterList', () => {
           ]}
           chapterId="c5"
           names={{
-            ecoNames: { B12: 'Karo-Kano gynyba', B11: 'Karo-Kano gynyba' },
+            taxonomyNames: { c1: 'Karo-Kano gynyba', c5: 'Karo-Kano gynyba' },
             distinctions: {
               c1: {
                 eco: 'B12',
@@ -179,7 +182,10 @@ function renderBuilder(over: Partial<ChapterBuilder> = {}) {
       <ChapterList
         chapters={CHAPTERS}
         chapterId="c2"
-        names={{ ecoNames: { D02: 'Londono sistema' }, distinctions: {} }}
+        names={{
+          taxonomyNames: { c1: 'Londono sistema' },
+          distinctions: {},
+        }}
         onSelect={vi.fn()}
         builder={builder}
       />
@@ -239,7 +245,7 @@ describe('ChapterList in builder mode', () => {
           ]}
           chapterId="c1"
           names={{
-            ecoNames: { B12: 'Karo-Kano gynyba', B11: 'Karo-Kano gynyba' },
+            taxonomyNames: { c1: 'Karo-Kano gynyba', c5: 'Karo-Kano gynyba' },
             distinctions: {
               c1: {
                 eco: 'B12',
@@ -337,7 +343,10 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
         <ChapterList
           chapters={CHAPTERS}
           chapterId="c2"
-          names={{ ecoNames: { D02: 'Londono sistema' }, distinctions: {} }}
+          names={{
+            taxonomyNames: { c1: 'Londono sistema' },
+            distinctions: {},
+          }}
           onSelect={vi.fn()}
           training={
             training
@@ -398,7 +407,7 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
         <ChapterList
           chapters={london.chapters}
           chapterId={first?.id ?? null}
-          names={{ ecoNames: {}, distinctions: {} }}
+          names={{ taxonomyNames: {}, distinctions: {} }}
           onSelect={vi.fn()}
           graph={london}
           training={{

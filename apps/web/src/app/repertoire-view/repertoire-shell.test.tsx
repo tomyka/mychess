@@ -51,7 +51,7 @@ function View({
     <RepertoireShell
       header={<h1>Londono sistema</h1>}
       name="Londono sistema"
-      names={{ ecoNames: {}, distinctions: {} }}
+      names={{ taxonomyNames: {}, distinctions: {} }}
       view={view}
       toolbar={<p>Įrankiai</p>}
       panel={{

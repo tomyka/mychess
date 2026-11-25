@@ -133,7 +133,7 @@ beforeEach(() => {
 describe('RepertoireScreen: browsing', () => {
   it('names the board after the repertoire and the chapter', () => {
     renderScreen();
-    const title = plainChapterTitleIn('lt');
+    const title = plainChapterTitleIn('lt')(GRAPH);
     // The chapters are named in English (R-180), where the two London
     // chapters' openings differ, so neither is told apart (R-158).
     expect(title(must(GRAPH.chapters[1]))).not.toBe(

@@ -180,15 +180,16 @@ describe('previewImportAction', () => {
   it('lists the existing chapter a merge gives a namesake, old title and new (R-159)', async () => {
     const { gabija } = await cast();
     const caroKann = await seedRepertoire(testDb(), 'gabija@example.lt', {
-      pgn: '1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 *',
+      pgn: '1. e4 c6 2. d4 d5 3. Bd3 dxe4 4. Bxe4 Nf6 *',
       side: 'black',
       name: 'Karo-Kanas',
     });
     actAs(gabija);
     const outcome = previewSchema.parse(
       await previewImportAction({
-        // B10, which English (served, R-180) also calls "Caro-Kann Defense".
-        text: '1. e4 c6 2. c4 d5 *',
+        // B10, which English (served, R-180) calls "Caro-Kann Defense" as it
+        // does the B12 above: no named line follows either (R-216).
+        text: '1. e4 c6 2. a3 d5 *',
         side: 'black',
         into: caroKann,
       }),

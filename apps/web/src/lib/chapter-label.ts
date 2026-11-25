@@ -18,8 +18,8 @@ export interface ChapterTranslator {
   (key: 'chapter.distinctEco', values: { name: string; eco: string }): string;
 }
 
-/** An opening's name by its ECO code. */
-export type EcoNameOf = (eco: string) => string;
+/** A taxonomy-named chapter's opening name, by its id and stored code. */
+export type TaxonomyNameOf = (chapterId: string, eco: string) => string;
 
 /**
  * What the server sends the browser to title a repertoire's chapters, so the
@@ -28,8 +28,8 @@ export type EcoNameOf = (eco: string) => string;
  * share a title (R-158), both by plain records.
  */
 export interface ChapterNames {
-  /** Opening names by ECO code. */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** Each taxonomy-named chapter's opening name, by chapter id (R-216). */
+  readonly taxonomyNames: Readonly<Record<string, string>>;
   /** `chapterDistinctions` by chapter id. */
   readonly distinctions: Readonly<Record<string, ChapterDistinction>>;
 }
@@ -93,21 +93,21 @@ export function chapterTitles(
 
 /**
  * A chapter's own title, without any distinction: its own name, its
- * opening's name by `ecoNameOf`, or "Chapter N". The one definition, in the
- * browser (over the names the server sent) and on the server (over the ECO
- * tables), which the rename field starts from.
+ * opening's name by `taxonomyNameOf`, or "Chapter N". The one definition, in
+ * the browser (over the names the server sent) and on the server (over the
+ * opening table), which the rename field starts from.
  */
 export function baseTitle(
   t: ChapterTranslator,
-  ecoNameOf: EcoNameOf,
+  taxonomyNameOf: TaxonomyNameOf,
 ): (chapter: Chapter) => string {
-  return ({ nameSource }) => {
+  return ({ id, nameSource }) => {
     switch (nameSource.kind) {
       case 'custom':
       case 'header':
         return nameSource.name;
       case 'eco':
-        return ecoNameOf(nameSource.eco);
+        return taxonomyNameOf(id, nameSource.eco);
       case 'index':
         return t('chapter.untitled', { number: nameSource.number });
     }
@@ -115,14 +115,15 @@ export function baseTitle(
 }
 
 /**
- * A chapter's base title in the browser, from the names the server sent; an
- * ECO code with no name is called by its code, as `ecoName` does.
+ * A chapter's base title in the browser, from the names the server sent; a
+ * chapter the server sent no name for is called by its code, as `ecoName`
+ * does.
  */
 export function plainChapterLabel(
   t: ChapterTranslator,
   names: ChapterNames,
 ): (chapter: Chapter) => string {
-  return baseTitle(t, (eco) => names.ecoNames[eco] ?? eco);
+  return baseTitle(t, (id, eco) => names.taxonomyNames[id] ?? eco);
 }
 
 /**

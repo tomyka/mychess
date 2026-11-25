@@ -44,8 +44,13 @@ const account = (locale: 'lt' | 'en'): Account => ({
 const ADVANCE = '1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 *';
 const CLASSICAL = '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *';
 const TWO_KNIGHTS = '1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *';
-/** B10, which English names "Caro-Kann Defense" as it does the Advance's B12. */
-const ACCELERATED = '1. e4 c6 2. c4 d5 *';
+/**
+ * B12 by a move no named line follows, so English names it by the family's
+ * line, "Caro-Kann Defense" (R-216), as it does WING's B10.
+ */
+const BISHOP = '1. e4 c6 2. d4 d5 3. Bd3 dxe4 4. Bxe4 Nf6 *';
+/** B10, which English names "Caro-Kann Defense" as it does BISHOP's B12. */
+const WING = '1. e4 c6 2. a3 d5 *';
 
 /** The preview of `text`, or a thrown error with the refusal's reason. */
 async function preview(
@@ -103,11 +108,11 @@ describe('previewImport chapter titles (R-158)', () => {
   const upload = [ADVANCE, CLASSICAL, TWO_KNIGHTS].join('\n\n');
 
   it('tells apart the chapters a file brings that share a name', async () => {
-    const shared = [ADVANCE, CLASSICAL, ACCELERATED].join('\n\n');
+    const shared = [BISHOP, CLASSICAL, WING].join('\n\n');
     expect(await titles('en', shared)).toEqual([
-      'Caro-Kann Defense (B12, 3.\u00A0e5)',
+      'Caro-Kann Defense (B12, 3.\u00A0Bd3)',
       'Caro-Kann Defense: Classical Variation',
-      'Caro-Kann Defense (B10, 2.\u00A0c4)',
+      'Caro-Kann Defense (B10, 2.\u00A0a3)',
     ]);
   });
 
@@ -115,7 +120,7 @@ describe('previewImport chapter titles (R-158)', () => {
     'keeps them plain where the served language names them apart (a %s account, R-180)',
     async (locale) => {
       expect(await titles(locale, upload)).toEqual([
-        'Caro-Kann Defense',
+        'Caro-Kann Defense: Advance Variation, Short Variation',
         'Caro-Kann Defense: Classical Variation',
         'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
       ]);
@@ -123,36 +128,36 @@ describe('previewImport chapter titles (R-158)', () => {
   );
 
   it('titles a merge’s new chapters as the merged repertoire names them', async () => {
-    ownsRepertoireOf(ADVANCE);
-    // Alone, the Accelerated would be plain; beside the repertoire's
-    // Advance it is told apart.
-    expect(await titles('en', ACCELERATED)).toEqual(['Caro-Kann Defense']);
-    expect(await titles('en', ACCELERATED, INTO)).toEqual([
-      'Caro-Kann Defense (B10, 2.\u00A0c4)',
+    ownsRepertoireOf(BISHOP);
+    // Alone, the 2. a3 line would be plain; beside the repertoire's
+    // 3. Bd3 line it is told apart.
+    expect(await titles('en', WING)).toEqual(['Caro-Kann Defense']);
+    expect(await titles('en', WING, INTO)).toEqual([
+      'Caro-Kann Defense (B10, 2.\u00A0a3)',
     ]);
   });
 });
 
 describe('previewImport renamed chapters (R-159)', () => {
-  /** The Advance, told apart at `move` from the Accelerated it gains. */
-  const advanceRenamed = (move: string) => ({
+  /** The 3. Bd3 line, told apart at `move` from the 2. a3 line it gains. */
+  const bishopRenamed = (move: string) => ({
     from: 'Caro-Kann Defense',
     to: `Caro-Kann Defense (B12, ${move})`,
   });
 
   it('lists an existing chapter a merge gives a namesake, old title and new', async () => {
-    ownsRepertoireOf(ADVANCE);
-    expect((await preview('en', ACCELERATED, INTO)).renamed).toEqual([
-      advanceRenamed('2.\u00A0d4'),
+    ownsRepertoireOf(BISHOP);
+    expect((await preview('en', WING, INTO)).renamed).toEqual([
+      bishopRenamed('2.\u00A0d4'),
     ]);
   });
 
   it('leaves out the existing chapters whose title stays', async () => {
-    // The Classical keeps its own name; the Advance's move is where it
+    // The Classical keeps its own name; the 3. Bd3 line's move is where it
     // parts from every other chapter, the Classical's 3. Nc3 included.
-    ownsRepertoireOf([CLASSICAL, ADVANCE].join('\n\n'));
-    expect((await preview('en', ACCELERATED, INTO)).renamed).toEqual([
-      advanceRenamed('3.\u00A0e5'),
+    ownsRepertoireOf([CLASSICAL, BISHOP].join('\n\n'));
+    expect((await preview('en', WING, INTO)).renamed).toEqual([
+      bishopRenamed('3.\u00A0Bd3'),
     ]);
   });
 

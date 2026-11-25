@@ -90,7 +90,7 @@ const LONDON_DATA: RepertoirePageData = {
   },
   graph: graphOf(LONDON),
   notes: {},
-  names: { ecoNames: {}, distinctions: {} },
+  names: { taxonomyNames: {}, distinctions: {} },
   sharing: { coaches: [], sharedWith: [] },
   coachNotes: [],
   forkNotes: [],

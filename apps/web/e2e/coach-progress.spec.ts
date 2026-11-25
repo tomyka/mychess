@@ -8,7 +8,6 @@
 // its progress URL is not found (R-39); Dovydas's own copy of the Italian
 // shows its badge only (R-155); Gabija's shared Taimanov links from its own
 // page to her progress on it.
-import { ecoName } from '@mychess/chess';
 import {
   expect,
   type BrowserContext,
@@ -87,7 +86,11 @@ const KARO_KAN_TITLES = {
     'Karo-Kano gynyba (B12, 3.\u00A0e5)',
     'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
   ],
-  en: [ecoName('B12', 'en'), ecoName('B11', 'en')],
+  // The named line each chapter's main line reaches (R-216).
+  en: [
+    'Caro-Kann Defense: Advance Variation, Short Variation',
+    'Caro-Kann Defense: Two Knights Attack, Mindeno Variation, Exchange Line',
+  ],
 } as const;
 
 /** Each player's Caro-Kann counts, as seeded. */

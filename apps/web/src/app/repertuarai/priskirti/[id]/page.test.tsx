@@ -76,7 +76,7 @@ function london(paused: boolean): AssignedRepertoirePage {
     paused,
     deadline: null,
     overdue: false,
-    names: { ecoNames: {}, distinctions: {} },
+    names: { taxonomyNames: {}, distinctions: {} },
     changes: { added: [], removed: [], commentsChanged: 0 },
   };
 }

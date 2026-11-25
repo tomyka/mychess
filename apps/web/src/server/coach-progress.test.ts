@@ -156,12 +156,13 @@ describe('coachProgressData', () => {
   });
 
   it('tells apart chapters named after the same opening (R-158)', async () => {
-    // English calls both B12 and B10 "Caro-Kann Defense".
+    // English calls both lines by the family's name, "Caro-Kann Defense",
+    // by their codes B12 and B10: no named line follows them (R-216).
     const imported = importPgn(
       [
-        '1. e4 c6 2. d4 d5 3. e5 Bf5 *',
+        '1. e4 c6 2. d4 d5 3. Bd3 dxe4 4. Bxe4 Nf6 *',
         '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *',
-        '1. e4 c6 2. c4 d5 *',
+        '1. e4 c6 2. a3 d5 *',
       ].join('\n\n'),
       'black',
     );
@@ -169,9 +170,9 @@ describe('coachProgressData', () => {
     server.repertoire.mockResolvedValue(viewOf(imported.value.graph));
     const page = await coachProgressData(PLAYER, REPERTOIRE);
     expect(page.chapters.map((chapter) => chapter.title)).toEqual([
-      'Caro-Kann Defense (B12, 3.\u00A0e5)',
+      'Caro-Kann Defense (B12, 3.\u00A0Bd3)',
       'Caro-Kann Defense: Classical Variation',
-      'Caro-Kann Defense (B10, 2.\u00A0c4)',
+      'Caro-Kann Defense (B10, 2.\u00A0a3)',
     ]);
   });
 
@@ -182,7 +183,7 @@ describe('coachProgressData', () => {
       server.repertoire.mockResolvedValue(viewOf(caroKann()));
       const page = await coachProgressData(PLAYER, REPERTOIRE);
       expect(page.chapters.map((chapter) => chapter.title)).toEqual([
-        'Caro-Kann Defense',
+        'Caro-Kann Defense: Advance Variation',
         'Caro-Kann Defense: Classical Variation',
         'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
       ]);

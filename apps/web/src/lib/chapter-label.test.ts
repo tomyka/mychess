@@ -10,6 +10,7 @@ import { MESSAGES } from '../i18n/locales';
 import {
   chapterLabel,
   chapterTitles,
+  plainChapterLabel,
   type ChapterNames,
   type ChapterTranslator,
 } from './chapter-label';
@@ -144,7 +145,14 @@ describe('chapterTitles (R-158)', () => {
 describe('chapterLabel', () => {
   const names = (
     distinctions: ChapterNames['distinctions'] = {},
-  ): ChapterNames => ({ ecoNames: { D02: 'Londono sistema' }, distinctions });
+  ): ChapterNames => ({
+    taxonomyNames: {
+      c1: 'Londono sistema',
+      a: 'Londono sistema',
+      b: 'Londono sistema',
+    },
+    distinctions,
+  });
 
   it('names an ECO chapter from the names it was given, or by its code', () => {
     const d02 = chapter('c1', { kind: 'eco', eco: 'D02' });
@@ -186,5 +194,18 @@ describe('chapterLabel', () => {
   it('names a chapter outside the list by its plain title', () => {
     const other = chapter('z', { kind: 'custom', name: 'Kita' });
     expect(chapterLabel(LT, names(), [])(other)).toBe('Kita');
+  });
+});
+
+describe('plainChapterLabel (R-216)', () => {
+  it('names a chapter by its own taxonomy name, by id, else by its code', () => {
+    const advance = chapter('c1', { kind: 'eco', eco: 'B12' });
+    const other = chapter('c2', { kind: 'eco', eco: 'B12' });
+    const label = plainChapterLabel(EN, {
+      taxonomyNames: { c1: 'Caro-Kann Defense: Advance Variation' },
+      distinctions: {},
+    });
+    expect(label(advance)).toBe('Caro-Kann Defense: Advance Variation');
+    expect(label(other)).toBe('B12');
   });
 });

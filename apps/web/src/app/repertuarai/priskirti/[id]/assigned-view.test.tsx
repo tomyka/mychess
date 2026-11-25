@@ -58,7 +58,7 @@ const DATA: AssignedRepertoirePage = {
   paused: false,
   deadline: null,
   overdue: false,
-  names: { ecoNames: {}, distinctions: {} },
+  names: { taxonomyNames: {}, distinctions: {} },
   changes: { added: [], removed: [], commentsChanged: 0 },
 };
 

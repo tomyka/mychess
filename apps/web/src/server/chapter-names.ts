@@ -1,6 +1,7 @@
 import {
   chapterDistinctions,
   ecoName,
+  taxonomyNames,
   type Chapter,
   type RepertoireGraph,
 } from '@mychess/chess';
@@ -25,23 +26,27 @@ function translatorIn(locale: Locale): ChapterTranslator {
   return createTranslator({ locale, messages: MESSAGES[locale] });
 }
 
-/** `baseTitle` over the ECO tables, in `locale`. */
+/** `baseTitle` over `graph`'s taxonomy names (R-216), in `locale`. */
 function baseTitleIn(
   t: ChapterTranslator,
+  graph: RepertoireGraph,
   locale: Locale,
 ): (chapter: Chapter) => string {
-  return baseTitle(t, (eco) => ecoName(eco, locale));
+  const names = taxonomyNames(graph, locale);
+  return baseTitle(t, (id, eco) => names.get(id) ?? ecoName(eco, locale));
 }
 
 /**
- * What to call a chapter in `locale` with no distinction: its name, its
- * opening, or "Chapter N". For the PGN download and the data export.
+ * What to call a repertoire's chapters in `locale` with no distinction: its
+ * name, its opening, or "Chapter N". For the PGN download and the data
+ * export, which name chapters from the repertoire they belong to.
  */
 export function plainChapterTitleIn(
   wanted: Locale,
-): (chapter: Chapter) => string {
+): (graph: RepertoireGraph) => (chapter: Chapter) => string {
   const locale = resolveLocale(wanted);
-  return baseTitleIn(translatorIn(locale), locale);
+  const t = translatorIn(locale);
+  return (graph) => baseTitleIn(t, graph, locale);
 }
 
 /**
@@ -55,7 +60,7 @@ export function chapterLabelIn(
 ): (chapter: Chapter) => string {
   const locale = resolveLocale(wanted);
   const t = translatorIn(locale);
-  const plain = baseTitleIn(t, locale);
+  const plain = baseTitleIn(t, graph, locale);
   const titles = chapterTitles(
     graph.chapters,
     plain,
@@ -65,27 +70,19 @@ export function chapterLabelIn(
   return (chapter) => titles[chapter.id] ?? plain(chapter);
 }
 
-/** The opening names the browser needs for this graph's ECO chapters (decision 17). */
-function ecoNamesOf(
-  graph: RepertoireGraph,
-  locale: Locale,
-): Record<string, string> {
-  const codes = graph.chapters.flatMap((c) =>
-    c.nameSource.kind === 'eco' ? [c.nameSource.eco] : [],
-  );
-  return Object.fromEntries(codes.map((code) => [code, ecoName(code, locale)]));
-}
-
 /**
  * What the browser needs to title this graph's chapters (`chapterLabel`):
- * its opening names and its chapters' distinctions (R-158), serialisable.
+ * its chapters' opening names (decision 17, R-216) and distinctions
+ * (R-158), serialisable.
  */
 export function chapterNamesOf(
   graph: RepertoireGraph,
   wanted: Locale,
 ): ChapterNames {
   return {
-    ecoNames: ecoNamesOf(graph, resolveLocale(wanted)),
+    taxonomyNames: Object.fromEntries(
+      taxonomyNames(graph, resolveLocale(wanted)),
+    ),
     distinctions: Object.fromEntries(chapterDistinctions(graph)),
   };
 }
