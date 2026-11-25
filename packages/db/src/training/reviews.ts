@@ -122,6 +122,11 @@ export interface StoredReview {
   readonly skippedAt: Date | null;
 }
 
+/** Whether a stored Review entered by "I know this" (R-58, R-151). */
+export const knownWithoutLearning = ({
+  skippedAt,
+}: Pick<StoredReview, 'skippedAt'>): boolean => skippedAt !== null;
+
 /** Every Review of `playerId`, by move key. */
 export async function reviewsOf(
   db: Executor,
@@ -238,7 +243,7 @@ export async function trackedReviews(
   for (const row of rows)
     out.get(row.playerId)?.set(row.moveKey, {
       review: toReviewState(row),
-      knownWithoutLearning: row.skippedAt !== null,
+      knownWithoutLearning: knownWithoutLearning(row),
     });
   return out;
 }

@@ -26,6 +26,7 @@ import { REPEATABLE_READ, type Executor } from '../client';
 import { trainingRepertoires } from '../assignments/player-training';
 import { reviews } from '../training-schema';
 import {
+  knownWithoutLearning,
   lockReviews,
   reviewRow,
   reviewsOf,
@@ -40,9 +41,9 @@ function againKeys(
 ): string[] {
   const states = new Map<string, ReviewState>();
   const skipped = new Set<string>();
-  for (const [key, { review, skippedAt }] of stored) {
-    states.set(key, review);
-    if (skippedAt !== null) skipped.add(key);
+  for (const [key, entry] of stored) {
+    states.set(key, entry.review);
+    if (knownWithoutLearning(entry)) skipped.add(key);
   }
   return learnAgainKeys(scope, states, skipped);
 }

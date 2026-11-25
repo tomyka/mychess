@@ -14,7 +14,12 @@ import { dayEnd, dayStart, type TrainingSettings } from '@mychess/domain';
 import { REPEATABLE_READ, type Executor } from '../client';
 import { isUuid } from '../ids';
 import { trainingEntries, type TrainingRepertoireEntry } from './entries';
-import { learnedBetween, reviewsOf, type StoredReview } from './reviews';
+import {
+  knownWithoutLearning,
+  learnedBetween,
+  reviewsOf,
+  type StoredReview,
+} from './reviews';
 import { trainingSettings } from './settings';
 
 /** Every repertoire the player trains, or one of them. */
@@ -101,7 +106,7 @@ const knownKeys = (
 ): Set<string> =>
   new Set(
     [...stored]
-      .filter(([key, { skippedAt }]) => held.has(key) && skippedAt !== null)
+      .filter(([key, review]) => held.has(key) && knownWithoutLearning(review))
       .map(([key]) => key),
   );
 
