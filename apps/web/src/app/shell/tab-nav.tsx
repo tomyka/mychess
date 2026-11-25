@@ -16,9 +16,9 @@ const NAV =
   'fixed inset-x-0 bottom-0 z-20 bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--color-border)] md:absolute md:inset-y-0 md:left-1/2 md:w-fit md:-translate-x-1/2 md:bg-transparent md:pb-0 md:shadow-none';
 const LIST = 'flex md:h-full md:gap-2';
 const LINK =
-  'relative flex min-h-tabbar min-w-touch flex-1 flex-col items-center justify-center gap-0.5 px-2 text-xs font-medium text-fg-muted md:flex-row md:gap-2 md:text-base aria-[current=page]:text-accent md:aria-[current=page]:shadow-[inset_0_-2px_0_var(--color-accent)]';
-// The current tab's icon sits in a pill on a phone, so the tab is marked by
-// a shape and not by colour alone; from md the underline marks it.
+  'relative flex min-h-tabbar min-w-touch flex-1 flex-col items-center justify-center gap-0.5 px-2 text-xs font-medium text-fg-muted md:flex-row md:gap-2 md:text-base aria-[current=page]:text-accent aria-[current=page]:shadow-[inset_0_2px_0_var(--color-accent)] md:aria-[current=page]:shadow-[inset_0_-2px_0_var(--color-accent)]';
+// On a phone the current tab has an accent bar along its top edge (3:1, a
+// shape and not colour alone) and its icon in a pill; from md an underline.
 const ICON = 'flex rounded-pill px-4 py-0.5 md:px-0 md:py-0';
 const ICON_CURRENT = `${ICON} bg-accent-subtle md:bg-transparent`;
 const BADGE =
