@@ -140,7 +140,9 @@ Three to five teammates at a time; each one costs tokens.
   commit is format, lint, strict typecheck, the tests of the changed
   packages and the secret scan of the staged files (`git add` first, then
   `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 git /repo
-  --pre-commit --staged --no-banner --redact`; not `dir` with several paths,
+  --pre-commit --staged --no-banner --redact`, prefixed with
+  `MSYS_NO_PATHCONV=1` in Git Bash, which otherwise rewrites `/repo` to a
+  Windows path and the scan fails; not `dir` with several paths,
   which scans the container; a fake test secret goes into
   `.gitleaksignore`), chained with `&&` and never piped (a pipe hides the
   exit code); CI runs the full gate (`node quality/gate.mjs
@@ -148,10 +150,11 @@ Three to five teammates at a time; each one costs tokens.
   (R-213). Outside that phase it is the full gate.
 - **The Stop hook pauses while teammates work** (#281): the lead creates
   `node_modules/.cache/ts-quality/team-running` when it dispatches
-  teammates and deletes it once they have all reported, so the hook does not
-  run the gate on their red-phase tests. A marker older than three hours is
-  ignored, so refresh it on a long slice. The gate before each commit still
-  applies.
+  teammates, so the hook does not run the gate on their red-phase tests. A
+  marker older than three hours is ignored, so refresh it on a long slice and
+  let it expire after the last report: the protected-path hook refuses an
+  agent's `rm` under `node_modules/.cache/ts-quality/`. The gate before each
+  commit still applies.
 - **No command that can wait on stdin** (a bare `cat`, an interactive
   prompt): it hangs the teammate's shell, and stopping it may be refused (S5).
 - **Silence is not progress.** With every handoff the lead starts a

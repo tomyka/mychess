@@ -20,6 +20,8 @@ One runner, `quality/gate.mjs`, for people, agent hooks and CI alike. Thresholds
 
 Separate suites: `pnpm test:unit` (domain, chess), `pnpm test:component` (web), `pnpm test:db` (db, on a Testcontainers Postgres: needs Docker). `pnpm check` runs all of them in one vitest run over the workspace, so it needs Docker too.
 
+One web test file: from `apps/web`, `pnpm exec vitest run --config vitest.component.config.ts <file>` (component and server tests) or `--config vitest.feature.config.ts <file>` (feature tests, Docker). `pnpm --filter @mychess/web exec vitest run <file>` does not work: it picks up the root multi-project config, whose relative paths do not resolve from there. Chess and domain: `pnpm --filter @mychess/chess exec vitest run <file>` works.
+
 ## Hooks (`.claude/settings.json`)
 
 - **PreToolUse** `protect-config.mjs`: refuses agent edits to the gate configs and `--no-verify`.
