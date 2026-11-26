@@ -164,7 +164,10 @@ keep their place under the comment, unchanged.
 ### Move list
 
 - Numbered, two columns: number, White's move, Black's move; a line that
-  starts with Black's move shows "5. ..." in White's column.
+  starts with Black's move shows "n. ..." in White's column. Moves are
+  numbered from the chapter root, as everywhere else on the page: a
+  position key keeps no move counter (Q27), so a Black-first chapter starts
+  at "1. ...".
 - Variations: indented with the left rule, written inline ("6. f4 a6 7.
   Nxc6 bxc6"), each move still its own focusable chip; the main line
   continues after the variation in the same columns.

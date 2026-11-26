@@ -1,5 +1,11 @@
 import { moveKey, type RepertoireMove } from '@mychess/chess';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
@@ -33,15 +39,50 @@ const text = (element: Element | null) =>
     (part) => part.textContent,
   ).join(' ');
 
+const list = () =>
+  screen.getByRole('region', { name: MESSAGES.repertoires.moves.title });
+
+/**
+ * The list as the eye reads it: a numbered row as its cells ("6. … a6"),
+ * a row of variations as its inline blocks, each in brackets.
+ */
+const rows = (): string[] =>
+  Array.from(list().children, (row) =>
+    row.hasAttribute('data-variations')
+      ? Array.from(row.children, (block) => `(${text(block)})`).join(' ')
+      : Array.from(row.children, (cell) => cell.textContent)
+          .filter((cell) => cell !== '')
+          .join(' '),
+  );
+
+/** The list's row `index`. */
+function rowAt(index: number): HTMLElement {
+  const row = list().children.item(index);
+  if (!(row instanceof HTMLElement)) throw new Error(`no row ${String(index)}`);
+  return row;
+}
+
+/** The SANs on the list's row `index`, in reading order. */
+const rowSans = (index: number): (string | null)[] =>
+  within(rowAt(index))
+    .getAllByRole('button')
+    .map((b) => b.textContent);
+
+/** After 1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3: Black to move. */
+const TAIMANOV_FEN =
+  'r1bqkbnr/pp1p1ppp/2n1p3/8/3NP3/2N5/PPP2PPP/R1BQKB1R b KQkq - 2 5';
+
 describe('MoveList', () => {
-  it('shows the main line with move numbers and the variation as its own block', () => {
+  it('shows the main line in numbered rows and the variation as its own block', () => {
     renderList();
-    const list = screen.getByRole('region', {
-      name: MESSAGES.repertoires.moves.title,
-    });
-    expect(text(list)).toBe(
-      '1. d4 d5 2. Bf4 Nf6 3. e3 e6 3... c5 4. c3 4. Nf3',
-    );
+    expect(rows()).toEqual([
+      '1. d4 d5',
+      '2. Bf4 Nf6',
+      '3. e3 e6',
+      '(3... c5 4. c3)',
+      '4. Nf3',
+    ]);
+    expect(rowSans(0)).toEqual(['d4', 'd5']);
     const variation = chip('3... c5').closest('[data-variation]');
     expect(text(variation)).toBe('3... c5 4. c3');
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
@@ -159,15 +200,53 @@ describe('MoveList', () => {
     expect(kept.querySelector('[data-note="personal"]')).toBeNull();
   });
 
-  it('numbers Black’s moves after a nested variation', () => {
+  it('goes on with Black’s move under “…” after variations on White’s move', () => {
     renderList({ graph: graphOf(TAIMANOV, 'black'), chapterId: 'c1' });
-    const list = screen.getByRole('region', {
-      name: MESSAGES.repertoires.moves.title,
-    });
-    expect(text(list)).toBe(
-      '1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Be3 ' +
-        '6. Be2 a6 7. O-O 7. Be3 Nf6 7... Nf6 6. g3 a6 6... a6 7. Qd2 Nf6',
+    expect(rows()).toEqual([
+      '1. e4 c5',
+      '2. Nf3 e6',
+      '3. d4 cxd4',
+      '4. Nxd4 Nc6',
+      '5. Nc3 Qc7',
+      '6. Be3',
+      '(6. Be2 a6 7. O-O 7. Be3 Nf6 7... Nf6) (6. g3 a6)',
+      '6. … a6',
+      '7. Qd2 Nf6',
+    ]);
+    // The nested variation is a block inside its parent's, inline.
+    const nested = chip('7. Be3').closest('[data-variation]');
+    expect(nested?.parentElement?.closest('[data-variation]')).toBe(
+      chip('6. Be2').closest('[data-variation]'),
     );
+    // The row after the variations holds Black's move alone, named with
+    // its own number.
+    expect(rowSans(7)).toEqual(['a6']);
+    expect(
+      within(rowAt(7)).getByRole('button', {
+        name: '6... a6, has a comment',
+      }),
+    ).toBeDefined();
+  });
+
+  it('starts a chapter whose root has Black to move with an empty White cell', () => {
+    renderList({
+      graph: graphOf(
+        `[FEN "${TAIMANOV_FEN}"]\n[SetUp "1"]\n\n5... Qc7 6. Be3 a6 *`,
+        'black',
+      ),
+      chapterId: 'c1',
+    });
+    expect(rows()).toEqual(['1. … Qc7', '2. Be3 a6']);
+    expect(rowSans(0)).toEqual(['Qc7']);
+  });
+
+  it('has touch-sized chips on a phone and compact ones on a desktop', () => {
+    renderList();
+    const { className } = chip('1... d5');
+    expect(className).toContain('min-h-touch');
+    expect(className).toContain('min-w-touch');
+    expect(className).toContain('lg:min-h-7');
+    expect(className).toContain('lg:min-w-0');
   });
 
   describe('bringing the current move into view (finding 8)', () => {

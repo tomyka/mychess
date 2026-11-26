@@ -5,7 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { CommentEditor } from './comment';
 import type { FieldOutcome } from './field-save';
-import { PositionBody, type PositionBodyProps } from './position-body';
+import {
+  PositionBody,
+  PositionEdit,
+  type PositionBodyProps,
+  type PositionEditProps,
+} from './position-body';
 
 const BF4: RepertoireMove = {
   from: 'rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -',
@@ -28,15 +33,20 @@ const MARKED: RepertoireMove = {
 const en = MESSAGES.repertoires;
 const p = en.panel;
 
-function renderBody(over: Partial<PositionBodyProps> = {}): void {
+/** Both parts as the panel places them: the edit part, then the body. */
+function renderBody(
+  over: Partial<PositionEditProps & PositionBodyProps> = {},
+): void {
+  const props: PositionEditProps & PositionBodyProps = {
+    intro: 'Solid and quick.',
+    move: null,
+    mode: 'browse',
+    ...over,
+  };
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <PositionBody
-        intro="Solid and quick."
-        move={null}
-        mode="browse"
-        {...over}
-      />
+      <PositionEdit {...props} />
+      <PositionBody move={props.move} renderNotes={props.renderNotes} />
     </NextIntlClientProvider>,
   );
 }

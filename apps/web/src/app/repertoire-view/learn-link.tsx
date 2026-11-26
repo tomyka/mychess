@@ -10,31 +10,23 @@ import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
 import { learnDayOf } from '../../lib/learn-scope';
 import { learnPath } from '../../lib/routes';
+import { TONAL_BUTTON } from '../buttons';
 import type { PanelTraining } from './panel-training';
 
 /**
- * A secondary button made compact (UX sign-off): small text and padding,
- * still a full touch target, so a long chapter name keeps its width.
- */
-const COMPACT_BUTTON =
-  'inline-flex min-h-touch shrink-0 items-center justify-center rounded-control border border-border-strong bg-surface px-3 text-sm font-semibold text-fg';
-
-/**
- * "Learn (n)" for one chapter or one line (R-206): the new moves learning
- * it would teach today, within the daily limit; nothing when that is 0.
- * Named for a chapter by its title, else as this line (lead answer 4).
+ * "Learn this line (n)" or "Learn this chapter (n)" (R-206): the new moves
+ * learning it would teach today, within the daily limit; nothing when that
+ * is 0.
  */
 export function LearnLink({
   training,
   graph,
   focus,
-  subject,
 }: {
   readonly training: PanelTraining;
   readonly graph: RepertoireGraph;
+  /** A line of the chapter, or the whole chapter without `lineIndex`. */
   readonly focus: Omit<LearnFocus, 'repertoireId'>;
-  /** The chapter's title; absent for the current line. */
-  readonly subject?: string;
 }): JSX.Element | null {
   const t = useTranslations('training.repertoire');
   const { repertoireId, learn } = training;
@@ -51,16 +43,10 @@ export function LearnLink({
   );
   if (count === 0) return null;
   return (
-    <Link
-      href={learnPath(repertoireId, focus)}
-      aria-label={
-        subject === undefined
-          ? t('learnLine', { count })
-          : t('learnIn', { count, subject })
-      }
-      className={COMPACT_BUTTON}
-    >
-      {t('learn', { count })}
+    <Link href={learnPath(repertoireId, focus)} className={TONAL_BUTTON}>
+      {lineIndex === undefined
+        ? t('learnThisChapter', { count })
+        : t('learnThisLine', { count })}
     </Link>
   );
 }

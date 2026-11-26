@@ -9,10 +9,16 @@ import {
   sideToMove,
   type RepertoireGraph,
   type RepertoireMove,
-  type WalkedMove,
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, type JSX } from 'react';
+import {
+  lineTokens,
+  rowsOf,
+  type MovesRow,
+  type MoveToken,
+  type Token,
+} from './move-rows';
 import { revealInScroller } from './reveal-in-scroller';
 
 export interface MoveListProps {
@@ -45,61 +51,6 @@ type NoteKind = 'personal' | 'coach';
 type NoteMark = NoteKind | 'kept';
 
 const NO_KEPT_NOTES: ReadonlySet<string> = new Set();
-
-/** A move chip, or the variations that branch off before the next one. */
-type Token =
-  | {
-      readonly kind: 'move';
-      readonly move: RepertoireMove;
-      readonly ply: number;
-      readonly path: readonly RepertoireMove[];
-      /** Black's number shows at the start of a block or after variations. */
-      readonly numbered: boolean;
-      /**
-       * It lands on a position the list goes on from elsewhere (a
-       * Transposition): the line goes on there, not after this chip (#331).
-       */
-      readonly transposes: boolean;
-    }
-  | { readonly kind: 'variations'; readonly blocks: readonly Token[][] };
-
-/**
- * A line of the chapter's tree as tokens: the main move at each position,
- * its alternatives as variation blocks right after it, then the main line
- * goes on. Loops along the main line; recurses only into variations.
- */
-function lineTokens(
-  nodes: readonly WalkedMove[],
-  ply: number,
-  path: readonly RepertoireMove[],
-): Token[] {
-  const tokens: Token[] = [];
-  let numbered = true;
-  for (
-    let at = nodes, p = ply, before = path;
-    at[0] !== undefined;
-    at = at[0].next, p += 1
-  ) {
-    const [main, ...alternatives] = at;
-    const mainPath = [...before, main.move];
-    tokens.push({
-      kind: 'move',
-      move: main.move,
-      ply: p,
-      path: mainPath,
-      numbered,
-      transposes: main.transposes,
-    });
-    if (alternatives.length > 0)
-      tokens.push({
-        kind: 'variations',
-        blocks: alternatives.map((alt) => lineTokens([alt], p, before)),
-      });
-    numbered = alternatives.length > 0;
-    before = mainPath;
-  }
-  return tokens;
-}
 
 const pathId = (path: readonly RepertoireMove[]): string =>
   path.map((m) => moveKey(m.from, m.san)).join(' ');
@@ -153,11 +104,15 @@ function marksOf(context: ListContext, key: string): NoteMark[] {
   ];
 }
 
+/**
+ * A move's chip, named by its number and SAN: a touch target on a phone,
+ * compact (28px) on a desktop, where the pointer is precise.
+ */
 function MoveChip({
   token,
   context,
 }: {
-  readonly token: Extract<Token, { kind: 'move' }>;
+  readonly token: MoveToken;
   readonly context: ListContext;
 }): JSX.Element {
   const ref = useRef<HTMLButtonElement>(null);
@@ -176,10 +131,37 @@ function MoveChip({
     const chip = ref.current;
     if (isCurrent && chip !== null) revealInScroller(chip);
   }, [isCurrent]);
-  // White's moves always show their number; Black's only when `numbered`.
-  const showNumber = token.numbered || !number.endsWith('...');
   const weight = isPlayerMove(context.graph, move) ? 'font-semibold' : '';
   const tone = isCurrent ? 'bg-accent text-accent-fg' : 'text-fg';
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={label}
+      title={hint}
+      aria-current={isCurrent ? 'true' : undefined}
+      onClick={() => {
+        context.onGoto(token.path);
+      }}
+      className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-control px-2 text-base tabular-nums lg:min-h-7 lg:min-w-0 lg:px-1.5 ${weight} ${tone}`}
+    >
+      {san}
+      <MoveGlyphs glyphs={glyphs} />
+    </button>
+  );
+}
+
+/** A chip inside a variation, after its number where the line needs one. */
+function InlineMove({
+  token,
+  context,
+}: {
+  readonly token: MoveToken;
+  readonly context: ListContext;
+}): JSX.Element {
+  const number = moveNumber(token.ply, context.whiteFirst);
+  // White's moves always show their number; Black's only when `numbered`.
+  const showNumber = token.numbered || !number.endsWith('...');
   // The number and its move wrap as one, so "6." never ends a line alone.
   return (
     <span className="inline-flex items-center gap-x-1 whitespace-nowrap">
@@ -188,20 +170,7 @@ function MoveChip({
           {number}
         </span>
       ) : null}
-      <button
-        ref={ref}
-        type="button"
-        aria-label={label}
-        title={hint}
-        aria-current={isCurrent ? 'true' : undefined}
-        onClick={() => {
-          context.onGoto(token.path);
-        }}
-        className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-control px-2 text-base tabular-nums ${weight} ${tone}`}
-      >
-        {san}
-        <MoveGlyphs glyphs={glyphs} />
-      </button>
+      <MoveChip token={token} context={context} />
     </span>
   );
 }
@@ -262,6 +231,36 @@ function MoveGlyphs({
 /** Variations indent up to three levels; deeper ones keep that indent. */
 const MAX_INDENT = 3;
 
+/** A block's key: the moves to its first move. */
+const blockKey = (block: readonly Token[]): string =>
+  pathId(block[0]?.kind === 'move' ? block[0].path : []);
+
+/** Each alternative as an indented block, its moves written inline. */
+function VariationBlocks({
+  blocks,
+  depth,
+  context,
+}: {
+  readonly blocks: readonly (readonly Token[])[];
+  readonly depth: number;
+  readonly context: ListContext;
+}): JSX.Element {
+  return (
+    <>
+      {blocks.map((block) => (
+        <div
+          key={blockKey(block)}
+          data-variation=""
+          className={`flex w-full flex-wrap items-center gap-x-1 border-l border-border ${depth < MAX_INDENT ? 'pl-3' : ''}`}
+        >
+          <Tokens tokens={block} depth={depth + 1} context={context} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** A variation's moves inline, wrapping, with its own variations nested. */
 function Tokens({
   tokens,
   depth,
@@ -275,17 +274,81 @@ function Tokens({
     <>
       {tokens.map((token) =>
         token.kind === 'move' ? (
-          <MoveChip key={pathId(token.path)} token={token} context={context} />
+          <InlineMove
+            key={pathId(token.path)}
+            token={token}
+            context={context}
+          />
         ) : (
-          token.blocks.map((block) => (
-            <div
-              key={pathId(block[0]?.kind === 'move' ? block[0].path : [])}
-              data-variation=""
-              className={`flex w-full flex-wrap items-center gap-x-1 border-l border-border ${depth < MAX_INDENT ? 'pl-3' : ''}`}
-            >
-              <Tokens tokens={block} depth={depth + 1} context={context} />
-            </div>
-          ))
+          <VariationBlocks
+            key={blockKey(token.blocks[0] ?? [])}
+            blocks={token.blocks}
+            depth={depth}
+            context={context}
+          />
+        ),
+      )}
+    </>
+  );
+}
+
+/** Where a row has no move of White's: Black's move starts it. */
+const NO_WHITE_MOVE = '…';
+
+/** A numbered row of the main line: number, White's move, Black's move. */
+function MovesRowView({
+  row,
+  context,
+}: {
+  readonly row: MovesRow;
+  readonly context: ListContext;
+}): JSX.Element {
+  return (
+    <div className="grid grid-cols-[2.5rem_1fr_1fr] items-center justify-items-start gap-x-1">
+      <span aria-hidden="true" className="text-fg-muted tabular-nums">
+        {row.number}
+      </span>
+      {row.white === null ? (
+        <span aria-hidden="true" className="px-2 text-fg-muted lg:px-1.5">
+          {NO_WHITE_MOVE}
+        </span>
+      ) : (
+        <MoveChip token={row.white} context={context} />
+      )}
+      {row.black === null ? (
+        <span />
+      ) : (
+        <MoveChip token={row.black} context={context} />
+      )}
+    </div>
+  );
+}
+
+/** The main line in numbered rows, each run of variations a row of blocks. */
+function MoveRows({
+  tokens,
+  context,
+}: {
+  readonly tokens: readonly Token[];
+  readonly context: ListContext;
+}): JSX.Element {
+  return (
+    <>
+      {rowsOf(tokens, context.whiteFirst).map((row) =>
+        row.kind === 'moves' ? (
+          <MovesRowView
+            key={pathId((row.white ?? row.black)?.path ?? [])}
+            row={row}
+            context={context}
+          />
+        ) : (
+          <div
+            key={blockKey(row.blocks[0] ?? [])}
+            data-variations=""
+            className="flex flex-col"
+          >
+            <VariationBlocks blocks={row.blocks} depth={0} context={context} />
+          </div>
         ),
       )}
     </>
@@ -294,8 +357,10 @@ function Tokens({
 
 /**
  * The chapter's moves (docs/design/repertoire-screen.md, "The move list"):
- * the main line as chips, each variation an indented block. Every move is a
- * button in reading order; the current one is marked and kept in view.
+ * the main line in numbered two-column rows, each run of variations an
+ * indented block written inline, after which the main line goes on in a
+ * new row. Every move is a button in reading order; the current one is
+ * marked and kept in view.
  */
 export function MoveList(props: MoveListProps): JSX.Element {
   const t = useTranslations('repertoires');
@@ -312,10 +377,7 @@ export function MoveList(props: MoveListProps): JSX.Element {
     onGoto,
   };
   return (
-    <section
-      aria-label={t('moves.title')}
-      className="flex flex-wrap items-center gap-x-1"
-    >
+    <section aria-label={t('moves.title')} className="flex flex-col">
       {tree.length === 0 ? (
         <p className="text-fg-muted">
           {props.building === true
@@ -323,7 +385,7 @@ export function MoveList(props: MoveListProps): JSX.Element {
             : t('panel.noMoves')}
         </p>
       ) : (
-        <Tokens tokens={lineTokens(tree, 0, [])} depth={0} context={context} />
+        <MoveRows tokens={lineTokens(tree, 0, [])} context={context} />
       )}
     </section>
   );

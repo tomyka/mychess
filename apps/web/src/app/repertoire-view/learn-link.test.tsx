@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
+import { TONAL_BUTTON } from '../buttons';
 import { LearnLink } from './learn-link';
 import { panelTraining } from './test-training';
 import type { PanelTraining } from './panel-training';
@@ -26,7 +27,6 @@ const training = (learnedToday: number): PanelTraining =>
 function renderLink(
   learnedToday: number,
   focus: { chapterId: string; lineIndex?: number },
-  subject?: string,
 ) {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
@@ -34,45 +34,39 @@ function renderLink(
         training={training(learnedToday)}
         graph={london}
         focus={focus}
-        {...(subject === undefined ? {} : { subject })}
       />
     </NextIntlClientProvider>,
   );
 }
 
 describe('LearnLink (R-206)', () => {
-  it('links to learning the chapter, with its count', () => {
-    renderLink(0, { chapterId }, 'Main');
-    const link = screen.getByRole('link', {
-      name: 'Learn 2 new moves in Main',
-    });
+  it('links to learning the chapter, with its count, as a tonal button', () => {
+    renderLink(0, { chapterId });
+    const link = screen.getByRole('link', { name: 'Learn this chapter (2)' });
     expect(link.getAttribute('href')).toBe(
       `/training?mode=learn&r=r1&chapter=${chapterId}`,
     );
-    expect(link.textContent).toBe('Learn (2)');
+    expect(link.className).toBe(TONAL_BUTTON);
   });
 
   it('counts what is left of today’s new moves', () => {
-    renderLink(1, { chapterId }, 'Main');
+    renderLink(1, { chapterId });
     expect(
-      screen.getByRole('link', { name: 'Learn 1 new move in Main' })
-        .textContent,
-    ).toBe('Learn (1)');
+      screen.getByRole('link', { name: 'Learn this chapter (1)' }),
+    ).toBeDefined();
   });
 
   it('links to learning the current line, named as this line', () => {
     expect(LINES).toBeGreaterThan(1);
     renderLink(0, { chapterId, lineIndex: 1 });
-    const link = screen.getByRole('link', {
-      name: 'Learn 2 new moves in this line',
-    });
+    const link = screen.getByRole('link', { name: 'Learn this line (2)' });
     expect(link.getAttribute('href')).toBe(
       `/training?mode=learn&r=r1&chapter=${chapterId}&line=1`,
     );
   });
 
   it('is hidden when learning it would teach nothing today', () => {
-    renderLink(2, { chapterId }, 'Main');
+    renderLink(2, { chapterId });
     expect(screen.queryByRole('link')).toBeNull();
   });
 

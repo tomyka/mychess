@@ -10,7 +10,13 @@ import {
 } from '@playwright/test';
 import { fixture, importRepertoire } from './assignments';
 import { en, format, newOnboardedAccount, type Messages } from './journey';
-import { disclosure, plural } from './repertoires';
+import {
+  anyCount,
+  chooseChapterAt,
+  knowChoice,
+  openChapters,
+  plural,
+} from './repertoires';
 import {
   bookOf,
   drillToDone,
@@ -102,50 +108,47 @@ export async function learnPianissimo(drill: Drill): Promise<Asked[]> {
   return asked;
 }
 
-/** In an open "I know this" menu: marks its chapter known; the count asked. */
+/**
+ * In Train here's "I know this": marks the current chapter known, through
+ * its Mark known and the confirm that says how many moves (R-147); the
+ * count, or null when the chapter has nothing left to mark.
+ */
 async function markKnown(
-  body: Locator,
+  page: Page,
   messages: Messages,
 ): Promise<number | null> {
   const t = messages.training.know;
-  await expect(body.getByText(t.loading)).toHaveCount(0);
-  const know = body.getByRole('button', { name: t.knowChapter });
-  if ((await know.count()) === 0) return null;
-  await know.click();
-  const question = (await body.getByText(/\?/).textContent()) ?? '';
-  const count = Number(/\d+/.exec(question)?.[0]);
+  const choice = await knowChoice(page, messages, anyCount(t.chapter));
+  const mark = choice.getByRole('button', { name: anyCount(t.markKnown) });
+  if ((await mark.count()) === 0) return null;
+  const label = (await mark.textContent()) ?? '';
+  const count = Number(/\d+/.exec(label)?.[0]);
+  expect(label).toBe(plural(t.markKnown, { count }));
+  await mark.click();
   // R-147: the confirm says how many moves.
-  expect(question).toBe(plural(t.question, { count }));
-  await body.getByRole('button', { name: t.confirm, exact: true }).click();
   await expect(
-    body.getByText(plural(t.marked, { count }), { exact: true }),
+    choice.getByText(plural(t.question, { count }), { exact: true }),
   ).toBeVisible();
+  await choice.getByRole('button', { name: t.confirm, exact: true }).click();
+  await expect(
+    choice.getByText(plural(t.marked, { count }), { exact: true }),
+  ).toBeVisible();
+  // Nothing new is left in it: it says Known (n moves).
+  await expect(choice.getByText(anyCount(t.known))).toBeVisible();
   return count;
 }
 
-/** Opens the chapter list and marks every chapter known; the counts confirmed. */
+/** Chooses every chapter in turn and marks it known; the counts confirmed. */
 export async function markChaptersKnown(
   page: Page,
   messages: Messages,
 ): Promise<number[]> {
-  const trigger = disclosure(page);
-  if ((await trigger.getAttribute('aria-expanded')) === 'false')
-    await trigger.click();
-  const list = page.locator(
-    `[id="${String(await trigger.getAttribute('aria-controls'))}"]`,
-  );
-  const toggles = list.getByRole('button', {
-    name: format(messages.training.know.toggle, { subject: '' }),
-  });
+  const list = await openChapters(page);
+  const chapters = await list.getByRole('listitem').count();
   const counts: number[] = [];
-  const chapters = await toggles.count();
   for (let i = 0; i < chapters; i += 1) {
-    const toggle = toggles.nth(i);
-    await toggle.click();
-    const body = list.locator(
-      `[id="${String(await toggle.getAttribute('aria-controls'))}"]`,
-    );
-    const count = await markKnown(body, messages);
+    await chooseChapterAt(page, i);
+    const count = await markKnown(page, messages);
     if (count !== null) counts.push(count);
   }
   return counts;

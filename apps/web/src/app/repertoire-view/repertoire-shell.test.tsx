@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { RepertoireShell, useBrowseView } from '.';
+import type { PanelTraining } from './panel-training';
+import { panelTraining } from './test-training';
 
 const ground = vi.hoisted(() => {
   const created: Config[] = [];
@@ -36,6 +38,7 @@ interface ViewOptions {
   readonly said?: string;
   readonly onSquare?: (square: Key) => void;
   readonly notedMoves?: Readonly<Record<string, string>>;
+  readonly training?: PanelTraining;
 }
 
 /** A read-only view built on the module, as a third view would build it. */
@@ -44,6 +47,7 @@ function View({
   said,
   onSquare = vi.fn(),
   notedMoves = {},
+  training,
 }: ViewOptions): JSX.Element {
   const view = useBrowseView(graph, 'white');
   return (
@@ -62,6 +66,7 @@ function View({
         ),
         notedMoves,
         noteKind: 'coach',
+        training,
       }}
       {...(said === undefined
         ? {}
@@ -242,6 +247,36 @@ describe('the panel', () => {
     expect(
       firstMove(`1. d4, ${r.moves.hasComment}, ${r.moves.hasCoachNote}`),
     ).toBeDefined();
+  });
+
+  it('puts Train here, then the move’s notes, under the move list, after the strip on a desktop too', () => {
+    renderView({ training: panelTraining({}) });
+    forward();
+    const trainHere = screen.getByRole('region', {
+      name: MESSAGES.training.know.section,
+    });
+    const moves = document.querySelector('[data-moves]');
+    const note = screen.getByText('Pastaba apie d4');
+    if (moves === null) throw new Error('no move list');
+    expect(precedes(moves, trainHere)).toBe(true);
+    expect(precedes(trainHere, note)).toBe(true);
+    // On a desktop the scroller's children join the panel's column: what
+    // follows the move list carries the strip's order, or it would jump
+    // above the strip.
+    expect(trainHere.parentElement?.className).toContain('lg:order-1');
+    expect(note.closest('.lg\\:order-1')).not.toBeNull();
+    expect(
+      within(trainHere).getByRole('button', {
+        name: MESSAGES.training.know.iKnowThis,
+      }),
+    ).toBeDefined();
+  });
+
+  it('has no Train here for a viewer who does not train it', () => {
+    renderView();
+    expect(
+      screen.queryByRole('region', { name: MESSAGES.training.know.section }),
+    ).toBeNull();
   });
 
   it('shows the view’s empty state and no moves in a repertoire without chapters', () => {

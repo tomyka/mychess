@@ -6,6 +6,7 @@ import {
   PRIMARY_BUTTON,
   QUIET_BUTTON,
   SECONDARY_BUTTON,
+  TONAL_BUTTON,
 } from './buttons';
 import { PendingButton } from './pending-button';
 
@@ -27,8 +28,12 @@ export interface ConfirmedActionProps {
    * destroys or takes away; `primary` when it only creates, as a fork does.
    */
   readonly tone?: 'danger' | 'primary';
-  /** The first button as quiet text, for an action kept out of the way. */
-  readonly quiet?: boolean;
+  /**
+   * The first button's look: `secondary` (the default); `quiet` text, for
+   * an action kept out of the way; `tonal`, for one that belongs to the
+   * content (Train here's Mark known).
+   */
+  readonly look?: keyof typeof FIRST_BUTTON;
   /**
    * Whether it asks, when the page holds that (another control on the page
    * can then open the question); left out, the step holds it itself.
@@ -43,6 +48,12 @@ export interface Asking {
 }
 
 const CONFIRM_BUTTON = { danger: DANGER_BUTTON, primary: PRIMARY_BUTTON };
+
+const FIRST_BUTTON = {
+  secondary: SECONDARY_BUTTON,
+  quiet: QUIET_BUTTON,
+  tonal: TONAL_BUTTON,
+};
 
 /**
  * Focus follows the step, as in the repertoire's delete: on Cancel once it
@@ -76,7 +87,7 @@ export function ConfirmedAction({
   cancel,
   describedBy,
   tone = 'danger',
-  quiet = false,
+  look = 'secondary',
   asking: held,
 }: ConfirmedActionProps): JSX.Element {
   const [own, setOwn] = useState(false);
@@ -92,7 +103,7 @@ export function ConfirmedAction({
         onClick={() => {
           setAsking(true);
         }}
-        className={`${quiet ? QUIET_BUTTON : SECONDARY_BUTTON} self-start`}
+        className={`${FIRST_BUTTON[look]} self-start`}
       >
         {label}
       </button>

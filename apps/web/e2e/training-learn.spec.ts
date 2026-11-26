@@ -8,7 +8,7 @@
 // moves learned but not yet sent not taught again (decision 2), and the
 // daily limit notice (decision 11).
 import { expect, type Page } from '@playwright/test';
-import { en, test } from './support/journey';
+import { en, format, test } from './support/journey';
 import { allDue, loggedResults, storedReviews } from './support/training-db';
 import {
   answer,
@@ -20,7 +20,13 @@ import {
   type Asked,
   type Drill,
 } from './support/training';
-import { chip, disclosure, plural } from './support/repertoires';
+import {
+  chip,
+  chooseChapterAt,
+  openChapters,
+  plural,
+  trainHere,
+} from './support/repertoires';
 import {
   arrow,
   ITALIAN,
@@ -215,9 +221,10 @@ test(
     await expect(trainLink(page, en, 'learn', 20)).toBeVisible();
     // The Pianissimo's last move makes it the current line.
     await chip(page, '8... Ba7').click();
-    await page
+    // Train here, under the move list: the line's eight new moves.
+    await trainHere(page, en)
       .getByRole('link', {
-        name: plural(en.training.repertoire.learnLine, { count: 8 }),
+        name: format(en.training.repertoire.learnThisLine, { count: '8' }),
         exact: true,
       })
       .click();
@@ -237,18 +244,20 @@ test(
   },
 );
 
-/** On the Italian's page: learns the Two Knights chapter from its row; what was asked. */
+/** On the Italian's page: learns the Two Knights chapter from Train here; what was asked. */
 async function learnTwoKnights(drill: Drill): Promise<Asked[]> {
   const { page } = drill;
-  const trigger = disclosure(page);
-  if ((await trigger.getAttribute('aria-expanded')) === 'false')
-    await trigger.click();
-  // Its own new moves are 4.d3 and 5.c3; the only chapter with two.
-  const prefix = plural(en.training.repertoire.learnIn, {
-    count: 2,
-    subject: '',
+  // Its own new moves are 4.d3 and 5.c3; the only chapter with two:
+  // each chapter is chosen until Train here offers to learn two.
+  const learnTwo = trainHere(page, en).getByRole('link', {
+    name: format(en.training.repertoire.learnThisChapter, { count: '2' }),
+    exact: true,
   });
-  await page.getByRole('link', { name: new RegExp(`^${prefix}`) }).click();
+  const list = await openChapters(page);
+  const chapters = await list.getByRole('listitem').count();
+  for (let i = 0; i < chapters && (await learnTwo.count()) === 0; i += 1)
+    await chooseChapterAt(page, i);
+  await learnTwo.click();
   await expect(page).toHaveURL(/&chapter=/);
   await expectCounter(page, 0, 2);
   const asked = await drillToDone(drill);

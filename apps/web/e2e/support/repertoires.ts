@@ -40,6 +40,20 @@ export function plural(
   );
 }
 
+/**
+ * A catalogue message with any count, as a whole-text pattern: both its
+ * `one` and `other` branches with the number free (a message without a
+ * plural matches only itself).
+ */
+export function anyCount(message: string): RegExp {
+  const branches = [1, 2].map((count) =>
+    plural(message, { count })
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(String(count), '\\d+'),
+  );
+  return new RegExp(`^(?:${branches.join('|')})$`);
+}
+
 /** From any shell page to My repertoires, through the tab. */
 export async function openRepertoires(
   page: Page,
@@ -118,14 +132,44 @@ export async function typeMove(
 }
 
 /**
- * The chapter disclosure ("Chapter n of m" and the title). It is named by
- * its text; the other disclosures on the page, the account menu (#381) and
- * "I know this", carry an aria-label.
+ * The chapter line ("Ch 2/6 · <title>"), the disclosure of the chapter
+ * list. It is the one disclosure titled with its own text: the account
+ * menu (#381) carries an aria-label, and Train here's "I know this" and
+ * the comment strip's More carry no title.
  */
 export const disclosure = (page: Page): Locator =>
-  page
-    .locator('button[aria-controls][aria-expanded]:not([aria-label])')
-    .first();
+  page.locator('button[aria-controls][aria-expanded][title]').first();
+
+/** The chapter line's lead, "Ch 2/6 ·", without the chapter's title. */
+export const chapterLine = (
+  messages: Messages,
+  index: number,
+  count: number,
+): string =>
+  format(messages.repertoires.chapters.line, {
+    index: String(index),
+    count: String(count),
+    title: '',
+  }).trim();
+
+/**
+ * Opens the chapter list if closed; the open list. Right after a reload a
+ * click can land before the page hydrates and be lost, so opening is
+ * retried until the line says it is open.
+ */
+export async function openChapters(page: Page): Promise<Locator> {
+  const trigger = disclosure(page);
+  await expect(async () => {
+    if ((await trigger.getAttribute('aria-expanded')) === 'false')
+      await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true', {
+      timeout: 1_000,
+    });
+  }).toPass();
+  return page.locator(
+    `[id="${String(await trigger.getAttribute('aria-controls'))}"]`,
+  );
+}
 
 /** What keeps a move's number and its SAN on one line in a chapter title. */
 const NO_BREAK_SPACE = String.fromCodePoint(0xa0);
@@ -146,29 +190,62 @@ export function distinctTitle(
   });
 }
 
-/**
- * Opens the chapter list if closed and chooses row `index` titled `title`.
- * Right after a reload a click can land before the page hydrates and be
- * lost, so opening is retried until the list says it is open.
- */
+/** Opens the chapter list if closed and chooses row `index` titled `title`. */
 export async function chooseChapter(
   page: Page,
   title: string,
   index = 0,
 ): Promise<void> {
-  const trigger = disclosure(page);
-  await expect(async () => {
-    if ((await trigger.getAttribute('aria-expanded')) === 'false')
-      await trigger.click();
-    await expect(trigger).toHaveAttribute('aria-expanded', 'true', {
-      timeout: 1_000,
-    });
-  }).toPass();
-  await page
+  const list = await openChapters(page);
+  await list
     .getByRole('button', { name: title, exact: true })
     .nth(index)
     .click();
-  await expect(trigger).toContainText(title);
+  await expect(disclosure(page)).toContainText(title);
+}
+
+/**
+ * Opens the chapter list and chooses its `index`th row (from 0); the list
+ * closes, the line names that chapter.
+ */
+export async function chooseChapterAt(
+  page: Page,
+  index: number,
+): Promise<void> {
+  const list = await openChapters(page);
+  const row = list.getByRole('listitem').nth(index).getByRole('button');
+  const title = (await row.first().getAttribute('aria-label')) ?? '';
+  await row.first().click();
+  await expect(disclosure(page)).toContainText(title);
+}
+
+/** Train here (spec, "Train here (browse)"), under the move list. */
+export const trainHere = (page: Page, messages: Messages): Locator =>
+  page.getByRole('region', { name: messages.training.know.section });
+
+/**
+ * Opens Train here's "I know this"; its choice named `subject` ("This
+ * move, 5... Qc7", or a pattern such as `anyCount(know.chapter)` for
+ * "This chapter, 12 moves"), once it has counted.
+ */
+export async function knowChoice(
+  page: Page,
+  messages: Messages,
+  subject: string | RegExp,
+): Promise<Locator> {
+  const t = messages.training.know;
+  const toggle = trainHere(page, messages).getByRole('button', {
+    name: t.iKnowThis,
+    exact: true,
+  });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true')
+    await toggle.click();
+  const choice = trainHere(page, messages).getByRole('group', {
+    name: subject,
+    exact: true,
+  });
+  await expect(choice.getByText(t.loading)).toHaveCount(0);
+  return choice;
 }
 
 /**

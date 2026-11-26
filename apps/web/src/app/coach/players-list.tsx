@@ -112,7 +112,7 @@ function PlayerRow({
         question={t('unlinkConfirm', { name: player.displayName })}
         confirm={t('confirmUnlink')}
         cancel={t('cancel')}
-        quiet
+        look="quiet"
       />
     </li>
   );

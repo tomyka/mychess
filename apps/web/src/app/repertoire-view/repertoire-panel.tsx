@@ -6,9 +6,9 @@ import type { ChapterNames } from '../../lib/chapter-label';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { CommentEditor } from './comment';
 import { MoveList, type MoveListProps } from './move-list';
-import { KnowSection } from './know-section';
-import { PositionBody } from './position-body';
 import type { PanelTraining } from './panel-training';
+import { PositionBody, PositionEdit } from './position-body';
+import { TrainHere } from './train-here';
 import type { RepertoireView } from './view';
 
 /** What a view puts in the panel; the panel derives the rest from the view. */
@@ -31,8 +31,8 @@ export interface PanelContent {
   /** The moves carrying a coach note kept by a fork (R-47). */
   readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
   /**
-   * The player's training of it: "I know this" on the current move and its
-   * line (R-58), the line's Learn link (R-206) and, while browsing, each
+   * The player's training of it: while browsing, Train here under the move
+   * list (Learn this line or chapter, R-206; "I know this", R-227) and each
    * chapter's standing (R-225). Absent where the viewer does not train it.
    */
   readonly training?: PanelTraining | undefined;
@@ -45,8 +45,18 @@ interface RepertoirePanelProps {
   readonly content: PanelContent;
 }
 
-/** The position section, then "I know this" for a player who trains it. */
-function ChapterPosition({
+/**
+ * On a desktop, what comes after the comment strip: the strip, earlier in
+ * the DOM, carries it too, so with the scroller's children joined to the
+ * panel's column it sits above the move list (comment-strip.tsx).
+ */
+const AFTER_STRIP = 'lg:order-1';
+
+/**
+ * Under the move list: Train here while a player who trains it browses
+ * (spec, "Train here (browse)"), then the move's notes.
+ */
+function UnderMoves({
   chapter,
   state,
   content,
@@ -55,22 +65,24 @@ function ChapterPosition({
   readonly state: RepertoireView['state'];
   readonly content: PanelContent;
 }): JSX.Element {
+  const move = state.path.at(-1);
   return (
     <>
-      <PositionBody
-        intro={chapter.intro}
-        move={state.path.at(-1) ?? null}
-        mode={state.mode}
-        commentEditor={content.commentEditor}
-        renderNotes={content.renderNotes}
-      />
-      {content.training === undefined ? null : (
-        <KnowSection
-          training={content.training}
-          graph={state.graph}
-          chapterId={chapter.id}
-          path={state.path}
-        />
+      {content.training === undefined || state.mode !== 'browse' ? null : (
+        <div className={AFTER_STRIP}>
+          <TrainHere
+            training={content.training}
+            graph={state.graph}
+            chapterId={chapter.id}
+            path={state.path}
+          />
+        </div>
+      )}
+      {/* No box at the root, where there are no notes: it would add a gap. */}
+      {move === undefined ? null : (
+        <div className={AFTER_STRIP}>
+          <PositionBody move={move} renderNotes={content.renderNotes} />
+        </div>
       )}
     </>
   );
@@ -88,19 +100,19 @@ const SCROLLER =
 /**
  * The move list's box: on a desktop it scrolls on its own, at most about
  * half a screen high, so stepping keeps the comment above it in view; on a
- * phone the whole panel scrolls. `lg:order-1` keeps it after the comment
+ * phone the whole panel scrolls. `AFTER_STRIP` keeps it after the comment
  * strip; anything placed after the move list needs it too.
  */
-const MOVES_BOX = 'lg:order-1 lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto';
+const MOVES_BOX = `${AFTER_STRIP} lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto`;
 
 /**
- * The scrolling part of the panel: the view's lead, the chapter line, the
- * position (the move's notes, then "I know this"; in builder mode also the
- * intro or the comment field), then the moves. While browsing the comment
- * strip shows the intro and the comment: above this scroller on a phone,
- * between the position and the moves on a desktop. Apart from the strip on
- * a desktop, the DOM order is the visual order, so Tab follows what the
- * eye sees (WCAG 2.4.3).
+ * The scrolling part of the panel: the view's lead, the chapter line, in
+ * builder mode the intro or the comment field, the moves, then Train here
+ * and the move's notes. While browsing the comment strip shows the intro
+ * and the comment: above this scroller on a phone, between the chapter
+ * line and the moves on a desktop. Apart from the strip on a desktop, the
+ * DOM order is the visual order, so Tab follows what the eye sees (WCAG
+ * 2.4.3).
  */
 export function RepertoirePanel({
   view,
@@ -130,7 +142,12 @@ export function RepertoirePanel({
       {chapter === undefined ? (
         content.empty
       ) : (
-        <ChapterPosition chapter={chapter} state={state} content={content} />
+        <PositionEdit
+          intro={chapter.intro}
+          move={state.path.at(-1) ?? null}
+          mode={state.mode}
+          commentEditor={content.commentEditor}
+        />
       )}
       {chapter === undefined ? null : (
         <div data-moves="" className={MOVES_BOX}>
@@ -147,6 +164,9 @@ export function RepertoirePanel({
             }}
           />
         </div>
+      )}
+      {chapter === undefined ? null : (
+        <UnderMoves chapter={chapter} state={state} content={content} />
       )}
     </div>
   );

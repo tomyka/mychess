@@ -19,6 +19,7 @@ import {
 } from './support/journey';
 import {
   arrowText,
+  chapterLine,
   chip,
   chooseChapter,
   createRepertoire,
@@ -154,9 +155,7 @@ async function buildLondon(
   // R-111: the first move played makes the first chapter, in one step.
   await playOnBoard(hand, 'd2', 'd4');
   await expect(chip(page, '1. d4')).toBeVisible();
-  await expect(disclosure(page)).toContainText(
-    format(t.chapters.position, { index: '1', count: '1' }),
-  );
+  await expect(disclosure(page)).toContainText(chapterLine(messages, 1, 1));
   await playOnBoard(hand, 'd7', 'd5');
   await expect(chip(page, '1... d5')).toBeVisible();
   await playOnBoard(hand, 'c1', 'f4');
@@ -178,7 +177,7 @@ async function checkLondon(
   await page.reload();
   await expect(chip(page, '8. Bd3')).toBeVisible();
   await expect(chip(page, '8. O-O')).toBeVisible();
-  // R-116: one chapter, so its list starts closed.
+  // The chapter line starts closed, at every width (spec, Chapter line).
   await expect(disclosure(page)).toHaveAttribute('aria-expanded', 'false');
   await chip(page, `2. Bf4, ${t.moves.hasComment}`).click();
   await expect(page.getByText(comment)).toBeVisible();
@@ -251,9 +250,7 @@ test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-impor
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     'Taimanovas',
   );
-  await expect(disclosure(page)).toContainText(
-    format(t.chapters.position, { index: '1', count: '6' }),
-  );
+  await expect(disclosure(page)).toContainText(chapterLine(en, 1, 6));
   await expectTaimanovNotes(page);
 
   // G-M1-6: the download, on the Repertoire screen (R-226), re-imports to
@@ -312,9 +309,7 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
     .getByRole('button', { name: t.import.confirm, exact: true })
     .click();
   // The repertoire opens on the first chapter the import added.
-  await expect(disclosure(page)).toContainText(
-    format(t.chapters.position, { index: '7', count: '8' }),
-  );
+  await expect(disclosure(page)).toContainText(chapterLine(en, 7, 8));
   await page
     .getByRole('link', {
       name: format(en.nav.back, { parent: en.nav.repertoires }),
@@ -424,7 +419,5 @@ test('R-209, decision 8: pasted PGN imports; the side is the one its players nam
     .getByRole('button', { name: t.import.confirm, exact: true })
     .click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Karo-Kan');
-  await expect(disclosure(page)).toContainText(
-    format(t.chapters.position, { index: '1', count: '5' }),
-  );
+  await expect(disclosure(page)).toContainText(chapterLine(en, 1, 5));
 });

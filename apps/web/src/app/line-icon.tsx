@@ -6,6 +6,9 @@ import type { JSX } from 'react';
 /** A chevron pointing back, for the way back to the parent page. */
 export const BACK_ICON = 'M15 6l-6 6 6 6';
 
+/** A chevron pointing down, on a button that opens something below it. */
+export const CHEVRON_DOWN_ICON = 'M6 9l6 6 6-6';
+
 /** A tick: a right answer, a session done. */
 export const TICK_ICON = 'M5 12l5 5 9-10';
 

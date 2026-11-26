@@ -288,8 +288,9 @@ async function pauseAndResume(
 }
 
 /**
- * R-47, R-128: "Make my own copy" on the assigned Repertoire screen asks,
- * then opens the copy, where the coach's comment
+ * R-47, R-128: "Make my own copy", reached from the board's "not in the
+ * chapter" (#320) or on the assigned Repertoire screen, asks, then opens
+ * the copy, where the coach's comment
  * is a read-only note under his name; on Today the row is his copy, and the
  * coach sees "forked".
  */
@@ -302,11 +303,26 @@ async function makeOwnCopy(
   const t = messages.assignment.fork;
   const r = messages.repertoires;
   const assigned = rokas.url();
-  await openRepertoireOptions(rokas, messages);
+  const question = rokas.getByText(format(t.question, { name: ITALIAN }));
+  // A move the chapter lacks (1.d4 for 1.e4): the board says it is the
+  // coach's, with the way to a copy; it opens the Repertoire screen with
+  // the copy's question asked (?fork=1).
+  const field = rokas.getByLabel(messages.board.moveInput.label, {
+    exact: true,
+  });
+  await field.fill('d4');
+  await field.press('Enter');
+  await expect(rokas.getByText(messages.assignment.notInChapter)).toBeVisible();
+  await rokas.getByRole('link', { name: t.label, exact: true }).click();
+  await expect(rokas).toHaveURL(
+    /\/repertoires\/assigned\/[0-9a-f-]{36}\/manage\?fork=1$/,
+  );
+  await expect(question).toBeVisible();
+  // Cancelled, it is the screen's own Make my own copy, which asks again.
+  await rokas.getByRole('button', { name: t.cancel, exact: true }).click();
+  await expect(question).toHaveCount(0);
   await rokas.getByRole('button', { name: t.label, exact: true }).click();
-  await expect(
-    rokas.getByText(format(t.question, { name: ITALIAN })),
-  ).toBeVisible();
+  await expect(question).toBeVisible();
   await rokas.getByRole('button', { name: t.confirm, exact: true }).click();
   await expect(rokas).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(rokas.getByRole('heading', { level: 1 })).toHaveText(ITALIAN);
