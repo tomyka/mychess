@@ -390,6 +390,9 @@
       "deleteCancel": "Cancel",
       "deleted": "The repertoire was deleted."
     },
+    "manage": {
+      "deleteTitle": "Delete repertoire"
+    },
     "chapters": {
       "title": "Chapters",
       "empty": "No chapters yet.",
@@ -576,6 +579,11 @@
       "confirm": "Make my copy",
       "cancel": "Cancel"
     },
+    "manage": {
+      "pauseIntro": "Stops new moves and reviews from this repertoire until you resume.",
+      "downloadIntro": "Your coach's moves and comments as a PGN file.",
+      "forkIntro": "A copy you can change; your progress comes with it."
+    },
     "changes": {
       "title": "Your coach updated this repertoire",
       "added": "Added: {moves}",
@@ -609,9 +617,13 @@
       "everyone": "This repertoire is already assigned to all your players and groups.",
       "list": "Assigned to",
       "none": "Not assigned to anyone yet.",
-      "group": "Group",
+      "inGroup": "Group: {name}",
       "emptyGroup": "No players in this group yet.",
-      "playerDeadline": "deadline {date}",
+      "due": "due {date}",
+      "change": "Change",
+      "changeFor": "Change for {name}",
+      "groupDeadline": "Group deadline: {date}",
+      "groupNoDeadline": "The group has no deadline.",
       "newDeadline": "New deadline",
       "changeDeadline": "Change deadline",
       "clearDeadline": "Clear deadline",

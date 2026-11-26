@@ -213,6 +213,25 @@ export const viewedRepertoire = cache(
   },
 );
 
+/** What the Repertoire screen of an own repertoire shows (R-226). */
+export interface RepertoireManageData {
+  readonly repertoire: Repertoire;
+  readonly sharing: RepertoireSharing;
+}
+
+/**
+ * One own repertoire's Repertoire screen: the repertoire and its sharing,
+ * no more. Anything the account may not view is 404, one only assigned to
+ * it included (that one's screen is under /assigned).
+ */
+export async function repertoireManageData(
+  rawId: unknown,
+): Promise<RepertoireManageData> {
+  const { account, loaded } = await viewedRepertoire(rawId);
+  const { repertoire } = loaded;
+  return { repertoire, sharing: await sharingOf(account.id, repertoire.id) };
+}
+
 /** One repertoire's page; anything the account may not view is 404. */
 export async function repertoirePageData(
   rawId: unknown,

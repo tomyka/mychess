@@ -67,6 +67,20 @@ export const repertoireRoute = (id: string): string =>
 export const assignedRepertoirePath = (id: string): string =>
   `${ROUTES.repertoires}/assigned/${encodeURIComponent(id)}`;
 
+/** The repertoire's own actions, its Repertoire screen (R-226). */
+export const repertoireManageRoute = (id: string): string =>
+  `${repertoireRoute(id)}/manage`;
+
+/** An assigned repertoire's actions, its Repertoire screen (R-226). */
+export const assignedManageRoute = (id: string): string =>
+  `${assignedRepertoirePath(id)}/manage`;
+
+/**
+ * The query parameter the assigned Repertoire screen opens "make my own
+ * copy"'s question by (`?fork=1`).
+ */
+export const FORK_PARAM = 'fork';
+
 /** The query parameter a repertoire's page opens on a chapter by. */
 export const CHAPTER_PARAM = 'chapter';
 

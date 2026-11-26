@@ -4,9 +4,9 @@ import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import type { RepertoireSharing } from '../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../buttons';
-import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { PANEL_LABEL } from '../../repertoire-view';
+import { SECTION_LOOK, type SectionLook } from '../section-look';
 import { setSharesAction, type ShareState } from './sharing-actions';
 
 /**
@@ -22,11 +22,9 @@ function useShareStatus(state: ShareState, before: number): string {
     : t('share.sharedWith', { count: shared });
 }
 
-/** Error for a refusal, success after a save, info before one. */
-const statusTone = (state: ShareState): 'success' | 'error' | 'info' => {
-  if (state.refusal !== undefined) return 'error';
-  return state.shared === undefined ? 'info' : 'success';
-};
+/** The status as plain text: muted, or the error colour for a refusal. */
+const statusClass = (state: ShareState): string =>
+  state.refusal === undefined ? 'text-fg-muted' : 'text-error';
 
 /** The linked coaches as checkboxes, ticked where it is shared, and Save. */
 function ShareForm({
@@ -70,7 +68,9 @@ function ShareForm({
       >
         {t('save')}
       </button>
-      <StatusLine text={said} tone={statusTone(state)} />
+      <p role="status" className={statusClass(state)}>
+        {said}
+      </p>
     </form>
   );
 }
@@ -83,16 +83,19 @@ function ShareForm({
 export function ShareWithCoach({
   repertoireId,
   sharing,
+  look = 'panel',
 }: {
   readonly repertoireId: string;
   readonly sharing: RepertoireSharing;
+  readonly look?: SectionLook;
 }): JSX.Element | null {
   const t = useTranslations('share');
   const titleId = useId();
   if (sharing.coaches.length === 0) return null;
+  const { section, title } = SECTION_LOOK[look];
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-2">
-      <h2 id={titleId} className={PANEL_LABEL}>
+    <section aria-labelledby={titleId} className={section}>
+      <h2 id={titleId} className={title}>
         {t('title')}
       </h2>
       <p className="text-sm text-fg-muted">{t('intro')}</p>

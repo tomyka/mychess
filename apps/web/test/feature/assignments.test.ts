@@ -843,7 +843,13 @@ describe('the coach’s comments on their own repertoire (R-102, R-47)', () => {
       },
     ]);
     expect(panel.panel?.assignments[0]?.players).toHaveLength(1);
-    const shown = JSON.stringify(panel);
+    // Nor the fork's progress (R-155): the access-checked read withholds it.
+    expect(panel.panel?.standings).toEqual(new Map([[rokas.id, null]]));
+    // A Map stringifies to {}: the standings are checked as entries too.
+    const shown = JSON.stringify([
+      panel,
+      [...(panel.panel?.standings ?? new Map())],
+    ]);
     expect(shown).not.toContain(forkId);
     expect(shown).not.toContain(FORK_NOTE);
     expect(shown).not.toContain(ROKAS_NOTE);
@@ -1449,5 +1455,55 @@ describe('Today’s assignment facts and fork offers', () => {
     expect(await outcomeOf(sessionToday())).toEqual({
       redirectedTo: '/sign-in',
     });
+  });
+});
+
+/** A standing as the coach may see it: the counts and the flag, nothing else. */
+const STANDING = z.strictObject({
+  counts: z.strictObject({
+    notStarted: z.number().int().min(0),
+    skipped: z.number().int().min(0),
+    due: z.number().int().min(0),
+    learned: z.number().int().min(0),
+  }),
+  mastered: z.boolean(),
+});
+
+describe('the assignees’ standings on the coach’s Repertoire screen (R-225, Q26)', () => {
+  /** The session coach's standings of `repertoireId`, by player id. */
+  async function standingsOf(
+    repertoireId: string,
+  ): Promise<ReadonlyMap<string, unknown>> {
+    const data = await coachAssignData(repertoireId);
+    if (data.panel === null) throw new Error('no panel in Coach mode');
+    return data.panel.standings;
+  }
+
+  it('gives a live, linked assigned player their counts and nothing more', async () => {
+    const { rimantas, rokas, gabija, taimanov } = await cast();
+    const before = await state();
+    actAs(rimantas);
+    const standings = await standingsOf(taimanov);
+    // Gabija has it alone, Rokas through the group: both linked and live.
+    expect([...standings.keys()].sort()).toEqual([gabija.id, rokas.id].sort());
+    for (const standing of standings.values()) {
+      // Exactly the counts and the mastered flag: no move, time or id.
+      const shape = STANDING.safeParse(standing);
+      expect(shape.success).toBe(true);
+      // Nothing trained yet: every one of the Taimanov's own moves is new.
+      expect(shape.data?.counts.notStarted).toBeGreaterThan(0);
+    }
+    expect(await state()).toEqual(before);
+  });
+
+  it('gives a group player who unlinked no standing', async () => {
+    const { rimantas, rokas, gabija, taimanov } = await cast();
+    const done = await unlink(testDb(), rimantas.id, rokas.id, new Date());
+    expect(done.ok).toBe(true);
+    actAs(rimantas);
+    const standings = await standingsOf(taimanov);
+    // Whether or not the list still names him, his progress is withheld.
+    expect(standings.get(rokas.id) ?? null).toBeNull();
+    expect(STANDING.safeParse(standings.get(gabija.id)).success).toBe(true);
   });
 });

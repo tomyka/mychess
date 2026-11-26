@@ -7,8 +7,11 @@ import {
   coachAssignments,
   coachGroups,
   coachPlayers,
+  coachRepertoireProgress,
   type CoachAssignment,
+  type Db,
 } from '@mychess/db';
+import type { Standing } from '@mychess/chess';
 import {
   assignableTargets,
   isCoach,
@@ -38,6 +41,36 @@ export interface AssignPanelData {
    * in the browser, so the server and the browser render the same.
    */
   readonly today: string;
+  /**
+   * Each assigned player's standing on it (R-225), by player id; null
+   * where the coach is shown none, as for a player's own copy (R-155).
+   */
+  readonly standings: ReadonlyMap<string, Standing | null>;
+}
+
+/**
+ * The standing of each player `assignments` reach, read through the coach
+ * progress page's access-checked read (Q26, R-156): no new query, and
+ * whatever that read withholds is null here.
+ */
+async function standingsOf(
+  db: Db,
+  of: { readonly coachId: string; readonly repertoireId: string },
+  assignments: readonly CoachAssignment[],
+  now: Date,
+): Promise<ReadonlyMap<string, Standing | null>> {
+  const playerIds = [
+    ...new Set(assignments.flatMap((a) => a.players.map((p) => p.playerId))),
+  ];
+  const read = async (playerId: string) => {
+    const view = await coachRepertoireProgress(db, { ...of, playerId }, now);
+    const standing: Standing | null =
+      view === undefined
+        ? null
+        : { counts: view.progress.counts, mastered: view.progress.mastered };
+    return [playerId, standing] as const;
+  };
+  return new Map(await Promise.all(playerIds.map(read)));
 }
 
 export interface CoachAssignData {
@@ -62,7 +95,13 @@ async function panelOf(
     groups.map(({ id, name }) => ({ id, name })),
     assignments.map((assignment) => assignment.target),
   );
-  return { ...offer, assignments, today: vilniusDay(now) };
+  const standings = await standingsOf(
+    db,
+    { coachId, repertoireId },
+    assignments,
+    now,
+  );
+  return { ...offer, assignments, today: vilniusDay(now), standings };
 }
 
 /**

@@ -52,6 +52,9 @@ _Avoid_: Moderator, superuser
 A Player's or Coach's prepared moves for one side (White or Black), organised into Chapters. An Account may own several Repertoires for the same side.
 _Avoid_: Opening (an opening is a Chapter's subject, not the repertoire), course, study
 
+**Repertoire screen**:
+The page of a Repertoire's own actions, apart from studying it: rename, download, add from PGN, share and delete for its owner (with the Coach's assignees), or pause, download and make a Fork for an assigned Player (R-226). The route segment and code name are `manage`.
+
 **Side**:
 The colour a Repertoire is played from: White or Black. Fixed per Repertoire.
 _Avoid_: Colour (in prose fine), perspective

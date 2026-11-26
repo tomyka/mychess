@@ -190,7 +190,13 @@ describe('the repertoire page', () => {
     unmount();
     loader.assign.mockResolvedValue({
       assignedPlayers: 0,
-      panel: { players: [], groups: [], assignments: [], today: '2026-10-20' },
+      panel: {
+        players: [],
+        groups: [],
+        assignments: [],
+        today: '2026-10-20',
+        standings: new Map(),
+      },
     });
     renderIn(await page());
     expect(loader.assign).toHaveBeenCalledWith(ID);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   acceptedInvitePath,
+  assignedManageRoute,
   assignedRepertoirePath,
   coachGroupPath,
   coachPlayerPath,
@@ -12,6 +13,7 @@ import {
   repertoireDeletedRoute,
   repertoireChapterRoute,
   repertoireExportRoute,
+  repertoireManageRoute,
   repertoireRoute,
   ROUTES,
   trainingPath,
@@ -158,6 +160,18 @@ describe('learnPath (R-206)', () => {
     );
     expect(learnPath('r1', { chapterId: 'c1', lineIndex: 0 })).toBe(
       '/training?mode=learn&r=r1&chapter=c1&line=0',
+    );
+  });
+});
+
+describe('the Repertoire screens (R-226)', () => {
+  it('sits under the repertoire it manages', () => {
+    expect(repertoireManageRoute('r1')).toBe('/repertoires/r1/manage');
+  });
+
+  it('sits under the assigned repertoire, the id encoded', () => {
+    expect(assignedManageRoute('r 1')).toBe(
+      '/repertoires/assigned/r%201/manage',
     );
   });
 });

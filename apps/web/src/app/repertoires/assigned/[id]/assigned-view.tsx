@@ -4,7 +4,7 @@ import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type JSX } from 'react';
 import type { MessageKey } from '../../../../i18n/message-key';
-import { repertoireExportRoute, ROUTES } from '../../../../lib/routes';
+import { ROUTES } from '../../../../lib/routes';
 import { SECONDARY_BUTTON } from '../../../buttons';
 import type { Asking } from '../../../confirmed-action';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
@@ -22,6 +22,7 @@ import {
 } from '../../../repertoire-view';
 import { markSeenAction, setPersonalNoteAction } from './actions';
 import { ChangesSummary } from './changes-summary';
+import { DownloadLink } from '../../download-link';
 import { ForkCopy, type ForkAction } from './fork-copy';
 import { AssignmentBadges } from '../../../assignment-badges';
 import { useDeadline } from '../../../use-deadline';
@@ -77,20 +78,6 @@ function AssignedHeader({
 
 /** What the board says for a move the chapter lacks: the coach's to change. */
 const NOT_IN_CHAPTER: MessageKey = 'assignment.notInChapter';
-
-/** The coach's repertoire as PGN, their comments included (R-202). */
-function DownloadLink({ id }: { readonly id: string }): JSX.Element {
-  const t = useTranslations('repertoires.header');
-  return (
-    <a
-      href={repertoireExportRoute(id)}
-      download
-      className={`${SECONDARY_BUTTON} self-start`}
-    >
-      {t('download')}
-    </a>
-  );
-}
 
 /** Pause or resume, download the PGN, then "make my own copy". */
 function AssignmentActions({

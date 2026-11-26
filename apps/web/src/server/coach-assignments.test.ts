@@ -13,6 +13,14 @@ const server = vi.hoisted(() => ({
   count: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   players: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   groups: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  progress:
+    vi.fn<
+      (
+        db: unknown,
+        request: { readonly playerId: string },
+        now: Date,
+      ) => Promise<unknown>
+    >(),
 }));
 
 vi.mock('@mychess/db', () => ({
@@ -20,6 +28,7 @@ vi.mock('@mychess/db', () => ({
   assignedPlayerCount: server.count,
   coachPlayers: server.players,
   coachGroups: server.groups,
+  coachRepertoireProgress: server.progress,
 }));
 
 vi.mock('./db', () => ({ getDb: () => DB }));
@@ -49,6 +58,7 @@ beforeEach(() => {
       groups: [{ id: GROUP, name: 'Šeštadienio grupė' }],
     },
   ]);
+  server.progress.mockReset().mockResolvedValue(undefined);
   server.groups.mockReset().mockResolvedValue([
     {
       id: GROUP,
@@ -73,6 +83,7 @@ describe('coachAssignData', () => {
         assignments: [ASSIGNMENT],
         // Today in Vilnius, the date fields' earliest day (R-203).
         today: '2026-10-20',
+        standings: new Map(),
       },
     });
     expect(server.assignments).toHaveBeenCalledWith(DB, 'jonas', ID, NOW);
@@ -101,6 +112,64 @@ describe('coachAssignData', () => {
     expect(data.panel?.assignments).toHaveLength(2);
   });
 
+  it('reads each assigned player’s standing through the coach’s progress read (R-225)', async () => {
+    const counts = { notStarted: 4, skipped: 0, due: 1, learned: 5 };
+    server.assignments.mockResolvedValue([
+      {
+        ...ASSIGNMENT,
+        players: [
+          {
+            playerId: 'rokas',
+            displayName: 'Rokas',
+            deadline: null,
+            badges: {},
+          },
+        ],
+      },
+      {
+        id: 'a-2',
+        target: { kind: 'group', id: GROUP, name: 'Šeštadienio grupė' },
+        deadline: null,
+        players: [
+          {
+            playerId: 'rokas',
+            displayName: 'Rokas',
+            deadline: null,
+            badges: {},
+          },
+          {
+            playerId: 'marta',
+            displayName: 'Marta',
+            deadline: null,
+            badges: {},
+          },
+        ],
+      },
+    ]);
+    server.progress.mockImplementation((_db, request) =>
+      Promise.resolve(
+        request.playerId === 'rokas'
+          ? { progress: { counts, mastered: false, chapters: [] } }
+          : // Marta made her own copy: no progress for the coach (R-155).
+            undefined,
+      ),
+    );
+    const data = await coachAssignData(ID);
+    expect(data.panel?.standings).toEqual(
+      new Map([
+        ['rokas', { counts, mastered: false }],
+        ['marta', null],
+      ]),
+    );
+    // Once per player, for the session coach and this repertoire only.
+    expect(server.progress).toHaveBeenCalledTimes(2);
+    expect(server.progress).toHaveBeenCalledWith(
+      DB,
+      { coachId: 'jonas', playerId: 'marta', repertoireId: ID },
+      NOW,
+    );
+  });
+
   it('has no panel with Coach mode off, but still counts the players', async () => {
     server.account.mockResolvedValue({ id: 'rokas', coachSince: null });
     expect(await coachAssignData(ID)).toEqual({
@@ -111,5 +180,6 @@ describe('coachAssignData', () => {
     expect(server.assignments).not.toHaveBeenCalled();
     expect(server.players).not.toHaveBeenCalled();
     expect(server.groups).not.toHaveBeenCalled();
+    expect(server.progress).not.toHaveBeenCalled();
   });
 });

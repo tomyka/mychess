@@ -35,14 +35,6 @@ vi.mock('./assign-actions', () => ({
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const GROUP = '0b9e7a51-3c2d-4e6f-8a1b-2c3d4e5f6a7b';
 const p = MESSAGES.assignment.panel;
-const badge = MESSAGES.assignment.badge;
-
-/** A day as the page writes it. */
-const day = (iso: string): string =>
-  new Intl.DateTimeFormat('en', {
-    dateStyle: 'long',
-    timeZone: 'Europe/Vilnius',
-  }).format(new Date(`${iso}T12:00:00Z`));
 
 const STILL = { paused: false, forked: false, overdue: false, updated: false };
 
@@ -92,16 +84,22 @@ const PEOPLE: Pick<AssignPanelData, 'players' | 'groups' | 'today'> = {
   today: TODAY,
 };
 
-function renderPanel(
-  data: AssignPanelData = { ...PEOPLE, assignments: [] },
-): void {
+/** The panel's data; the standings are AssigneeRows' own test. */
+type Data = Omit<AssignPanelData, 'standings'>;
+
+const withStandings = (data: Data): AssignPanelData => ({
+  ...data,
+  standings: new Map(),
+});
+
+function renderPanel(data: Data = { ...PEOPLE, assignments: [] }): void {
   render(
     <NextIntlClientProvider
       locale="en"
       messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
-      <AssignPanel repertoireId={ID} data={data} />
+      <AssignPanel repertoireId={ID} data={withStandings(data)} />
     </NextIntlClientProvider>,
   );
 }
@@ -125,7 +123,7 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
   it('offers the linked players and groups and an optional date', () => {
     renderPanel();
     expect(
-      screen.getByRole('heading', { level: 2, name: p.title }),
+      screen.getByRole('heading', { level: 3, name: p.title }),
     ).toBeDefined();
     expect(options()).toEqual([p.choose, 'Rokas', 'Eglė', 'Šeštadienio grupė']);
     expect(screen.getByRole('group', { name: p.players }).tagName).toBe(
@@ -176,9 +174,9 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
   });
 
   it('still says it was assigned once the last target is taken', async () => {
-    const panel = (data: AssignPanelData) => (
+    const panel = (data: Data) => (
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <AssignPanel repertoireId={ID} data={data} />
+        <AssignPanel repertoireId={ID} data={withStandings(data)} />
       </NextIntlClientProvider>
     );
     const { rerender } = render(
@@ -248,169 +246,31 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
   });
 });
 
-/** The list item of the assignment to `name`. */
-const row = (name: string): HTMLElement => {
-  const item = screen.getByText(name, { selector: 'h4' }).closest('li');
-  if (item === null) throw new Error(`no row for ${name}`);
-  return item;
-};
-
-describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
-  it('lists each target with its deadline and each player’s badges', () => {
+describe('AssignPanel: whom it is assigned to (R-225)', () => {
+  it('lists a row per player first, then the assign form', () => {
     renderPanel({ ...PEOPLE, assignments: [TO_GROUP, TO_ROKAS] });
+    const list = screen.getByRole('heading', { level: 2, name: p.list });
+    const form = screen.getByRole('heading', { level: 3, name: p.title });
+    const rows = screen.getAllByRole('listitem', { name: /./ });
+    expect(rows).toEqual(
+      ['Eglė', 'Marta', 'Rokas'].map((name) =>
+        screen.getByRole('listitem', { name }),
+      ),
+    );
+    const follows = (a: Node, b: Node): boolean =>
+      (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(rows.every((item) => follows(list, item))).toBe(true);
+    expect(rows.every((item) => follows(item, form))).toBe(true);
     expect(screen.queryByText(p.none)).toBeNull();
-    const group = row('Šeštadienio grupė');
-    expect(within(group).getByText(p.group)).toBeDefined();
-    expect(
-      within(group).getByText(
-        MESSAGES.assignment.deadlineOn.replace('{date}', day('2026-11-30')),
-      ),
-    ).toBeDefined();
-    const egle = within(group).getByText('Eglė').closest('li');
-    if (egle === null) throw new Error('no Eglė');
-    expect(within(egle).getByText(badge.paused)).toBeDefined();
-    expect(within(egle).getByText(badge.overdue)).toBeDefined();
-    // Her join day moved her deadline (R-16).
-    expect(
-      within(egle).getByText(
-        p.playerDeadline.replace('{date}', day('2026-12-05')),
-      ),
-    ).toBeDefined();
-    const marta = within(group).getByText('Marta').closest('li');
-    if (marta === null) throw new Error('no Marta');
-    expect(within(marta).getByText(badge.forked)).toBeDefined();
-    expect(within(marta).queryByText(badge.paused)).toBeNull();
-
-    const rokas = row('Rokas');
-    expect(
-      within(rokas).getByText(MESSAGES.assignment.noDeadline),
-    ).toBeDefined();
-    expect(within(rokas).getByText(badge.paused)).toBeDefined();
-    expect(within(rokas).queryByText(badge.overdue)).toBeNull();
   });
 
-  it('says when a group has no players yet', () => {
-    renderPanel({
-      ...PEOPLE,
-      assignments: [{ ...TO_GROUP, players: [] }],
-    });
-    expect(
-      within(row('Šeštadienio grupė')).getByText(p.emptyGroup),
-    ).toBeDefined();
+  it('says when it is assigned to no one', () => {
+    renderPanel();
+    expect(screen.getByText(p.none)).toBeDefined();
   });
 
-  it('changes the deadline', async () => {
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
-    const group = row('Šeštadienio grupė');
-    const date = within(group).getByLabelText<HTMLInputElement>(p.newDeadline);
-    expect(date.value).toBe('2026-11-30');
-    fireEvent.change(date, { target: { value: '2026-12-20' } });
-    fireEvent.click(
-      within(group).getByRole('button', { name: p.changeDeadline }),
-    );
-    await waitFor(() => {
-      expect(sent(server.deadline)).toEqual({
-        assignmentId: 'a-group',
-        deadline: '2026-12-20',
-      });
-    });
-    expect(await within(group).findByText(p.deadlineSaved)).toBeDefined();
-  });
-
-  it('clears the deadline, offered only while there is one', async () => {
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP, TO_ROKAS] });
-    expect(
-      within(row('Rokas')).queryByRole('button', { name: p.clearDeadline }),
-    ).toBeNull();
-    fireEvent.click(
-      within(row('Šeštadienio grupė')).getByRole('button', {
-        name: p.clearDeadline,
-      }),
-    );
-    await waitFor(() => {
-      expect(sent(server.clear)).toEqual({ assignmentId: 'a-group' });
-    });
-    expect(server.deadline).not.toHaveBeenCalled();
-    expect(
-      await within(row('Šeštadienio grupė')).findByText(p.deadlineSaved),
-    ).toBeDefined();
-  });
-
-  it('hints at today as the earliest deadline in both date fields (R-203)', () => {
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
+  it('hints at today as the earliest deadline in the assign form (R-203)', () => {
+    renderPanel();
     expect(screen.getByLabelText<HTMLInputElement>(p.deadline).min).toBe(TODAY);
-    expect(
-      within(row('Šeštadienio grupė')).getByLabelText<HTMLInputElement>(
-        p.newDeadline,
-      ).min,
-    ).toBe(TODAY);
-  });
-
-  it('says when a deadline is already past (R-203, R-210)', async () => {
-    server.deadline.mockResolvedValue({ refusal: 'assignment.deadlinePast' });
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
-    const group = row('Šeštadienio grupė');
-    fireEvent.click(
-      within(group).getByRole('button', { name: p.changeDeadline }),
-    );
-    expect(
-      await within(group).findByText(MESSAGES.assignment.deadlinePast),
-    ).toBeDefined();
-  });
-
-  it('shows a deadline refusal in its row', async () => {
-    server.deadline.mockResolvedValue({
-      refusal: 'assignment.deadlineInvalid',
-    });
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
-    const group = row('Šeštadienio grupė');
-    fireEvent.click(
-      within(group).getByRole('button', { name: p.changeDeadline }),
-    );
-    expect(
-      await within(group).findByText(MESSAGES.assignment.deadlineInvalid),
-    ).toBeDefined();
-  });
-
-  it('unassigns only once confirmed, saying what the players keep', async () => {
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
-    const group = row('Šeštadienio grupė');
-    fireEvent.click(within(group).getByRole('button', { name: p.unassign }));
-    expect(
-      within(group).getByText(
-        'Unassign it from Šeštadienio grupė? The repertoire leaves the players’ lists, and they have 30 days to keep their own copy. Anyone who has it another way keeps it.',
-      ),
-    ).toBeDefined();
-    expect(server.unassign).not.toHaveBeenCalled();
-    fireEvent.click(
-      within(group).getByRole('button', { name: p.unassignConfirm }),
-    );
-    await waitFor(() => {
-      expect(sent(server.unassign)).toEqual({ assignmentId: 'a-group' });
-    });
-  });
-
-  it('asks about one player in the singular', () => {
-    renderPanel({ ...PEOPLE, assignments: [TO_ROKAS] });
-    const rokas = row('Rokas');
-    fireEvent.click(within(rokas).getByRole('button', { name: p.unassign }));
-    expect(
-      within(rokas).getByText(
-        'Unassign it from Rokas? The repertoire leaves their list, and they have 30 days to keep their own copy.',
-      ),
-    ).toBeDefined();
-  });
-
-  it('shows an unassign refusal', async () => {
-    server.unassign.mockResolvedValue({ refusal: 'assignment.notFound' });
-    renderPanel({ ...PEOPLE, assignments: [TO_ROKAS] });
-    const rokas = row('Rokas');
-    fireEvent.click(within(rokas).getByRole('button', { name: p.unassign }));
-    fireEvent.click(
-      within(rokas).getByRole('button', { name: p.unassignConfirm }),
-    );
-    expect(
-      await within(rokas).findByText(MESSAGES.assignment.notFound),
-    ).toBeDefined();
   });
 });

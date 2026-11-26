@@ -75,6 +75,19 @@ describe('ShareWithCoach (R-42)', () => {
     expect(sent()).toEqual({ repertoireId: ID, coachIds: ['c-1', 'c-2'] });
   });
 
+  it('says its status as plain muted text, a refusal in the error colour', async () => {
+    server.setShares.mockResolvedValue({
+      shared: 1,
+      refusal: 'share.notLinked',
+    });
+    renderShare(TWO_COACHES);
+    expect(screen.getByRole('status').className).toBe('text-fg-muted');
+    fireEvent.click(screen.getByRole('button', { name: s.save }));
+    await waitFor(() => {
+      expect(screen.getByRole('status').className).toBe('text-error');
+    });
+  });
+
   it('says before any save when it is shared with nobody', () => {
     renderShare({ ...TWO_COACHES, sharedWith: [] });
     expect(screen.getByRole('status').textContent).toBe(s.notShared);
