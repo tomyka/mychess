@@ -275,6 +275,35 @@ describe('RepertoireScreen: browsing', () => {
     expect(screen.queryByRole('link', { name: 'Review 4' })).toBeNull();
   });
 
+  it('shows each chapter’s progress in the open chapter line while browsing, not in the builder (spec, Chapter line)', () => {
+    const [first, second] = GRAPH.chapters.map((c) => c.id);
+    renderScreen(GRAPH, 'Londono sistema', {
+      training: panelTraining({
+        repertoireId: ID,
+        chapters: {
+          [first ?? '']: {
+            counts: { notStarted: 0, skipped: 0, due: 3, learned: 7 },
+            mastered: false,
+          },
+          [second ?? '']: {
+            counts: { notStarted: 4, skipped: 0, due: 0, learned: 0 },
+            mastered: false,
+          },
+        },
+      }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Ch 1\/2 · / }));
+    expect(screen.getByText('70% learned · 3 due')).toBeDefined();
+    expect(screen.getByText('New · 4 moves')).toBeDefined();
+    fireEvent.click(screen.getByRole('switch', { name: r.mode.build }));
+    expect(
+      screen
+        .getByRole('button', { name: /^Ch 1\/2 · / })
+        .getAttribute('aria-expanded'),
+    ).toBe('true');
+    expect(screen.queryByText('70% learned · 3 due')).toBeNull();
+  });
+
   it('goes to a move played on the board when the chapter has it', () => {
     renderScreen();
     boardMove('d2', 'd4');
@@ -312,7 +341,7 @@ describe('RepertoireScreen: browsing', () => {
 
   it('opens another chapter at its root', () => {
     renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: /Chapter 1 of 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Ch 1\/2 · / }));
     const second = screen
       .getAllByRole('button')
       .find(
@@ -321,9 +350,7 @@ describe('RepertoireScreen: browsing', () => {
       );
     if (second === undefined) throw new Error('no second chapter');
     fireEvent.click(second);
-    expect(
-      screen.getByRole('button', { name: /Chapter 2 of 2/ }),
-    ).toBeDefined();
+    expect(screen.getByRole('button', { name: /^Ch 2\/2 · / })).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     expect(current()).toBe('Nf6');
@@ -619,7 +646,7 @@ describe('RepertoireScreen: builder mode', () => {
       names: chapterNamesOf(GRAPH),
     });
     building();
-    fireEvent.click(named(/Chapter 1 of 2/));
+    fireEvent.click(named(/^Ch 1\/2 · /));
     fireEvent.click(named(r.chapters.add));
     expect(server.edit).toHaveBeenCalledWith({
       repertoireId: ID,
@@ -627,7 +654,7 @@ describe('RepertoireScreen: builder mode', () => {
       op: { kind: 'addChapter' },
     });
     expect(
-      await screen.findByRole('button', { name: /Chapter 3 of 3/ }),
+      await screen.findByRole('button', { name: /^Ch 3\/3 · / }),
     ).toBeDefined();
     expect(screen.getByText(b.playFirst)).toBeDefined();
   });
@@ -650,7 +677,7 @@ describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () =
       op: { kind: 'addMove', chapterId: null, from: START_KEY, san: 'd4' },
     });
     expect(
-      await screen.findByRole('button', { name: /Chapter 1 of 1/ }),
+      await screen.findByRole('button', { name: /^Ch 1\/1 · / }),
     ).toBeDefined();
     expect(current()).toBe('d4');
   });

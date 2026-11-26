@@ -21,7 +21,7 @@ export interface PanelContent {
   readonly empty: ReactNode;
   /** Builder mode: the comment is a field (R-102, R-105). */
   readonly commentEditor?: CommentEditor | undefined;
-  /** What the comments are called, if not "Comment" (a coach's: Coach note). */
+  /** What the comment strip is called, if not "Comment" (a coach's: Coach note). */
   readonly commentLabel?: string | undefined;
   /** The notes under a move's comment, given the move's key. */
   readonly renderNotes?: ((moveKey: string) => ReactNode) | undefined;
@@ -31,9 +31,9 @@ export interface PanelContent {
   /** The moves carrying a coach note kept by a fork (R-47). */
   readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
   /**
-   * The player's training of it: "I know this" on the current move, its
-   * line and each chapter (R-58), and the chapters' Learn links (R-206).
-   * Absent where the viewer does not train it.
+   * The player's training of it: "I know this" on the current move and its
+   * line (R-58), the line's Learn link (R-206) and, while browsing, each
+   * chapter's standing (R-225). Absent where the viewer does not train it.
    */
   readonly training?: PanelTraining | undefined;
 }
@@ -60,8 +60,8 @@ function ChapterPosition({
       <PositionBody
         intro={chapter.intro}
         move={state.path.at(-1) ?? null}
+        mode={state.mode}
         commentEditor={content.commentEditor}
-        commentLabel={content.commentLabel}
         renderNotes={content.renderNotes}
       />
       {content.training === undefined ? null : (
@@ -77,10 +77,30 @@ function ChapterPosition({
 }
 
 /**
- * The scrolling part of the panel: the view's lead, the chapters, the
- * position (the chapter's intro, or the current move's comment and notes,
- * then "I know this"), then the moves. The DOM
- * order is the visual order at every width, so Tab follows what the eye sees (WCAG 2.4.3).
+ * On a phone the scroller; on a desktop `display: contents`, so its
+ * children join the panel's flex column (the panel scrolls with the page,
+ * #331) and the comment strip, earlier in the DOM, can sit above the move
+ * list by flex order (comment-strip.tsx). `space-y-4` keeps the gaps there.
+ */
+const SCROLLER =
+  'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:contents lg:space-y-4';
+
+/**
+ * The move list's box: on a desktop it scrolls on its own, at most about
+ * half a screen high, so stepping keeps the comment above it in view; on a
+ * phone the whole panel scrolls. `lg:order-1` keeps it after the comment
+ * strip; anything placed after the move list needs it too.
+ */
+const MOVES_BOX = 'lg:order-1 lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto';
+
+/**
+ * The scrolling part of the panel: the view's lead, the chapter line, the
+ * position (the move's notes, then "I know this"; in builder mode also the
+ * intro or the comment field), then the moves. While browsing the comment
+ * strip shows the intro and the comment: above this scroller on a phone,
+ * between the position and the moves on a desktop. Apart from the strip on
+ * a desktop, the DOM order is the visual order, so Tab follows what the
+ * eye sees (WCAG 2.4.3).
  */
 export function RepertoirePanel({
   view,
@@ -93,7 +113,7 @@ export function RepertoirePanel({
       ? undefined
       : chapterOf(state.graph, state.chapterId);
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:overflow-visible lg:px-0">
+    <div data-panel-scroller="" className={SCROLLER}>
       {content.lead}
       <ChapterList
         chapters={state.graph.chapters}
@@ -103,8 +123,9 @@ export function RepertoirePanel({
           dispatch({ type: 'chapter', chapterId });
         }}
         builder={content.chapterBuilder}
-        training={content.training}
-        graph={state.graph}
+        standings={
+          state.mode === 'browse' ? content.training?.chapters : undefined
+        }
       />
       {chapter === undefined ? (
         content.empty
@@ -112,11 +133,7 @@ export function RepertoirePanel({
         <ChapterPosition chapter={chapter} state={state} content={content} />
       )}
       {chapter === undefined ? null : (
-        // On a desktop the moves scroll on their own, at most about half a
-        // screen high, so stepping keeps the comment above them in view and
-        // the panel itself scrolls with the page (#331); on a phone the
-        // whole panel scrolls.
-        <div className="lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto">
+        <div data-moves="" className={MOVES_BOX}>
           <MoveList
             graph={state.graph}
             chapterId={state.chapterId}

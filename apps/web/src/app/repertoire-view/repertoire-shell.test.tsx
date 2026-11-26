@@ -49,7 +49,6 @@ function View({
   return (
     <RepertoireShell
       topBar={<h1>Londono sistema</h1>}
-      commentStrip={<p>Komentaro juosta</p>}
       name="Londono sistema"
       names={{ taxonomyNames: {}, distinctions: {} }}
       view={view}
@@ -135,13 +134,34 @@ describe('RepertoireShell', () => {
     );
   });
 
-  it('puts the comment strip under the board row, before the scrolling panel', () => {
+  it('puts the comment strip under the board row, before the scrolling panel (spec, Comment strip)', () => {
     renderView();
-    const strip = screen.getByText('Komentaro juosta');
+    const strip = screen.getByRole('region', { name: r.panel.intro });
     expect(
       precedes(screen.getByRole('button', { name: r.nav.forward }), strip),
     ).toBe(true);
     expect(precedes(strip, screen.getByText('Tik skaityti'))).toBe(true);
+  });
+
+  it('moves the one strip above the move list on a desktop, by flex order in the panel (spec, Comment strip)', () => {
+    renderView();
+    const strips = screen.getAllByRole('region', { name: r.panel.intro });
+    expect(strips).toHaveLength(1);
+    const strip = strips[0] ?? document.body;
+    const scroller = document.querySelector('[data-panel-scroller]');
+    const moves = document.querySelector<HTMLElement>('[data-moves]');
+    if (moves === null) throw new Error('no move list');
+    // One flex column holds both; on a desktop the scroller's children
+    // join it, and the strip and the move list come last, in that order.
+    expect(strip.parentElement).toBe(scroller?.parentElement);
+    expect(scroller?.className).toContain('lg:contents');
+    expect(strip.className).toContain('lg:order-1');
+    expect(moves.className).toContain('lg:order-1');
+    expect(moves.parentElement).toBe(scroller);
+    expect(precedes(strip, moves)).toBe(true);
+    expect(
+      within(moves).getByRole('button', { name: /^1\. d4/ }),
+    ).toBeDefined();
   });
 
   it('opens browsing at the chapter root with its intro, and no notes there', () => {
@@ -154,14 +174,22 @@ describe('RepertoireShell', () => {
     expect(screen.queryByText('Pastaba apie d4')).toBeNull();
   });
 
-  it('shows the move’s comment under the view’s label, and the view’s notes for that move', () => {
+  it('shows the move and its comment in the strip, named by the view’s label, and the view’s notes in the panel', () => {
     renderView();
     forward();
-    const position = within(screen.getByRole('region', { name: NOTE_LABEL }));
-    expect(position.getByText(NOTE_LABEL)).toBeDefined();
-    expect(position.getByText('Solid')).toBeDefined();
-    expect(position.getByText('Pastaba apie d4')).toBeDefined();
+    const strip = within(screen.getByRole('region', { name: NOTE_LABEL }));
+    expect(strip.getByText('1. d4')).toBeDefined();
+    expect(strip.getByText('Solid')).toBeDefined();
+    expect(strip.queryByText('Pastaba apie d4')).toBeNull();
+    expect(
+      precedes(
+        screen.getByRole('region', { name: NOTE_LABEL }),
+        screen.getByText('Pastaba apie d4'),
+      ),
+    ).toBe(true);
+    expect(screen.getByText('Arrows: c1 to f4, green')).toBeDefined();
     forward();
+    expect(screen.queryByRole('region', { name: NOTE_LABEL })).toBeNull();
     expect(screen.getByText('Kita pastaba')).toBeDefined();
   });
 
@@ -192,12 +220,12 @@ describe('RepertoireShell', () => {
 });
 
 describe('the panel', () => {
-  it('shows the lead, the chapters, the position and the moves in that order', () => {
+  it('shows the strip, then the lead, the chapters and the moves in that order', () => {
     renderView();
     const order = [
+      screen.getByRole('region', { name: r.panel.intro }),
       screen.getByText('Tik skaityti'),
       screen.getByRole('button', { expanded: false }),
-      screen.getByRole('region', { name: r.panel.intro }),
       firstMove(),
     ];
     for (const [i, node] of order.entries()) {

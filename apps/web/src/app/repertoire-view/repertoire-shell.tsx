@@ -5,6 +5,7 @@ import type { ChapterNames } from '../../lib/chapter-label';
 import { Board, type BoardProps } from '../board/board';
 import { BoardRow } from './board-row';
 import { Announcer, useBoardWords } from './board-words';
+import { BrowseCommentStrip } from './comment-strip';
 import {
   BOARD_CELL,
   PANEL_CELL,
@@ -25,8 +26,6 @@ type Drawing = Required<
 interface RepertoireShellProps {
   /** The repertoire's header (RepertoireTopBar): over the board on a phone, first in the panel on a desktop. */
   readonly topBar: ReactNode;
-  /** The current move's comment, between the board row and the scrolling panel. */
-  readonly commentStrip?: ReactNode;
   /** The repertoire's name, which the board's accessible name carries. */
   readonly name: string;
   /** What titles the chapters (decision 17, R-158). */
@@ -62,7 +61,7 @@ function PanelStatus({
 }): JSX.Element {
   const { message } = state;
   return (
-    <div className="shrink-0 px-gutter lg:px-0">
+    <div className="shrink-0 px-gutter lg:mb-3 lg:px-0">
       <ScreenStatus
         message={message}
         stale={state.stale}
@@ -87,7 +86,6 @@ const noAction: StatusAction = () => null;
  */
 export function RepertoireShell({
   topBar,
-  commentStrip,
   name,
   names,
   view,
@@ -123,7 +121,7 @@ export function RepertoireShell({
           onReload={onReload}
           statusAction={statusAction}
         />
-        {commentStrip}
+        <BrowseCommentStrip state={state} label={panel.commentLabel} />
         <RepertoirePanel view={view} names={names} content={panel} />
       </div>
       <Announcer state={state} />

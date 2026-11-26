@@ -1,8 +1,8 @@
 'use client';
 
-import type { Chapter, RepertoireGraph } from '@mychess/chess';
+import type { Chapter, Standing } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import { useEffect, useId, useRef, useState, type JSX } from 'react';
+import { useId, useRef, useState, type JSX } from 'react';
 import {
   chapterLabel,
   plainChapterLabel,
@@ -10,7 +10,6 @@ import {
 } from '../../lib/chapter-label';
 import { SECONDARY_BUTTON } from '../buttons';
 import { ChapterRow, type ChapterBuilder } from './chapter-row';
-import type { PanelTraining } from './panel-training';
 
 export type { ChapterBuilder } from './chapter-row';
 
@@ -22,16 +21,9 @@ export interface ChapterListProps {
   readonly onSelect: (chapterId: string) => void;
   /** Builder mode: add, rename and delete chapters. */
   readonly builder?: ChapterBuilder | undefined;
-  /** The player's training of it: each row gets Learn and its "I know this" menu. */
-  readonly training?: PanelTraining | undefined;
-  /** The repertoire the chapters are in, which each row's Learn counts in (R-206). */
-  readonly graph?: RepertoireGraph | undefined;
+  /** Each chapter's standing by id, for a player who trains it (R-225). */
+  readonly standings?: Readonly<Record<string, Standing>> | undefined;
 }
-
-/** Desktop opens the list by default; jsdom and phones keep it closed. */
-const isWide = (): boolean =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(min-width: 1024px)').matches;
 
 function Chevron({ open }: { readonly open: boolean }): JSX.Element {
   return (
@@ -48,41 +40,15 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
   );
 }
 
-/**
- * Open on a desktop, closed on a phone, and closed for a single chapter
- * (R-116); closing returns focus to the trigger. `several` counts only as
- * the list first shows.
- */
-function useDisclosure(several: boolean) {
+/** Closed by default at every width; closing returns focus to the trigger. */
+function useDisclosure() {
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const startsOpen = useRef(several);
-  useEffect(() => {
-    if (startsOpen.current && isWide()) setOpen(true);
-  }, []);
   const close = () => {
     setOpen(false);
     trigger.current?.focus();
   };
   return { open, setOpen, trigger, close };
-}
-
-/** "Chapter n of m" over the chosen chapter's title. */
-function DisclosureText({
-  position,
-  title,
-}: {
-  readonly position: string;
-  readonly title: string;
-}): JSX.Element {
-  return (
-    <span className="flex min-w-0 flex-col">
-      <span className="text-sm text-fg-muted">{position}</span>
-      {/* Wrapped in full, not clamped: the distinction that ends a long
-          title must show (R-158). */}
-      <span className="break-words font-semibold">{title}</span>
-    </span>
-  );
 }
 
 /** Every chapter as a row, the chosen one current; builder mode adds Add chapter. */
@@ -94,8 +60,7 @@ function ChapterRows({
   name,
   onChoose,
   builder,
-  training,
-  graph,
+  standings,
   onAdd,
 }: {
   readonly id: string;
@@ -106,14 +71,15 @@ function ChapterRows({
   readonly name: (chapter: Chapter) => string;
   readonly onChoose: (chapterId: string) => void;
   readonly builder?: ChapterBuilder | undefined;
-  readonly training?: PanelTraining | undefined;
-  readonly graph?: RepertoireGraph | undefined;
+  readonly standings?: Readonly<Record<string, Standing>> | undefined;
   readonly onAdd: () => void;
 }): JSX.Element {
   const t = useTranslations('repertoires.chapters');
   return (
     <div id={id} className="flex flex-col gap-2">
-      <ul className="flex max-h-72 flex-col overflow-y-auto">
+      {/* No scroller of its own: the open list pushes the panel down and
+          the panel scrolls (spec, Chapter line). */}
+      <ul className="flex flex-col">
         {chapters.map((c) => (
           <li key={c.id}>
             <ChapterRow
@@ -123,8 +89,7 @@ function ChapterRows({
               name={name(c)}
               onChoose={onChoose}
               builder={builder}
-              training={training}
-              graph={graph}
+              standing={standings?.[c.id]}
             />
           </li>
         ))}
@@ -144,21 +109,27 @@ function ChapterRows({
 }
 
 /**
- * The chapter disclosure (docs/design/repertoire-screen.md): "Chapter n of
- * m" and the title; open, every chapter inline, pushing the panel down.
- * Choosing one selects it, closes the list and returns focus here. In
- * builder mode the rows can be renamed and deleted and a chapter added.
+ * The chapter line (spec, Chapter line): "Ch 2/6 · <label>" on one line,
+ * closed at every width; open, every chapter inline, pushing the panel
+ * down. Choosing one selects it, closes the list and returns focus here.
+ * In builder mode the current chapter can be renamed and deleted and a
+ * chapter added.
  */
 export function ChapterList(props: ChapterListProps): JSX.Element | null {
   const { chapters, chapterId, names, onSelect, builder } = props;
   const t = useTranslations();
   const listId = useId();
-  const { open, setOpen, trigger, close } = useDisclosure(chapters.length > 1);
+  const { open, setOpen, trigger, close } = useDisclosure();
   const index = chapters.findIndex((c) => c.id === chapterId);
   const chapter = chapters[index];
   if (chapter === undefined) return null;
   const title = chapterLabel(t, names, chapters);
   const name = plainChapterLabel(t, names);
+  const line = t('repertoires.chapters.line', {
+    index: index + 1,
+    count: chapters.length,
+    title: title(chapter),
+  });
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -166,18 +137,13 @@ export function ChapterList(props: ChapterListProps): JSX.Element | null {
         type="button"
         aria-expanded={open}
         aria-controls={listId}
+        title={line}
         onClick={() => {
           setOpen(!open);
         }}
-        className="flex min-h-touch w-full items-center justify-between gap-3 rounded-control text-left"
+        className="flex min-h-touch w-full items-center justify-between gap-3 rounded-control text-left font-semibold"
       >
-        <DisclosureText
-          position={t('repertoires.chapters.position', {
-            index: index + 1,
-            count: chapters.length,
-          })}
-          title={title(chapter)}
-        />
+        <span className="min-w-0 truncate">{line}</span>
         <Chevron open={open} />
       </button>
       {open ? (

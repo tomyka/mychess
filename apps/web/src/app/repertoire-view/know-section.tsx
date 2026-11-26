@@ -1,11 +1,8 @@
 'use client';
 
 import {
-  chapterOf,
   isPlayerMove,
   moveKey,
-  moveNumber,
-  sideToMove,
   type RepertoireGraph,
   type RepertoireMove,
 } from '@mychess/chess';
@@ -14,6 +11,7 @@ import type { JSX } from 'react';
 import { currentLineIndex } from './current-line';
 import { KnowThisMenu } from './know-this-menu';
 import { LearnLink } from './learn-link';
+import { moveLabel } from './move-label';
 import { PANEL_LABEL } from './panel-styles';
 import type { PanelTraining } from './panel-training';
 
@@ -23,17 +21,6 @@ export interface KnowSectionProps {
   readonly chapterId: string;
   /** The moves from the chapter root to the current one. */
   readonly path: readonly RepertoireMove[];
-}
-
-/** "6. Be2": the current move with its number, as the move list writes it. */
-function moveLabel(
-  graph: RepertoireGraph,
-  chapterId: string,
-  path: readonly RepertoireMove[],
-  move: RepertoireMove,
-): string {
-  const root = chapterOf(graph, chapterId)?.rootKey ?? move.from;
-  return `${moveNumber(path.length - 1, sideToMove(root) === 'w')} ${move.san}`;
 }
 
 /**

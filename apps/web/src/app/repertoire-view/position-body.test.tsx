@@ -1,11 +1,10 @@
 import { moveKey, type RepertoireMove } from '@mychess/chess';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { CommentEditor } from './comment';
 import type { FieldOutcome } from './field-save';
-import { PersonalNote } from './personal-note';
 import { PositionBody, type PositionBodyProps } from './position-body';
 
 const BF4: RepertoireMove = {
@@ -20,140 +19,57 @@ const BF4: RepertoireMove = {
   chapters: ['c1'],
 };
 
-const en = MESSAGES.repertoires;
-const p = en.panel;
-
-function renderBody(over: Partial<PositionBodyProps> = {}): void {
-  render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <PositionBody intro="Solid and quick." move={null} {...over} />
-    </NextIntlClientProvider>,
-  );
-}
-
-const commentSection = (name: string = p.comment) =>
-  within(screen.getByRole('region', { name }));
-
-describe('PositionBody', () => {
-  it('shows the chapter intro at the root, and no notes there', () => {
-    const renderNotes = vi.fn(() => <p>A note</p>);
-    renderBody({ renderNotes });
-    const intro = within(screen.getByRole('region', { name: p.intro }));
-    expect(intro.getByText(p.intro)).toBeDefined();
-    expect(intro.getByText('Solid and quick.')).toBeDefined();
-    expect(renderNotes).not.toHaveBeenCalled();
-    expect(screen.queryByText('A note')).toBeNull();
-  });
-
-  it('shows nothing at a root without an intro', () => {
-    renderBody({ intro: null });
-    expect(screen.queryByRole('region')).toBeNull();
-  });
-
-  it('shows the move’s comment and its marks as words, not the intro', () => {
-    renderBody({ move: BF4 });
-    const section = commentSection();
-    expect(section.getByText(p.comment)).toBeDefined();
-    expect(section.getByText('The London bishop')).toBeDefined();
-    expect(section.getByText('Arrows: g1 to f3, green')).toBeDefined();
-    expect(screen.queryByText('Solid and quick.')).toBeNull();
-  });
-
-  it('shows what renderNotes gives for the move’s key, in the move’s section', () => {
-    const renderNotes = vi.fn((key: string) => <p>{`Note on ${key}`}</p>);
-    renderBody({ move: BF4, renderNotes });
-    const key = moveKey(BF4.from, BF4.san);
-    expect(renderNotes).toHaveBeenCalledWith(key);
-    expect(commentSection().getByText(`Note on ${key}`)).toBeDefined();
-  });
-
-  it('shows the comment alone without renderNotes', () => {
-    renderBody({ move: BF4 });
-    expect(commentSection().queryByText(/Note on/)).toBeNull();
-    expect(screen.getAllByRole('region')).toHaveLength(1);
-  });
-
-  it('names the comment with the view’s label (a coach’s comment is a Coach note)', () => {
-    renderBody({ move: BF4, commentLabel: 'Coach note from Dovydas' });
-    const section = commentSection('Coach note from Dovydas');
-    expect(section.getByText('Coach note from Dovydas')).toBeDefined();
-    expect(section.getByText('The London bishop')).toBeDefined();
-    expect(screen.queryByText(p.comment)).toBeNull();
-  });
-
-  it('shows the builder’s comment field when given an editor', () => {
-    renderBody({
-      intro: null,
-      move: BF4,
-      commentEditor: { disabled: false, onSave: vi.fn() },
-    });
-    expect(
-      screen.getByRole<HTMLTextAreaElement>('textbox', {
-        name: en.builder.commentLabel,
-      }).value,
-    ).toBe('The London bishop');
-  });
-});
-
 /** BF4 with a circle too, so both kinds of mark are spoken. */
 const MARKED: RepertoireMove = {
   ...BF4,
   circles: [{ square: 'd4', color: 'R' }],
 };
 
-/** The position body as the owner's page fills it: a Personal note per move. */
-function renderOwner(
-  over: {
-    readonly intro?: string | null;
-    readonly move?: RepertoireMove | null;
-    readonly commentEditor?: CommentEditor;
-  } = {},
-): void {
-  const { intro = 'The London: solid and quick.', move = null } = over;
+const en = MESSAGES.repertoires;
+const p = en.panel;
+
+function renderBody(over: Partial<PositionBodyProps> = {}): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PositionBody
-        intro={intro}
-        move={move}
-        commentEditor={over.commentEditor}
-        renderNotes={(key) => (
-          <PersonalNote
-            key={key}
-            initial=""
-            onSaveNote={vi.fn().mockResolvedValue({ ok: true })}
-          />
-        )}
+        intro="Solid and quick."
+        move={null}
+        mode="browse"
+        {...over}
       />
     </NextIntlClientProvider>,
   );
 }
 
-describe('PositionBody with the owner’s notes', () => {
-  it('shows the chapter intro at the root, and no note there', () => {
-    renderOwner();
-    expect(screen.getByText('The London: solid and quick.')).toBeDefined();
-    expect(screen.queryByLabelText(en.note.label)).toBeNull();
+describe('PositionBody while browsing (the strip shows the comment and intro)', () => {
+  it('shows nothing at the chapter root, and no notes there', () => {
+    const renderNotes = vi.fn(() => <p>A note</p>);
+    renderBody({ renderNotes });
+    expect(screen.queryByText('Solid and quick.')).toBeNull();
+    expect(screen.queryByText('A note')).toBeNull();
+    expect(renderNotes).not.toHaveBeenCalled();
   });
 
-  it('shows nothing at a root without an intro', () => {
-    renderOwner({ intro: null });
-    expect(screen.queryByText(p.intro)).toBeNull();
-  });
-
-  it('shows the move’s comment and its marks as text', () => {
-    renderOwner({ move: MARKED });
-    expect(screen.getByText('The London bishop')).toBeDefined();
+  it('keeps the move’s marks as words, but not its comment', () => {
+    renderBody({ move: MARKED });
     expect(screen.getByText('Arrows: g1 to f3, green')).toBeDefined();
     expect(screen.getByText('Circles: d4, red')).toBeDefined();
-    expect(screen.queryByText('The London: solid and quick.')).toBeNull();
+    expect(screen.queryByText('The London bishop')).toBeNull();
+    expect(screen.queryByText(p.comment)).toBeNull();
   });
 
-  it('says when a move has no comment', () => {
-    renderOwner({
-      move: { ...MARKED, comment: null, arrows: [], circles: [] },
-    });
-    expect(screen.getByText(p.noComment)).toBeDefined();
+  it('shows what renderNotes gives for the move’s key', () => {
+    const renderNotes = vi.fn((key: string) => <p>{`Note on ${key}`}</p>);
+    renderBody({ move: BF4, renderNotes });
+    const key = moveKey(BF4.from, BF4.san);
+    expect(renderNotes).toHaveBeenCalledWith(key);
+    expect(screen.getByText(`Note on ${key}`)).toBeDefined();
+  });
+
+  it('says no marks on a move without them', () => {
+    renderBody({ move: { ...BF4, arrows: [] } });
     expect(screen.queryByText(/Arrows/)).toBeNull();
+    expect(screen.queryByText(/Circles/)).toBeNull();
   });
 });
 
@@ -170,11 +86,25 @@ describe('PositionBody in builder mode', () => {
       name: en.builder.commentLabel,
     });
 
+  it('keeps the chapter intro read-only at the root (R-112)', () => {
+    renderBody({ mode: 'build', commentEditor: builder() });
+    expect(screen.getByRole('region', { name: p.intro }).textContent).toContain(
+      'Solid and quick.',
+    );
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('shows nothing at a root without an intro', () => {
+    renderBody({ mode: 'build', intro: null });
+    expect(screen.queryByRole('region')).toBeNull();
+  });
+
   it('edits the comment in a field with the one-paragraph hint, and says it saved', async () => {
     const editor = builder();
-    renderOwner({ move: MARKED, commentEditor: editor });
+    renderBody({ mode: 'build', move: MARKED, commentEditor: editor });
     expect(commentField().value).toBe('The London bishop');
     expect(screen.getByText(en.builder.commentHint)).toBeDefined();
+    expect(screen.getByText('Arrows: g1 to f3, green')).toBeDefined();
     fireEvent.change(commentField(), { target: { value: 'Develop first' } });
     fireEvent.click(
       screen.getByRole('button', { name: en.builder.commentSave }),
@@ -184,7 +114,8 @@ describe('PositionBody in builder mode', () => {
   });
 
   it('shows a refusal under the field and marks it invalid', async () => {
-    renderOwner({
+    renderBody({
+      mode: 'build',
       move: MARKED,
       commentEditor: builder({
         onSave: vi.fn().mockResolvedValue({
@@ -201,7 +132,7 @@ describe('PositionBody in builder mode', () => {
   });
 
   it('counts the characters from 1,800 on', () => {
-    renderOwner({ move: MARKED, commentEditor: builder() });
+    renderBody({ mode: 'build', move: MARKED, commentEditor: builder() });
     fireEvent.change(commentField(), { target: { value: 'a'.repeat(1799) } });
     expect(screen.queryByText(/\/ 2,000/)).toBeNull();
     fireEvent.change(commentField(), { target: { value: 'a'.repeat(1850) } });
@@ -209,15 +140,25 @@ describe('PositionBody in builder mode', () => {
   });
 
   it('cannot save while the screen is saving', () => {
-    renderOwner({ move: MARKED, commentEditor: builder({ disabled: true }) });
+    renderBody({
+      mode: 'build',
+      move: MARKED,
+      commentEditor: builder({ disabled: true }),
+    });
     expect(
       screen.getByRole('button', { name: en.builder.commentSave }),
     ).toHaveProperty('disabled', true);
   });
 
-  it('keeps the chapter intro read-only (R-112)', () => {
-    renderOwner({ commentEditor: builder() });
-    expect(screen.getByText('The London: solid and quick.')).toBeDefined();
-    expect(screen.queryByRole('textbox')).toBeNull();
+  it('shows the move’s notes under the field', () => {
+    renderBody({
+      mode: 'build',
+      move: BF4,
+      commentEditor: builder(),
+      renderNotes: (key) => <p>{`Note on ${key}`}</p>,
+    });
+    expect(
+      screen.getByText(`Note on ${moveKey(BF4.from, BF4.san)}`),
+    ).toBeDefined();
   });
 });

@@ -1,8 +1,8 @@
 'use client';
 
-// A move's comment (R-102) as every repertoire view shows it: text while
-// browsing, the builder's field in builder mode; and its marks as words.
-import { moveKey, type RepertoireMove } from '@mychess/chess';
+// A move's comment field (R-102) in builder mode, and its marks as words.
+// While browsing the comment strip shows the comment (comment-strip.tsx).
+import type { RepertoireMove } from '@mychess/chess';
 import { COMMENT_MAX } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX } from 'react';
@@ -74,21 +74,22 @@ function CommentHint({
 }
 
 /**
- * The builder's comment (R-102): one paragraph (R-105, the hint says so),
- * a count near the limit, Save, and its own status line.
+ * The builder's comment on `move` (R-102): one paragraph (R-105, the hint
+ * says so), a count near the limit, Save, and its own status line. Keyed
+ * by the move, so a new move starts from its own comment.
  */
-function CommentField({
-  initial,
+export function CommentField({
+  move,
   editor,
 }: {
-  readonly initial: string;
+  readonly move: RepertoireMove;
   readonly editor: CommentEditor;
 }): JSX.Element {
   const t = useTranslations('repertoires.builder');
   const fieldId = useId();
   const hintId = useId();
   const statusId = useId();
-  const [text, setText] = useState(initial);
+  const [text, setText] = useState(move.comment ?? '');
   const { status, pending, save } = useFieldSave(editor.onSave);
   const said = useStatusText(status, t('commentSaved'));
   const refused = status !== 'idle' && status !== 'saved';
@@ -130,40 +131,5 @@ function CommentField({
         tone={status === 'saved' ? 'success' : 'error'}
       />
     </div>
-  );
-}
-
-/**
- * The comment as text (browsing) or as the builder's field. `label`, a
- * catalogue text, names it where the comment is something else to its
- * reader (a coach's repertoire: a Coach note); "Comment" by default.
- */
-export function Comment({
-  move,
-  editor,
-  label,
-}: {
-  readonly move: RepertoireMove;
-  readonly editor: CommentEditor | undefined;
-  readonly label?: string | undefined;
-}): JSX.Element {
-  const t = useTranslations('repertoires.panel');
-  if (editor !== undefined)
-    return (
-      <CommentField
-        key={moveKey(move.from, move.san)}
-        initial={move.comment ?? ''}
-        editor={editor}
-      />
-    );
-  return (
-    <>
-      <p className={PANEL_LABEL}>{label ?? t('comment')}</p>
-      {move.comment === null ? (
-        <p className="text-fg-muted">{t('noComment')}</p>
-      ) : (
-        <p>{move.comment}</p>
-      )}
-    </>
   );
 }

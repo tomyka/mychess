@@ -1,6 +1,6 @@
 'use client';
 
-import type { Chapter, RepertoireGraph } from '@mychess/chess';
+import type { Chapter, Standing } from '@mychess/chess';
 import { useMessages, useTranslations } from 'next-intl';
 import {
   useEffect,
@@ -10,17 +10,14 @@ import {
   useTransition,
   type JSX,
   type KeyboardEvent,
-  type ReactNode,
   type RefObject,
 } from 'react';
 import { isMessageKey } from '../../i18n/message-key';
 import { DANGER_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { FIELD } from '../fields';
+import { StandingLine } from '../standing-line';
 import { StatusLine } from '../status-line';
 import type { FieldOutcome } from './field-save';
-import { KnowThisMenu } from './know-this-menu';
-import { LearnLink } from './learn-link';
-import type { PanelTraining } from './panel-training';
 
 /** What the chapter list can change in builder mode. */
 export interface ChapterBuilder {
@@ -40,38 +37,16 @@ export interface ChapterRowProps {
   readonly name: string;
   readonly onChoose: (chapterId: string) => void;
   readonly builder: ChapterBuilder | undefined;
-  /** The player's training of it: the row gets its "I know this" menu. */
-  readonly training?: PanelTraining | undefined;
-  /** The repertoire the chapter is in: with training, the row's Learn counts in it (R-206). */
-  readonly graph?: RepertoireGraph | undefined;
+  /** The chapter's standing, for a player who trains it (R-225). */
+  readonly standing?: Standing | undefined;
 }
 
 const ROW =
-  'flex min-h-touch w-full items-center rounded-control px-3 py-2 text-left aria-current:bg-sunken aria-current:font-semibold';
-const ICON =
-  'inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-control disabled:opacity-60';
+  'flex min-h-touch w-full flex-col justify-center gap-1 rounded-control px-3 py-2 text-left aria-current:bg-sunken aria-current:font-semibold';
 
 type Step = 'idle' | 'renaming' | 'deleting';
 /** Where focus returns when a rename or confirmation closes. */
 type Back = 'rename' | 'delete';
-
-function Icon({ path }: { readonly path: string }): JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d={path} />
-    </svg>
-  );
-}
-
-const PENCIL = 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4';
-const BIN = 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13';
 
 /** Escape on a form element cancels it. */
 const escapeCancels =
@@ -234,130 +209,92 @@ function useRowSteps() {
   return { step, setStep, refs, closeTo };
 }
 
-/** The row's own Rename and Delete (44x44, named after the chapter). */
+/**
+ * The current chapter's Rename chapter and Delete chapter, labelled, under
+ * its title (spec, Builder), so titles do not squeeze beside icons.
+ */
 function RowEdits({
-  title,
   disabled,
   refs,
   onStep,
 }: {
-  readonly title: string;
   readonly disabled: boolean;
   readonly refs: Readonly<Record<Back, RefObject<HTMLButtonElement | null>>>;
   readonly onStep: (step: Step) => void;
 }): JSX.Element {
   const t = useTranslations('repertoires.chapters');
   return (
-    <>
+    <div className="flex flex-wrap gap-2 px-3 pb-2">
       <button
         ref={refs.rename}
         type="button"
-        aria-label={t('rename', { title })}
         disabled={disabled}
         onClick={() => {
           onStep('renaming');
         }}
-        className={ICON}
+        className={SECONDARY_BUTTON}
       >
-        <Icon path={PENCIL} />
+        {t('renameShort')}
       </button>
       <button
         ref={refs.delete}
         type="button"
-        aria-label={t('delete', { title })}
         disabled={disabled}
         onClick={() => {
           onStep('deleting');
         }}
-        className={ICON}
+        className={SECONDARY_BUTTON}
       >
-        <Icon path={BIN} />
+        {t('deleteShort')}
       </button>
-    </>
-  );
-}
-
-/** The row's line: ending in its "I know this" menu for a player who trains it. */
-function RowLine({
-  chapterId,
-  title,
-  training,
-  children,
-}: {
-  readonly chapterId: string;
-  readonly title: string;
-  readonly training: PanelTraining | undefined;
-  readonly children: ReactNode;
-}): JSX.Element {
-  if (training === undefined)
-    return <div className="flex items-center gap-1">{children}</div>;
-  return (
-    <KnowThisMenu
-      fields={{
-        kind: 'chapter',
-        repertoireId: training.repertoireId,
-        chapterId,
-      }}
-      subject={title}
-    >
-      {children}
-    </KnowThisMenu>
-  );
-}
-
-/** The chapter's title: choosing it selects the chapter; the chosen one is current. */
-function ChooseButton({
-  current,
-  title,
-  onChoose,
-}: {
-  readonly current: boolean;
-  readonly title: string;
-  readonly onChoose: () => void;
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      aria-current={current ? 'true' : undefined}
-      title={title}
-      onClick={onChoose}
-      className={ROW}
-    >
-      <span className="min-w-0 break-words">{title}</span>
-    </button>
-  );
-}
-
-/** Learn for the chapter (R-206), for a player who trains it. */
-function ChapterLearn({
-  chapter,
-  title,
-  training,
-  graph,
-}: Pick<
-  ChapterRowProps,
-  'chapter' | 'title' | 'training' | 'graph'
->): JSX.Element | null {
-  if (training === undefined || graph === undefined) return null;
-  return (
-    <LearnLink
-      training={training}
-      graph={graph}
-      focus={{ chapterId: chapter.id }}
-      subject={title}
-    />
+    </div>
   );
 }
 
 /**
- * One chapter of the list: choosing it selects it; in builder mode it also
- * renames in place and deletes after an inline confirmation
- * (docs/design/repertoire-screen.md, Chapters in builder mode). For a
- * player who trains it, the row has Learn for the chapter (R-206) and ends
- * in its "I know this" menu (R-58).
+ * The chapter's title in full (R-158), then its standing when given:
+ * choosing it selects the chapter; the chosen one is current.
+ */
+function ChooseButton({
+  current,
+  title,
+  standing,
+  onChoose,
+}: {
+  readonly current: boolean;
+  readonly title: string;
+  readonly standing: Standing | undefined;
+  readonly onChoose: () => void;
+}): JSX.Element {
+  const standingId = useId();
+  // Named by its title alone; the standing describes it.
+  return (
+    <button
+      type="button"
+      aria-current={current ? 'true' : undefined}
+      aria-label={title}
+      aria-describedby={standing === undefined ? undefined : standingId}
+      onClick={onChoose}
+      className={ROW}
+    >
+      <span className="min-w-0 break-words">{title}</span>
+      {standing === undefined ? null : (
+        <span id={standingId}>
+          <StandingLine standing={standing} due={standing.counts.due} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * One chapter of the list: choosing it selects it; with a standing it
+ * shows the chapter's progress (R-225). No icons while browsing (spec,
+ * Chapter line). In builder mode the current chapter renames in place and
+ * deletes after an inline confirmation.
  */
 export function ChapterRow(props: ChapterRowProps): JSX.Element {
-  const { chapter, current, title, name, onChoose, builder, training } = props;
+  const { chapter, current, title, name, onChoose, builder, standing } = props;
   const { step, setStep, refs, closeTo } = useRowSteps();
   if (builder !== undefined && step === 'renaming')
     return (
@@ -379,29 +316,19 @@ export function ChapterRow(props: ChapterRowProps): JSX.Element {
         onCancel={closeTo('delete')}
       />
     );
-  const row = (
-    <>
+  return (
+    <div className="flex flex-col">
       <ChooseButton
         current={current}
         title={title}
+        standing={standing}
         onChoose={() => {
           onChoose(chapter.id);
         }}
       />
-      <ChapterLearn {...props} />
-      {builder === undefined ? null : (
-        <RowEdits
-          title={title}
-          disabled={builder.disabled}
-          refs={refs}
-          onStep={setStep}
-        />
+      {builder === undefined || !current ? null : (
+        <RowEdits disabled={builder.disabled} refs={refs} onStep={setStep} />
       )}
-    </>
-  );
-  return (
-    <RowLine chapterId={chapter.id} title={title} training={training}>
-      {row}
-    </RowLine>
+    </div>
   );
 }

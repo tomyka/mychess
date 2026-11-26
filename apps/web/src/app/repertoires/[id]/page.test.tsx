@@ -116,14 +116,14 @@ describe('the repertoire page', () => {
           })}
         </NextIntlClientProvider>,
       );
-      const said = screen.getByText(/^Chapter \d of 2$/u).textContent;
+      const said = screen.getByText(/^Ch \d+\/2 · /u).textContent;
       unmount();
-      return said;
+      return /^Ch (\d+)\/2/u.exec(said)?.[1];
     };
-    expect(await open('c2')).toBe('Chapter 2 of 2');
-    expect(await open('c9')).toBe('Chapter 1 of 2');
-    expect(await open(['c2', 'c1'])).toBe('Chapter 1 of 2');
-    expect(await open()).toBe('Chapter 1 of 2');
+    expect(await open('c2')).toBe('2');
+    expect(await open('c9')).toBe('1');
+    expect(await open(['c2', 'c1'])).toBe('1');
+    expect(await open()).toBe('1');
   });
 
   it('loads the repertoire of the id and shows it', async () => {
