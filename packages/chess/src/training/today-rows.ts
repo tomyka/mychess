@@ -31,7 +31,7 @@ export interface TodayRow {
 }
 
 /** The day's Reviews with how each entered training ("I know this" or not). */
-const trackedOf = (
+export const trackedReviews = (
   day: Pick<TrainingDay, 'reviews' | 'knownWithoutLearning'>,
 ): Map<string, TrackedReview> =>
   new Map(
@@ -66,7 +66,7 @@ function rowOf(
 
 /** Today's rows at `now`. */
 export function todayRows(day: TrainingDay, now: Date): TodayRow[] {
-  const tracked = trackedOf(day);
+  const tracked = trackedReviews(day);
   const due = dueByRepertoire(day, now);
   const rank = new Map(due.map((d, i) => [d.repertoireId, i]));
   const dueOf = new Map(due.map((d) => [d.repertoireId, d.due]));

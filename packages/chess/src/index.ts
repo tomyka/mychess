@@ -155,6 +155,7 @@ export {
   startState,
   toLearnCount,
   todayRows,
+  trackedReviews,
   totalMoves,
   trackedIn,
   trainingCounts,

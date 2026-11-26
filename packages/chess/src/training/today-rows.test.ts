@@ -7,7 +7,7 @@ import {
 } from '../repertoire/graph';
 import { DAY_MS, startReview, type ReviewState } from './schedule';
 import type { TrainingRepertoire } from './scope';
-import { todayRows } from './today-rows';
+import { todayRows, trackedReviews } from './today-rows';
 import type { TrainingDay } from './training-day';
 
 const NOW = new Date('2026-11-25T08:00:00Z');
@@ -206,5 +206,25 @@ describe('todayRows', () => {
 
   it('lists nothing without repertoires', () => {
     expect(todayRows(day([]), NOW)).toEqual([]);
+  });
+});
+
+describe('trackedReviews', () => {
+  it('pairs each Review with whether it entered by "I know this"', () => {
+    const learned = fresh(E4);
+    const known = fresh(NF3);
+    const d = day([W], [learned, known], {
+      knownWithoutLearning: new Set([NF3]),
+    });
+    const tracked = trackedReviews(d);
+    expect([...tracked.keys()]).toEqual([E4, NF3]);
+    expect(tracked.get(E4)).toEqual({
+      review: learned,
+      knownWithoutLearning: false,
+    });
+    expect(tracked.get(NF3)).toEqual({
+      review: known,
+      knownWithoutLearning: true,
+    });
   });
 });
