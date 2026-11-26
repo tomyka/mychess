@@ -7,231 +7,102 @@ import {
   type Dispatch,
   type RefObject,
 } from 'react';
-import type {
-  ImportPreview,
-  ImportRefusalKey,
-  ImportRefused,
-} from '../../../server/import-preview';
+import type { ImportTarget } from '../../../server/import-preview';
 import { useSlow } from '../../use-slow';
+import type { HeldSide } from '../side-field';
 import { confirmImportAction, previewImportAction } from './actions';
+import {
+  addedTo,
+  byteLength,
+  confirmRequest,
+  heldSource,
+  initialFlow,
+  nameRefused,
+  NEW,
+  reduceFlow,
+  shownRefusal,
+  sourceRefusal,
+  targetsOf,
+  type Busy,
+  type FlowEvent,
+  type FlowMessage,
+  type FlowState,
+  type ImportOption,
+  type Source,
+  type TargetChoice,
+  type Upload,
+} from './import-flow-state';
+import type { ImportSummaryProps } from './import-summary';
 
-/** One of the account's repertoires the upload can be added to. */
-export interface ImportOption {
-  readonly id: string;
-  readonly name: string;
-  readonly side: Side;
+/** Step 1: the file or pasted PGN and the side, with what each change does. */
+export interface FileStepView {
+  readonly file: File | null;
+  readonly pasted: string;
+  readonly side: HeldSide;
+  /** A preview is running: the step waits. */
+  readonly pending: boolean;
+  readonly fileRef: RefObject<HTMLInputElement | null>;
+  /** A file chosen (or none): it replaces any pasted text. */
+  readonly onFile: (file: File | null) => void;
+  /** Text typed or pasted (R-209): it replaces any chosen file. */
+  readonly onPaste: (text: string) => void;
+  readonly onSubmit: () => void;
 }
 
-export type TargetChoice =
-  { readonly kind: 'new' } | { readonly kind: 'existing'; readonly id: string };
-
-/** The file or pasted text as read and previewed. */
-interface Upload {
-  readonly text: string;
+/** Step 1 once previewed: what was read, and "Change". */
+export interface ChosenView {
   /** The file's name; null for pasted text. */
   readonly name: string | null;
   readonly side: Side;
+  readonly onChange: () => void;
 }
 
-/** A refusal to show: its catalogue key and the limit it names, if any. */
-export interface FlowMessage {
-  readonly key: string;
-  readonly limit?: number;
-}
-
-/** What the flow is waiting for. */
-type Busy = 'reading' | 'updating' | 'importing';
-
-interface FlowState {
+/** Step 3: where the upload goes (R-101). */
+export interface TargetView {
+  /** The account's repertoires of the upload's side. */
+  readonly options: readonly ImportOption[];
   readonly side: Side;
-  /**
-   * The side was chosen, by the player or by opening the flow from a
-   * repertoire: a file's players no longer set it (#330 decision 8).
-   */
-  readonly sideChosen: boolean;
-  /** The file chosen, or null; never set together with pasted text. */
-  readonly file: File | null;
-  /** The PGN pasted (R-209), or ''; never set together with a file. */
-  readonly pasted: string;
-  /** Set once the file is previewed: step 1 then collapses. */
-  readonly upload: Upload | null;
-  readonly preview: ImportPreview | null;
   readonly target: TargetChoice;
   readonly name: string;
-  /**
-   * The name last suggested from a file: while `name` is still it, the
-   * player has not changed it and the next file's suggestion replaces it.
-   */
-  readonly suggested: string;
-  readonly message: FlowMessage | null;
-  /** The repertoire changed since the preview: offer "Preview again". */
-  readonly stale: boolean;
-  readonly busy: Busy;
+  /** The last refusal was of the name. */
+  readonly nameInvalid: boolean;
+  /** What the merge adds to the chosen repertoire, to show under it; or null. */
+  readonly added: ImportTarget | null;
+  readonly onTarget: (target: TargetChoice) => void;
+  readonly onName: (name: string) => void;
 }
 
-type Patch = Partial<Pick<FlowState, 'name' | 'target' | 'message'>>;
-
-/** What step 1 sends: a file or pasted text, one of the two (decision 10). */
-type Source = File | string;
-
-type FlowEvent =
-  | { readonly type: 'set'; readonly patch: Patch }
-  /** The player chose a side. */
-  | { readonly type: 'side'; readonly side: Side }
-  /** A file chosen (pasted text cleared) or text pasted (file cleared). */
-  | { readonly type: 'source'; readonly source: Source | null }
-  /** The side `source`'s players name the account on, once read. */
-  | {
-      readonly type: 'sideFound';
-      readonly source: Source;
-      readonly side: Side | null;
-    }
-  | { readonly type: 'start'; readonly busy: Busy }
-  | {
-      readonly type: 'previewed';
-      readonly upload: Upload;
-      readonly preview: ImportPreview;
-    }
-  | { readonly type: 'refused'; readonly refused: ImportRefused }
-  | { readonly type: 'change' };
-
-const NEW: TargetChoice = { kind: 'new' };
-
-/** Refusals after which the chosen repertoire cannot be the target. */
-const TARGET_GONE: ReadonlySet<ImportRefusalKey> = new Set([
-  'repertoire.notFound',
-  'repertoire.sideMismatch',
-]);
-
-const messageOf = ({ refusal }: ImportRefused): FlowMessage =>
-  'limit' in refusal
-    ? { key: refusal.reason, limit: refusal.limit }
-    : { key: refusal.reason };
-
-/** The flow's start: opened from a repertoire, its side and it as the target. */
-function initialFlow(fixed: ImportOption | null): FlowState {
-  return {
-    side: fixed?.side ?? 'white',
-    sideChosen: fixed !== null,
-    file: null,
-    pasted: '',
-    upload: null,
-    preview: null,
-    target: fixed === null ? NEW : { kind: 'existing', id: fixed.id },
-    name: '',
-    suggested: '',
-    message: null,
-    stale: false,
-    busy: 'reading',
+/** Steps 2 and 3, and Import, once the upload is previewed. */
+export interface PreviewedView {
+  readonly chosen: ChosenView;
+  readonly summary: ImportSummaryProps;
+  readonly target: TargetView;
+  readonly confirm: {
+    /** Import is refused, or a request is running. */
+    readonly disabled: boolean;
+    readonly onConfirm: () => void;
   };
 }
 
-const CLEARED = { message: null, stale: false } as const;
-
-/** Applies `patch`; another side drops the chosen repertoire, which is of the old one. */
-function patched(state: FlowState, patch: Partial<FlowState>): FlowState {
-  const next = { ...state, ...patch };
-  return next.side === state.side ? next : { ...next, target: NEW };
+/** The flow's one status line. */
+export interface StatusView {
+  /** The refusal to show, its limit as the text names it; or null. */
+  readonly message: FlowMessage | null;
+  /** What a wait of over a second is for, to say in the status line. */
+  readonly slow: Busy | null;
+  /** The repertoire changed since the preview: offer "Preview again". */
+  readonly stale: boolean;
+  readonly onPreviewAgain: () => void;
 }
 
 /**
- * The source step 1 holds, and sends: the pasted text unless it is blank,
- * else the file; null when there is neither.
+ * The import flow as its steps show it: step 1 until the upload is
+ * previewed, then steps 2 and 3; the status line throughout.
  */
-function heldSource({ file, pasted }: FlowState): Source | null {
-  return pasted.trim() === '' ? file : pasted;
-}
-
-/**
- * The side's default from `source`'s players (decision 8): the side they
- * name the account on, otherwise White. Only while the side is not chosen
- * (by the player, or by opening the flow from a repertoire) and `source` is
- * still the one step 1 holds, so a slow read never overrides a newer choice.
- */
-function sideFound(
-  state: FlowState,
-  source: Source,
-  side: Side | null,
-): FlowState {
-  if (state.sideChosen || heldSource(state) !== source) return state;
-  return patched(state, { side: side ?? 'white' });
-}
-
-/** Step 1 holding `source` alone: a file clears the paste, a paste the file. */
-const withSource = (state: FlowState, source: Source | null): FlowState =>
-  typeof source === 'string'
-    ? { ...state, file: null, pasted: source }
-    : { ...state, file: source, pasted: '' };
-
-/**
- * The name once a preview arrives: the one it suggests, unless the player
- * changed the last suggestion.
- */
-function named(state: FlowState, preview: ImportPreview): Partial<FlowState> {
-  if (state.name !== state.suggested) return {};
-  const name = preview.suggestedName;
-  return { name, suggested: name };
-}
-
-/**
- * The flow once `upload` is previewed. A preview as the other side
- * (switchSide) takes that side only now, so a refused one leaves the side
- * and the target as they were; once taken, the side counts as chosen.
- */
-function previewed(
-  state: FlowState,
-  upload: Upload,
-  preview: ImportPreview,
-): FlowState {
-  return patched(state, {
-    ...named(state, preview),
-    upload,
-    preview,
-    side: upload.side,
-    sideChosen: state.sideChosen || upload.side !== state.side,
-  });
-}
-
-function reduceFlow(state: FlowState, event: FlowEvent): FlowState {
-  switch (event.type) {
-    case 'set':
-      return patched(state, event.patch);
-    case 'side':
-      return patched(state, { side: event.side, sideChosen: true });
-    case 'source':
-      return withSource(state, event.source);
-    case 'sideFound':
-      return sideFound(state, event.source, event.side);
-    case 'start':
-      return { ...state, ...CLEARED, busy: event.busy };
-    case 'previewed':
-      return previewed(state, event.upload, event.preview);
-    case 'refused':
-      return {
-        ...state,
-        message: messageOf(event.refused),
-        stale: event.refused.refusal.reason === 'repertoire.stale',
-        target: TARGET_GONE.has(event.refused.refusal.reason)
-          ? NEW
-          : state.target,
-      };
-    case 'change':
-      return { ...state, ...CLEARED, upload: null, preview: null };
-  }
-}
-
-/** The bytes `text` takes as UTF-8, as the server counts them (R-66). */
-const byteLength = (text: string): number =>
-  new TextEncoder().encode(text).length;
-
-const TOO_LARGE: FlowMessage = { key: 'pgn.tooLarge', limit: PGN_LIMITS.bytes };
-
-/** The source the browser refuses before uploading it, or null. */
-function sourceRefusal(source: Source | null): FlowMessage | null {
-  if (source === null) return { key: 'repertoires.import.noFile' };
-  const bytes = typeof source === 'string' ? byteLength(source) : source.size;
-  return bytes > PGN_LIMITS.bytes ? TOO_LARGE : null;
-}
+export type ImportFlow = { readonly status: StatusView } & (
+  | { readonly fileStep: FileStepView; readonly previewed: null }
+  | { readonly fileStep: null; readonly previewed: PreviewedView }
+);
 
 /** `source` read as an upload for `side`. */
 const readSource = async (source: Source, side: Side): Promise<Upload> =>
@@ -297,16 +168,6 @@ const previewer =
     });
   };
 
-/** The confirm request's target: a name, or the repertoire at its previewed version. */
-const confirmedTarget = (state: FlowState): object =>
-  state.target.kind === 'new'
-    ? { kind: 'new', name: state.name }
-    : {
-        kind: 'existing',
-        id: state.target.id,
-        version: state.preview?.target?.version ?? 0,
-      };
-
 function flowActions(
   state: FlowState,
   dispatch: Dispatch<FlowEvent>,
@@ -322,14 +183,12 @@ function flowActions(
     submitFile: () => {
       const source = heldSource(state);
       const refused = sourceRefusal(source);
-      if (refused !== null || source === null) {
-        dispatch({ type: 'set', patch: { message: refused } });
-        return;
-      }
-      preview('reading', () => readSource(source, side), target);
+      if (refused !== null) dispatch({ type: 'notSent', message: refused });
+      else if (source !== null)
+        preview('reading', () => readSource(source, side), target);
     },
     chooseTarget: (choice) => {
-      dispatch({ type: 'set', patch: { target: choice } });
+      dispatch({ type: 'target', target: choice });
       again(choice);
     },
     previewAgain: () => {
@@ -343,15 +202,12 @@ function flowActions(
       dispatch({ type: 'change' });
     },
     confirm: () => {
-      if (upload === null) return;
+      const request = confirmRequest(state);
+      if (request === null) return;
       dispatch({ type: 'start', busy: 'importing' });
       start(async () => {
         // A successful import redirects to the repertoire; only refusals return.
-        const refused = await confirmImportAction({
-          text: upload.text,
-          side: upload.side,
-          target: confirmedTarget(state),
-        });
+        const refused = await confirmImportAction(request);
         dispatch({ type: 'refused', refused });
       });
     },
@@ -359,9 +215,7 @@ function flowActions(
 }
 
 interface SourceActions {
-  /** A file chosen (or none): it replaces any pasted text. */
   readonly chooseFile: (file: File | null) => void;
-  /** Text typed or pasted (R-209): it replaces any chosen file. */
   readonly paste: (text: string) => void;
   readonly chooseSide: (side: Side) => void;
 }
@@ -454,42 +308,104 @@ function sourceActions(
   };
 }
 
-export interface ImportFlow
-  extends FlowState, FlowActions, SourceActions, StepFocus {
+/** What the flow's state, actions and focus make of each step. */
+interface Parts {
+  readonly state: FlowState;
+  readonly actions: FlowActions &
+    SourceActions & { readonly name: (name: string) => void };
+  readonly focus: StepFocus;
+  readonly options: readonly ImportOption[];
   readonly sideFixed: boolean;
-  /** A preview or the import is running. */
   readonly pending: boolean;
-  /** What a wait of over a second is for, to say in the status line. */
-  readonly slow: Busy | null;
-  readonly dispatch: Dispatch<FlowEvent>;
+}
+
+function fileStepOf({
+  state,
+  actions,
+  focus,
+  sideFixed,
+  pending,
+}: Parts): FileStepView {
+  return {
+    file: state.file,
+    pasted: state.pasted,
+    side: { side: state.side, fixed: sideFixed, onSide: actions.chooseSide },
+    pending,
+    fileRef: focus.fileRef,
+    onFile: actions.chooseFile,
+    onPaste: actions.paste,
+    onSubmit: actions.submitFile,
+  };
+}
+
+function previewedOf(parts: Parts): PreviewedView | null {
+  const { state, actions, sideFixed, pending } = parts;
+  const { upload, preview } = state;
+  if (upload === null || preview === null) return null;
+  return {
+    chosen: { name: upload.name, side: upload.side, onChange: actions.change },
+    summary: {
+      preview,
+      ...(sideFixed ? {} : { onSwitchSide: actions.switchSide }),
+      busy: pending && state.busy === 'updating',
+      headingRef: parts.focus.headingRef,
+    },
+    target: {
+      options: targetsOf(parts.options, upload.side),
+      side: upload.side,
+      target: state.target,
+      name: state.name,
+      nameInvalid: nameRefused(state),
+      added: addedTo(state.target, preview),
+      onTarget: actions.chooseTarget,
+      onName: actions.name,
+    },
+    confirm: {
+      disabled: pending || confirmRequest(state) === null,
+      onConfirm: actions.confirm,
+    },
+  };
 }
 
 /**
- * The import flow's state and what the steps do with it; `names` are the
- * account's, which a file's players may give it by (decision 8).
+ * The import flow's state, decided into what each step shows. `opened` is
+ * the account's repertoire the flow was opened from, if any: its side is
+ * fixed and it is the target. `names` are the account's, which a file's
+ * players may give it by (decision 8).
  */
 export function useImportFlow(
   options: readonly ImportOption[],
-  preselected: string | null,
+  opened: ImportOption | null,
   names: readonly string[],
 ): ImportFlow {
-  const fixed = options.find((option) => option.id === preselected) ?? null;
-  const [state, dispatch] = useReducer(reduceFlow, fixed, initialFlow);
+  const [state, dispatch] = useReducer(reduceFlow, opened, initialFlow);
   const [pending, startTransition] = useTransition();
   const slow = useSlow(pending);
   const focus = useStepFocus(state.upload);
   const later = useLater();
-  return {
-    ...state,
-    ...focus,
+  const actions = {
     ...flowActions(state, dispatch, startTransition),
-    ...sourceActions(dispatch, names, {
-      fileRef: focus.fileRef,
-      later,
-    }),
-    sideFixed: fixed !== null,
-    pending,
-    slow: slow ? state.busy : null,
-    dispatch,
+    ...sourceActions(dispatch, names, { fileRef: focus.fileRef, later }),
+    name: (name: string) => {
+      dispatch({ type: 'name', name });
+    },
   };
+  const parts = {
+    state,
+    actions,
+    focus,
+    options,
+    sideFixed: opened !== null,
+    pending,
+  };
+  const status: StatusView = {
+    message: shownRefusal(state),
+    slow: slow ? state.busy : null,
+    stale: state.stale,
+    onPreviewAgain: actions.previewAgain,
+  };
+  const previewed = previewedOf(parts);
+  return previewed === null
+    ? { status, fileStep: fileStepOf(parts), previewed }
+    : { status, fileStep: null, previewed };
 }

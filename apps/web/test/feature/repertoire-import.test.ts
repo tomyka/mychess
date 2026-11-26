@@ -10,6 +10,7 @@ import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
 import { chapterLabelOf } from '../../src/server/chapter-names';
+import type { PreviewOutcome } from '../../src/server/import-preview';
 import { graphOf } from '../fixtures/repertoires';
 import {
   LONDON,
@@ -102,30 +103,19 @@ async function stored(id: string, owner: Person) {
   return loaded;
 }
 
-const previewSchema = z.object({
-  ok: z.literal(true),
-  preview: z.object({
-    summary: z.object({
-      chapters: z.number(),
-      lines: z.number(),
-      positions: z.number(),
-      transpositions: z.number(),
-      moves: z.number(),
-    }),
-    chapters: z.array(z.string()),
-    renamed: z.array(z.object({ from: z.string(), to: z.string() })),
-    skipped: z.array(z.unknown()),
-    target: z.unknown(),
-    refusal: z.string().nullable(),
-    suggestedName: z.string(),
-  }),
-});
+/** A preview the server gave; a refusal fails the test, naming its reason. */
+function previewed(
+  outcome: PreviewOutcome,
+): Extract<PreviewOutcome, { ok: true }> {
+  if (!outcome.ok) throw new Error(`refused: ${outcome.refusal.reason}`);
+  return outcome;
+}
 
 describe('previewImportAction', () => {
   it('summarises a new import and lists the skipped game', async () => {
     const { gabija } = await cast();
     actAs(gabija);
-    const outcome = previewSchema.parse(
+    const outcome = previewed(
       await previewImportAction({ text: SICILIANS_WITH_BROKEN, side: 'black' }),
     );
     const { preview } = outcome;
@@ -139,7 +129,7 @@ describe('previewImportAction', () => {
     expect(preview.chapters).toEqual(graph.chapters.map(chapterLabelOf(graph)));
     expect(preview.chapters).toHaveLength(6);
     expect(preview.skipped).toEqual([
-      { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },
+      { game: 7, reason: 'pgn.illegalMove', moveText: 'Nxe4' },
     ]);
     expect(preview.target).toBeNull();
     expect(await repertoireCount()).toBe(3);
@@ -148,7 +138,7 @@ describe('previewImportAction', () => {
   it('previews the merge into an existing repertoire of the side', async () => {
     const { gabija, taimanov } = await cast();
     actAs(gabija);
-    const outcome = previewSchema.parse(
+    const outcome = previewed(
       await previewImportAction({
         text: INTO_TAIMANOV,
         side: 'black',
@@ -163,7 +153,8 @@ describe('previewImportAction', () => {
     expect(outcome.preview.chapters).toHaveLength(1);
     expect(outcome.preview.renamed).toEqual([]);
     expect(outcome.preview.skipped).toEqual([
-      { game: 1, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },
+      // Numbered as players read a Black move.
+      { game: 1, reason: 'pgn.secondAnswer', moveText: '5...a6' },
     ]);
     expect(outcome.preview.target).toEqual({
       id: taimanov,
@@ -183,7 +174,7 @@ describe('previewImportAction', () => {
       name: 'Karo-Kanas',
     });
     actAs(gabija);
-    const outcome = previewSchema.parse(
+    const outcome = previewed(
       await previewImportAction({
         // B10, which English (served, R-180) calls "Caro-Kann Defense" as it
         // does the B12 above: no named line follows either (R-216).
@@ -203,7 +194,7 @@ describe('previewImportAction', () => {
   it('shows the merge but refuses it when nothing in the file can be added (R-115)', async () => {
     const { gabija, london } = await cast();
     actAs(gabija);
-    const outcome = previewSchema.parse(
+    const outcome = previewed(
       await previewImportAction({
         text: NOT_LONDON,
         side: 'white',
@@ -213,8 +204,9 @@ describe('previewImportAction', () => {
     expect(outcome.preview.refusal).toBe('pgn.nothingToAdd');
     expect(outcome.preview.chapters).toEqual([]);
     expect(outcome.preview.skipped).toEqual([
-      { game: 1, reason: 'pgn.secondAnswer', san: 'e4', move: 1 },
-      { game: 2, reason: 'pgn.secondAnswer', san: 'c4', move: 1 },
+      // A White move takes one dot and a space.
+      { game: 1, reason: 'pgn.secondAnswer', moveText: '1. e4' },
+      { game: 2, reason: 'pgn.secondAnswer', moveText: '1. c4' },
     ]);
     expect(outcome.preview.target).toEqual({
       id: london,
@@ -227,7 +219,7 @@ describe('previewImportAction', () => {
   it('lets a new repertoire take a file nothing of which fits an existing one', async () => {
     const { gabija } = await cast();
     actAs(gabija);
-    const outcome = previewSchema.parse(
+    const outcome = previewed(
       await previewImportAction({ text: NOT_LONDON, side: 'white' }),
     );
     expect(outcome.preview.refusal).toBeNull();
@@ -556,7 +548,7 @@ describe('the repertoire limits (R-162)', () => {
     expect(await repertoireCount()).toBe(51);
     // Adding to one she has makes no new repertoire.
     expect(
-      previewSchema.parse(
+      previewed(
         await previewImportAction({
           text: INTO_TAIMANOV,
           side: 'black',

@@ -1,9 +1,11 @@
-import type { Skipped } from '@mychess/chess';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../../i18n/catalogue';
-import type { ImportPreview } from '../../../server/import-preview';
+import type {
+  ImportPreview,
+  SkippedGame,
+} from '../../../server/import-preview';
 import { ImportSummary } from './import-summary';
 
 const i = MESSAGES.repertoires.import;
@@ -19,9 +21,9 @@ const PREVIEW: ImportPreview = {
   chapters: ['Sicilian Defense: Taimanov Variation', 'Chapter 2'],
   renamed: [],
   skipped: [
-    { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },
-    { game: 8, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },
-    { game: 9, reason: 'pgn.noMoves' },
+    { game: 7, reason: 'pgn.illegalMove', moveText: 'Nxe4' },
+    { game: 8, reason: 'pgn.secondAnswer', moveText: '5...a6' },
+    { game: 9, reason: 'pgn.noMoves', moveText: null },
   ],
   annotations: [],
   target: null,
@@ -36,13 +38,10 @@ const RENAMED = {
   to: 'Caro-Kann Defense (B12, 2.\u00A0d4)',
 };
 
-function renderSummary(
-  preview: ImportPreview,
-  side: 'white' | 'black' = 'black',
-): void {
+function renderSummary(preview: ImportPreview): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <ImportSummary preview={preview} side={side} busy={false} />
+      <ImportSummary preview={preview} busy={false} />
     </NextIntlClientProvider>,
   );
 }
@@ -142,14 +141,12 @@ describe('ImportSummary', () => {
     ]);
   });
 
-  it('writes a White answer with one dot', () => {
-    renderSummary(
-      {
-        ...PREVIEW,
-        skipped: [{ game: 1, reason: 'pgn.secondAnswer', san: 'Bf4', move: 2 }],
-      },
-      'white',
-    );
+  // The server numbers the move (the feature suite holds both sides' forms).
+  it('writes the move as the server numbered it', () => {
+    renderSummary({
+      ...PREVIEW,
+      skipped: [{ game: 1, reason: 'pgn.secondAnswer', moveText: '2. Bf4' }],
+    });
     expect(
       screen.getByText('Game 1: a second answer in the same position, 2. Bf4'),
     ).toBeDefined();
@@ -186,7 +183,7 @@ describe('ImportSummary', () => {
     renderSummary({
       ...PREVIEW,
       chapters: [],
-      skipped: [{ game: 1, reason: 'pgn.secondAnswer', san: 'd6', move: 2 }],
+      skipped: [{ game: 1, reason: 'pgn.secondAnswer', moveText: '2...d6' }],
       refusal: 'pgn.nothingToAdd',
     });
     expect(
@@ -209,9 +206,10 @@ describe('ImportSummary', () => {
   });
 
   it('shows the first 10 skipped games and the rest on request', () => {
-    const skipped: Skipped[] = Array.from({ length: 12 }, (_, n) => ({
+    const skipped: SkippedGame[] = Array.from({ length: 12 }, (_, n) => ({
       game: n + 1,
       reason: 'pgn.unreadable',
+      moveText: null,
     }));
     renderSummary({ ...PREVIEW, skipped });
     const items = () =>
@@ -227,7 +225,7 @@ describe('ImportSummary', () => {
   it('marks itself busy while the preview re-runs', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <ImportSummary preview={PREVIEW} side="black" busy />
+        <ImportSummary preview={PREVIEW} busy />
       </NextIntlClientProvider>,
     );
     expect(
@@ -302,7 +300,6 @@ describe('ImportSummary side check (#364, R-214)', () => {
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ImportSummary
           preview={SUGGESTS_WHITE}
-          side="black"
           busy={false}
           onSwitchSide={(side) => switched.push(side)}
         />

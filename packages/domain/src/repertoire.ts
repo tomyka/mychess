@@ -27,6 +27,16 @@ export const REPERTOIRE_ISSUES = {
   sideInvalid: 'repertoire.sideInvalid',
 } as const;
 
+const NAME_REASONS: readonly string[] = [
+  REPERTOIRE_ISSUES.nameBlank,
+  REPERTOIRE_ISSUES.nameTooLong,
+];
+
+/** Is `refusal` of a repertoire's name, which the name field shows? */
+export const isRepertoireNameRefusal = (refusal: {
+  readonly reason: string;
+}): boolean => NAME_REASONS.includes(refusal.reason);
+
 const boundedName = (max: number, blank: string, tooLong: string) =>
   z.string().trim().min(1, blank).max(max, tooLong);
 

@@ -46,11 +46,11 @@ export default async function ImportPage({
   const options = await importTargets();
   const names = await ownNames();
   const { i } = await searchParams;
-  const preselected = options.find((option) => option.id === i)?.id ?? null;
+  const opened = options.find((option) => option.id === i) ?? null;
   return (
     <main className={`${CONTENT} gap-8`}>
       <Header />
-      <ImportFlow options={options} preselected={preselected} names={names} />
+      <ImportFlow options={options} opened={opened} names={names} />
     </main>
   );
 }

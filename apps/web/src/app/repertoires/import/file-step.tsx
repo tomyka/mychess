@@ -1,6 +1,5 @@
 'use client';
 
-import { SIDES, type Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import {
   useId,
@@ -11,56 +10,11 @@ import {
 } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../buttons';
 import { SECTION, SECTION_TITLE } from '../../settings/styles';
-
-const CHOICE =
-  'flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent has-disabled:cursor-not-allowed has-disabled:opacity-60';
+import { SideField } from '../side-field';
+import { StepNumber } from './step-number';
+import type { ChosenView, FileStepView } from './use-import-flow';
 
 const ACCEPT = '.pgn,application/x-chess-pgn,text/plain';
-
-/** The step number before a step's title. */
-export function StepNumber({ n }: { readonly n: number }): JSX.Element {
-  return (
-    <span aria-hidden="true" className="mr-2 tabular-nums text-fg-muted">
-      {n}
-    </span>
-  );
-}
-
-/** White or Black, as two radio cards; opened from a repertoire, its side only. */
-function SideField({
-  side,
-  fixed,
-  onSide,
-}: {
-  readonly side: Side;
-  readonly fixed: boolean;
-  readonly onSide: (side: Side) => void;
-}): JSX.Element {
-  const t = useTranslations('repertoires');
-  return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 font-medium">{t('import.side')}</legend>
-      <div className="grid grid-cols-2 gap-3">
-        {SIDES.map((value) => (
-          <label key={value} className={CHOICE}>
-            <input
-              type="radio"
-              name="side"
-              value={value}
-              checked={value === side}
-              disabled={fixed && value !== side}
-              onChange={() => {
-                onSide(value);
-              }}
-              className="size-5 accent-accent"
-            />
-            {t(`create.${value}`)}
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
 
 /** The file chooser: a real file input behind a dashed drop zone. */
 function FileField({
@@ -147,22 +101,13 @@ function PasteField({
 }
 
 export interface FileStepProps {
-  readonly file: File | null;
-  readonly pasted: string;
-  readonly side: Side;
-  readonly sideFixed: boolean;
-  readonly pending: boolean;
-  readonly fileRef: RefObject<HTMLInputElement | null>;
-  readonly onFile: (file: File | null) => void;
-  readonly onPaste: (text: string) => void;
-  readonly onSide: (side: Side) => void;
-  readonly onSubmit: () => void;
+  readonly step: FileStepView;
   /** The step's status line. */
   readonly status: ReactNode;
 }
 
 /** Step 1: the file or pasted PGN, and the side it is a repertoire for. */
-export function FileStep(props: FileStepProps): JSX.Element {
+export function FileStep({ step, status }: FileStepProps): JSX.Element {
   const t = useTranslations('repertoires.import');
   const titleId = useId();
   return (
@@ -175,29 +120,25 @@ export function FileStep(props: FileStepProps): JSX.Element {
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          props.onSubmit();
+          step.onSubmit();
         }}
         className="flex flex-col gap-4"
       >
         <FileField
-          file={props.file}
-          fileRef={props.fileRef}
-          onFile={props.onFile}
+          file={step.file}
+          fileRef={step.fileRef}
+          onFile={step.onFile}
         />
-        <PasteField pasted={props.pasted} onPaste={props.onPaste} />
-        <SideField
-          side={props.side}
-          fixed={props.sideFixed}
-          onSide={props.onSide}
-        />
+        <PasteField pasted={step.pasted} onPaste={step.onPaste} />
+        <SideField held={step.side} />
         <button
           type="submit"
-          disabled={props.pending}
+          disabled={step.pending}
           className={`${PRIMARY_BUTTON} w-full sm:w-auto sm:self-start`}
         >
           {t('preview')}
         </button>
-        {props.status}
+        {status}
       </form>
     </section>
   );
@@ -207,16 +148,7 @@ export function FileStep(props: FileStepProps): JSX.Element {
  * Step 1 once previewed: the file (or "Pasted PGN") and side on one line,
  * with "Change".
  */
-export function ChosenFile({
-  name,
-  side,
-  onChange,
-}: {
-  /** The file's name; null for pasted text. */
-  readonly name: string | null;
-  readonly side: Side;
-  readonly onChange: () => void;
-}): JSX.Element {
+export function ChosenFile({ name, side, onChange }: ChosenView): JSX.Element {
   const t = useTranslations('repertoires');
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border pb-4">

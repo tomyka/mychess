@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lineText, moveNumber } from './notation';
+import { lineText, moveNumber, numberedMove } from './notation';
 
 describe('moveNumber', () => {
   it('numbers White and Black moves from a root with White to move', () => {
@@ -17,6 +17,16 @@ describe('moveNumber', () => {
       '2.',
       '2...',
     ]);
+  });
+});
+
+describe('numberedMove', () => {
+  it('writes a White move with one dot and a space', () => {
+    expect(numberedMove(2, 'white', 'Bf4')).toBe('2. Bf4');
+  });
+
+  it('writes a Black move with an ellipsis and no space', () => {
+    expect(numberedMove(5, 'black', 'a6')).toBe('5...a6');
   });
 });
 

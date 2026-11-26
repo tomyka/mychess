@@ -13,23 +13,13 @@ import type {
   ImportRefused,
   PreviewOutcome,
 } from '../../../server/import-preview';
-import { ImportFlow, type ImportOption } from './import-flow';
+import { ImportFlow } from './import-flow';
+import type { ImportOption } from './import-flow-state';
 
 const server = vi.hoisted(() => ({
   preview: vi.fn<(input: unknown) => Promise<PreviewOutcome>>(),
   confirm: vi.fn<(input: unknown) => Promise<ImportRefused>>(),
 }));
-
-// The chess rule itself, watched: how often the flow asks it (decision 8).
-const chess = vi.hoisted(() => ({
-  playerSide: vi.fn<(text: string, names: readonly string[]) => unknown>(),
-}));
-
-vi.mock('@mychess/chess', async (original) => {
-  const real = await original<typeof import('@mychess/chess')>();
-  chess.playerSide.mockImplementation(real.playerSide);
-  return { ...real, playerSide: chess.playerSide };
-});
 
 vi.mock('./actions', () => ({
   previewImportAction: server.preview,
@@ -39,10 +29,18 @@ vi.mock('./actions', () => ({
 const i = MESSAGES.repertoires.import;
 const c = MESSAGES.repertoires.create;
 
-const OPTIONS: readonly ImportOption[] = [
-  { id: 'r-black', name: 'Taimanovas', side: 'black' },
-  { id: 'r-white', name: 'Londonas', side: 'white' },
-];
+const TAIMANOVAS: ImportOption = {
+  id: 'r-black',
+  name: 'Taimanovas',
+  side: 'black',
+};
+const LONDONAS: ImportOption = {
+  id: 'r-white',
+  name: 'Londonas',
+  side: 'white',
+};
+
+const OPTIONS: readonly ImportOption[] = [TAIMANOVAS, LONDONAS];
 
 const PGN = '[Event "Taimanov"]\n\n1. e4 c5 *\n';
 
@@ -70,12 +68,12 @@ const MERGED: ImportPreview = {
 };
 
 function renderFlow(
-  preselected: string | null = null,
+  opened: ImportOption | null = null,
   names: readonly string[] = [],
 ): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <ImportFlow options={OPTIONS} preselected={preselected} names={names} />
+      <ImportFlow options={OPTIONS} opened={opened} names={names} />
     </NextIntlClientProvider>,
   );
 }
@@ -122,7 +120,6 @@ const intoOf = (input: unknown): unknown =>
     : undefined;
 
 beforeEach(() => {
-  chess.playerSide.mockClear();
   server.preview.mockReset().mockImplementation((input) =>
     Promise.resolve({
       ok: true,
@@ -569,8 +566,80 @@ describe('ImportFlow', () => {
     ).toBe(true);
   });
 
+  it('does not import into a repertoire whose merge was not previewed: its version is unknown', async () => {
+    renderFlow();
+    await previewAsBlack();
+    await enabledConfirm();
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyPreviews', limit: 30 },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(
+      'Too many previews: at most 30 a minute. Wait a minute and try again.',
+    );
+    // The repertoire stays chosen, but the preview shown is the new one's.
+    expect(
+      screen.getByRole<HTMLInputElement>('radio', { name: i.targetExisting })
+        .checked,
+    ).toBe(true);
+    const confirm = screen.getByRole('button', { name: i.confirm });
+    await waitFor(() => {
+      expect(confirm.hasAttribute('disabled')).toBe(true);
+    });
+    fireEvent.click(confirm);
+    expect(server.confirm).not.toHaveBeenCalled();
+    // Once its merge is previewed, Import sends the version it came from.
+    fireEvent.click(screen.getByRole('radio', { name: i.targetNew }));
+    await enabledConfirm();
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(/Adds 2 chapters/);
+    fireEvent.click(await enabledConfirm());
+    await waitFor(() => {
+      expect(server.confirm).toHaveBeenCalledWith({
+        text: PGN,
+        side: 'black',
+        target: { kind: 'existing', id: 'r-black', version: 4 },
+      });
+    });
+  });
+
+  it('does not import as a new repertoire while the preview shown is a merge', async () => {
+    renderFlow();
+    await previewAsBlack();
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(/Adds 2 chapters/);
+    await enabledConfirm();
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyPreviews', limit: 30 },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: i.targetNew }));
+    await screen.findByText(
+      'Too many previews: at most 30 a minute. Wait a minute and try again.',
+    );
+    const confirm = screen.getByRole('button', { name: i.confirm });
+    await waitFor(() => {
+      expect(confirm.hasAttribute('disabled')).toBe(true);
+    });
+    fireEvent.click(confirm);
+    expect(server.confirm).not.toHaveBeenCalled();
+    // Once the new repertoire's preview shows, Import sends its name.
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(/Adds 2 chapters/);
+    fireEvent.click(screen.getByRole('radio', { name: i.targetNew }));
+    fireEvent.click(await enabledConfirm());
+    await waitFor(() => {
+      expect(server.confirm).toHaveBeenCalledWith({
+        text: PGN,
+        side: 'black',
+        target: { kind: 'new', name: 'Taimanov' },
+      });
+    });
+  });
+
   it('opened from a repertoire, fixes its side and adds to it', async () => {
-    renderFlow('r-white');
+    renderFlow(LONDONAS);
     expect(
       screen.getByRole<HTMLInputElement>('radio', { name: c.white }).checked,
     ).toBe(true);
@@ -595,11 +664,7 @@ describe('ImportFlow', () => {
   it('disables adding when the side has no repertoire', async () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <ImportFlow
-          options={OPTIONS.filter((o) => o.side === 'black')}
-          preselected={null}
-          names={[]}
-        />
+        <ImportFlow options={[TAIMANOVAS]} opened={null} names={[]} />
       </NextIntlClientProvider>,
     );
     chooseFile();
@@ -715,17 +780,17 @@ describe('the side the file’s players name (#330 decision 8)', () => {
     expect(sideRadio(c.black).checked).toBe(true);
   });
 
-  it('reads the players once per pause, not on every keystroke', () => {
+  it('reads the players once typing pauses, not on every keystroke', () => {
     vi.useFakeTimers();
     renderFlow(null, NAMES);
-    for (let n = 1; n <= AS_BLACK.length; n += 8) {
-      paste(AS_BLACK.slice(0, n));
+    // Every keystroke's text names the account as Black: a read on any of
+    // them would turn the side to Black before the pause.
+    for (let n = 0; n < 10; n += 1) {
+      paste(`${AS_BLACK}${' '.repeat(n)}`);
       typingPauses(100);
+      expect(sideRadio(c.white).checked).toBe(true);
     }
-    paste(AS_BLACK);
-    expect(chess.playerSide).not.toHaveBeenCalled();
-    typingPauses();
-    expect(chess.playerSide).toHaveBeenCalledExactlyOnceWith(AS_BLACK, NAMES);
+    typingPauses(200);
     expect(sideRadio(c.black).checked).toBe(true);
   });
 
@@ -816,7 +881,7 @@ describe('the side the file’s players name (#330 decision 8)', () => {
 
   it('keeps the side of the repertoire it was opened from', () => {
     vi.useFakeTimers();
-    renderFlow('r-white', NAMES);
+    renderFlow(LONDONAS, NAMES);
     paste(AS_BLACK);
     typingPauses();
     expect(sideRadio(c.white).checked).toBe(true);
@@ -849,8 +914,8 @@ describe('ImportFlow side check (#364, R-214)', () => {
       'Most games were skipped as second answers. Did you mean Black?',
     );
 
-  async function previewAsWhite(preselected: string | null = null) {
-    renderFlow(preselected);
+  async function previewAsWhite(opened: ImportOption | null = null) {
+    renderFlow(opened);
     chooseFile();
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
     await screen.findByRole('heading', { name: i.summaryTitle });
@@ -890,7 +955,7 @@ describe('ImportFlow side check (#364, R-214)', () => {
   });
 
   it('warns without a switch when the side is fixed by the repertoire', async () => {
-    await previewAsWhite('r-white');
+    await previewAsWhite(LONDONAS);
     expect(warning()).not.toBeNull();
     expect(screen.queryByRole('button', { name: SWITCH })).toBeNull();
   });

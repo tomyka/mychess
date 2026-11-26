@@ -13,6 +13,7 @@ import {
   canEditRepertoireAt,
   canHoldMoves,
   isRepertoireLimitRefusal,
+  isRepertoireNameRefusal,
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
@@ -92,6 +93,30 @@ describe('repertoireNameSchema and chapterNameSchema', () => {
   it('refuses what is not a string', () => {
     expect(repertoireNameSchema.safeParse(42).success).toBe(false);
     expect(chapterNameSchema.safeParse(null).success).toBe(false);
+  });
+});
+
+describe('isRepertoireNameRefusal', () => {
+  it('is true for the refusals of a repertoire name', () => {
+    expect(
+      isRepertoireNameRefusal({ reason: REPERTOIRE_ISSUES.nameBlank }),
+    ).toBe(true);
+    expect(
+      isRepertoireNameRefusal({ reason: REPERTOIRE_ISSUES.nameTooLong }),
+    ).toBe(true);
+  });
+
+  it('is false for any other refusal, a chapter name’s included', () => {
+    for (const key of [
+      REPERTOIRE_ISSUES.chapterNameBlank,
+      REPERTOIRE_ISSUES.chapterNameTooLong,
+      REPERTOIRE_ISSUES.sideInvalid,
+      REPERTOIRE_REFUSALS.stale,
+      REPERTOIRE_REFUSALS.limit,
+      'pgn.nothingToAdd',
+    ]) {
+      expect(isRepertoireNameRefusal({ reason: key })).toBe(false);
+    }
   });
 });
 

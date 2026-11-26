@@ -1,12 +1,12 @@
 'use client';
 
-import type { Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, type JSX, type ReactNode } from 'react';
 import type { ImportTarget } from '../../../server/import-preview';
 import { SECTION_TITLE } from '../../settings/styles';
-import { StepNumber } from './file-step';
-import type { ImportOption, TargetChoice } from './use-import-flow';
+import { StepNumber } from './step-number';
+import type { ImportOption } from './import-flow-state';
+import type { TargetView } from './use-import-flow';
 
 const CHOICE =
   'flex min-h-touch cursor-pointer items-center gap-3 has-disabled:cursor-not-allowed has-disabled:opacity-60';
@@ -114,6 +114,7 @@ function ExistingField({
 }: {
   readonly id: string;
   readonly options: readonly ImportOption[];
+  /** What the merge into `id` adds, or null to say nothing. */
   readonly added: ImportTarget | null;
   readonly onChoose: (id: string) => void;
 }): JSX.Element {
@@ -138,33 +139,25 @@ function ExistingField({
           </option>
         ))}
       </select>
-      {added?.id === id ? <AddedLines target={added} /> : null}
+      {added === null ? null : <AddedLines target={added} />}
     </div>
   );
 }
 
 export interface TargetStepProps {
-  /** The account's repertoires of the upload's side. */
-  readonly options: readonly ImportOption[];
-  readonly side: Side;
-  readonly target: TargetChoice;
-  readonly name: string;
-  readonly nameInvalid: boolean;
+  readonly step: TargetView;
+  /** The status line, which describes the name field when it is refused. */
   readonly statusId: string;
-  /** The repertoire the shown preview was merged into, if any. */
-  readonly added: ImportTarget | null;
-  readonly onTarget: (target: TargetChoice) => void;
-  readonly onName: (name: string) => void;
 }
 
 /** Step 3: a new repertoire with a name, or one of the side's repertoires (R-101). */
-export function TargetStep(props: TargetStepProps): JSX.Element {
+export function TargetStep({ step, statusId }: TargetStepProps): JSX.Element {
   const t = useTranslations('repertoires');
   const titleId = useId();
-  const { options, target } = props;
+  const { options, target } = step;
   const first = options[0];
   const choose = (id: string): void => {
-    props.onTarget({ kind: 'existing', id });
+    step.onTarget({ kind: 'existing', id });
   };
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-3">
@@ -177,15 +170,15 @@ export function TargetStep(props: TargetStepProps): JSX.Element {
         checked={target.kind === 'new'}
         disabled={false}
         onChoose={() => {
-          props.onTarget({ kind: 'new' });
+          step.onTarget({ kind: 'new' });
         }}
       >
         {target.kind === 'new' ? (
           <NameField
-            name={props.name}
-            invalid={props.nameInvalid}
-            statusId={props.statusId}
-            onName={props.onName}
+            name={step.name}
+            invalid={step.nameInvalid}
+            statusId={statusId}
+            onName={step.onName}
           />
         ) : null}
       </Choice>
@@ -199,14 +192,14 @@ export function TargetStep(props: TargetStepProps): JSX.Element {
       >
         {first === undefined ? (
           <p className="text-sm text-fg-muted">
-            {t(props.side === 'white' ? 'list.emptyWhite' : 'list.emptyBlack')}
+            {t(step.side === 'white' ? 'list.emptyWhite' : 'list.emptyBlack')}
           </p>
         ) : null}
         {target.kind === 'existing' ? (
           <ExistingField
             id={target.id}
             options={options}
-            added={props.added}
+            added={step.added}
             onChoose={choose}
           />
         ) : null}

@@ -8,52 +8,37 @@ import { SECTION } from '../../settings/styles';
 import { StatusLine } from '../../status-line';
 import { ChosenFile, FileStep } from './file-step';
 import { ImportSummary } from './import-summary';
+import type { ImportOption } from './import-flow-state';
 import { TargetStep } from './target-step';
 import {
   useImportFlow,
-  type FlowMessage,
-  type ImportFlow as Flow,
-  type ImportOption,
+  type PreviewedView,
+  type StatusView,
 } from './use-import-flow';
 
-export type { ImportOption } from './use-import-flow';
-
-const BYTES_PER_MB = 1024 * 1024;
-
-/** A limit as the message names it: the byte limit in MB. */
-const shownLimit = ({ key, limit }: FlowMessage): number | undefined =>
-  key === 'pgn.tooLarge' && limit !== undefined ? limit / BYTES_PER_MB : limit;
-
-/** Why Import is refused for the previewed target (R-115), or null. */
-function previewRefusal({ preview }: Flow): FlowMessage | null {
-  const refusal = preview?.refusal ?? null;
-  return refusal === null ? null : { key: refusal };
-}
-
 /**
- * The flow's one status line: a refusal (the last request's, else the
- * preview's), or what a slow wait is for.
+ * The flow's one status line: the refusal the flow shows, or what a slow
+ * wait is for; "Preview again" when the repertoire changed.
  */
 function FlowStatus({
   id,
-  flow,
+  status,
 }: {
   readonly id: string;
-  readonly flow: Flow;
+  readonly status: StatusView;
 }): JSX.Element {
   const t = useTranslations();
   const messages = useMessages();
   const again = useRef<HTMLButtonElement>(null);
-  const { slow, stale } = flow;
-  const message = flow.message ?? previewRefusal(flow);
+  const { message, slow, stale } = status;
   useEffect(() => {
     if (stale) again.current?.focus();
   }, [stale]);
   let text: string | null = null;
   if (message !== null) {
-    const limit = shownLimit(message);
-    text = isMessageKey(messages, message.key)
-      ? t(message.key, limit === undefined ? {} : { limit })
+    const { key, limit } = message;
+    text = isMessageKey(messages, key)
+      ? t(key, limit === undefined ? {} : { limit })
       : t('repertoires.failed');
   } else if (slow !== null) text = t(`repertoires.import.${slow}`);
   return (
@@ -63,7 +48,7 @@ function FlowStatus({
         <button
           ref={again}
           type="button"
-          onClick={flow.previewAgain}
+          onClick={status.onPreviewAgain}
           className={`${SECONDARY_BUTTON} self-start`}
         >
           {t('repertoires.import.previewAgain')}
@@ -74,14 +59,18 @@ function FlowStatus({
 }
 
 /** Import, in a bottom bar on the phone (thumb zone), in the panel on a wide screen. */
-function ConfirmBar({ flow }: { readonly flow: Flow }): JSX.Element {
+function ConfirmBar({
+  confirm,
+}: {
+  readonly confirm: PreviewedView['confirm'];
+}): JSX.Element {
   const t = useTranslations('repertoires.import');
   return (
     <div className="fixed inset-x-0 bottom-[var(--shell-chrome,0px)] z-10 bg-surface px-gutter py-3 shadow-sheet md:static md:z-auto md:bg-transparent md:p-0 md:shadow-none">
       <button
         type="button"
-        disabled={flow.pending || previewRefusal(flow) !== null}
-        onClick={flow.confirm}
+        disabled={confirm.disabled}
+        onClick={confirm.onConfirm}
         className={`${PRIMARY_BUTTON} w-full`}
       >
         {t('confirm')}
@@ -92,49 +81,24 @@ function ConfirmBar({ flow }: { readonly flow: Flow }): JSX.Element {
 
 /** Steps 2 and 3 once the file is previewed. */
 function Previewed({
-  flow,
-  options,
+  view,
+  status,
 }: {
-  readonly flow: Flow;
-  readonly options: readonly ImportOption[];
-}): JSX.Element | null {
+  readonly view: PreviewedView;
+  readonly status: StatusView;
+}): JSX.Element {
   const statusId = useId();
-  const { upload, preview } = flow;
-  if (upload === null || preview === null) return null;
-  const nameInvalid = flow.message?.key.startsWith('repertoire.name') === true;
   return (
     <div className="flex flex-col gap-6 pb-24 md:pb-0">
-      <ChosenFile
-        name={upload.name}
-        side={upload.side}
-        onChange={flow.change}
-      />
+      <ChosenFile {...view.chosen} />
       <div className="flex flex-col gap-8 md:flex-row md:items-start">
         <div className={`${SECTION} min-w-0 md:flex-1`}>
-          <ImportSummary
-            preview={preview}
-            side={upload.side}
-            {...(flow.sideFixed ? {} : { onSwitchSide: flow.switchSide })}
-            busy={flow.pending && flow.busy === 'updating'}
-            headingRef={flow.headingRef}
-          />
+          <ImportSummary {...view.summary} />
         </div>
         <div className={`${SECTION} md:sticky md:top-8 md:w-panel md:shrink-0`}>
-          <TargetStep
-            options={options.filter((o) => o.side === upload.side)}
-            side={upload.side}
-            target={flow.target}
-            name={flow.name}
-            nameInvalid={nameInvalid}
-            statusId={statusId}
-            added={preview.refusal === null ? preview.target : null}
-            onTarget={flow.chooseTarget}
-            onName={(name) => {
-              flow.dispatch({ type: 'set', patch: { name } });
-            }}
-          />
-          <FlowStatus id={statusId} flow={flow} />
-          <ConfirmBar flow={flow} />
+          <TargetStep step={view.target} statusId={statusId} />
+          <FlowStatus id={statusId} status={status} />
+          <ConfirmBar confirm={view.confirm} />
         </div>
       </div>
     </div>
@@ -144,8 +108,11 @@ function Previewed({
 export interface ImportFlowProps {
   /** The account's repertoires, the targets an upload can be added to. */
   readonly options: readonly ImportOption[];
-  /** Opened from this repertoire (`?i=`): its side, and it as the target. */
-  readonly preselected: string | null;
+  /**
+   * The account's repertoire it was opened from (`?i=`), if any: its side,
+   * and it as the target.
+   */
+  readonly opened: ImportOption | null;
   /**
    * The account's names a file's players may give it by: the side's
    * default is the one they name it on (#330 decision 8).
@@ -160,25 +127,18 @@ export interface ImportFlowProps {
  */
 export function ImportFlow({
   options,
-  preselected,
+  opened,
   names,
 }: ImportFlowProps): JSX.Element {
-  const flow = useImportFlow(options, preselected, names);
+  const flow = useImportFlow(options, opened, names);
   const statusId = useId();
-  if (flow.upload !== null) return <Previewed flow={flow} options={options} />;
+  if (flow.previewed !== null) {
+    return <Previewed view={flow.previewed} status={flow.status} />;
+  }
   return (
     <FileStep
-      file={flow.file}
-      pasted={flow.pasted}
-      side={flow.side}
-      sideFixed={flow.sideFixed}
-      pending={flow.pending}
-      fileRef={flow.fileRef}
-      onFile={flow.chooseFile}
-      onPaste={flow.paste}
-      onSide={flow.chooseSide}
-      onSubmit={flow.submitFile}
-      status={<FlowStatus id={statusId} flow={flow} />}
+      step={flow.fileStep}
+      status={<FlowStatus id={statusId} status={flow.status} />}
     />
   );
 }

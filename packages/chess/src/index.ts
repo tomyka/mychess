@@ -56,7 +56,7 @@ export {
   type DistinctMove,
 } from './repertoire/distinctions';
 export { taxonomyNames } from './repertoire/naming';
-export { lineText, moveNumber } from './repertoire/notation';
+export { lineText, moveNumber, numberedMove } from './repertoire/notation';
 export { annotatedSan, hasGlyph } from './repertoire/nags';
 export {
   mergeInto,

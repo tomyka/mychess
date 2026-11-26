@@ -20,6 +20,7 @@ import {
   importPgn,
   mergeInto,
   moveNumber,
+  numberedMove,
   suggestedRepertoireName,
   suggestedSide as sideToSuggest,
   SIDES,
@@ -32,6 +33,7 @@ import {
   type RepertoireGraph,
   type RepertoireSummary,
   type Side,
+  type SkipReason,
   type Skipped,
 } from '@mychess/chess';
 import {
@@ -90,6 +92,21 @@ export interface AddedAnnotation {
   readonly comment: string | null;
 }
 
+/**
+ * A game the import left out, or the part of it below a second answer
+ * (R-54, R-64), as the summary lists it.
+ */
+export interface SkippedGame {
+  /** The game's 1-based position among the file's games. */
+  readonly game: number;
+  readonly reason: SkipReason;
+  /**
+   * The move at fault as players read it: a second answer numbered ("5...a6",
+   * "2. Bf4"), any other move as the file wrote it ("Nxe4"); null for none.
+   */
+  readonly moveText: string | null;
+}
+
 /** An existing chapter whose title a merge changes (R-159). */
 export interface RenamedChapter {
   readonly from: string;
@@ -110,7 +127,7 @@ export interface ImportPreview {
    * of the same name joins them (R-158, R-159); empty for a new repertoire.
    */
   readonly renamed: readonly RenamedChapter[];
-  readonly skipped: readonly Skipped[];
+  readonly skipped: readonly SkippedGame[];
   /**
    * The comments and NAGs a merge adds that show (R-175, R-176); empty for
    * a new repertoire.
@@ -236,6 +253,9 @@ const confirmRequestSchema = z.object({
   ]),
 });
 
+/** What a confirm request sends, before the server parses it. */
+export type ConfirmRequestInput = z.input<typeof confirmRequestSchema>;
+
 type ExistingTarget = Extract<
   z.infer<typeof confirmRequestSchema>['target'],
   { kind: 'existing' }
@@ -317,13 +337,34 @@ function renamedBy(
     .filter(({ from, to }) => from !== to);
 }
 
+/**
+ * The move a skip names as players read it: a second answer of `side` with
+ * its full-move number ("5...a6" for Black, "2. Bf4" for White), any other
+ * as the file wrote it, or null.
+ */
+function skippedMove(skipped: Skipped, side: Side): string | null {
+  return skipped.reason === 'pgn.secondAnswer'
+    ? numberedMove(skipped.move, side, skipped.san)
+    : (skipped.san ?? null);
+}
+
+/** `skipped` as the summary lists it, in game order, each move numbered. */
+const listedSkips = (skipped: readonly Skipped[], side: Side): SkippedGame[] =>
+  [...skipped]
+    .sort((a, b) => a.game - b.game)
+    .map((item) => ({
+      game: item.game,
+      reason: item.reason,
+      moveText: skippedMove(item, side),
+    }));
+
 /** A new repertoire's preview: the import as it stands. */
 function newPreview(imported: ImportedRepertoire): PreviewBody {
   return {
     summary: summarize(imported.graph),
     chapters: titlesFrom(imported.graph, 0),
     renamed: [],
-    skipped: imported.skipped,
+    skipped: listedSkips(imported.skipped, imported.graph.side),
     annotations: [],
     target: null,
     refusal: null,
@@ -367,8 +408,9 @@ function mergedPreview(
     summary: summarize(imported.graph),
     chapters: titlesFrom(after, before.chapters.length),
     renamed: renamedBy(before, after),
-    skipped: [...imported.skipped, ...merged.skipped].sort(
-      (a, b) => a.game - b.game,
+    skipped: listedSkips(
+      [...imported.skipped, ...merged.skipped],
+      imported.graph.side,
     ),
     annotations,
     target: {

@@ -1,17 +1,18 @@
 'use client';
 
-import type { RepertoireSummary, Side, Skipped } from '@mychess/chess';
+import type { RepertoireSummary, Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type RefObject } from 'react';
 import type {
   AddedAnnotation,
   ImportPreview,
   RenamedChapter,
+  SkippedGame,
 } from '../../../server/import-preview';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { SECTION_TITLE } from '../../settings/styles';
 import { StatusLine } from '../../status-line';
-import { StepNumber } from './file-step';
+import { StepNumber } from './step-number';
 
 /** Skipped games shown before "Show all" (docs/design/repertoire-screen.md). */
 const SKIPPED_SHOWN = 10;
@@ -149,26 +150,17 @@ function AddedAnnotations({
   );
 }
 
-/** The move a skip names, in the notation players read ("5...a6", "Nxe4"). */
-function skippedMove(skipped: Skipped, side: Side): string | undefined {
-  if (skipped.reason !== 'pgn.secondAnswer') return skipped.san;
-  const dots = side === 'black' ? '...' : '. ';
-  return `${String(skipped.move)}${dots}${skipped.san}`;
-}
-
 function SkippedItem({
   skipped,
-  side,
 }: {
-  readonly skipped: Skipped;
-  readonly side: Side;
+  readonly skipped: SkippedGame;
 }): JSX.Element {
   const t = useTranslations();
   const reason = t(skipped.reason);
-  const move = skippedMove(skipped, side);
+  const move = skipped.moveText;
   return (
     <li>
-      {move === undefined
+      {move === null
         ? t('repertoires.import.skippedItem', { game: skipped.game, reason })
         : t('repertoires.import.skippedMove', {
             game: skipped.game,
@@ -182,10 +174,8 @@ function SkippedItem({
 /** The games left out (R-64): the first ten, and the rest on request. */
 function SkippedGames({
   skipped,
-  side,
 }: {
-  readonly skipped: readonly Skipped[];
-  readonly side: Side;
+  readonly skipped: readonly SkippedGame[];
 }): JSX.Element {
   const t = useTranslations('repertoires.import');
   const titleId = useId();
@@ -201,7 +191,7 @@ function SkippedGames({
         className="flex flex-col gap-1 rounded-card bg-error-subtle p-3 text-error"
       >
         {shown.map((item, index) => (
-          <SkippedItem key={index} skipped={item} side={side} />
+          <SkippedItem key={index} skipped={item} />
         ))}
       </ol>
       {shown.length < skipped.length ? (
@@ -252,8 +242,6 @@ function SideWarning({
 
 export interface ImportSummaryProps {
   readonly preview: ImportPreview;
-  /** The upload's side, which decides how a skipped answer is written. */
-  readonly side: Side;
   /** Previews the file again as the other side; none when the side is fixed. */
   readonly onSwitchSide?: (side: Side) => void;
   /** The preview is re-running against another target. */
@@ -306,7 +294,6 @@ function Accepted({
  */
 export function ImportSummary({
   preview,
-  side,
   onSwitchSide,
   busy,
   headingRef,
@@ -332,7 +319,7 @@ export function ImportSummary({
       <CountsLine summary={preview.summary} />
       {preview.refusal === null ? <Accepted preview={preview} /> : null}
       {preview.skipped.length === 0 ? null : (
-        <SkippedGames skipped={preview.skipped} side={side} />
+        <SkippedGames skipped={preview.skipped} />
       )}
     </section>
   );

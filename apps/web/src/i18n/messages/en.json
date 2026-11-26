@@ -499,7 +499,6 @@
       "paste": "Or paste PGN",
       "pasted": "Pasted PGN",
       "noFile": "Choose a PGN file or paste PGN.",
-      "side": "Side",
       "preview": "Show what is inside",
       "reading": "Reading the file",
       "chosen": "{name} · {side}",
