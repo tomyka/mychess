@@ -58,6 +58,7 @@ function View({
       view={view}
       toolbar={<p>Įrankiai</p>}
       panel={{
+        summary: <p>Baltieji · 2 skyriai</p>,
         lead: <p>Tik skaityti</p>,
         empty: <p>Skyrių nėra</p>,
         commentLabel: NOTE_LABEL,
@@ -148,25 +149,69 @@ describe('RepertoireShell', () => {
     expect(precedes(strip, screen.getByText('Tik skaityti'))).toBe(true);
   });
 
-  it('moves the one strip above the move list on a desktop, by flex order in the panel (spec, Comment strip)', () => {
+  it('keeps the one strip in its DOM place at every width, above the scroller, so Tab follows what is seen (sign-off)', () => {
     renderView();
     const strips = screen.getAllByRole('region', { name: r.panel.intro });
     expect(strips).toHaveLength(1);
     const strip = strips[0] ?? document.body;
     const scroller = document.querySelector('[data-panel-scroller]');
     const moves = document.querySelector<HTMLElement>('[data-moves]');
-    if (moves === null) throw new Error('no move list');
-    // One flex column holds both; on a desktop the scroller's children
-    // join it, and the strip and the move list come last, in that order.
-    expect(strip.parentElement).toBe(scroller?.parentElement);
-    expect(scroller?.className).toContain('lg:contents');
-    expect(strip.className).toContain('lg:order-1');
-    expect(moves.className).toContain('lg:order-1');
-    expect(moves.parentElement).toBe(scroller);
-    expect(precedes(strip, moves)).toBe(true);
+    if (scroller === null || moves === null) throw new Error('no panel');
+    expect(strip.nextElementSibling).toBe(scroller);
+    // No CSS reorders the panel: the scroller is a box at every width.
+    expect(scroller.className).not.toContain('contents');
+    for (const node of [strip, moves, ...scroller.querySelectorAll('*')])
+      expect(node.getAttribute('class') ?? '').not.toMatch(/(^|\s)lg:order-/);
+  });
+
+  it('keeps one row above the board: the summary is first in the panel’s scroller, before the lead and the chapter line (sign-off)', () => {
+    renderView();
+    const summary = screen.getByText('Baltieji · 2 skyriai');
+    const scroller = document.querySelector('[data-panel-scroller]');
+    expect(scroller?.firstElementChild).toBe(summary);
+    expect(precedes(screen.getByRole('application'), summary)).toBe(true);
+    expect(precedes(summary, screen.getByText('Tik skaityti'))).toBe(true);
     expect(
-      within(moves).getByRole('button', { name: /^1\. d4/ }),
-    ).toBeDefined();
+      precedes(summary, screen.getByRole('button', { expanded: false })),
+    ).toBe(true);
+  });
+
+  it('gives the phone board the height first: a shrinking cell, the largest square in it (spec, Board height)', () => {
+    renderView();
+    const cell = screen.getByRole('application').closest('.lg\\:sticky');
+    const cellClass = cell?.className ?? '';
+    for (const name of [
+      'grow-0',
+      'shrink-[100]',
+      'basis-[100vw]',
+      'min-h-28',
+      'justify-center',
+      '[container-type:size]',
+      'lg:basis-auto',
+      'lg:[container-type:normal]',
+    ])
+      expect(cellClass).toContain(name);
+    expect(cellClass).not.toMatch(/(^|\s)shrink-0(\s|$)/u);
+    const square = cell?.firstElementChild;
+    expect(square?.className).toContain('w-[min(100cqw,100cqh)]');
+    expect(square?.className).toContain('lg:w-full');
+    expect(square?.contains(screen.getByRole('application'))).toBe(true);
+  });
+
+  it('keeps the board row, the strip and the scroller in one panel cell that holds its room, so stepping never resizes the board', () => {
+    renderView();
+    const scroller = document.querySelector('[data-panel-scroller]');
+    const cell = scroller?.parentElement;
+    expect(cell?.className).toContain('flex-[1_1_16.5rem]');
+    expect(cell?.className).toContain('min-h-0');
+    const forward = screen.getByRole('button', { name: r.nav.forward });
+    expect(cell?.contains(forward)).toBe(true);
+    expect(
+      cell?.contains(screen.getByRole('region', { name: r.panel.intro })),
+    ).toBe(true);
+    expect(cell?.contains(screen.getByText('Įrankiai'))).toBe(true);
+    for (const name of ['gap-3', 'pt-2', 'pb-3', 'lg:gap-4', 'lg:p-0'])
+      expect(scroller?.className).toContain(name);
   });
 
   it('opens browsing at the chapter root with its intro, and no notes there', () => {
@@ -225,10 +270,11 @@ describe('RepertoireShell', () => {
 });
 
 describe('the panel', () => {
-  it('shows the strip, then the lead, the chapters and the moves in that order', () => {
+  it('shows the strip, then the summary, the lead, the chapters and the moves in that order', () => {
     renderView();
     const order = [
       screen.getByRole('region', { name: r.panel.intro }),
+      screen.getByText('Baltieji · 2 skyriai'),
       screen.getByText('Tik skaityti'),
       screen.getByRole('button', { expanded: false }),
       firstMove(),
@@ -249,7 +295,7 @@ describe('the panel', () => {
     ).toBeDefined();
   });
 
-  it('puts Train here, then the move’s notes, under the move list, after the strip on a desktop too', () => {
+  it('puts Train here, then the move’s notes, under the move list', () => {
     renderView({ training: panelTraining({}) });
     forward();
     const trainHere = screen.getByRole('region', {
@@ -260,11 +306,6 @@ describe('the panel', () => {
     if (moves === null) throw new Error('no move list');
     expect(precedes(moves, trainHere)).toBe(true);
     expect(precedes(trainHere, note)).toBe(true);
-    // On a desktop the scroller's children join the panel's column: what
-    // follows the move list carries the strip's order, or it would jump
-    // above the strip.
-    expect(trainHere.parentElement?.className).toContain('lg:order-1');
-    expect(note.closest('.lg\\:order-1')).not.toBeNull();
     expect(
       within(trainHere).getByRole('button', {
         name: MESSAGES.training.know.iKnowThis,

@@ -94,6 +94,20 @@ describe('ImportSummary', () => {
     ).toEqual(['Sicilian Defense: Taimanov Variation', 'Chapter 2']);
   });
 
+  it('titles the list as what a merge adds, the stats line being the file’s', () => {
+    renderSummary({
+      ...PREVIEW,
+      target: {
+        id: 'r-1',
+        name: 'Sicilijos gynyba',
+        version: 3,
+        added: { chapters: 2, moves: 41, annotated: 0 },
+      },
+    });
+    expect(screen.getByRole('list', { name: i.chaptersAdded })).toBeDefined();
+    expect(screen.queryByRole('list', { name: i.chaptersTitle })).toBeNull();
+  });
+
   it('lists the existing chapters a merge renames, old title and new (R-159)', () => {
     renderSummary({
       ...PREVIEW,
@@ -141,10 +155,26 @@ describe('ImportSummary', () => {
     ).toBeDefined();
   });
 
-  it('says every game is valid when none was skipped', () => {
+  it('says every game of the file is valid when none was skipped', () => {
     renderSummary({ ...PREVIEW, skipped: [] });
-    expect(screen.getByText('All 2 games are valid')).toBeDefined();
+    // The file's games, as the stats line counts them.
+    expect(screen.getByText('All 6 games are valid')).toBeDefined();
     expect(screen.queryByRole('list', { name: /Skipped games/ })).toBeNull();
+  });
+
+  it('counts the file’s games, not the ones a merge adds, in the validity line (sign-off)', () => {
+    renderSummary({
+      ...PREVIEW,
+      skipped: [],
+      target: {
+        id: 'r-1',
+        name: 'Sicilijos gynyba',
+        version: 3,
+        added: { chapters: 2, moves: 41, annotated: 0 },
+      },
+    });
+    expect(screen.getByText('All 6 games are valid')).toBeDefined();
+    expect(screen.queryByText('All 2 games are valid')).toBeNull();
   });
 
   it('leaves out an empty chapter list', () => {

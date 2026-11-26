@@ -8,6 +8,7 @@ import { Announcer, useBoardWords } from './board-words';
 import { BrowseCommentStrip } from './comment-strip';
 import {
   BOARD_CELL,
+  BOARD_SQUARE,
   PANEL_CELL,
   PanelCard,
   REPERTOIRE_GRID,
@@ -104,16 +105,18 @@ export function RepertoireShell({
       <div className={`shrink-0 ${TOP_BAR_CELL}`}>{topBar}</div>
       {/* On a desktop the panel scrolls with the page, not inside a box
           (#331); the board stays in view beside it. */}
-      <div className={`shrink-0 lg:sticky ${BOARD_CELL}`}>
-        <Board
-          view={board.view}
-          label={words.label}
-          describe={words.describe}
-          onMove={play.onMove}
-          {...handlers}
-        />
+      <div className={`lg:sticky ${BOARD_CELL}`}>
+        <div className={BOARD_SQUARE}>
+          <Board
+            view={board.view}
+            label={words.label}
+            describe={words.describe}
+            onMove={play.onMove}
+            {...handlers}
+          />
+        </div>
       </div>
-      <div className={`flex min-h-0 flex-1 flex-col ${PANEL_CELL}`}>
+      <div className={PANEL_CELL}>
         <BoardRow state={state} dispatch={dispatch} board={board} play={play} />
         {toolbar}
         <PanelStatus

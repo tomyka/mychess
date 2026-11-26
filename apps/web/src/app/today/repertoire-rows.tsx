@@ -10,7 +10,7 @@ import {
 import type { TodayPageRow } from '../../server/today-page';
 import { AssignmentFacts } from '../assignment-facts';
 import { TONAL_BUTTON } from '../buttons';
-import { MasteredBadge } from '../coach/state-bar';
+import { MasteredBadge } from '../mastered-badge';
 import { CARD } from '../surfaces';
 import { LearnedBar } from '../learned-bar';
 

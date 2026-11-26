@@ -38,6 +38,13 @@ vi.mock('./actions', () => ({
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const D4 = moveKey(START_KEY, 'd4');
+
+/** The panel's scroller, where the summary line and status strip are first. */
+function panel() {
+  const scroller = document.querySelector<HTMLElement>('[data-panel-scroller]');
+  if (scroller === null) throw new Error('no panel');
+  return within(scroller);
+}
 const a = MESSAGES.assignment;
 const GRAPH = graphOf(LONDON);
 
@@ -186,10 +193,14 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(noteField()?.value).toBe('Mano planas');
   });
 
-  it('sums it up under the name: the share learned, Review and Learn today, the status strip (spec, Header)', () => {
+  it('sums it up first in the panel: the share learned, Review and Learn today, the status strip (sign-off)', () => {
     renderView({ deadline: '2026-11-30' }, TRAINING);
-    const header = within(screen.getByRole('banner'));
-    expect(header.getByText('White · 2 chapters · 60% learned')).toBeDefined();
+    // One row above the board: back, the name and More.
+    expect(
+      within(screen.getByRole('banner')).queryByText(/learned|Jonas/u),
+    ).toBeNull();
+    const header = panel();
+    expect(header.getByText('60% learned')).toBeDefined();
     expect(
       header.getByRole('link', { name: 'Review 3' }).getAttribute('href'),
     ).toBe(`/training?mode=review&r=${ID}`);
@@ -203,8 +214,8 @@ describe('AssignedView (R-21, R-102)', () => {
 
   it('keeps the share learned and shows the Paused pill, but offers no training while paused (R-222, R-46)', () => {
     renderView({ paused: true }, TRAINING);
-    const header = within(screen.getByRole('banner'));
-    expect(header.getByText('White · 2 chapters · 60% learned')).toBeDefined();
+    const header = panel();
+    expect(header.getByText('60% learned')).toBeDefined();
     expect(header.getByText(a.badge.paused)).toBeDefined();
     expect(screen.queryByRole('link', { name: /^Review/u })).toBeNull();
     expect(screen.queryByRole('link', { name: /^Learn/u })).toBeNull();
@@ -212,14 +223,14 @@ describe('AssignedView (R-21, R-102)', () => {
 
   it('shows the Overdue pill once the deadline passed (R-16, R-51)', () => {
     renderView({ deadline: '2026-10-19', overdue: true });
-    const header = within(screen.getByRole('banner'));
+    const header = panel();
     expect(header.getByText(a.badge.overdue)).toBeDefined();
     expect(header.queryByText(/^due/u)).toBeNull();
   });
 
   it('shows neither a deadline nor overdue without a deadline', () => {
     renderView();
-    const header = within(screen.getByRole('banner'));
+    const header = panel();
     expect(header.queryByText(/due/u)).toBeNull();
     expect(header.queryByText(a.badge.overdue)).toBeNull();
   });

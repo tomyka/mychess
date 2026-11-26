@@ -3,7 +3,6 @@ import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
 import { BACK_BUTTON } from '../buttons';
 import { BACK_ICON, Icon } from '../line-icon';
-import { PhoneAccountMenu } from '../shell/account-menu';
 
 /** Three dots one above the other: round caps on zero-length strokes. */
 const MORE_ICON = 'M12 5h.01M12 12h.01M12 19h.01';
@@ -20,40 +19,38 @@ export interface TopBarProps {
   readonly edit?: ReactNode;
   /** The Repertoire screen (R-226); absent where the viewer has none. */
   readonly moreHref?: string | undefined;
-  /** The summary line and status strip under the name. */
-  readonly children?: ReactNode;
 }
 
 /**
- * The repertoire's header (spec, Header): back, the name on up to two
- * lines, Edit and More, then what the view puts under the name. The
- * phone's top bar; on a desktop the first row of the panel, level with the
- * board's top edge.
+ * The repertoire's header (spec, Header), the phone's one row above the
+ * board: back, the name, Edit and More. The name is never clamped: its end
+ * ("6.Be3 Ng4") is what tells two repertoires apart, so it wraps in full,
+ * on 20px lines so two fit the 44px row. No account menu here: every pixel
+ * of the row goes to the name, and the menu is one tab away.
+ * On a desktop, the first row of the panel's card: back, Edit and More,
+ * then the name on its own full-width row. The summary line is first in
+ * the panel (RepertoirePanel), so the board keeps its room on a phone.
  */
 export function RepertoireTopBar({
   back,
   name,
   edit,
   moreHref,
-  children,
 }: TopBarProps): JSX.Element {
   const t = useTranslations();
   return (
-    <header className="flex flex-col gap-2 px-gutter pt-1 pb-2 lg:p-0">
-      <div className="flex items-center gap-2">
-        <Link
-          href={back.href}
-          aria-label={t('nav.back', { parent: back.parent })}
-          className={BACK_BUTTON}
-        >
-          <Icon path={BACK_ICON} className="size-6" />
-        </Link>
-        <h1
-          title={name}
-          className="line-clamp-2 min-w-0 flex-1 text-base font-semibold break-words lg:text-xl"
-        >
-          {name}
-        </h1>
+    <header className="flex items-center gap-2 px-gutter py-1 lg:flex-wrap lg:gap-y-2 lg:p-0">
+      <Link
+        href={back.href}
+        aria-label={t('nav.back', { parent: back.parent })}
+        className={BACK_BUTTON}
+      >
+        <Icon path={BACK_ICON} className="size-6" />
+      </Link>
+      <h1 className="min-w-0 flex-1 text-base/5 font-semibold break-words lg:order-last lg:basis-full lg:text-xl">
+        {name}
+      </h1>
+      <div className="flex shrink-0 items-center gap-2 lg:ml-auto">
         {edit}
         {moreHref === undefined ? null : (
           <Link
@@ -65,9 +62,7 @@ export function RepertoireTopBar({
             <Icon path={MORE_ICON} className="size-6" strokeWidth={3} />
           </Link>
         )}
-        <PhoneAccountMenu />
       </div>
-      {children}
     </header>
   );
 }

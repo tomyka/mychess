@@ -51,6 +51,9 @@ const PAIRS: readonly (readonly [fg: string, bg: string, min: number])[] = [
   ['fg', 'surface', TEXT],
   ['fg-muted', 'bg', TEXT],
   ['fg-muted', 'surface', TEXT],
+  // A disabled primary button's label (#381 part 4): the button does not
+  // fade, so a pending label ("Importing") stays readable.
+  ['fg-muted', 'sunken', TEXT],
   ['accent', 'bg', TEXT],
   ['accent', 'surface', TEXT],
   ['accent', 'accent-subtle', TEXT],
@@ -62,6 +65,10 @@ const PAIRS: readonly (readonly [fg: string, bg: string, min: number])[] = [
   // The move badges' white glyph (owner choice D, #381): a graphic, 3:1.
   ['board-badge-glyph', 'board-badge-correct', UI],
   ['board-badge-glyph', 'board-badge-wrong', UI],
+  // The board's coordinates (#381 part 4): small bold text on the square
+  // they sit in, at 3:1; brown on a light square, white on a dark one.
+  ['board-coord-on-light', 'board-light', UI],
+  ['board-coord-on-dark', 'board-dark', UI],
   ...(['success', 'error', 'due', 'learned'] as const).flatMap(
     (s) =>
       [

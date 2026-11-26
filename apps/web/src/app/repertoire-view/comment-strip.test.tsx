@@ -111,9 +111,19 @@ describe('CommentStrip', () => {
     expect(within(strip).getByText('Flexible')).toBeDefined();
   });
 
-  it('sits in the panel’s flex order: after the chapter line on a desktop (spec, Comment strip)', () => {
+  it('stays in its DOM place at every width: no flex order moves it (spec, Comment strip)', () => {
     renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
-    expect(screen.getByRole('region').className).toContain('lg:order-1');
+    expect(screen.getByRole('region').className).not.toMatch(
+      /(^|\s)(lg:)?order-/,
+    );
+  });
+
+  it('has a 2px accent left edge in the dark theme only, where accent-subtle is close to the page (sign-off)', () => {
+    renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
+    const { className } = screen.getByRole('region');
+    expect(className).toContain('border-l-2');
+    // comment-edge: transparent in light, accent in dark (tokens.css).
+    expect(className).toContain('border-l-comment-edge');
   });
 
   it('shows the chapter intro at the root, named Chapter intro', () => {

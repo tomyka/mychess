@@ -19,16 +19,13 @@ import { CoachNoteForm } from './coach-note-form';
 
 /**
  * The repertoire's header (spec, Header) as the coach has it: the way back
- * to the player and the name, no Edit and no More; under the name, the
- * player's name and the way to their progress on this repertoire (S7
- * decision 7).
+ * to the player and the name, no Edit and no More.
  */
 function SharedTopBar({
   data,
 }: {
   readonly data: SharedRepertoirePage;
 }): JSX.Element {
-  const t = useTranslations('coach');
   return (
     <RepertoireTopBar
       back={{
@@ -36,20 +33,34 @@ function SharedTopBar({
         parent: data.player.displayName,
       }}
       name={data.repertoire.name}
-    >
-      <p className="flex flex-wrap items-center gap-x-3 text-sm">
-        {/* The back link already says the player's name to a screen reader. */}
-        <span aria-hidden="true" className="text-fg-muted">
-          {data.player.displayName}
-        </span>
-        <Link
-          href={coachProgressPath(data.player.id, data.repertoire.id)}
-          className="inline-flex min-h-touch items-center text-accent underline"
-        >
-          {t('progress.title')}
-        </Link>
-      </p>
-    </RepertoireTopBar>
+    />
+  );
+}
+
+/**
+ * The coach's summary line, first in the panel as the player's is: the
+ * player's name and the way to their progress on this repertoire (S7
+ * decision 7).
+ */
+function SharedSummary({
+  data,
+}: {
+  readonly data: SharedRepertoirePage;
+}): JSX.Element {
+  const t = useTranslations('coach');
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 text-sm">
+      {/* The back link already says the player's name to a screen reader. */}
+      <span aria-hidden="true" className="text-fg-muted">
+        {data.player.displayName}
+      </span>
+      <Link
+        href={coachProgressPath(data.player.id, data.repertoire.id)}
+        className="inline-flex min-h-touch items-center text-accent underline"
+      >
+        {t('progress.title')}
+      </Link>
+    </p>
   );
 }
 
@@ -67,14 +78,18 @@ function useCoachNotes(initial: Readonly<Record<string, string>>) {
 }
 
 /**
- * What the coach sees in the panel: "read-only" over the chapters, the
- * coach's own note under each move's comment, marked in the move list.
+ * What the coach sees in the panel: the player's line, then under the move
+ * list "read-only" by the coach's own note on the move, marked in the
+ * move list.
  */
 function useSharedPanel(data: SharedRepertoirePage): PanelContent {
   const t = useTranslations();
   const notes = useCoachNotes(data.notes);
   return {
-    lead: <p className="text-sm text-fg-muted">{t('coach.shared.readOnly')}</p>,
+    summary: <SharedSummary data={data} />,
+    afterMoves: (
+      <p className="text-sm text-fg-muted">{t('coach.shared.readOnly')}</p>
+    ),
     empty: (
       <p className="text-fg-muted">{t('repertoires.panel.emptyBrowse')}</p>
     ),

@@ -132,6 +132,7 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
   const { props, state, dispatch, edit } = screen;
   const { id } = props.repertoire;
   return {
+    summary: <OwnerSummary screen={screen} />,
     chapterBuilder: chapterBuilder(state, edit),
     empty: (
       <EmptyRepertoire
@@ -158,16 +159,26 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
 }
 
 /**
- * The page's header (spec, Header): back to Repertoires, the name, Edit and
- * More, then the summary line. The builder shows no progress (spec,
- * Builder).
+ * The summary row, first in the panel: the share learned, Review and
+ * Learn. None in the builder or in an empty repertoire (spec, Summary row).
  */
+function OwnerSummary({
+  screen,
+}: {
+  readonly screen: Screen;
+}): JSX.Element | null {
+  const { props, state } = screen;
+  const training = props.training ?? undefined;
+  if (state.mode === 'build' || state.graph.chapters.length === 0) return null;
+  return <SummaryLine standing={training?.standing} training={training} />;
+}
+
+/** The page's header (spec, Header): back to Repertoires, the name, Edit and More. */
 function OwnerTopBar({ screen }: { readonly screen: Screen }): JSX.Element {
   const { props, state, dispatch } = screen;
-  const { id, name, side } = props.repertoire;
+  const { id, name } = props.repertoire;
   const t = useTranslations('nav');
   const building = state.mode === 'build';
-  const training = building ? undefined : (props.training ?? undefined);
   return (
     <RepertoireTopBar
       back={{ href: ROUTES.repertoires, parent: t('repertoires') }}
@@ -181,14 +192,7 @@ function OwnerTopBar({ screen }: { readonly screen: Screen }): JSX.Element {
         />
       }
       moreHref={repertoireManageRoute(id)}
-    >
-      <SummaryLine
-        side={side}
-        chapters={state.graph.chapters.length}
-        standing={training?.standing}
-        training={training}
-      />
-    </RepertoireTopBar>
+    />
   );
 }
 

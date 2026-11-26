@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { SlowStatus } from '../slow-status';
 import {
   BOARD_CELL,
+  BOARD_SQUARE,
   PANEL_CELL,
   PanelCard,
   REPERTOIRE_GRID,
@@ -19,15 +20,12 @@ export const EMPTY_BOARD = {
   backgroundSize: '25% 25%',
 };
 
-/** The top bar's shape (RepertoireTopBar): back, the name, the summary line. */
+/** The top bar's shape (RepertoireTopBar): back and the name, one row. */
 function TopBarSkeleton(): JSX.Element {
   return (
-    <div className="flex flex-col gap-2 px-gutter pt-1 pb-2 lg:p-0">
-      <div className="flex min-h-touch items-center gap-2">
-        <div className="size-6 rounded-control bg-sunken" />
-        <div className={`${SKELETON_LINE} w-48`} />
-      </div>
-      <div className={`${SKELETON_LINE} w-40`} />
+    <div className="flex min-h-touch items-center gap-2 px-gutter py-1 lg:p-0">
+      <div className="size-6 rounded-control bg-sunken" />
+      <div className={`${SKELETON_LINE} w-48`} />
     </div>
   );
 }
@@ -47,12 +45,14 @@ export function RepertoireLoadingShell(): JSX.Element {
       <div className={TOP_BAR_CELL}>
         <TopBarSkeleton />
       </div>
-      <div
-        aria-hidden="true"
-        style={EMPTY_BOARD}
-        className={`aspect-square w-full lg:rounded-board ${BOARD_CELL}`}
-      />
-      <div className={`flex flex-col gap-3 px-gutter py-3 ${PANEL_CELL}`}>
+      <div className={BOARD_CELL}>
+        <div
+          aria-hidden="true"
+          style={EMPTY_BOARD}
+          className={`aspect-square lg:rounded-board ${BOARD_SQUARE}`}
+        />
+      </div>
+      <div className={`gap-3 px-gutter py-3 ${PANEL_CELL}`}>
         <div className={`${SKELETON_LINE} w-40`} />
         <div className={`${SKELETON_LINE} w-full`} />
         <div className={`${SKELETON_LINE} w-3/4`} />

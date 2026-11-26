@@ -309,6 +309,15 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   await previewImport(page, en, { file: TAIMANOV_MORE });
   // Step 2 reads what the file holds, as for a new repertoire.
   await expectSummary(page, en, TAIMANOV_MORE_COUNTS);
+  // Its chapter list is only what the merge adds (sign-off #381 part 4).
+  await expect(
+    page
+      .getByRole('list', { name: t.import.chaptersAdded, exact: true })
+      .getByRole('listitem'),
+  ).toHaveCount(2);
+  await expect(
+    page.getByRole('heading', { name: t.import.chaptersTitle, exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByText(
       plural(t.import.added, {

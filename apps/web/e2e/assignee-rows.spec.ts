@@ -2,8 +2,9 @@
 // screen (R-225, R-226), docs/personas/coach.md. Rimantas assigns the
 // Italian to Rokas on his own and to the Saturday group (Gabija); in
 // Rokas's row, Change sets a deadline and clears it (R-51; the date field
-// starts today, R-203) and Unassign asks first (R-130); in Gabija's row,
-// "Change for <group>" starts with the group's own deadline (R-16).
+// starts today, R-203) and Unassign asks first (R-130); the group is one
+// row, "1 player · due <date>", with Gabija under it and one Change that
+// clears the group's deadline (R-16, sign-off #381 part 4).
 import {
   expect,
   type BrowserContext,
@@ -17,12 +18,13 @@ import {
   coachReady,
   expectAssigned,
   playerAccepts,
+  setInGroup,
   type Cast,
 } from './support/assignment-people';
 import {
   assignmentRow,
   assignTo,
-  groupRows,
+  groupMembers,
   importRepertoire,
   openChange,
   untilAfterReload,
@@ -30,6 +32,7 @@ import {
 } from './support/assignments';
 import { createGroup, createInvite } from './support/coaching';
 import { en, format, LOCALE, test } from './support/journey';
+import { plural } from './support/repertoires';
 import { todayRow } from './support/today';
 import { ITALIAN, ITALIAN_PGN } from './support/training-cast';
 
@@ -111,24 +114,65 @@ async function unassign(row: Locator, rokas: Page): Promise<void> {
   });
 }
 
+/** The group row's facts: "1 player · due Dec 6", or "· No deadline". */
+const groupFacts = (row: Locator, day: string | null): Locator =>
+  row.getByText(
+    plural(t.groupFacts, {
+      count: 1,
+      deadline:
+        day === null
+          ? en.assignment.noDeadline
+          : format(t.due, { date: shortDay(day) }),
+    }),
+    { exact: true },
+  );
+
 /**
- * Gabija's row through the group: her deadline in the row, and the group's
- * own at the top of "Change for <group>", which clears it.
+ * The group's one row (sign-off #381 part 4): "1 player · due <date>",
+ * Gabija listed under it with no Change of her own, and the group's one
+ * Change, whose Clear deadline leaves "1 player · No deadline".
  */
-async function groupDeadline(row: Locator, day: string): Promise<void> {
-  await expect(rowDeadline(row, day)).toBeVisible();
-  await openChange(row, en, GROUP);
+async function groupDeadline(coach: Page, day: string): Promise<void> {
+  const row = assignmentRow(coach, en, GROUP);
+  await expect(groupFacts(row, day)).toBeVisible();
+  const members = groupMembers(coach, en, GROUP);
+  const gabija = members.getByRole('listitem', { name: GABIJA, exact: true });
+  await expect(gabija).toBeVisible();
+  await expect(gabija.getByRole('button')).toHaveCount(0);
+  const change = row.getByRole('button', { name: t.change, exact: true });
+  await expect(change).toHaveCount(1);
+  await expect(change).toHaveAccessibleDescription(GROUP);
+  await openChange(row, en);
+  await row.getByRole('button', { name: t.clearDeadline, exact: true }).click();
+  await expect(groupFacts(row, null)).toBeVisible();
   await expect(
-    row.getByText(format(t.groupDeadline, { date: shortDay(day) }), {
+    row.getByRole('button', { name: t.clearDeadline, exact: true }),
+  ).toHaveCount(0);
+}
+
+/**
+ * A player who has it both ways shows in both (R-225): Rokas, put in the
+ * group and assigned it again on his own, has his own row, with its own
+ * Change, and is listed under the group's row too.
+ */
+async function bothWays(coach: Page, manage: string): Promise<void> {
+  await setInGroup(coach, en, { name: ROKAS, member: true });
+  await coach.goto(manage);
+  await assignTo(coach, en, { target: ROKAS });
+  const own = assignmentRow(coach, en, ROKAS);
+  await expect(own).toHaveCount(1);
+  await expect(
+    own.getByRole('button', { name: t.change, exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    groupMembers(coach, en, GROUP).getByRole('listitem', {
+      name: ROKAS,
       exact: true,
     }),
   ).toBeVisible();
-  await row.getByRole('button', { name: t.clearDeadline, exact: true }).click();
-  await expect(row.getByText(t.groupNoDeadline, { exact: true })).toBeVisible();
-  await expect(rowDeadline(row, null)).toBeVisible();
 }
 
-test('#381, R-225: the coach changes and clears a player’s deadline, unassigns him, and a group row’s Change starts with the group’s deadline', async ({
+test('#381, R-225:the coach changes and clears a player’s deadline, unassigns him, and a group is one row whose Change clears the group’s deadline', async ({
   page: coach,
   request,
   browser,
@@ -150,13 +194,15 @@ test('#381, R-225: the coach changes and clears a player’s deadline, unassigns
     const groupDay = vilniusDay(30);
     await assignTo(coach, en, { target: ROKAS });
     await assignTo(coach, en, { target: GROUP, deadline: groupDay });
+    const manage = coach.url();
     await rokas.reload();
     await expectAssigned(rokas, cast, ITALIAN, null);
 
     const own = assignmentRow(coach, en, ROKAS);
     await changeAndClear(own, cast, rokas);
     await unassign(own, rokas);
-    await groupDeadline(groupRows(coach, en, GROUP).first(), groupDay);
+    await groupDeadline(coach, groupDay);
+    await bothWays(coach, manage);
   } finally {
     for (const device of devices) await device.close();
   }

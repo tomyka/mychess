@@ -8,7 +8,8 @@ import type { GroupGrid } from '../../../../server/coach-pages';
 import { AssignmentBadges } from '../../../assignment-badges';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../settings/styles';
 import { LastTrained } from '../../last-trained';
-import { MasteredBadge, usePercentLearned } from '../../state-bar';
+import { MasteredBadge } from '../../../mastered-badge';
+import { usePercentLearned } from '../../state-bar';
 
 /**
  * The sticky player column. Its background is the section's: the page

@@ -30,14 +30,13 @@ export interface CommentStripProps {
 const CLAMP_OVER_CHARS = 140;
 
 /**
- * Where the strip sits (spec, Comment strip): one element, placed by the
- * panel's flex order. On a phone it is in the DOM's place, between the
- * board row and the panel's scroller. On a desktop the scroller is
- * `display: contents` (repertoire-panel.tsx), so its children share this
- * flex column, and `order-1` puts the strip after the chapter line, right
- * above the move list, which carries `order-1` too.
+ * Where the strip sits (spec, Comment strip): in its DOM place at every
+ * width, under the board row and above the panel's scroller, so Tab
+ * follows what is seen. Its left edge is 2px of `comment-edge`: accent in
+ * the dark theme, where `accent-subtle` is close to the page (sign-off);
+ * transparent in light, so the text does not shift between themes.
  */
-const STRIP_PLACE = 'shrink-0 lg:order-1 lg:mb-4';
+const STRIP_PLACE = 'shrink-0 border-l-2 border-l-comment-edge lg:mb-4';
 
 /**
  * The strip itself: the view's label as a muted lead-in when it has one,
@@ -121,8 +120,8 @@ export function BrowseCommentStrip({
 /**
  * The comment strip (spec, Comment strip): the current move's comment, or
  * the chapter's intro at its root, while browsing: pinned between the
- * board row and the panel's scroller on a phone, above the move list on a
- * desktop. Named "Comment" (or the view's label) or "Chapter intro" from
+ * board row and the panel's scroller at every width. Named "Comment" (or
+ * the view's label) or "Chapter intro" from
  * the catalogue. Nothing when there is neither.
  */
 export function CommentStrip({

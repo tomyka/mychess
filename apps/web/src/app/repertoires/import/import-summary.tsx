@@ -49,17 +49,24 @@ function CountsLine({
   );
 }
 
+/**
+ * The chapters it brings. Merged into a repertoire they are only those the
+ * merge adds, fewer than the stats line's (the file's), and the title says
+ * so (sign-off #381 part 4).
+ */
 function ChapterNames({
   names,
+  merge,
 }: {
   readonly names: readonly string[];
+  readonly merge: boolean;
 }): JSX.Element {
-  const t = useTranslations();
+  const t = useTranslations('repertoires.import');
   const titleId = useId();
   return (
     <div className="flex flex-col gap-2">
       <h3 id={titleId} className={SUBTITLE}>
-        {t('repertoires.import.chaptersTitle')}
+        {t(merge ? 'chaptersAdded' : 'chaptersTitle')}
       </h3>
       <ol aria-labelledby={titleId} className="list-decimal space-y-1 pl-6">
         {names.map((name, index) => (
@@ -268,7 +275,10 @@ function Accepted({
   return (
     <>
       {preview.chapters.length === 0 ? null : (
-        <ChapterNames names={preview.chapters} />
+        <ChapterNames
+          names={preview.chapters}
+          merge={preview.target !== null}
+        />
       )}
       {preview.renamed.length === 0 ? null : (
         <RenamedChapters renamed={preview.renamed} />
@@ -277,8 +287,10 @@ function Accepted({
         <AddedAnnotations added={preview.annotations} />
       )}
       {preview.skipped.length === 0 ? (
+        // The file's games, as the stats line counts them, whichever the
+        // destination: the merge's own count is "Chapters it adds".
         <StatusLine
-          text={t('skippedNone', { count: preview.chapters.length })}
+          text={t('skippedNone', { count: preview.summary.chapters })}
           tone="success"
         />
       ) : null}

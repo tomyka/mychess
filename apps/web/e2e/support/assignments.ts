@@ -61,45 +61,46 @@ const assignPanel = (page: Page, messages: Messages): Locator =>
     exact: true,
   });
 
-/** The row of the player `name` in the section's list. */
+/**
+ * The row named `name` in the section's own list: a player's own
+ * assignment or a group's (one row for the group, sign-off #381 part 4).
+ * A member listed under a group's row is not one (`groupMembers`), so a
+ * player who has it both ways resolves to their own row only.
+ */
 export const assignmentRow = (
   page: Page,
   messages: Messages,
   name: string,
-): Locator =>
-  assignPanel(page, messages).getByRole('listitem', { name, exact: true });
+): Locator => {
+  const panel = assignPanel(page, messages);
+  return panel
+    .locator(':scope ul:not(li ul) > li')
+    .and(panel.getByRole('listitem', { name, exact: true }));
+};
 
-/**
- * The rows of the group `group`'s players: each player has a row of their
- * own, with the group it comes through under the name.
- */
-export const groupRows = (
+/** The players listed under the group `group`'s row ("Players in <group>"). */
+export const groupMembers = (
   page: Page,
   messages: Messages,
   group: string,
 ): Locator =>
-  assignPanel(page, messages)
-    .getByRole('listitem')
-    .filter({
-      has: page.getByText(
-        format(messages.assignment.panel.inGroup, { name: group }),
-        { exact: true },
-      ),
-    });
+  assignmentRow(page, messages, group).getByRole('list', {
+    name: format(messages.assignment.panel.groupMembers, { name: group }),
+    exact: true,
+  });
 
 /**
- * Opens the row's Change, "Change for <group>" in a group's row: the
- * deadline forms and Unassign of the assignment it names.
+ * Opens the row's Change, a player's or a group's: the deadline forms and
+ * Unassign of the assignment the row is.
  */
 export async function openChange(
   row: Locator,
   messages: Messages,
-  group?: string,
 ): Promise<void> {
-  const t = messages.assignment.panel;
-  const label =
-    group === undefined ? t.change : format(t.changeFor, { name: group });
-  const change = row.getByRole('button', { name: label, exact: true });
+  const change = row.getByRole('button', {
+    name: messages.assignment.panel.change,
+    exact: true,
+  });
   await change.click();
   await expect(change).toHaveAttribute('aria-expanded', 'true');
 }
@@ -124,13 +125,9 @@ export async function assignTo(
     await panel.getByLabel(t.deadline, { exact: true }).fill(deadline);
   await panel.getByRole('button', { name: t.assign, exact: true }).click();
   // Not "Assigned.": that status goes with the form once no one is left
-  // to assign to. The new row is what shows it saved: the player's, or the
-  // first of the group's (a group with no players has one under its name).
-  await expect(
-    assignmentRow(page, messages, target)
-      .or(groupRows(page, messages, target))
-      .first(),
-  ).toBeVisible();
+  // to assign to. The new row, the player's or the group's one row, is what
+  // shows it saved.
+  await expect(assignmentRow(page, messages, target)).toBeVisible();
 }
 
 /** The open fork offers on Today ("Copies you can keep"). */

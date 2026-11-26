@@ -99,13 +99,16 @@ const TAG_STYLE = {
 
 const TAG_KEY = { assigned: 'tagAssigned', fork: 'tagFork' } as const;
 
-/** The pill after the name: Assigned or Own copy; none on an own card. */
+/**
+ * The pill after the name: Assigned or Own copy; none on an own card. The
+ * same size as the badges beside it (assignment-badges.tsx).
+ */
 function Tag({ tag }: { readonly tag: CardView['tag'] }): JSX.Element | null {
   const t = useTranslations('repertoires.list');
   if (tag === null) return null;
   return (
     <span
-      className={`rounded-pill px-2 py-0.5 text-xs font-semibold ${TAG_STYLE[tag]}`}
+      className={`rounded-pill border border-transparent px-2 py-0.5 text-sm font-semibold ${TAG_STYLE[tag]}`}
     >
       {t(TAG_KEY[tag])}
     </span>

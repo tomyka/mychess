@@ -27,6 +27,7 @@ import {
   badge,
   fixture,
   forkOffers,
+  groupMembers,
   importRepertoire,
   untilAfterReload,
   vilniusDay,
@@ -97,16 +98,20 @@ async function assignToGroup(
     name: KARO_KAN,
   });
   await assignTo(coach, cast.messages, { target: GROUP, deadline });
-  // A row per member, each saying the group it comes through (R-225).
-  const inGroup = format(cast.messages.assignment.panel.inGroup, {
-    name: GROUP,
-  });
+  // One row for the group, its members listed under it (R-225, sign-off
+  // #381 part 4): only the group's row has a Change.
+  const listed = groupMembers(coach, cast.messages, GROUP);
+  await expect(listed.getByRole('listitem')).toHaveCount(3);
   for (const name of [ROKAS, GABIJA, DOVYDAS])
     await expect(
-      assignmentRow(coach, cast.messages, name).getByText(inGroup, {
-        exact: true,
-      }),
+      listed.getByRole('listitem', { name, exact: true }),
     ).toBeVisible();
+  await expect(
+    assignmentRow(coach, cast.messages, GROUP).getByRole('button', {
+      name: cast.messages.assignment.panel.change,
+      exact: true,
+    }),
+  ).toHaveCount(1);
   for (const member of members) {
     await member.reload();
     await expectAssigned(member, cast, KARO_KAN, deadline);

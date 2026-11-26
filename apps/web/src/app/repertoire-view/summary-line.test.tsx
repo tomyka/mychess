@@ -43,8 +43,6 @@ function renderLine(
       timeZone="Europe/Vilnius"
     >
       <SummaryLine
-        side="black"
-        chapters={6}
         standing={props.standing ?? props.training?.standing}
         training={props.training}
         assignment={props.assignment}
@@ -67,12 +65,56 @@ const assignment = (
   ...over,
 });
 
-describe('SummaryLine (spec, Header)', () => {
-  it('says the side, the chapters and the share learned, then Review and Learn today', () => {
+describe('SummaryLine (spec, Summary row)', () => {
+  it('says the share learned, then Review and Learn today, on one wrapping row', () => {
     renderLine({ training: trained(4, 9) });
-    expect(screen.getByText('Black · 6 chapters · 64% learned')).toBeDefined();
+    const learned = screen.getByText('64% learned');
     expect(href('Review 4')).toBe(`/training?mode=review&r=${ID}`);
     expect(href('Learn 9 today')).toBe(`/training?mode=learn&r=${ID}`);
+    // One row: the words and both buttons share it.
+    const row = learned.parentElement;
+    expect(row?.className).toContain('flex-wrap');
+    const review = screen.getByRole('link', { name: 'Review 4' });
+    expect(review.parentElement).toBe(row);
+    // Side and chapters are not repeated (the board and "Ch 1/6" say them).
+    expect(screen.queryByText(/chapter|White|Black/u)).toBeNull();
+  });
+
+  it('draws Review and Learn as compact tonal buttons, still 44px high', () => {
+    renderLine({ training: trained(4, 9) });
+    for (const name of ['Review 4', 'Learn 9 today']) {
+      const { className } = screen.getByRole('link', { name });
+      expect(className).toContain('bg-accent-subtle');
+      expect(className).toContain('px-3');
+      expect(className).toContain('text-sm');
+      expect(className).toContain('min-h-touch');
+    }
+  });
+
+  it('says New with the size while nothing is started', () => {
+    renderLine({
+      standing: {
+        counts: { notStarted: 15, skipped: 0, due: 0, learned: 0 },
+        mastered: false,
+      },
+    });
+    expect(screen.getByText('New · 15 moves')).toBeDefined();
+  });
+
+  it('shows Mastered as the pill', () => {
+    renderLine({
+      standing: {
+        counts: { notStarted: 0, skipped: 0, due: 0, learned: 25 },
+        mastered: true,
+      },
+    });
+    expect(screen.getByText(MESSAGES.coach.progress.mastered)).toBeDefined();
+    expect(screen.queryByText(/learned/u)).toBeNull();
+  });
+
+  it('never says the due count beside the share learned: Review says it', () => {
+    renderLine({ training: trained(4, 0) });
+    expect(screen.queryByText(/due/u)).toBeNull();
   });
 
   it('leaves out a button whose count is zero', () => {
@@ -98,29 +140,26 @@ describe('SummaryLine (spec, Header)', () => {
     expect(href('Review 2')).toBe(`/training?mode=review&r=${ID}`);
   });
 
-  it('says only the side and the chapters without training', () => {
+  it('is nothing without training or an assignment, so it leaves no gap', () => {
     renderLine();
-    expect(screen.getByText('Black · 6 chapters')).toBeDefined();
-    expect(screen.queryByText(/learned/u)).toBeNull();
-    expect(screen.queryAllByRole('link')).toHaveLength(0);
-  });
-
-  it('says one chapter in the singular', () => {
-    render(
-      <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <SummaryLine side="white" chapters={1} />
-      </NextIntlClientProvider>,
-    );
-    expect(screen.getByText('White · 1 chapter')).toBeDefined();
+    expect(document.body.textContent).toBe('');
   });
 });
 
 describe('SummaryLine: the assigned status strip', () => {
-  it('names the coach and the deadline with the days left', () => {
+  it('names the coach, a separator, then the deadline with the days left, on the second line', () => {
     renderLine({ training: trained(4, 9), assignment: assignment() });
-    expect(screen.getByText('Rimantas V.')).toBeDefined();
+    // One inline run: no flex gap widens the first separator (sign-off).
+    const run = screen.getByText('Rimantas V.').parentElement;
+    expect(run?.textContent).toBe('Rimantas V. · due Nov 30 · in 4 days');
+    expect(run?.className ?? '').not.toMatch(/flex|gap/u);
     expect(screen.getByText('due Nov 30 · in 4 days')).toBeDefined();
     expect(screen.queryByText(a.badge.overdue)).toBeNull();
+    const strip = run?.parentElement;
+    // The second line: after the row with the share learned.
+    expect(strip?.previousElementSibling).toBe(
+      screen.getByText('64% learned').parentElement,
+    );
   });
 
   it('says one day in the singular', () => {
@@ -139,12 +178,19 @@ describe('SummaryLine: the assigned status strip', () => {
     });
     expect(screen.getByText(a.badge.overdue)).toBeDefined();
     expect(screen.queryByText(/^due/u)).toBeNull();
-    expect(screen.getByText('Rimantas V.')).toBeDefined();
+    const run = screen.getByText('Rimantas V.').parentElement;
+    expect(run?.textContent).toBe('Rimantas V.');
+    // The pills follow the run, after the flex gap.
+    expect(run?.parentElement?.textContent).toBe(
+      `Rimantas V.${a.badge.overdue}`,
+    );
   });
 
-  it('shows no deadline when there is none', () => {
+  it('shows no deadline, and no separator, when there is none', () => {
     renderLine({ assignment: assignment({ deadline: null }) });
-    expect(screen.getByText('Rimantas V.')).toBeDefined();
+    expect(screen.getByText('Rimantas V.').parentElement?.textContent).toBe(
+      'Rimantas V.',
+    );
     expect(screen.queryByText(/due/u)).toBeNull();
   });
 
@@ -154,7 +200,7 @@ describe('SummaryLine: the assigned status strip', () => {
       standing: STANDING,
       assignment: assignment({ paused: true }),
     });
-    expect(screen.getByText('Black · 6 chapters · 64% learned')).toBeDefined();
+    expect(screen.getByText('64% learned')).toBeDefined();
     expect(screen.getByText(a.badge.paused)).toBeDefined();
     expect(screen.queryAllByRole('link')).toHaveLength(0);
   });

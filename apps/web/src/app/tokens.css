@@ -32,6 +32,9 @@
   --color-accent-fg: light-dark(#ffffff, #06142a); /* text on accent */
   --color-accent-subtle: light-dark(#e3eefb, #16263d); /* avatar, active tint */
   --color-focus: light-dark(#0b63c5, #6aaeff); /* focus ring off the board */
+  /* The comment strip's left edge: none in light, accent in dark, where
+     accent-subtle is close to the page (repertoire-screen.md). */
+  --color-comment-edge: light-dark(transparent, var(--color-accent));
 
   /* ---- Semantic states ----
    * <state>        text, icons and solid fills
@@ -148,11 +151,16 @@
 @theme static {
   /* ---- Board ----
    * Squares are the classic brown pair, a little dimmer in the dark theme so
-   * the board does not glare. Coordinates use the opposite square colour.
+   * the board does not glare. Coordinates have their own pair (below).
    * Overlays are translucent so they read on both square colours.
    */
   --color-board-light: light-dark(#f0d9b5, #d7c2a0);
   --color-board-dark: light-dark(#b58863, #946f4f);
+  /* The coordinates in the corner squares (#381 part 4): the opposite
+     square colour reached only 2.3 - 2.6:1, so these are static colours at
+     3:1 or more on their square in both themes. */
+  --color-board-coord-on-light: #7a5232;
+  --color-board-coord-on-dark: #ffffff;
   --color-board-last-move: rgb(205 210 106 / 0.6);
   --color-board-selected: rgb(20 85 30 / 0.5);
   --color-board-target: rgb(20 85 30 / 0.35); /* legal-move dot and ring */

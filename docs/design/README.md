@@ -141,9 +141,9 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 | --- | --- | --- |
 | Surfaces | `bg`, `surface`, `sunken`, `border`, `border-strong`, `card-edge` (`bg-surface`, `border-border`) | Ocean (R-220): page, cards, wells; `card-edge` is a card's hairline, transparent in light; `border` is also the progress-bar track; `border-strong` for inputs (3:1) |
 | Text | `fg`, `fg-muted` (`text-fg-muted`) | body, secondary |
-| Interactive | `accent`, `accent-fg`, `accent-subtle`, `focus` | primary buttons, links, focus ring; `accent-subtle` behind the avatar and a chosen option |
+| Interactive | `accent`, `accent-fg`, `accent-subtle`, `focus`, `comment-edge` | primary buttons, links, focus ring; `accent-subtle` behind the avatar and a chosen option; `comment-edge` is the repertoire comment strip's 2px left edge, the accent in dark, transparent in light |
 | States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` and `skipped` (a bar segment only) | see below |
-| Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-badge-{correct,wrong,glyph}`, `board-focus`, `board-hint`, `board-hint-edge`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
+| Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-badge-{correct,wrong,glyph}`, `board-focus`, `board-hint`, `board-hint-edge`, `board-mark-{green,red,yellow,blue}`, `board-coord-on-{light,dark}` | the board only; a separate `@theme static` block |
 | Piece glyphs | `piece-white`, `piece-black`, `piece-outline` (`fill-piece-white`, `stroke-piece-outline`) | a side's king off the board (Mano repertuarai headings): the fill is the side's colour in both themes, the outline follows the theme |
 | Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | Inter (self-hosted through next/font, R-219), then the system UI stack; 12-36px |
 | Spacing, containers | 4px scale, plus `touch` (44px), `tabbar` (56px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px); `container-content` (1040px) | `min-h-touch`, `px-gutter`, `w-panel` |
@@ -187,7 +187,9 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `success` / `error` / `due` / `learned` on `bg` | 5.6 / 6.0 / 5.4 / 6.4 | 9.1 / 8.2 / 9.4 / 8.6 |
 | each state on its `-subtle` | 5.2 - 5.9 | 6.9 - 7.3 |
 | `on-state` on each solid state | 5.9 - 6.9 | 8.2 - 9.4 |
-| A disabled (pending) button's label, the button at 85% over `bg` / `surface`: primary; danger (2026-11-16) | 4.9 / 4.9; 5.1 / 5.0 | 6.0 / 6.0; 6.2 / 6.2 |
+| A disabled primary button (2026-11-26, #381 part 4): `fg-muted` on `sunken` at full opacity, so a pending label ("Importing") keeps 4.5:1; the `sunken` fill against `bg` / `surface` is 1.1 / 1.2 (light) and 1.0 / 1.2 (dark), so the button reads as off, which a disabled control may (WCAG 1.4.11 exempts it) | 5.34 | 7.66 |
+| A disabled (pending) danger button's label, the button at 85% over `bg` / `surface` (2026-11-16; the secondary and tonal buttons fade the same way) | 5.1 / 5.0 | 6.2 / 6.2 |
+| The builder's draw swatches (2026-11-26, #381 part 4): the inset 1px `border-strong` ring on the panel's `surface`; the swatch fill alone on dark `surface` is green 3.0, red 1.8, blue 1.4, yellow 6.7 (light: 5.6, 9.2, 11.8, 2.5), so the ring carries the edge; the chosen one has the 2px `fg` ring and a check | 3.70 | 3.55 |
 | Today's hero (2026-11-25): main button, `accent` text on its `surface` fill; the fill against the `accent` card | 5.8; 5.8 | 7.3; 7.3 |
 | Today's hero: heading and text, the secondary button's `accent-fg` outline and text, and the `accent-fg` focus ring, all on `accent` | 5.8 | 8.0 |
 | Today's row button: `accent` on `accent-subtle` | 5.0 | 6.6 |
@@ -202,15 +204,17 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `board-badge-glyph` on `board-badge-correct` / `-wrong` (2026-11-26, owner choice D, #381; static, both themes; graphic, 3:1) | 3.9 / 3.9 | 3.9 / 3.9 |
 | `board-hint-edge` on light / dark square (2026-10-26, dark theme re-measured 2026-11-25 on `#d7c2a0` / `#946f4f`; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.5, a hue cue only) | 10.7 / 4.7 | 8.5 / 3.3 |
 | `board-hint` on `board-hint-edge` | 8.2 | 8.2 |
+| Board coordinates (2026-11-26, #381 part 4; `board.css`, bold, 0.75rem, 0.875rem from `lg`, inside the corner squares; static, both themes): `board-coord-on-light` (`#7a5232`) on a light square / `board-coord-on-dark` (`#ffffff`) on a dark square | 4.97 / 3.15 | 3.93 / 4.52 |
 
 `apps/web/src/app/tokens.test.ts` enforces the text, control and focus
 pairs above (AA, both themes) on every run, so a token change that drops
 one fails the gate. The board rows are measured by hand at sign-off.
 
-Board coordinates (opposite square colour on a square, about 2.3:1), the
-mark colours on dark squares (1.2 - 3.8) and yellow marks are supplementary,
-as on every chess site; the move list and the screen-reader labels (which
-list each move's arrows and circles) carry the same information.
+Board coordinates reach 3:1 on their square in both themes since #381
+part 4 (two static colours, the squares untouched). The mark colours on
+dark squares (1.2 - 3.8) and yellow marks are supplementary, as on every
+chess site; the move list and the screen-reader labels (which list each
+move's arrows and circles) carry the same information.
 
 ## Sign-off
 

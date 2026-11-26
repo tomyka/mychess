@@ -80,6 +80,17 @@ describe('StandingLine (R-225, R-177)', () => {
     expect(screen.queryByText(/learned/u)).toBeNull();
   });
 
+  it('shows Mastered as Today’s success pill, not as muted text', () => {
+    renderLine(standing(5, 0, 0, true), 0);
+    expect([...screen.getByText('Mastered').classList]).toEqual(
+      expect.arrayContaining([
+        'rounded-pill',
+        'bg-success-subtle',
+        'text-success',
+      ]),
+    );
+  });
+
   it('shows nothing without own moves', () => {
     expect(renderLine(standing(0, 0, 0), 0).innerHTML).toBe('');
   });

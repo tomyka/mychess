@@ -258,20 +258,37 @@ describe('RepertoireScreen: browsing', () => {
     ).toBeNull();
   });
 
-  it('sums it up under the name, with Review and Learn today (spec, Header)', () => {
+  it('sums it up first in the panel, with Review and Learn today, leaving one row above the board (sign-off)', () => {
     renderScreen(GRAPH, 'Londono sistema', {
       training: TRAINING,
     });
-    expect(screen.getByText('White · 2 chapters · 64% learned')).toBeDefined();
+    const scroller = document.querySelector<HTMLElement>(
+      '[data-panel-scroller]',
+    );
+    if (scroller === null) throw new Error('no panel');
+    const panel = within(scroller);
+    const learned = panel.getByText('64% learned');
+    expect(scroller.firstElementChild?.contains(learned)).toBe(true);
     expect(
-      screen.getByRole('link', { name: 'Review 4' }).getAttribute('href'),
+      panel.getByRole('link', { name: 'Review 4' }).getAttribute('href'),
     ).toBe(`/training?mode=review&r=${ID}`);
     expect(
-      screen.getByRole('link', { name: 'Learn 9 today' }).getAttribute('href'),
+      panel.getByRole('link', { name: 'Learn 9 today' }).getAttribute('href'),
     ).toBe(`/training?mode=learn&r=${ID}`);
-    // The builder shows no progress (spec, Builder).
+    expect(
+      within(screen.getByRole('banner')).queryByText(/learned/u),
+    ).toBeNull();
+    // The builder has no summary row (spec, Builder).
     fireEvent.click(screen.getByRole('switch', { name: r.mode.build }));
-    expect(screen.getByText('White · 2 chapters')).toBeDefined();
+    expect(screen.queryByText('64% learned')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Review 4' })).toBeNull();
+  });
+
+  it('has no summary row in an empty repertoire (spec, Empty repertoire)', () => {
+    renderScreen({ side: 'white', chapters: [], moves: [] }, 'Tuščias', {
+      training: TRAINING,
+    });
+    expect(screen.queryByText(/learned/u)).toBeNull();
     expect(screen.queryByRole('link', { name: 'Review 4' })).toBeNull();
   });
 

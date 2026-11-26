@@ -459,8 +459,7 @@
     "loading": "Loading",
     "more": "Repertoire options",
     "summary": {
-      "facts": "{side, select, white {White} other {Black}} · {chapters, plural, one {# chapter} other {# chapters}} · {percent}% learned",
-      "factsNoProgress": "{side, select, white {White} other {Black}} · {chapters, plural, one {# chapter} other {# chapters}}",
+      "separator": " · ",
       "review": "Review {count}",
       "learnToday": "Learn {count} today",
       "dueIn": "due {date} · {days, plural, one {in # day} other {in # days}}",
@@ -517,6 +516,7 @@
         "moves": "{count, plural, one {# move} other {# moves}}"
       },
       "chaptersTitle": "Chapters",
+      "chaptersAdded": "Chapters it adds",
       "renamedTitle": "Existing chapters that will be renamed",
       "renamedItem": "“{from}” will be called “{to}”",
       "annotationsTitle": "Comments and symbols added to moves already there ({count})",
@@ -626,13 +626,10 @@
       "everyone": "This repertoire is already assigned to all your players and groups.",
       "list": "Assigned to",
       "none": "Not assigned to anyone yet.",
-      "inGroup": "Group: {name}",
-      "emptyGroup": "No players in this group yet.",
+      "groupFacts": "{count, plural, =0 {No players} one {# player} other {# players}} · {deadline}",
+      "groupMembers": "Players in {name}",
       "due": "due {date}",
       "change": "Change",
-      "changeFor": "Change for {name}",
-      "groupDeadline": "Group deadline: {date}",
-      "groupNoDeadline": "The group has no deadline.",
       "newDeadline": "New deadline",
       "changeDeadline": "Change deadline",
       "clearDeadline": "Clear deadline",
@@ -804,8 +801,7 @@
   "standing": {
     "learned": "{percent}% learned",
     "learnedDue": "{percent}% learned · {due} due",
-    "new": "New · {count, plural, one {# move} other {# moves}}",
-    "mastered": "Mastered"
+    "new": "New · {count, plural, one {# move} other {# moves}}"
   },
   "today": {
     "title": "Today",

@@ -67,19 +67,31 @@ describe('BuilderBar: removing a move', () => {
     expect(props.onRemove).not.toHaveBeenCalled();
   });
 
-  it('offers no removal at a chapter root, and draw is disabled with the reason', () => {
-    renderBar({ move: null });
+  it('offers no removal at a chapter root, and draw is unavailable with the reason', () => {
+    const { props } = renderBar({ move: null });
     expect(screen.queryByRole('button', { name: b.remove })).toBeNull();
     const draw = button(b.draw);
-    expect(draw).toHaveProperty('disabled', true);
-    expect(draw.getAttribute('aria-describedby')).not.toBeNull();
-    expect(screen.getByText(b.drawAtRoot)).toBeDefined();
+    // Unavailable, not pending: aria-disabled only, so the half fade is the
+    // one that applies (no native disabled for the 85% fade to compete),
+    // and Draw stays focusable with its reason.
+    expect(draw.getAttribute('aria-disabled')).toBe('true');
+    expect(draw).toHaveProperty('disabled', false);
+    expect(draw.className).toContain('aria-disabled:opacity-50');
+    draw.focus();
+    expect(document.activeElement).toBe(draw);
+    expect(
+      document.getElementById(draw.getAttribute('aria-describedby') ?? '')
+        ?.textContent,
+    ).toBe(b.drawAtRoot);
+    fireEvent.click(draw);
+    expect(props.onDraw).not.toHaveBeenCalled();
   });
 
-  it('disables both while saving', () => {
+  it('disables both while saving, without the unavailable fade', () => {
     renderBar({ disabled: true });
     expect(button(b.remove)).toHaveProperty('disabled', true);
     expect(button(b.draw)).toHaveProperty('disabled', true);
+    expect(button(b.draw).getAttribute('aria-disabled')).toBeNull();
   });
 });
 

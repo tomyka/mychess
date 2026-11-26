@@ -177,7 +177,7 @@ function RemoveConfirm({
   );
 }
 
-/** Remove (on a move only) and Draw, disabled at a chapter root with the reason. */
+/** Remove (on a move only) and Draw, unavailable at a chapter root with the reason. */
 function IdleRow({
   props,
   refs,
@@ -212,9 +212,13 @@ function IdleRow({
           type="button"
           aria-pressed={false}
           aria-describedby={atRoot ? hintId : undefined}
-          disabled={props.disabled || atRoot}
+          // Unavailable here, not pending: aria-disabled alone fades it to
+          // half (buttons.ts) and keeps it focusable with its reason; the
+          // click is guarded instead.
+          aria-disabled={atRoot ? true : undefined}
+          disabled={props.disabled}
           onClick={() => {
-            props.onDraw(true);
+            if (!atRoot) props.onDraw(true);
           }}
           className={SECONDARY_BUTTON}
         >

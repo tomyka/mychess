@@ -122,22 +122,34 @@ the scrolling panel; desktop keeps the sticky board beside the panel.
 
 ### Header
 
-- **Phone top bar:** back (44x44), the name (wraps to two lines, `text-base`
-  semibold; never a one-line clamp), the **Edit** toggle (a labelled switch:
+- **Phone top bar:** one row above the board: back (44x44), the name
+  (`text-base` semibold, never clamped: it wraps in full, so what tells two
+  repertoires apart always shows), the **Edit** toggle (a labelled switch:
   the word "Edit" and the switch, one control), and a 44x44 **More** icon
   button (vertical dots, accessible name "Repertoire options") that opens
   the Repertoire screen.
-- **Desktop:** no page header row above the board. The same header (back,
-  name, Edit, More) is the first row of the panel, its top level with the
-  board's top edge. The board takes the viewport height
-  (`min(100dvh - app bar - gutters, panel column's space)`), so at 1280x800
-  it is at least 640px.
-- **Summary line** under the name: side, "N chapters", learned %; then
-  **Review N** and **Learn N** as tonal buttons (`TONAL_BUTTON`). A button
-  whose count is zero is not rendered. Learn's N is what the daily limit
-  allows today (R-62) and reads "Learn N today".
-- **Assigned status strip** (assigned view only), under the summary:
-  "<coach>", "due <date> · in N days" (or the Overdue pill; "due today"
+- **Desktop:** no page header row above the board. The panel's first rows
+  are back / Edit / More, then the name on its own full-width row,
+  unclamped; their top is level with the board's top edge. The board takes
+  the viewport height (`min(100dvh - app bar - gutters, panel column's
+  space)`), so at 1280x800 it is at least 640px.
+- **Board height on a phone:** the board gives up height before the panel
+  (a container-query cap; the panel keeps at least 16.5rem: the board row,
+  a one-line comment and the scroller), so a long name shrinks the board,
+  not the panel, and the board never resizes while stepping. At 375x667 the
+  summary, the chapter line and the first move row show (sign-off,
+  2026-11-26; values in `docs/design/repertoire-screen.md`). On a phone
+  this page's top bar has no account menu, so the name has the width.
+- **Summary row**, first in the panel's scroller (after the board row and
+  the comment strip, before the chapter line), at every width, one compact
+  row: the learned share ("16% learned", "New · N moves" when nothing is
+  started, or the Mastered pill), then **Review N** and **Learn N today** as small tonal
+  buttons. A button whose count is zero is not rendered; Learn's N is what
+  the daily limit allows today (R-62). Side and chapter count are not
+  repeated (the board's orientation and "Ch n/m" show them). No summary row
+  in builder mode or for an empty repertoire.
+- **Assigned status strip** (assigned view only), the summary's second
+  line: "<coach> · due <date> · in N days" (or the Overdue pill; "due today"
   on the day), and the Paused pill when paused. No urgency colour before the
   deadline.
 
@@ -155,8 +167,9 @@ the scrolling panel; desktop keeps the sticky board beside the panel.
 ### Comment strip
 
 The current move's comment, or the chapter intro at the root, sits in a
-fixed strip between the board row and the panel's scroller on phone, and
-above the move list on desktop: `accent-subtle` background, the move
+fixed strip between the board row and the panel's scroller at every width
+(one place in the page order, so reading and Tab order match what is seen):
+`accent-subtle` background with a 2px `accent` left edge in dark, the move
 ("5... Qc7") in semibold, then the text. Two lines, then "More" expands it
 inline. No strip when there is no comment. Coach notes (assigned view)
 keep their place under the comment, unchanged.

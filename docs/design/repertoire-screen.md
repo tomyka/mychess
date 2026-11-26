@@ -1,669 +1,608 @@
 # Repertoire screens
 
-The three S3 screens (#253): **Mano repertuarai** (`/repertuarai`), the
-repertoire page (`/repertuarai/[id]`, browsing and builder on one page) and
-the PGN import (`/repertuarai/importuoti`). Built by web-dev in Tasks 13 to 19
-of `docs/superpowers/plans/2026-10-17-s3-repertoires.md`; signed off in Task
-23. Vocabulary from `docs/CONTEXT.md` (Repertoire, Chapter, Move, Answer,
-Line, Transposition, Comment, Personal note); tokens from
-`apps/web/src/app/tokens.css` (see `README.md`); shared classes from
-`apps/web/src/app/buttons.ts` (`PRIMARY_BUTTON`, `SECONDARY_BUTTON`,
-`DANGER_BUTTON`), `nustatymai/styles.ts` (`SECTION`, `SECTION_TITLE`,
-`TEXT_LINK`) and `status-line.tsx` (`StatusLine`).
+The repertoire screens: **My repertoires** (`/repertoires`), the repertoire
+page (`/repertoires/[id]`, browse and builder on one page; the assigned one
+at `/repertoires/assigned/[id]`; the coach's read-only view of a shared one
+at `/coach/players/[playerId]/repertoires/[repertoireId]`), the
+**Repertoire screen** (`.../manage`, R-226) and the PGN import
+(`/repertoires/import`). First built in S3 (#253); sections 1 to 4 restyled
+to Ocean in #381 part 4 (spec
+`docs/superpowers/specs/2026-11-26-repertoire-screens-design.md`, rulings
+R-225 to R-227), signed off 2026-11-26; the sign-off findings were fixed
+the same day, and the phone board height and long names were decided then
+(section 2, Board height and Long names). Vocabulary from
+`docs/CONTEXT.md` (Repertoire, Chapter, Move, Answer, Line,
+Transposition, Comment, Coach note, Personal note);
+tokens from `apps/web/src/app/tokens.css` (see `README.md`); shared classes
+from `apps/web/src/app/buttons.ts` (`PRIMARY_BUTTON`, `SECONDARY_BUTTON`,
+`TONAL_BUTTON`, `COMPACT_TONAL`, `DANGER_BUTTON`), `settings/styles.ts` (`SECTION`,
+`DANGER_SECTION`, `SECTION_TITLE`) and `status-line.tsx` (`StatusLine`).
+The layout code is in `apps/web/src/app/repertoire-view/`
+(`repertoire-layout.tsx` holds the grid).
 
-Sketches use English placeholders; the copy comes from i18n-content (Task
-20). Every label is sized for Lithuanian, which runs 20-40% longer
-(`Juodaisiais`, `Atsisiųsti PGN`, `Transpozicijos`).
+Sketches use English placeholders; the copy is in the message catalogue
+(English only, R-217). Labels must still not depend on their English length.
 
-## Rules for all three screens
+## Rules for all the screens
 
 - **Nothing overlays the board** (`training-screen.md`): no menus, toasts,
   dialogs or confirmations over it. Confirmations, the promotion choice and
   every message sit in the panel, inline, pushing content down.
+- **The panel is for studying** (R-226). Rename, Download PGN, Add from PGN,
+  share, assign, pause, make my own copy and delete live on the Repertoire
+  screen (section 3), opened from the page's More button.
 - **One status line per screen** (`StatusLine`, `role="status"`) for
-  refusals and outcomes of board actions; on the repertoire page it sits
-  under the board row and the builder row, outside the scrolling panel. Field saves (the
-  comment, the personal note, a rename) have their own status line under
-  the field. Refusals are catalogue keys, shown in the `error` tone with the
-  words, never colour alone.
-- **Touch targets** are at least 44px everywhere (`min-h-touch`,
-  `min-w-touch`), including move chips in the move list, chapter rows and
-  the four draw colours.
+  refusals and outcomes; on the repertoire page it sits under the board row
+  and the builder row, outside the scrolling panel. Field saves (comment,
+  personal note, rename) have their own status line under the field.
+  Refusals are catalogue keys, shown in the `error` tone with the words.
+- **Touch targets** are at least 44px on a phone (`min-h-touch`,
+  `min-w-touch`), including move chips, chapter rows and the four draw
+  colours. From `lg` the move chips are compact (28px high): a pointer is
+  precise there and the two-column list needs the rows.
 - **No fixed widths on text.** Buttons may wrap to two lines on a phone;
-  primary actions never truncate. Repertoire names clamp to two lines in
-  lists (one line in the phone top bar) with the full name on focus or tap
-  (`title` plus the full name in the accessible name). Chapter titles are
-  never clamped (R-158): a title shared with another chapter ends in what
-  tells them apart, "Karo-Kano gynyba (B12, 3. e5)", and a clamp would cut
-  exactly that off. They wrap in full (`break-words`), in the disclosure,
-  the chapter rows, the import preview and the change summary.
+  primary actions never truncate. A repertoire name may clamp to two lines
+  in a list card, with the full name in `title` and the accessible name. In
+  the page's own header it wraps in full, never clamped: the end of a name
+  ("6.Be3 Ng4", "8.a4 sistema") is what tells a player's repertoires apart
+  (section 2, Long names). Chapter titles are never clamped (R-158)
+  except on the closed chapter line, which carries the full title in its
+  accessible name and opens to the full titles.
+- **Progress reads the same as on Today** (R-177, R-225): the `LearnedBar`
+  (`learned` on the `border` track, 6px, decorative) and a text line, "64%
+  learned · 3 due", "New · 15 moves" when nothing is learned, and
+  **Mastered** as Today's pill (R-178). The due count shows only above
+  zero. Move states are not shown in the move list. Paused and Own copy are
+  neutral pills (a `border-strong` outline and `fg-muted` text, no fill, so
+  they do not read as buttons); Overdue is `error-subtle`.
 - **Tokens only;** no `dark:` classes are needed on these screens.
-- **Times** (last change) are formatted with `Intl` in the account's time
-  zone (Europe/Vilnius by default): today as a time, this year as day and
-  month, older with the year.
+- **Times** are formatted with `Intl` in the account's time zone
+  (Europe/Vilnius by default): today as a time, this year as day and month,
+  older with the year.
 
-## 1. Mano repertuarai (`/repertuarai`)
+## 1. My repertoires (`/repertoires`)
 
 ### Phone, 390px
 
 ```
 +--------------------------------------+
-| < Home                               |  TEXT_LINK, 44px
-| My repertoires                       |  h1 text-2xl bold
-| Build your openings or import PGN.   |  intro, fg-muted, may be 2 lines
+| MyChess                         (GN) |  shell top row (tab page)
 +--------------------------------------+
-| (K) WHITE                            |  h2 text-lg semibold; king glyph
-|  +--------------------------------+  |  aria-hidden
-|  | London System                  |  |  one link per repertoire:
-|  | 2 chapters · 148 moves         |  |  name text-lg semibold, clamp 2;
-|  | Changed 12 Oct                 |  |  meta text-sm fg-muted
-|  +--------------------------------+  |  card: bg-surface, border-border,
-|  +--------------------------------+  |  rounded-card, p-4, min-h-touch
-|  | Catalan                        |  |  gap-3 between cards
-|  | 5 chapters · 412 moves         |  |
-|  | Changed 2 Sep 2025             |  |
+| My            [Import PGN] [ New ]   |  PageHeader: h1 text-2xl bold;
+| repertoires                          |  Import PGN SECONDARY, New PRIMARY
+| Build your openings or import PGN.   |  intro, fg-muted
+|                                      |
+| (K) White                            |  h2 text-lg semibold; king glyph,
+|  +--------------------------------+  |  fixed colours (below)
+|  | Valdoves gambitas  [Assigned]  |  |  CARD, the whole card one link;
+|  | R. Vaitkus · due Dec 15 ·      |  |  name text-base semibold, clamp 2;
+|  | 6 chapters · 125 moves         |  |  tag pill; one meta line, fg-muted
+|  | =============================  |  |  LearnedBar, 6px
+|  | Mastered                       |  |  progress line
 |  +--------------------------------+  |
-|                                      |
-| (k) BLACK                            |
-|  No Black repertoire yet.            |  empty group: one fg-muted line
+|  +--------------------------------+  |
+|  | Londono sistema                |  |  own: no tag
+|  | 2 chapters · 29 moves ·        |  |
+|  | changed Apr 12                 |  |
+|  | -----------------------------  |  |
+|  | New · 15 moves                 |  |
+|  +--------------------------------+  |
+| (k) Black                            |
+|  ...                                 |
 +--------------------------------------+
-| New repertoire                       |  SECTION, SECTION_TITLE
-| Name                                 |
-| [______________________________]     |  input as NameField, min-h-touch
-| Side                                 |  fieldset, two radio cards as
-| [ (o) White ]  [ ( ) Black ]         |  LanguageField (grid-cols-2)
-| [ Create ]                           |  PRIMARY_BUTTON, full width
-| (status line: refusal)               |
-|                                      |
-| Have a PGN file?                     |  text-fg-muted
-| [ Import PGN ]                       |  SECONDARY_BUTTON, full width
+| Today   Repertoires   Opponents      |  tab bar
 +--------------------------------------+
 ```
 
-- Groups in the order White, Black; items sorted by name with
-  `Intl.Collator(locale)`. The whole card is the link (one tab stop per
-  repertoire); its accessible name is the repertoire name, the meta is read
-  after it.
-- Counts use ICU plurals (LT has three forms, `glossary-lt.md`). "Changed"
-  is the repertoire's `updatedAt` (`RepertoireListItem`).
-- A group with no items keeps its heading and says so in one line, so the
-  player sees both sides at a glance.
-- The create form is always on the page (no disclosure): creating is one
-  screen, one submit. On success the page navigates to the new repertoire,
-  which opens in builder mode (plan decision 18).
+**New** opens the create form inline under the header, pushing the list
+down:
+
+```
+| My repertoires  [Import PGN] [ New ] |
+|--------------------------------------|  rule
+| New repertoire                       |  h2
+| Name [______________________________]|
+| Side [(o) White      ] [( ) Black   ]|  radio cards
+| [             Create               ] |  PRIMARY, full width
+| Cancel                               |  QUIET, closes the form
+| (K) White ...                        |
+```
 
 ### Desktop, 1280px
 
 ```
 +------------------------------------------------------------------------------+
-|   < Home                                                                     |
-|   My repertoires                                       text-3xl              |
-|   Build your openings or import PGN.                                         |
-|                                                                              |
-|   (K) WHITE                              (k) BLACK                           |
-|   +-------------------------------+      +-------------------------------+   |
-|   | London System                 |      | Sicilian, Taimanov            |   |
-|   | 2 chapters · 148 moves        |      | 6 chapters · 233 moves        |   |
-|   | Changed 12 Oct                |      | Changed 10:42                 |   |
-|   +-------------------------------+      +-------------------------------+   |
-|   | Catalan ...                   |                                          |
-|   +-------------------------------+                                          |
-|                                                                              |
-|   +-------------------------------+      +-------------------------------+   |
-|   | New repertoire                |      | Import PGN                    |   |
-|   | Name [__________________]     |      | Upload a PGN file and see     |   |
-|   | Side [(o) White] [( ) Black]  |      | what it holds before saving.  |   |
-|   | [ Create ]                    |      | [ Import PGN ]                |   |
-|   +-------------------------------+      +-------------------------------+   |
+|  MyChess          Today  Repertoires  Opponents  Coach                (RV)  |
 +------------------------------------------------------------------------------+
-     max-w-4xl, centred, px-gutter-wide; two columns, gap-8
+|   My repertoires                                   [Import PGN] [ New ]     |
+|   Build your openings or import PGN.                                        |
+|                                                                             |
+|   (K) White                              (k) Black                          |
+|   +-------------------------------+      +-------------------------------+  |
+|   | Italiskoji partija            |      | 1...e5                        |  |
+|   | 8 chapters · 106 moves ·      |      | 4 chapters · 54 moves ·       |  |
+|   | changed Nov 20 · Assigned to 1|      | changed Nov 20 · Assigned to 1|  |
+|   | ----------------------------- |      | ----------------------------- |  |
+|   | New · 52 moves                |      | New · 27 moves                |  |
+|   +-------------------------------+      +-------------------------------+  |
++------------------------------------------------------------------------------+
+    CONTENT (max-w-content, 1040px), two columns from sm, gap-8
 ```
 
-- From `sm` up the two side groups sit in two columns; the create and import
-  cards below them, in two columns, as `SECTION` cards. Buttons size to
-  content.
+### Cards
+
+- **One card for every kind**: own, assigned, fork. The tag after the name
+  says which: **Assigned** (`accent-subtle` pill), **Own copy** (neutral
+  outline pill), none for own; then the Overdue and Paused pills where they
+  apply.
+- **Meta line:** own and fork "N chapters · N moves · changed <date>";
+  assigned "<coach> · due <date> (or no deadline) · N chapters · N moves";
+  a fork ends with "Copy of <coach>'s repertoire"; a coach's own repertoire
+  that is assigned ends with "Assigned to N".
+- **Progress:** the bar and line of the rules above. A repertoire without
+  moves has neither.
+- **Side glyphs:** White a `side-white` king with a `side-black` outline,
+  Black a `side-black` king with a `side-ring` outline, each on a small
+  `board-light` tile (`rounded-control`), so each reads as its piece in both
+  themes (on the dark page a bare black king, `#141a26` on `#0f1218`, read
+  as an outlined white one).
 
 ### States
 
-- **Loading** (`loading.tsx`): the header, then three card skeletons
-  (`bg-sunken`, rounded-card, the card's height) per group. No spinner.
-- **Empty** (no repertoire at all): the two groups collapse to one line,
-  "You have no repertoires yet", and the create form and import card follow
-  directly under the intro, so both are visible without scrolling on a
-  390 x 664 screen.
-- **Refusal** (blank or too long name): the create form's status line, the
-  name field `aria-invalid` and pointed at it (`NameField` pattern); the
-  typed name stays.
+- **Loading** (`loading.tsx`): the header, then card skeletons (`sunken`).
+- **Empty** (no repertoire at all): "You have no repertoires yet" and the
+  create form open under it; Import PGN stays in the header.
+- **Empty group:** the heading stays, with "No Black repertoire yet".
+- **Refusal** (blank or too long name, the repertoire limit): the form's
+  status line, the field `aria-invalid`; the typed name stays.
+- A new repertoire opens in builder mode.
 
-## 2. The repertoire page (`/repertuarai/[id]`)
+## 2. The repertoire page (`/repertoires/[id]`)
 
-One page, two modes: **browse** (default) and **builder** (a switch). A new
-repertoire with no chapters opens in builder mode.
+One page, two modes, **browse** (default) and **builder** (the Edit
+switch); the assigned page and the coach's shared view are the same page
+without Edit. A new repertoire with no chapters opens in builder mode.
 
 ### Phone, 390px, browse
 
 ```
 +--------------------------------------+  390 x 844
-| [<]  London System        [Edit o ]  |  top bar 56px: back to the list
-|                                      |  (44x44); name text-lg semibold,
-+--------------------------------------+  1 line clamp; mode switch
-|                                      |
-|                                      |
-|            B O A R D                 |  full width 390 x 390, radius 0,
-|        White at the bottom           |  flipped for a Black repertoire;
-|        (Black: Black at bottom)      |  squares 48.75px
-|                                      |
-|                                      |
+| [<] Sicilijos gynyba,    Edit[o ] [:]|  top bar, ONE row: back 44x44; the
+|     Taimanovo variantas              |  name text-base/5, wraps in full;
++--------------------------------------+  Edit (word + switch); More 44x44
+|                                      |  ("Repertoire options"); no avatar
+|            B O A R D                 |  as wide as the screen, smaller on
+|                                      |  a short screen (Board height);
+|                                      |  radius 0, flipped for Black
 +--------------------------------------+
-| [Type a move   ][>]  [|<] [<] [>]    |  board row 56px: move field +
-+--------------------------------------+  submit, then start/back/forward
-|  (status line, when there is one)    |  fixed too; the panel scrolls below
-|                                      |
-|  Chapter 2 of 6                  [v] |  chapter disclosure, 44px+:
-|  Sicilian, Taimanov: 5.Nc3           |  chapter title, wraps in full
-|                                      |
-|  COMMENT                             |  text-sm semibold fg-muted label
-|  The main idea is ...Qc7 and ...a6,  |  comment text-base fg;
-|  keeping the knight flexible.        |  at the root: the chapter intro
-|                                      |
-|  [lock] MY NOTE  Only you see this   |  personal note: bg-sunken well,
-|  [______________________________]    |  rounded-card, p-3; textarea
-|  [ Save note ]                       |  3 rows; SECONDARY_BUTTON
-|                                      |
-|  1. e4 c5 2. Nf3 e6 3. d4 cxd4       |  move list (see below)
-|  4. Nxd4 Nc6 5. Nc3 [Qc7] 6. Be2 a6  |  [ ] = current move
-|  |  6. f4 a6 7. Nxc6 bxc6            |  variation: indented, border-l
-|  |  6. g3 a6 ...                     |
-|                                      |
-|  REPERTOIRE                          |  actions section (phone only):
-|  [ Rename ]  [ Download PGN ]        |  SECONDARY_BUTTONs, wrap
-|  [ Add from PGN ] [ Delete ]         |  Delete: secondary with error text;
-+--------------------------------------+  confirm step uses DANGER_BUTTON
+| [Type a move   ][>]  [|<] [<] [>]    |  board row
++--------------------------------------+
+| 5... Qc7 Perejimas i anglu ataka.    |  comment strip, accent-subtle,
+|                                      |  pinned; 2 lines, then More
++--------------------------------------+
+| 16% learned [Review 51] [Learn 10 to-|  the panel scrolls from here:
+|  day]                                |  summary row (compact TONAL);
+| R. Vaitkus · due Dec 20 · in 24 days |  status strip (assigned only);
+| Ch 1/6 · Sicilian Defense: Taim...  v|  chapter line (closed);
+| 1.   e4        c5                    |  move list, two columns,
+| 2.   Nf3       e6                    |  44px chips
+| ...                                  |
+| [Learn this line (4)] [Learn this    |  Train here (browse, when it
+|  chapter (12)]                       |  trains): TONAL, each when N > 0
+| [ I know this v ]                    |  SECONDARY with chevron
+| My note ...                          |  personal note (R-21), on a move
++--------------------------------------+
+| Today   Repertoires   Opponents      |  tab bar
++--------------------------------------+
 ```
 
-- **Fixed region:** the top bar, the board and the board row never scroll
-  (56 + 390 + 56 = 502px); the panel below scrolls in the remaining height
-  (342px on 390 x 844, 165px on 375 x 667). This keeps the board in view
-  while reading comments and editing, as `training-screen.md` requires.
-- **Board row:** the typed-move field (SAN or coordinates, `enterKeyHint`
-  "go", `autoCapitalize="off"`, `autoCorrect="off"`, `spellCheck={false}`,
-  text-base so iOS does not zoom) with a 44x44 submit button, then start,
-  back and forward (44x44 icon buttons with accessible names). The nav
-  buttons sit at the right edge, under the right thumb. Back and start are
-  disabled at the chapter root; forward is disabled at the end of the line.
-- **Chapter disclosure:** a button with `aria-expanded` showing "Chapter n
-  of m" and the chapter title. Open, it lists every chapter inline, pushing
-  the panel down (never over the board); choosing one selects it, closes the
-  list and returns focus to the disclosure. Closed by default on a phone.
-  Rows are `min-h-touch` with `py-2`, so a title that wraps to two lines
-  still reads as its own row next to one-line rows; the list scrolls inside
-  itself past `max-h-72`, which holds five rows with three of them wrapped.
-- **Position section,** in this order:
-  - at the chapter root: the chapter intro (R-66), or nothing if it has none;
-  - on a move: its comment, or "No comment" in `fg-muted`;
-  - for screen readers only, the move's arrows and circles as text ("arrows:
-    g1 to f3 green; circles: d4 red"), so the marks are not colour-only
-    (`sr-only`, read with the position section);
-  - on a move: the **personal note**, always editable in both modes (R-21:
-    the note is the player's own). It is visually distinct from the comment
-    so nobody mistakes one for the other: `bg-sunken` well, a lock icon, the
-    label "My note" and the hint "Only you see this" (the hint is the
-    field's `aria-describedby`). Saving shows "Saved" in its own status
-    line; an empty note deletes it. There is no note at the chapter root (a
-    note belongs to a move).
-- **Repertoire section** (phone only; desktop has these in the header):
-  rename, download PGN (a plain `<a download>` as in settings), add from PGN
-  (link to `/repertuarai/importuoti?i=<id>`), delete.
+- **One row above the board** (back, name, Edit, More). The avatar (account
+  menu) is not in this row below `lg`: on this one screen every pixel of
+  the row goes to the name, and the account menu is one tab away. The name
+  is `text-base/5` (16px on 20px lines) below `lg`, so a two-line name sits
+  inside the 44px row without making it taller.
+- **Fixed region:** the top bar, the board, the board row, the builder
+  row, the status line and the comment strip never scroll; the panel's
+  scroller below them does. The summary row is first in the scroller.
+- **Board height (phone, below `lg`).** The page is a fixed-height column
+  (`100dvh - shell chrome`). The board's cell may shrink, the panel keeps
+  its room, and the board is the largest square that fits its cell, centred:
+  - board cell: `flex: 0 100 100vw` (`grow-0 shrink-[100] basis-[100vw]`),
+    `min-h-28` (7rem), `container-type: size`, `justify-center`; the board
+    inside it `w-[min(100cqw,100cqh)]`. From `lg` the cell drops these
+    (`lg:basis-auto lg:[container-type:normal]`) and keeps its desktop width.
+  - panel cell (board row, builder row, status line, comment strip,
+    scroller): `flex: 1 1 16.5rem` (264px: board row 60, a one-line comment
+    36, scroller 168), `min-h-0`.
+  - The board's shrink factor (100 against the panel's 1) makes the board
+    give up the height first, down to 7rem; only then does the panel shrink.
+    The comment strip, the builder row and the status line live in the
+    panel cell, so they never resize the board while the player steps
+    through moves; only the name's line count and the viewport do.
+  - Results (a name of up to two lines; the scroller without a comment
+    strip / with a one-line comment; production build, both themes the
+    same, 2026-11-26): **390 x 844** board 390, scroller 286 / 250px
+    (summary row, chapter line, three move rows); **375 x 667** board 296,
+    scroller 203 / 167px (summary row, chapter line, the first move row);
+    **390 x 664** (an iPhone in Safari with its bars) board 293, scroller
+    203 / 167px; **640 x 400** (200% zoom) board 112, scroller 120 / 84px;
+    **768 x 1024** board 652. Draw mode's swatches and hint take the
+    scroller's room (59px at 375 x 667, none at 640 x 400): while drawing
+    the player looks at the board.
+  - Not chosen: a 19rem panel would show a second move row at 375 x 667 but
+    leaves a 255px board (32px squares) there and on every in-browser
+    iPhone; the board dominating comes first, and selecting a move scrolls
+    the panel to it (`block: 'nearest'`).
+- **Long names.** Never clamped (the end tells repertoires apart). Below
+  `lg` the name gets the row's width less back, Edit and More, about 170px
+  at 375 (about 19 characters a line, broken at words): up to about 30
+  characters fit the 44px row in two lines ("Sicilijos gynyba, Taimanovo
+  variantas", 37 characters, takes two lines at 390 and three at 375,
+  where the top bar grows from 52 to 68px and the board from 296 to 280);
+  each further line adds about 16 to 20px to the top bar, which the board
+  gives up, not the panel. The 80-character maximum is five lines
+  (100px) at 375, a board about 56px smaller. The full name is also the
+  board's accessible name and the Repertoire screen's h1.
+- **Summary row:** "16% learned" (the list card's progress words without
+  the due part: "New · N moves", "Mastered" as the pill), then **Review N**
+  and **Learn N today** (R-62), each only when N > 0, on one wrapping row
+  (`flex flex-wrap items-center gap-x-2 gap-y-1`). The two buttons are
+  `COMPACT_TONAL` (`buttons.ts`: the tonal colours at `px-3 text-sm`,
+  still `min-h-touch`), so
+  "16% learned [Review 51] [Learn 10 today]" fits 343px. Side and chapter
+  count are not repeated (the board's orientation and "Ch 1/6" say them).
+  Builder mode and an empty repertoire have no summary row.
+- **Assigned status strip** (second line of the summary, `text-sm`): the
+  coach's name (semibold) · "due <date> · in N days", "due today", or the
+  Overdue pill; the Paused pill. No urgency colour before the deadline.
+- **Coach's shared view:** the summary row is the player's name and
+  **Progress**; the read-only sentence goes under the move list (where the
+  coach writes a Coach note), not above the chapter line.
+- **Scroller spacing below `lg`:** `gap-3 pt-2 pb-3` (from `lg`: `gap-4`,
+  no padding, as before).
+- **Comment strip:** the current move's Comment, or the chapter intro
+  (R-66) at the root: `accent-subtle`, the move ("5... Qc7") semibold, then the text;
+  clamped to two lines past 140 characters with **More** / **Less**. On the
+  assigned page a muted lead-in names it "Coach note from <coach>" (on a
+  coach's own repertoire a Comment is a Coach note, `CONTEXT.md`). No strip
+  without a text. In builder mode the comment is the panel's field instead.
+  A 2px left edge in the `comment-edge` token sets it off the page in the
+  dark theme (the accent, as `accent-subtle` is close to `bg` there);
+  transparent in light.
+- **Chapter line:** closed by default, "Ch 2/6 · <title>", one line,
+  truncating, the full title in its accessible name. Open, the chapters list
+  inline (no inner scroller; the panel scrolls); choosing one selects it,
+  closes the list and returns focus to the line.
+- **Chapter rows:** the title in full (R-158), then the `LearnedBar` and
+  "64% learned · 4 due" / "New · 18 moves" / Mastered. The current
+  chapter's row is `accent-subtle`. No icons in browse.
+- **Train here** (browse, a player who trains it): **Learn this line (N)**,
+  **Learn this chapter (N)** (R-206), then **I know this** (R-227): open, it
+  lists "This move, 5... Qc7" (own-side moves only), "This line, N moves",
+  "This chapter, N moves", each with **Mark known (N moves)**, or "Known"
+  with **Learn again**, or "already in review"; line and chapter keep the
+  R-147 confirmation with the count.
+- **Empty repertoire:** "Play the first move on the board, or add games
+  from PGN." and **Add from PGN**; no summary row, no Train here, no
+  Download.
 
 ### Phone, 390px, builder
 
 ```
-+--------------------------------------+
-| [<]  London System        [Edit o=]  |  switch on (aria-checked="true")
-+--------------------------------------+
+| [<] Sicilijos gynyba,    Edit[=o] [:]|  switch on
+|     Taimanovo variantas              |
 |            B O A R D                 |  playing a move adds it
-+--------------------------------------+
-| [Type a move   ][>]  [|<] [<] [>]    |  board row
-+--------------------------------------+
-| [ Remove move ]        [ Draw ]      |  builder row 56px, fixed too:
-+--------------------------------------+  remove (on a move only), draw
-|  (status line)                       |  toggle (aria-pressed)
-|  Chapter 1 of 2                  [v] |  open: rows with rename / delete,
-|  London System: 2...Nf6              |  and [ + Add chapter ] at the end
-|                                      |
-|  COMMENT                             |  textarea, 4 rows, full width
-|  [______________________________]    |  hint: "One paragraph; line breaks
-|  [ Save comment ]                    |  become spaces" (R-105)
-|  [lock] MY NOTE ...                  |  as in browse
-|  1. d4 d5 2. Bf4 ...                 |  move list
-|  REPERTOIRE ...                      |
-+--------------------------------------+
-```
-
-- The builder row is part of the fixed region (558px; the panel keeps 286px
-  on 390 x 844), so remove and draw are reachable while looking at the board.
-- **Adding a move:** in builder mode the board accepts every legal move
-  (tap-tap or drag). A move the chapter already has navigates to it, as in
-  browse; a new move is saved, appears in the move list as the current move
-  and the board stays on the new position. No toast and no "Next".
-  While saving the board is not movable; the piece stays on its target
-  square. If saving takes more than about one second, the status line says
-  "Saving" (`info`). A refusal (a second Answer, an illegal move) shows in
-  the status line and the piece goes back.
-- **At an empty chapter root** the position section says "Play the first
-  move on the board" instead of the intro. In a repertoire with no chapters,
-  the first move played creates "Chapter 1" and adds the move to it, in one
-  save; there is no separate "Add chapter" step first.
-- **Chapter intros are read-only in S3:** the builder shows an imported
-  intro (R-66) at the root but has no field to edit it.
-- **Comment:** a textarea labelled "Comment", 4 rows, with the R-105 hint
-  and, from 1,800 characters, a count "1,850 / 2,000" (`fg-muted`, `error`
-  at the limit). Save sends it; "Saved" shows in its own status line.
-- **Chapters in builder mode:** each chapter row gains Rename and Delete
-  (44x44 icon buttons, accessible names that include the chapter title).
-  Rename turns the row into a name field with Save and Cancel; Escape
-  cancels. Delete turns the row into an inline confirmation, "Delete
-  chapter {title}? Its moves no other chapter uses go too.", with
-  [ Delete chapter ] (`DANGER_BUTTON`) and [ Cancel ]. [ + Add chapter ]
-  (`SECONDARY_BUTTON`) ends the list; the new chapter is selected and the
-  list closes. A built chapter's title follows R-104: "Chapter N" until its
-  moves classify, then the taxonomy name; a rename makes it fixed.
-
-#### Remove move, inline confirmation
-
-```
-+--------------------------------------+
-| Remove 6...a6 and the 14 moves       |  the builder row grows to fit
-| after it that only it reaches?       |  (pushes the panel down; the
-| [ Remove ]   [ Cancel ]              |  board does not move)
-+--------------------------------------+
-```
-
-- The count is the number of moves the remove would drop (plan Task 17).
-  With a count of 0 the text drops the second clause.
-- Focus moves to [ Cancel ] (the safe choice); Escape cancels and returns
-  focus to [ Remove move ]. [ Remove ] is `DANGER_BUTTON`. After removal the
-  board goes to the position before the removed move and the status line
-  says "Removed" (`success`).
-
-#### Draw mode (phones and keyboards)
-
-Chessground draws only with the right mouse button or Shift, so builder mode
-has a draw mode for touch and keyboard (plan decision 16).
-
-```
-+--------------------------------------+
-|            B O A R D                 |  first tapped square shows
-|                                      |  board-selected until the second
-+--------------------------------------+
 | [Type a move   ][>]  [|<] [<] [>]    |
-+--------------------------------------+
-| (G) (R) (Y) (B)          [ Done ]    |  builder row in draw mode: four
-+--------------------------------------+  44x44 colour buttons + Done
-|  Tap a square, then another for an   |  hint, first line of the panel
-|  arrow; the same square twice for a  |  (info tone, not the status line)
-|  circle. Tap a mark again to remove. |
+| [ Remove move ]  [ Draw ]            |  builder row, fixed
+|  Ch 1/6 · ...                      v |  no summary row in builder; open:
+|    Sicilian ... (B48, 6. Be3)        |  the selected row shows
+|    [Rename chapter]                  |  [Rename chapter] [Delete chapter]
+|    [Delete chapter]                  |  under its title; [Add chapter]
+|  Comment [________________________]  |  ends the list; textarea, R-105
+|  1.  e4   c5 ...                     |
 ```
 
-- [ Draw ] switches the builder row to the four colours and [ Done ]; Done
-  (or Escape on the board) switches back and returns focus to [ Draw ].
-- **Colour buttons:** a filled swatch in the mark token (below), 44x44, in
-  the PGN order green, red, yellow, blue; accessible name is the colour name;
-  `aria-pressed` on the chosen one, which also shows a 2px `fg` ring and a
-  check mark (not colour alone). Both widths show the swatch only, with the
-  colour name as accessible name and tooltip (`title`): names beside the
-  swatches wrapped the 360px desktop panel's row to three lines.
-  Green is chosen when draw mode opens.
-- While draw mode is on, the board takes no moves (empty dests): a tap
-  chooses a square. First tap: `board-selected` on that square and the live
-  region says "From e4". Second tap: a different square toggles an arrow, the
-  same square toggles a circle, in the chosen colour; the same mark in
-  another colour is recoloured. Each change saves at once (`setMarks`).
-- At the chapter root draw is disabled, with the hint "Choose a move first:
-  marks belong to a move".
-- With a mouse, right-drag draws in builder mode whether or not draw mode is
-  on (chessground's modifier colours); the result saves the same way.
+- **Draw mode:** the builder row becomes four 44x44 swatches (green, red,
+  yellow, blue; an inset 1px `border-strong` ring, 3.55:1 on the dark panel;
+  the chosen one a 2px `fg` ring and a check) and **Done**; the hint sits
+  under them in a `sunken` box. At the chapter root Draw is unavailable
+  (`aria-disabled`, half faded) and says "Choose a move first: marks belong
+  to a move".
+- Adding, removing, the inline remove confirmation, chapter rename and
+  delete (a built chapter is titled by R-104), the comment field and the
+  stale message behave as in S3 (states table below).
 
-### Desktop, 1280px (both modes)
+### Desktop, 1280px
 
 ```
 +------------------------------------------------------------------------------+
-|  < My repertoires                                                            |  TEXT_LINK
-|  London System  [Rename] [Download PGN] [Add from PGN] [Delete]   [Edit o ]  |  h1 text-3xl;
-+------------------------------------------------------------------------------+  actions wrap
-|                                                                              |
-|  +------------------------------------------+  +--------------------------+  |
-|  |                                          |  | [Move      ][>][|<][<][>] |  |  board row
-|  |                                          |  | [Remove move] [Draw]     |  |  builder only
-|  |                                          |  | (status line)            |  |
-|  |                                          |  | Chapter 1 of 2       [^] |  |  open by default;
-|  |                                          |  |  > London System: 2..Nf6 |  |  max 5 rows tall,
-|  |              B O A R D                   |  |    King's Indian Attack  |  |  scrolls inside
-|  |   min(100dvh - header - 2*32,            |  |--------------------------|  |
-|  |       100vw - panel - 3*32)              |  | COMMENT                  |  |
-|  |   = 664px at 1280 x 800                  |  | Solid: ...e6 and ...c5.  |  |
-|  |                                          |  | [lock] MY NOTE           |  |
-|  |                                          |  | [______________________] |  |
-|  |                                          |  | [ Save note ]            |  |
-|  |                                          |  |--------------------------|  |
-|  |                                          |  | 1. d4 d5 2. Bf4 Nf6      |  |  move list: at most
-|  |                                          |  | 3. e3 [e6] 4. Nf3 c5     |  |  50dvh, scrolls
-|  |                                          |  | |  3... c5 4. c3 Nc6     |  |  inside, current
-|  |                                          |  |--------------------------|  |  move kept in view
-|  +------------------------------------------+  | Assign / Share ...       |  |  the rest follows;
-|    board: sticky top-8                         | (as tall as its content) |  |  the page scrolls,
-|                                                +--------------------------+  |  not the panel
-|    <---------------- 664 ----------------->  32  <---- panel 360 ----->      |
+|  MyChess          Today  Repertoires  Opponents                       (GN)  |
++------------------------------------------------------------------------------+
+|  +------------------------------------------+  +--------------------------+ |
+|  |                                          |  | [<]          Edit[o ] [:] | | header: the card's
+|  |                                          |  | Sicilijos gynyba,         | | first rows, top level
+|  |                                          |  | Taimanovo variantas       | | with the board's top;
+|  |                                          |  | [Move     ][>][|<][<][>]  | | the name text-xl,
+|  |              B O A R D                   |  | 5... Qc7 Perejimas ...    | | its own row, in full
+|  |   min(100dvh - 3rem - chrome, 46rem,     |  | 16% learned [Review 51]   | | comment strip, then
+|  |       100vw - panel - 6rem)              |  | Ch 1/6 · Sicilian ...   v | | the summary row
+|  |   = 696px at 1280 x 800                  |  | 1.  e4       c5           | |
+|  |   sticky                                 |  | 2.  Nf3      e6           | |
+|  |                                          |  | 7.  Qd2                   | | variation inline,
+|  |                                          |  |  | 7. Qf3 Ne5 8. Qg3      | | border-l
+|  |                                          |  | 7.  ...      Nf6          | | main line resumes
+|  +------------------------------------------+  | [I know this v]           | |
+|                                                +--------------------------+ |
+|    <---------------- 696 ----------------->  32  <---- panel 360 ----->     |
 +------------------------------------------------------------------------------+
 ```
 
-- Board and panel are centred as one block (1056px at 1280); gutters
-  `gutter-wide`; the board has `rounded-board`. The panel (`w-panel`,
-  `bg-surface`, `rounded-card`, `shadow-card`) is as tall as its content
-  and scrolls with the page, not inside a box of the board's height (#331):
-  a box inside the page made two scrollbars and hid the panel's lower
-  sections (assign, share) behind an inner scroll. The board is
-  `sticky top-8`, so it stays in view beside the panel however far the page
-  scrolls. Only the chapter list (5 rows at most) and the move list (at
-  most `50dvh`) scroll inside the panel.
-- **Header:** the back link, then the name (h1) with the four actions as
-  `SECONDARY_BUTTON`s that wrap under the name when LT labels do not fit,
-  and the mode switch at the right end. Rename turns the h1 into a name
-  field with Save and Cancel, in place. Delete opens its two-step
-  confirmation under the header row (below).
-- The board row heads the panel, so the typed-move field follows the board
-  in tab order at both widths (plan Task 11).
-- The panel's order is the same at both widths, and the DOM follows it:
-  status line, chapter disclosure, comment and note, move list. (The first
-  draft put the move list above the comment on desktop with CSS `order`,
-  which made Tab reach the comment before the moves, WCAG 2.4.3.) On
-  desktop the move list is its own scroller (at least `min-h-40`, at most
-  `max-h-[50dvh]`), so stepping through a long chapter scrolls the moves
-  and the comment above them stays in view; the sections under the list
-  follow it down the page.
-- Draw mode on desktop: the builder row becomes the four colours, then
-  Done; the hint is the first line under it.
-- **640-1024px:** the panel moves under the board as on the phone; the board
-  is capped at the viewport height minus the top bar.
+- **Grid** (`REPERTOIRE_GRID`): the board spans both rows on the left; the
+  header and the panel are the right column's two rows on one card
+  (`PanelCard`, `surface`, `shadow-card`), so the header's top is level
+  with the board's (both at 80px at 1280 x 800). The header is back, Edit
+  and More on one row, then the name on its own full-width row (`text-xl`,
+  never clamped). The name is placed after Edit and More by CSS order
+  (`lg:order-last`) while it comes after back in the page order; it is a
+  heading, not focusable, so Tab order still follows the screen. The board is
+  `min(100dvh - 3rem - shell chrome, 46rem, 100vw - panel - 6rem)`: 696px
+  at 1280 x 800, 736px (the cap) at 1440 x 900, 568px at 1024 x 768, where
+  the page does not scroll sideways.
+- **The card stretches to the board's height** when the panel is shorter
+  (an empty repertoire, a short chapter) and grows with the panel when it
+  is longer; the page scrolls, the board stays sticky beside it. One block
+  of equal height reads calmer than a short card floating by a tall board.
+- **Panel order, every width, one DOM order:** board row, builder row,
+  status line, comment strip, then the scroller (summary row, status strip,
+  lead, chapter line, moves, Train here, notes). The desktop move list
+  scrolls in its own box (at most `50dvh`), so the comment strip above it
+  stays in view while stepping.
+- **640-1023px:** the phone layout (Board height above).
 
 ### The move list
 
 ```
-1. d4  d5  2. Bf4  Nf6  3. e3  [e6]  4. Nf3  c5
-|  3... c5  4. c3  Nc6
-|  |  4... Qb6  5. Qb3
-4... Nc6  5. c3
+ 1.   e4        c5
+ ...
+ 7.   Qd2
+  | 7. Qf3  Ne5  8. Qg3
+  |  | 8. Qe2  Nf6
+  | 8... h5
+ 7.   ...       Nf6
+ 8.   O-O-O     Bb4
 ```
 
-- The chapter's tree (`chapterTree`): the main line (R-79: the first move
-  added at each position) flows as inline chips; each variation is its own
-  indented block (`pl-3`, `border-l border-border`) starting with its move
-  number (`3...` for a Black move). Indentation stops growing after 3 levels
-  (depth may reach 64); deeper levels keep the 3-level indent and their move
-  numbers show where they are.
-- Every move is a button chip: `min-h-touch min-w-touch`, `rounded-control`,
-  `px-2`, `text-base`, `tabular-nums`. Move numbers are plain text in
-  `fg-muted`. **Own-side moves** (the repertoire's Answers) are `font-semibold`,
-  opponent moves regular, so the player's choices read at a glance.
-- **Current move:** `bg-accent text-accent-fg`, `aria-current="true"`, and
-  scrolled into view (`block: 'nearest'`) after every step.
-- A move with a comment shows a small comment glyph after the SAN; a move
-  with the player's personal note shows a lock glyph. Both are `aria-hidden`
-  with the meaning in the chip's accessible name ("6. Be2, has a comment").
-- **Transposition** (#331): a move that lands on a position the chapter
-  goes on from elsewhere ends its line there and shows two opposite arrows
-  (12px, `currentColor`) after the SAN, first of the glyphs; its accessible
-  name adds "transposes" ("4... Bc5, transposes"). The arrows say "the line
-  goes on where this position was shown already"; sighted players get the
-  same words from the chip's `title` (open, see the sign-off of 2026-11-17).
-- The moves are plain buttons in reading order and Tab walks them; each
-  variation block is a `<div>` with no extra role. It is not an ARIA tree
-  widget (that would take the moves out of the Tab order and needs more
-  than S3 needs).
+- Numbered, two columns: number, White's move, Black's move. A line that
+  starts with Black's move shows "n. ..." in White's column. Moves are
+  numbered from the chapter root (a position key has no move counter, Q27).
+- **Variations** are indented with the left rule (`border-l border-border`)
+  and written inline, each move its own chip; the main line resumes in the
+  columns after them. Indentation stops growing after three levels.
+- **Chips:** compact (28px) from `lg`, `min-h-touch` on a phone; own-side
+  moves (Answers) semibold; the current chip `bg-accent text-accent-fg`,
+  `aria-current`; a comment glyph, a lock (own note) or pen (coach's note)
+  glyph, `aria-hidden`, with the meaning in the accessible name ("5... Qc7,
+  has a comment"); a transposition's two arrows and "transposes".
+- **Selecting a move scrolls only the panel** (`block: 'nearest'` on the
+  panel's scroller), never the page; on a phone the pinned comment strip
+  stays in view.
 - Empty chapter: "No moves yet" (browse) or "Play the first move on the
-  board" (builder), `fg-muted`.
+  board" (builder).
 
 ### The promotion choice
 
-```
-+--------------------------------------+
-| Promote to:                          |  replaces the board row (phone)
-| [ Q ] [ R ] [ B ] [ N ]   [ Cancel ] |  or the panel's board row
-+--------------------------------------+  (desktop): always in view
-```
-
-- Four 56x56 buttons with the cburnett piece image of the moving side and the
-  piece name as the accessible name; a `role="group"` labelled "Promote to".
-  Focus moves to the queen; Escape or Cancel puts the pawn back and returns
-  focus to the board. Nothing appears over the promotion square.
-
-### Deleting the repertoire
-
-```
-| Delete London System? Its chapters, moves, comments and your  |
-| notes on it are deleted. This cannot be undone.               |
-| [ Delete for good ]   [ Cancel ]                              |
-```
-
-- Two steps without typing the name (plan decision 18). Inline: under the
-  header row on desktop, in place of the repertoire section's buttons on the
-  phone. Focus moves to Cancel; [ Delete for good ] is `DANGER_BUTTON`;
-  success goes to `/repertuarai`, whose status line says the repertoire was
-  deleted.
+Four 56x56 piece buttons and Cancel replace the board row (both widths),
+`role="group"` "Promote to"; focus to the queen; Escape cancels. Nothing
+over the board.
 
 ### States
 
 | State | Board | Panel |
 | --- | --- | --- |
-| **Loading** (`loading.tsx`) | the real board frame with `board-light`/`board-dark` squares and no pieces, not focusable | top bar with a skeleton name; skeleton lines (`bg-sunken`) for the chapter row, comment and move list; after about 1s one "Loading" line (`text-sm fg-muted`), revealed by CSS (`animate-reveal-late`) so a first, server-streamed load shows it too; the live region gets the text from the client timer |
-| **Not found** (another account's id, a bad id) | none | the app's 404 page: "This repertoire does not exist or is not yours" and a link to My repertoires. Same text for both cases (plan decision 12) |
-| **Empty repertoire** (no chapters; opens in builder) | start position, movable in builder mode | "Play the first move on the board, or add games from PGN." with [ Add games from PGN ] (`SECONDARY_BUTTON`). The first move played creates "Chapter 1" on its own (R-111) and saves the move in it; the chapter disclosure then appears with that chapter selected. Draw and remove are hidden until there is a move. Browse mode shows "This repertoire has no moves yet" and offers "Switch to builder" |
-| **Empty chapter** | start position (or the chapter root) | browse: "No moves yet"; builder: "Play the first move on the board" |
-| **Saving** | not movable, piece on its target square | after about 1s, "Saving" in the status line (`info`) |
-| **Saved** | new position, last move highlighted | the move list shows the move as current; no message for a move; "Saved" for a comment, note or rename; "Removed" for a removal |
-| **Refusal** (illegal move, second Answer, name too long, ...) | piece goes back (`reset`) | the status line in `error` with the catalogue text; the board keeps focus |
-| **Not in the repertoire** (browse: a move the chapter does not have) | piece goes back | status line, `info` tone: "This move is not in the chapter. Switch to builder to add it." |
-| **Stale version** (`repertoire.stale`: changed in another tab) | not movable | status line in `error`: "This repertoire changed in another window. Reload to see the latest version." with [ Reload ] (`SECONDARY_BUTTON`) inside the line. Every edit control (builder row, comment save, chapter actions) is disabled until reload; browsing and the personal note stay usable. Focus moves to [ Reload ] |
-| **Failed request** (network, server) | as before the action | status line in `error` with "Try again"; nothing is lost from the field being edited |
+| **Loading** (`loading.tsx`, the same grid) | the board frame, squares and no pieces | skeleton header and lines (`sunken`); after about 1s "Loading" (`animate-reveal-late`) |
+| **Not found** | none | the 404: "This repertoire does not exist or is not yours", one text for both cases |
+| **Empty repertoire** | start position, movable in builder | the empty message and Add from PGN (above) |
+| **Empty chapter** | the chapter root | "No moves yet" / "Play the first move on the board" |
+| **Saving** | not movable | after about 1s "Saving" in the status line |
+| **Refusal** | piece goes back | the status line in `error`; the board keeps focus |
+| **Not in the repertoire** (browse) | piece goes back | "This move is not in the chapter. Turn on Edit to add it." |
+| **Stale version** | not movable | the status line with Reload; edit controls disabled; focus to Reload |
+| **Paused** (assigned) | as browse | the Paused pill in the status strip; no Review or Learn |
+| **Failed request** | as before | "That did not work. Try again."; the field keeps its text |
 
 ### Keyboard and screen readers
 
-Tab order follows the visual order at both widths:
+- **One order at every width** (the DOM order is the visual order, WCAG
+  2.4.3): [the shell's links on a desktop], back, Edit, More, board, move
+  field, submit, start, back, forward, [builder row], [status action],
+  comment strip's More, Review, Learn (or the coach's Progress), chapter
+  line, moves, Train here, note.
+- The board is one tab stop (`role="application"`, "Chess board, <name>,
+  <chapter>"): arrows move the `board-focus` cursor, Enter or Space picks up
+  and drops, Escape cancels; announcements as in `training-screen.md`.
+  Focus moves only to an inline confirmation's Cancel, the promotion queen,
+  Reload, and back to a disclosure's trigger when it closes.
+- Every focusable shows the 2px `focus` outline.
 
-- **Phone:** back, mode switch, board, move field, submit, start, back,
-  forward, [builder row], panel top to bottom.
-- **Desktop:** back link, rename, download, add from PGN, delete, mode
-  switch, board, move field, submit, start, back, forward, [builder row],
-  status line action (Reload, when stale), chapter disclosure and list,
-  comment, note, move list. The status line is only focusable when it holds
-  a button, and focus moves to that button when it appears.
+## 3. The Repertoire screen (`/repertoires/[id]/manage`, `/repertoires/assigned/[id]/manage`)
 
-The board itself:
+Opened from the page's More button (R-226). A page under the repertoire:
+`PageHeader` (back to the repertoire, the name as h1, wrapping in full),
+one column in `CONTENT`, sections as `SECTION` cards from `sm` (rules
+between them on a phone).
 
-- **One tab stop** (`role="application"`, accessible name "Chess board,
-  {repertoire name}, {chapter title}"). Arrow keys move the cursor
-  (`board-focus`, inset 3px), relative to the board's orientation; Enter or
-  Space picks up the piece under the cursor and, on a legal square, drops
-  it; Escape cancels the pick-up (and, in draw mode, the first square).
-- **The cursor is the board's focus indicator:** it shows whenever the board
-  has keyboard focus and hides when focus leaves; on desktop the board host
-  also gets the global 2px `focus` outline. On the full-width phone board
-  the outline would be clipped, so the cursor alone marks focus there.
-- **In draw mode** Enter or Space on a square is a tap: the same two-step
-  arrow and circle choice as touch.
-- **Announcements** (one polite live region for the board, the status line
-  for outcomes): the cursor square and its piece ("e4, white knight"); after
-  each step, the move with its number ("6. Be2") and, at a line end, "end of
-  line"; in draw mode "From e4", then "Arrow e4 to e6, green, added" or
-  "removed". Refusals are read from the status line.
-- **Focus never jumps after a move or a step;** it stays where the action
-  was. It moves only to: an inline confirmation (its Cancel), the promotion
-  choice (the queen), the stale message (Reload), and back to the trigger
-  when a disclosure, rename or confirmation closes.
-- Inline forms (rename, comment, note) submit with Enter in a single-line
-  field; the comment and note textareas use their Save button (Ctrl/Cmd +
-  Enter also saves).
+### Phone, 390px, own repertoire (a coach's, assigned)
 
-## 3. PGN import (`/repertuarai/importuoti`)
+```
++--------------------------------------+
+| [<] Karo-Kan gynyba:            (RV) |
+|     pagrindai                        |
+|--------------------------------------|
+| Repertoire                           |  SECTION_TITLE
+| [Rename] [Download PGN]              |  SECONDARY, wrap
+| [Add from PGN]                       |
+|--------------------------------------|
+| Share with a coach                   |  players' own repertoires:
+| The coaches you tick see ...         |  checkboxes, Save, status as
+| [x] Rimantas Vaitkus                 |  plain text ("Shared with 1
+| [Save]   Shared with 1 coach         |  coach")
+|--------------------------------------|
+| Assigned to                          |  coach: one row per assignment
+| Sestadienio grupe                    |  a group: its name semibold,
+| 3 players · due Dec 20     [Change]  |  one Change (deadline / clear /
+|  | Dovydas Jankauskas                |  unassign inline, for the group);
+|  | ===========-------                |  its members' progress rows under
+|  | New · 43 moves                    |  it, border-l; a fork: Own copy,
+|  | Gabija Navickaite ...             |  no % (R-155)
+| Rokas Petrauskas                     |  a single player: name, bar and
+| ======------  12% learned  [Change]  |  line (R-177), Change
+| Assign to players                    |  text-base semibold subheading;
+|                                      |  the assign form under the rows
+| Assign to [Choose a player or a gr v]|
+| Deadline (optional) [mm/dd/yyyy]     |
+| [Assign]                             |
+|--------------------------------------|  DANGER_SECTION: error rule /
+| Delete repertoire                    |  edge, error-tone title
+| [Delete]                             |  two steps, inline
++--------------------------------------+
+```
 
-One column of steps on one page, no board. Each finished step collapses to a
-one-line summary with a "Change" button, so the page stays short. Opened
-from a repertoire (`?i=<id>`), the side is fixed to that repertoire's and
-"Add to {name}" is preselected in step 3.
+### Phone, 390px, assigned repertoire
+
+```
+| [<] Karo-Kan gynyba: pagrindai       |
+| Pause                                |  each section: title, one muted
+| Stops new moves and reviews from     |  line saying what it does, the
+| this repertoire until you resume.    |  button
+| [Pause]                              |  Resume when paused
+| Download PGN                         |
+| Your coach's moves and comments ...  |
+| [Download PGN]                       |
+| Make my own copy                     |
+| A copy you can change; your          |
+| progress comes with it.              |
+| [Make my own copy]                   |  ?fork=1 opens the question:
+|  Make your own copy of "..."? ...    |  [Make my copy] PRIMARY,
+|  [Make my copy] [Cancel]             |  [Cancel] SECONDARY
+```
+
+### Desktop, 1280px
+
+The same sections as cards in `CONTENT` (1040px); an assignment row puts
+the name (a group: its name, then "N players · due <date>") on the left and
+**Change** on the right; a player's bar and its line sit on the right of
+the player's row.
+
+- **Delete:** the confirmation, "Delete <name>? Its chapters, moves,
+  comments and your notes on it will be deleted. This cannot be undone.",
+  with **Delete permanently** (`DANGER_BUTTON`) and Cancel, inline in the
+  danger section; focus to Cancel; success lands on My repertoires with its
+  status line.
+- Outcomes and refusals use the screen's `StatusLine`.
+- **Group assignments** are one row with one **Change**, whose inline form
+  changes the whole group, and the members' progress rows under it
+  (resolved after the 2026-11-26 sign-off).
+
+## 4. PGN import (`/repertoires/import`)
+
+One column of numbered steps, no board. A finished step collapses to one
+line with **Change**. Opened from a repertoire (`?i=<id>`), the side is
+fixed and "Add to <name>" is preselected.
 
 ### Phone, 390px
 
 ```
 +--------------------------------------+
-| < My repertoires                     |  TEXT_LINK
-| Import PGN                           |  h1 text-2xl
-| Up to 2 MB and 200 games.            |  intro, fg-muted: the limits
-+--------------------------------------+  are stated before the upload
-| 1  File and side                     |  SECTION_TITLE with step number
-|  +--------------------------------+  |
-|  |  [ Choose PGN file ]           |  |  file input styled as a dashed
-|  |  or drop it here (desktop)     |  |  border-border-strong zone,
-|  +--------------------------------+  |  rounded-card, min-h 96px;
-|  taimanov.pgn · 84 KB                |  chosen file name and size
-|  Side                                |
-|  [ (o) White ]  [ ( ) Black ]        |  radio cards (LanguageField)
-|  [ Show what is inside ]             |  PRIMARY_BUTTON, full width
-|  (status line)                       |
+| [<] Import PGN                  (GN) |
+| Up to 2 MB and 200 games.            |
+|--------------------------------------|
+| 1 PGN and side                       |  step 1 open
+|  +- - - - - - - - - - - - - - - - +  |  dashed border-strong zone
+|  |      [ Choose PGN file ]       |  |
+|  +- - - - - - - - - - - - - - - - +  |
+|  Or paste PGN [__________________]   |
+|  Side [(o) White] [( ) Black]        |
+|  [       Show what is inside       ] |  PRIMARY, full width
 +--------------------------------------+
 ```
 
 After the preview:
 
 ```
+| 1 taimanov.pgn · Black     [Change]  |  collapsed
+|--------------------------------------|
+| 2 What the file holds                |  focus to this heading
+| 6 chapters · 13 lines · 123 moves ·  |  one plain fg-muted line
+| 1 transposition                      |  (no tiles, no positions)
+| Chapters                             |
+|  1. Sicilian Defense: Taimanov ...   |  full titles (R-158)
+| [ All 6 games are valid ]            |  success-subtle; or Skipped
+|--------------------------------------|  games (N) in error-subtle
+| 3 Where to                           |
+| ((o) New repertoire                 )|  radio cards
+|     Name [persona-taimanov       ]   |  prefilled (below)
+| (( ) Add to an existing one         )|
+|     Repertoire [Sicilijos ...     v] |
+|     Adds 2 chapters and 41 moves to  |
+|     Sicilijos gynyba, ...            |
 +--------------------------------------+
-| 1  taimanov.pgn · Black   [ Change ] |  collapsed step 1
+| [             Import               ] |  sticky bar (phone only)
 +--------------------------------------+
-| 2  What the file holds               |  focus moves to this heading
-|  +-------------+ +-------------+     |  counts: 2-column grid of
-|  |      6      | |     6       |     |  tiles, number text-2xl
-|  |  chapters   | |   lines     |     |  tabular-nums, label text-sm
-|  +-------------+ +-------------+     |  fg-muted; bg-sunken,
-|  +-------------+ +-------------+     |  rounded-card
-|  |     88      | |     3       |     |
-|  |  positions  | |transpositions|    |  label may wrap to 2 lines
-|  +-------------+ +-------------+     |
-|  +-------------+                     |
-|  |    233      |                     |
-|  |   moves     |                     |
-|  +-------------+                     |
-|                                      |
-|  Chapters                            |  h3 text-base semibold
-|  1. Sicilian, Taimanov: 5.Nc3        |  ordered list, names wrap
-|  2. Sicilian, Taimanov: 5.Nb5        |
-|  ...                                 |
-|                                      |
-|  Skipped games (1)                   |  h3; the list sits in an
-|  +--------------------------------+  |  error-subtle box with an
-|  | (!) Game 7: illegal move       |  |  icon, rounded-card, p-3
-|  |     12...Nxe4                  |  |
-|  +--------------------------------+  |
-+--------------------------------------+
-| 3  Where to                          |
-|  ( ) New repertoire                  |  radio cards, full width
-|      Name [_____________________]    |  field shows under the choice
-|  (o) Add to an existing one          |
-|      [ Sicilian, Taimanov      v ]   |  native select, min-h-touch
-|      Adds 2 chapters and 41 moves    |  the merge's `added`, fg
-|      to Sicilian, Taimanov.          |
-+--------------------------------------+
-| [ Import ]                           |  sticky bottom bar on the phone
-+--------------------------------------+  (thumb zone, safe-area inset)
 ```
-
-- **Step 1:** the file input accepts `.pgn`, `application/x-chess-pgn` and
-  `text/plain`; the visible control is a real `<input type="file">` with a
-  styled label, so it is keyboard and screen-reader native. A file over 2 MB
-  is refused at once, before any upload, in the step's status line.
-- **Step 2, the summary:** the five counts from `summarize`, the chapter
-  names (translated: an untitled chapter shows "Chapter N"), and the
-  skipped games (R-64) as "Game {n}: {reason}", with the move when the
-  reason has one. When nothing was skipped: one `success` line, "All 6 games
-  are valid". More than 10 skipped games: the first 10 and a "Show all {n}"
-  disclosure.
-- **Renamed chapters (R-159):** when a merge gives an existing chapter a
-  namesake, a block after the chapter list names each one: an h3 (same
-  `text-base font-semibold` as "Chapters") over a bulleted list, one item
-  per chapter, old title and new in one sentence from the catalogue. Plain
-  `fg` text, no box: it is information, not a warning. Both titles wrap in
-  full, never clamped (R-158); the distinguishing suffix at the end of the
-  new title must show at 390px. No interactive content, so it adds no tab
-  stop. Hidden when nothing is renamed.
-- **Step 3, the target:** "New repertoire" with a name field (empty), or
-  "Add to an existing one" with a select of the account's repertoires of
-  the chosen side. With none of that side, that option is disabled and says
-  "You have no {side} repertoire yet". Choosing an existing repertoire
-  re-runs the preview against it: the summary tiles, chapters and skipped
-  list (now with second Answers against it, R-54) are replaced by the merged
-  ones, and the "Adds N chapters and M moves to {name}" line appears. While
-  it re-runs, step 2 is dimmed (`opacity-60`, `aria-busy="true"`) and the
-  status line says "Updating".
-- **Confirm:** [ Import ] (`PRIMARY_BUTTON`), disabled while a preview or the
-  import runs, keeps its label (no spinner swap); after about 1s the status
-  line says "Importing". Success opens the repertoire in browse mode on its
-  first new chapter.
-- **Sticky bar (phone only):** once step 2 shows, [ Import ] sits in a
-  bottom bar (`bg-surface`, `shadow-sheet`, `px-gutter`, safe-area inset)
-  so it is reachable without scrolling the summary. It is last in the DOM,
-  after step 3, which is also where it sits in reading order.
 
 ### Desktop, 1280px
 
 ```
-+------------------------------------------------------------------------------+
-|   < My repertoires                                                           |
-|   Import PGN                                           max-w-5xl, centred    |
-|   Up to 2 MB and 200 games.                                                  |
-|                                                                              |
-|   1  taimanov.pgn · Black                                   [ Change ]       |
-|                                                                              |
-|   +--------------------------------------------+  +----------------------+  |
-|   | 2  What the file holds                     |  | 3  Where to          |  |
-|   | [ 6 ] [ 6 ] [ 88 ] [ 3 ] [ 233 ]           |  | ( ) New repertoire   |  |
-|   |  chapters lines positions transp. moves    |  |     Name [_______]   |  |
-|   |                                            |  | (o) Add to existing  |  |
-|   | Chapters                                   |  |     [ Taimanov  v ]  |  |
-|   | 1. Sicilian, Taimanov: 5.Nc3               |  |     Adds 2 chapters  |  |
-|   | ...                                        |  |     and 41 moves     |  |
-|   |                                            |  |                      |  |
-|   | Skipped games (1)                          |  | [ Import ]           |  |
-|   | (!) Game 7: illegal move 12...Nxe4         |  | (status line)        |  |
-|   +--------------------------------------------+  +----------------------+  |
-|                                                    w-panel, sticky top-8      |
-+------------------------------------------------------------------------------+
+|  [<] Import PGN                                                       |
+|  Up to 2 MB and 200 games.                                            |
+|  1 taimanov.pgn · Black                                    [Change]   |
+|  +------------------------------------------+ +---------------------+ |
+|  | 2 What the file holds                    | | 3 Where to          | |
+|  | 6 chapters · 13 lines · 123 moves · ...  | | (o) New repertoire  | |
+|  | Chapters                                 | |     Name [_______]  | |
+|  |  1. ...                                  | | ( ) Add to existing | |
+|  | [All 6 games are valid]                  | | [      Import     ] | |
+|  +------------------------------------------+ +---------------------+ |
 ```
 
-- Step 1 alone (before the preview) is a single `SECTION` card,
-  `max-w-2xl`. After the preview, the summary is the wide left card and the
-  target with Import is the right `w-panel` card, sticky so Import stays in
-  view; no bottom bar. The five count tiles sit in one row (`grid-cols-5`);
-  the labels may wrap to two lines in LT.
+- **Stats:** one plain line, "6 chapters · 13 lines · 123 moves · 1
+  transposition"; a zero count is left out.
+- **Name prefill:** the Event tag when every game shares one (blank or "?"
+  is none), else the file name without its extension, cut to the name
+  maximum; it replaces the field only while the field still holds the last
+  suggestion, so a typed name is never overwritten.
+- **Add to an existing one:** step 2 shows the merged summary against the
+  chosen repertoire: its list is headed **Chapters it adds** (only the new
+  ones, full titles) instead of Chapters, then skipped games with second
+  answers (R-54); step 3 says "Adds N chapters and M moves to <name>". When
+  nothing would be added, an `error-subtle` line says "Nothing new to add
+  from this file: ..." and Import is disabled.
+- **Disabled primary:** `fg-muted` on `sunken` at full opacity (5.34:1
+  light, 7.66:1 dark), `cursor-not-allowed`: it reads as off, and a pending
+  label ("Importing") keeps 4.5:1.
+- Kept from S3: side detection (R-214: "Most games were skipped as second
+  answers. Did you mean Black?" with Preview as Black), the sticky Import bar
+  on a phone, renamed chapters (R-159), annotations added to existing moves,
+  "Show all N" past ten items.
 
 ### States and refusals
 
 | State | Shown |
 | --- | --- |
-| **Loading** (page) | header and the step 1 card skeleton |
-| **Reading / previewing** | the step 1 button disabled, its label kept; after about 1s "Reading the file" in the status line |
-| **Refused file** | step 1 stays open, the file stays chosen, the status line in `error` names the limit: "The file is larger than 2 MB", "The file has more than 200 games", "Variations are nested deeper than 64", "No valid game was found in the file". Focus stays on the button; the status line is announced |
-| **Nothing of the side** | the "Add to existing" option disabled with its reason (step 3) |
-| **Stale target** (`repertoire.stale` at confirm: the repertoire changed since the preview) | status line in `error` with [ Preview again ], which re-runs the preview against the current version |
-| **Side looks wrong** (#364, R-214: most games lost second answers, the other side would lose fewer) | at the top of step 2, under its heading, a `sunken` box: "Most games were skipped as second answers. Did you mean Black?" with [ Preview as Black ], which previews the file again as that side into a new repertoire. Opened from a repertoire (side fixed), the box has no button |
-| **Not found / side mismatch** | status line in `error` with the catalogue text; the target select is reset |
-| **Done** | navigation to the repertoire; no extra screen |
+| **Reading / previewing** | the step's button disabled, its label kept; after about 1s "Reading the file" |
+| **Refused file** | step 1 stays open, the file stays chosen, the status line names the limit (2 MB, 200 games, nesting 64, no valid game) |
+| **Nothing of the side** | "Add to an existing one" disabled with its reason |
+| **Nothing to add** | the `error-subtle` line; Import disabled |
+| **Updating** (target changed) | step 2 dimmed, `aria-busy`, "Updating" |
+| **Stale target** | the status line with Preview again |
+| **Done** | the repertoire opens on its first new chapter |
 
 ### Keyboard and screen readers
 
-- Tab order is the visual order: step 1 (file, side, submit), then step 2's
-  disclosure (if any), then step 3 (choice, name or select), then Import.
-- After a preview, focus moves to the step 2 heading so the summary is read
-  next; after "Change", focus moves to the file input.
-- Each count tile is one text run ("6 chapters"), not a number and a
-  separate label, so it reads correctly.
+- Tab order is the visual order: step 1 (file, paste, side, submit), step
+  2's disclosures, step 3 (choice, name or select), Import.
+- After a preview focus moves to the step 2 heading; after Change, to the
+  file input. The stats line is one text run.
 
 ## Board styling (all screens with a board)
 
@@ -680,7 +619,7 @@ selectors with tokens (plan Task 13):
 | Legal destination (dot), capture (ring) | `square.move-dest`, `square.move-dest.oc` | `board-target` |
 | King in check | `square.check` | `board-check` |
 | Keyboard cursor | `square.cursor` (`highlight.custom`) | `board-focus`, inset 3px |
-| Coordinates | `coords` | opposite square colour, `text-xs` |
+| Coordinates | `coords` (`coord-light` / `coord-dark`) | `board-coord-on-light` (`#7a5232`) / `board-coord-on-dark` (`#ffffff`), bold, 0.75rem, 0.875rem from `lg` |
 | Arrows and circles: green, red, yellow, blue | `drawable.brushes` `g`, `r`, `y`, `b` | `board-mark-green`, `board-mark-red`, `board-mark-yellow`, `board-mark-blue` (to be added, below) |
 
 - **Arrow and circle colours.** Chessground sets the brush colour as an SVG
@@ -740,7 +679,9 @@ at 320px (40px squares, tap-tap still works).
 
 ## Decided at the built-screen review (ux-designer, 2026-10-18)
 
-Design decisions only; no product rule changes.
+Design decisions only; no product rule changes. Superseded by #381 part 4
+(2026-11-26): 3 and 4 (the actions moved to the Repertoire screen,
+R-226) and 5 (the Edit switch shows its word at every width).
 
 1. **Panel order** is one DOM order at both widths (desktop section above).
 2. **Status line** sits under the board row and the builder row, outside the

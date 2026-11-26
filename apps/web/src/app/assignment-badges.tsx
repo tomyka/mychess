@@ -6,12 +6,16 @@ import type { JSX } from 'react';
  * Each badge in the order it shows, with its colours. Every badge has a
  * border so all are one height; the neutral ones show it, as `sunken` alone
  * is the page colour on a phone. `learned` and `due` stay the progress
- * colours (docs/design/README.md), so "forked" is neutral.
+ * colours (docs/design/README.md), so "forked" and "paused" are neutral:
+ * an outline and muted text, without a fill, which with the strong border
+ * and full text colour made Paused look like a button (#381 part 4).
  */
+const NEUTRAL = 'border-border-strong text-fg-muted';
+
 const BADGES = [
   ['overdue', 'border-transparent bg-error-subtle text-error'],
-  ['paused', 'border-border-strong bg-sunken text-fg'],
-  ['forked', 'border-border-strong text-fg-muted'],
+  ['paused', NEUTRAL],
+  ['forked', NEUTRAL],
   ['updated', 'border-transparent bg-accent text-accent-fg'],
 ] as const;
 

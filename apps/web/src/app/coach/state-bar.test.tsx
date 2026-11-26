@@ -4,7 +4,8 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { MasteredBadge, StateBar, usePercentLearned } from './state-bar';
+import { MasteredBadge } from '../mastered-badge';
+import { StateBar, usePercentLearned } from './state-bar';
 
 const p = MESSAGES.coach.progress;
 

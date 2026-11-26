@@ -8,7 +8,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
-import { deadlineText, groupRows, openChange } from './assignments';
+import { assignmentRow, deadlineText, openChange } from './assignments';
 import { acceptInvite, expectInviteFrom, switchOnCoachMode } from './coaching';
 import {
   format,
@@ -106,9 +106,9 @@ export async function expectPastDeadlineRefused(
   day: string,
 ): Promise<void> {
   const t = messages.assignment.panel;
-  // A group member's row: its "Change for <group>" changes the group's.
-  const row = groupRows(coach, messages, GROUP).first();
-  await openChange(row, messages, GROUP);
+  // The group's one row: its Change changes the group's deadline.
+  const row = assignmentRow(coach, messages, GROUP);
+  await openChange(row, messages);
   await row.getByLabel(t.newDeadline, { exact: true }).fill(day);
   await row.getByRole('button', { name: t.changeDeadline }).click();
   await expect(

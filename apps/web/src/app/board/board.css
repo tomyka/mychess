@@ -61,13 +61,20 @@
    phone's full-bleed board does not clip them (base.css puts the ranks at
    the a-file edge, which its own colour classes do not assume). Chessground
    gives each label `coord-light` or `coord-dark` for the square it sits on;
-   the text takes the opposite square colour. */
+   the text takes that square's coordinate colour, 3:1 on it (tokens.css).
+   From lg (64rem) the board is larger, and so are its coordinates. */
 .cg-wrap coords {
   font-family: var(--font-sans);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1;
   opacity: 1;
+}
+
+@media (width >= 64rem) {
+  .cg-wrap coords {
+    font-size: 0.875rem;
+  }
 }
 
 .cg-wrap coords.ranks {
@@ -89,6 +96,9 @@
   height: auto;
   align-items: flex-end;
   text-align: left;
+  /* Lower case, as notation writes files: chessground's upper-case "B"
+     reads as a bishop. */
+  text-transform: none;
 }
 
 .cg-wrap coords.files coord {
@@ -97,11 +107,11 @@
 }
 
 .cg-wrap coords coord.coord-light {
-  color: var(--color-board-dark);
+  color: var(--color-board-coord-on-light);
 }
 
 .cg-wrap coords coord.coord-dark {
-  color: var(--color-board-light);
+  color: var(--color-board-coord-on-dark);
 }
 
 /* Arrows and circles at their tokens' own colours: base.css draws the shapes

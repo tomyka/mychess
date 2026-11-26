@@ -48,62 +48,72 @@ function ForkLink({ id }: { readonly id: string }): JSX.Element {
   );
 }
 
-/**
- * The header (spec, Header): back to Repertoires, the name and More, then
- * the summary line and the status strip: who assigned it, its deadline and
- * badges.
- */
+/** The header (spec, Header): back to Repertoires, the name and More. */
 function AssignedTopBar({
   data,
-  standing,
-  training,
-  today,
 }: {
   readonly data: AssignedRepertoirePage;
-  /** The share learned, paused or not (R-222). */
-  readonly standing: Standing | undefined;
-  /** Review and Learn; none while paused (R-46). */
-  readonly training: PanelTraining | undefined;
-  readonly today: string;
 }): JSX.Element {
   const t = useTranslations('nav');
-  const { id, name, side } = data.repertoire;
+  const { id, name } = data.repertoire;
   return (
     <RepertoireTopBar
       back={{ href: ROUTES.repertoires, parent: t('repertoires') }}
       name={name}
       moreHref={assignedManageRoute(id)}
-    >
-      <SummaryLine
-        side={side}
-        chapters={data.graph.chapters.length}
-        standing={standing}
-        training={training}
-        assignment={{
-          coachName: data.coachName,
-          deadline: data.deadline,
-          today,
-          overdue: data.overdue,
-          paused: data.paused,
-        }}
-      />
-    </RepertoireTopBar>
+    />
+  );
+}
+
+/** What the player's training of it adds to the panel. */
+interface AssignedTraining {
+  /** The share learned, paused or not (R-222). */
+  readonly standing: Standing | undefined;
+  /** Review and Learn; none while paused (R-46). */
+  readonly links: PanelTraining | undefined;
+  readonly today: string;
+}
+
+/**
+ * The summary line, first in the panel, and the status strip: who
+ * assigned it, its deadline and badges.
+ */
+function AssignedSummary({
+  data,
+  training,
+}: {
+  readonly data: AssignedRepertoirePage;
+  readonly training: AssignedTraining;
+}): JSX.Element {
+  return (
+    <SummaryLine
+      standing={training.standing}
+      training={training.links}
+      assignment={{
+        coachName: data.coachName,
+        deadline: data.deadline,
+        today: training.today,
+        overdue: data.overdue,
+        paused: data.paused,
+      }}
+    />
   );
 }
 
 /**
- * What the player sees in the panel: what changed since the last visit,
- * the coach's comments as coach notes (R-102) and the player's own note
- * under each (R-21).
+ * What the player sees in the panel: the summary line, what changed since
+ * the last visit, the coach's comments as coach notes (R-102) and the
+ * player's own note under each (R-21).
  */
 function useAssignedPanel(
   data: AssignedRepertoirePage,
   notes: Notes,
-  training: PanelTraining | undefined,
+  training: AssignedTraining,
 ): PanelContent {
   const t = useTranslations();
   return {
-    training,
+    summary: <AssignedSummary data={data} training={training} />,
+    training: training.links,
     lead: (
       <ChangesSummary
         graph={data.graph}
@@ -155,7 +165,11 @@ export function AssignedView({
     training === null || data.paused
       ? undefined
       : { repertoireId: id, ...training };
-  const panel = useAssignedPanel(data, notes, trained);
+  const panel = useAssignedPanel(data, notes, {
+    standing: training?.standing,
+    links: trained,
+    today,
+  });
   useEffect(() => {
     markSeenAction({ repertoireId: id, seenVersion: version }).catch(
       () => undefined,
@@ -163,14 +177,7 @@ export function AssignedView({
   }, [id, version]);
   return (
     <RepertoireShell
-      topBar={
-        <AssignedTopBar
-          data={data}
-          standing={training?.standing}
-          training={trained}
-          today={today}
-        />
-      }
+      topBar={<AssignedTopBar data={data} />}
       name={data.repertoire.name}
       names={data.names}
       view={view}

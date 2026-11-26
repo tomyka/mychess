@@ -107,14 +107,49 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     expect(screen.getByRole('application')).toBeDefined();
   });
 
-  it('links to the player’s progress on this repertoire (S7 decision 7)', () => {
+  it('says read-only under the move list, by the coach note, not above the chapter line (sign-off, fix D)', () => {
     renderView();
-    const header = screen.getByRole('banner');
+    const moves = document.querySelector('[data-moves]');
+    const readOnly = screen.getByText(s.readOnly);
+    if (moves === null) throw new Error('no move list');
     expect(
-      within(header)
+      moves.compareDocumentPosition(readOnly) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    forward();
+    const field = noteField();
+    if (field === null) throw new Error('no coach note');
+    expect(
+      readOnly.compareDocumentPosition(field) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('still says read-only, after the empty message, in a repertoire without chapters', () => {
+    renderView({ ...DATA, graph: { side: 'white', chapters: [], moves: [] } });
+    const empty = screen.getByText(MESSAGES.repertoires.panel.emptyBrowse);
+    const readOnly = screen.getByText(s.readOnly);
+    expect(
+      empty.compareDocumentPosition(readOnly) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('links to the player’s progress on this repertoire, first in the panel (S7 decision 7, sign-off)', () => {
+    renderView();
+    const scroller = document.querySelector<HTMLElement>(
+      '[data-panel-scroller]',
+    );
+    if (scroller === null) throw new Error('no panel');
+    expect(
+      within(scroller)
         .getByRole('link', { name: MESSAGES.coach.progress.title })
         .getAttribute('href'),
     ).toBe(`/coach/players/p-1/progress/${ID}`);
+    // One row above the board: the way back and the name.
+    expect(
+      within(screen.getByRole('banner')).getAllByRole('link'),
+    ).toHaveLength(1);
   });
 
   it('has none of the owner’s controls', () => {

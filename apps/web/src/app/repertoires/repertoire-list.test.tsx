@@ -208,6 +208,17 @@ describe('RepertoireList', () => {
     expect(within(caro).queryByText(badge.overdue)).toBeNull();
   });
 
+  it('draws Paused as a pill like the other badges, not like a button', () => {
+    renderList([], [CARO]);
+    const paused = within(cardOf('Karo-Kan gynyba')).getByText(
+      MESSAGES.assignment.badge.paused,
+    );
+    const forked = 'border-border-strong text-fg-muted'.split(' ');
+    expect([...paused.classList]).toEqual(expect.arrayContaining(forked));
+    expect(paused.classList.contains('bg-sunken')).toBe(false);
+    expect(paused.classList.contains('text-fg')).toBe(false);
+  });
+
   it('puts the badges in the name line, after the name and tag', () => {
     renderList([], [ITALIAN]);
     const italian = cardOf('Itališkoji partija');
@@ -227,7 +238,9 @@ describe('RepertoireList', () => {
   it('says Mastered on a mastered repertoire’s card (R-178)', () => {
     renderList(ITEMS, [], new Map([['r-1', trained(21, 0, 0, true)]]));
     const london = cardOf('Londono sistema');
-    expect(within(london).getByText(MESSAGES.standing.mastered)).toBeDefined();
+    expect(
+      within(london).getByText(MESSAGES.coach.progress.mastered),
+    ).toBeDefined();
     expect(within(london).queryByText(/learned/u)).toBeNull();
   });
 
