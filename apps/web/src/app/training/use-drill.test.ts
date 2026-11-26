@@ -1,8 +1,14 @@
 import { act, renderHook } from '@testing-library/react';
-import { START_KEY } from '@mychess/chess';
+import { START_KEY, startReview } from '@mychess/chess';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TrainingData } from '../../lib/training-data';
-import { answerMarks, startCore, type DrillCore } from './drill-core';
+import {
+  answerMarks,
+  startCore,
+  type DrillCore,
+  type Step,
+} from './drill-core';
+import { NOTHING_MORE } from './done-offer';
 import { drillFrame } from './drill-frame';
 import { FEEDBACK_MS, type DrillClock } from './drill-input';
 import { useDrill, type DrillRules } from './use-drill';
@@ -24,9 +30,14 @@ const data: TrainingData = {
   now: NOW,
 };
 
-/** A drill that asks 1. d4 from the start, forever. */
-const RULES: DrillRules<DrillCore> = {
-  start: ({ day }) => startCore(day.reviews),
+/** A drill's state that a test can end. */
+interface Fake extends DrillCore {
+  readonly finished: boolean;
+}
+
+/** A drill that asks 1. d4 from the start until a test ends it. */
+const RULES: DrillRules<Fake> = {
+  start: ({ day }) => ({ ...startCore(day.reviews), finished: false }),
   frameOf: (s) =>
     drillFrame(
       {
@@ -48,6 +59,8 @@ const RULES: DrillRules<DrillCore> = {
   onward: (s) => s,
   sliding: () => false,
   slid: (s) => s,
+  isDone: (s) => s.finished,
+  offer: ({ due }) => ({ ...NOTHING_MORE, continue: due, learn: true }),
 };
 
 function renderDrill() {
@@ -60,7 +73,13 @@ function renderDrill() {
   };
   const hook = renderHook(() => useDrill(RULES, { data, sync, clock }));
   const drill = () => hook.result.current.drill;
-  return { drill, record };
+  /** Takes `step` through the drill core, as a drill's own step. */
+  const take = (step: (s: Fake) => Step<Fake>): void => {
+    act(() => {
+      hook.result.current.take(step);
+    });
+  };
+  return { drill, record, take };
 }
 
 /** Types `san` into the drill's move field; whether it was taken. */
@@ -150,5 +169,48 @@ describe('the drill core', () => {
     expect(drill().next).toBeNull();
     expect(drill().progress()).toMatchObject({ reviewed: 0, due: 0 });
     expect(drill().standing().kind).toBe('dayDone');
+  });
+});
+
+describe('the drill core once done', () => {
+  const D4_REVIEW = startReview('d4-key', new Date(0));
+
+  it('reports the item by its ids, and offers nothing while the session runs', () => {
+    const { drill } = renderDrill();
+    expect(drill().item).toEqual({
+      repertoireId: LONDON_ID,
+      chapterId: undefined,
+    });
+    expect(drill().done).toBeNull();
+  });
+
+  it('offers the drill’s next steps once done', () => {
+    const { drill, take } = renderDrill();
+    take((s) => ({ state: { ...s, finished: true }, result: null }));
+    expect(drill().done).toEqual({
+      continue: false,
+      review: false,
+      learn: true,
+    });
+  });
+
+  it('restarts from the training day with the drill’s Reviews, at a new revision', () => {
+    const { drill, take, record } = renderDrill();
+    const revision = drill().view.revision;
+    take((s) => ({
+      state: {
+        ...s,
+        finished: true,
+        reviews: new Map([[D4_REVIEW.key, D4_REVIEW]]),
+      },
+      result: null,
+    }));
+    act(() => {
+      drill().restart();
+    });
+    expect(drill().done).toBeNull();
+    expect(drill().state.reviews.get(D4_REVIEW.key)).toBe(D4_REVIEW);
+    expect(drill().view.revision).toBe(revision + 1);
+    expect(record).not.toHaveBeenCalled();
   });
 });

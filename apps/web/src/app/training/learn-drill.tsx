@@ -1,32 +1,17 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
-import { Board } from '../board/board';
-import { useSquareWords } from '../board/square-words';
-import { QUIET_ACTION } from '../buttons';
-import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps } from './drill';
-import {
-  LineSoFar,
-  MoveRow,
-  StatusLine,
-  ToMove,
-  type StatusTone,
-} from './drill-panel';
+import { DrillShell } from './drill-shell';
 import {
   askedStep,
-  isDone,
   learnCounts,
   opponentMoving,
   playedMoves,
   type LearnDrillState,
 } from './learn-drill-state';
-import { DrillCoachNote } from './coach-note';
-import { NextButton } from './next-button';
-import { TwoAnswersNotice } from './two-answers-notice';
-import { useLearnDrill, type LearnDrill as Drill } from './use-learn-drill';
+import { useLearnDrill } from './use-learn-drill';
 
 type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind' | 'recall';
 
@@ -41,7 +26,7 @@ const answeredAwaitingReply = (state: LearnDrillState): boolean =>
 /**
  * What the panel asks (docs/design/training-screen.md, Learn pass): with
  * arrows off a new move is asked to be played from memory (R-205), not
- * "again".
+ * "again". A move the player knows is played for its line.
  */
 function promptOf(state: LearnDrillState): PromptKey {
   if (state.hold !== null || answeredAwaitingReply(state)) return 'correct';
@@ -56,62 +41,11 @@ function newMovePrompt(state: LearnDrillState): PromptKey {
   return state.options.arrows ? 'blind' : 'recall';
 }
 
-const TONES: Record<PromptKey, StatusTone> = {
-  correct: 'success',
-  wrong: 'error',
-  known: 'prompt',
-  arrows: 'prompt',
-  blind: 'prompt',
-  recall: 'prompt',
-};
-
-/**
- * The live line: the side to move, what is asked and the answer's result,
- * heard as each comes. A move the player knows is played for its line.
- */
-function Status({ drill }: { readonly drill: Drill }): JSX.Element {
-  const t = useTranslations();
-  const { state } = drill;
-  const prompt = promptOf(state);
-  return (
-    <div aria-live="polite" className="flex flex-col gap-1">
-      <ToMove color={drill.toMove} />
-      <StatusLine tone={TONES[prompt]} text={t(`training.learn.${prompt}`)} />
-      {state.unknownTyped ? (
-        <p className="text-error">{t('board.moveInput.unknown')}</p>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * What is asked, the move field, the taught move's Coach note, the line.
- * While a note holds the drill only it and Next count, as in a review.
- */
-function LearnPanel({ drill }: { readonly drill: Drill }): JSX.Element {
-  const { state } = drill;
-  return (
-    <>
-      <Status drill={drill} />
-      {drill.next === null ? (
-        <MoveRow input={drill} color={drill.toMove} />
-      ) : null}
-      <DrillCoachNote notes={drill.notes} />
-      <TwoAnswersNotice answers={drill.answers} />
-      <LineSoFar
-        moves={playedMoves(state)}
-        rootKey={state.session?.line.rootKey}
-      />
-    </>
-  );
-}
-
 /**
  * The learn drill (docs/design/training-screen.md, R-144): the planned
  * lines one after another, each played with arrows on its new moves and
  * then blind, the opponent's moves played for the player, until the done
- * summary. The plan already takes all that today's allowance allows, so
- * the summary offers no "continue".
+ * summary.
  */
 export function LearnDrill({
   data,
@@ -120,53 +54,23 @@ export function LearnDrill({
   frame,
   clock,
 }: DrillProps): JSX.Element {
-  const t = useTranslations();
+  const t = useTranslations('training.learn');
   const drill = useLearnDrill(data, sync, clock);
-  const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
   const counts = learnCounts(state);
-  const board = (
-    <Board
-      view={drill.view}
-      label={t('board.label')}
-      describe={describe}
-      onMove={drill.onMove}
+  const prompt = promptOf(state);
+  return (
+    <DrillShell
+      drill={drill}
+      links={links}
+      frame={frame}
+      progress={counts}
+      counts={{ kind: 'learn', learned: counts.done }}
+      status={{ key: prompt, text: t(prompt) }}
+      line={{
+        moves: playedMoves(state),
+        rootKey: state.session?.line.rootKey,
+      }}
     />
   );
-  if (isDone(state)) {
-    const standing = drill.standing();
-    // Done names no item: it has no context line (training-screen.md).
-    return frame({
-      progress: counts,
-      board,
-      finished: true,
-      panel: (
-        <DoneSummary
-          counts={{ kind: 'learn', learned: counts.done }}
-          progress={drill.progress()}
-          standing={standing}
-        />
-      ),
-      actions: (
-        <DoneActions
-          doneHref={links.back}
-          {...(standing.kind === 'due' ? { reviewHref: links.review } : {})}
-        />
-      ),
-    });
-  }
-  return frame({
-    item: drill.item,
-    progress: counts,
-    board,
-    panel: <LearnPanel drill={drill} />,
-    actions: (
-      <>
-        {drill.next === null ? null : <NextButton onNext={drill.next} />}
-        <Link href={links.back} className={QUIET_ACTION}>
-          {t('training.drill.end')}
-        </Link>
-      </>
-    ),
-  });
 }

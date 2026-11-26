@@ -138,11 +138,15 @@ const testClock: DrillClock = {
   },
 };
 
+/** The name of the repertoire the drill reports, as the header names it. */
+const nameOf = (id: string | undefined): string | undefined =>
+  data().entries.find((e) => e.id === id)?.name;
+
 /** A frame that lays the parts out plainly, so each can be found. */
 function frame(parts: FrameParts): JSX.Element {
   return (
     <main data-finished={parts.finished === true ? 'yes' : 'no'}>
-      <h1>{parts.item?.name ?? 'no item'}</h1>
+      <h1>{nameOf(parts.item?.repertoireId) ?? 'no item'}</h1>
       {parts.progress === undefined ? null : (
         <p data-testid="counter">
           {`${String(parts.progress.done)} / ${String(parts.progress.total)}`}

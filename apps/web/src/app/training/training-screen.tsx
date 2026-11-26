@@ -15,7 +15,7 @@ import type { FrameParts, TrainingLinks } from './drill';
 import { EmptyPanel, type ScopedRepertoire } from './empty-panel';
 import { LearnDrill } from './learn-drill';
 import { ReviewDrill } from './review-drill';
-import { sessionHeader, type HeaderWords } from './session-header';
+import { sessionHeader } from './session-header';
 import { SyncBanner } from './sync-banner';
 import { TrainingFrame } from './training-frame';
 import { useQueuedLearned, useResultSync } from './use-result-sync';
@@ -64,17 +64,6 @@ const caughtUp = (
     ? data
     : { ...data, queued };
 
-/** The catalogue's words for the header (R-224). */
-function useHeaderWords(): HeaderWords {
-  const t = useTranslations('training');
-  return {
-    word: (key) => t(key),
-    repertoire: (values) => t('context.repertoire', values),
-    chapter: (values) => t('context.chapter', values),
-    side: (values) => t('context.side', values),
-  };
-}
-
 /**
  * The training page (docs/design/training-screen.md): an empty state when
  * there is nothing to drill, else the mode's drill. It owns the result
@@ -86,7 +75,7 @@ export function TrainingScreen({
   accountId,
   repertoireId,
 }: TrainingScreenProps): JSX.Element {
-  const words = useHeaderWords();
+  const t = useTranslations('training');
   const sync = useResultSync(accountId);
   const queued = useQueuedLearned(accountId);
   const data = useMemo(() => caughtUp(snapshot, queued), [snapshot, queued]);
@@ -102,10 +91,7 @@ export function TrainingScreen({
   const links = linksFor(scoped);
   // The session's name, and the item asked under it (R-224).
   const header = (parts: FrameParts) =>
-    sessionHeader(
-      { mode: data.mode, scopedName: scoped?.name ?? null, item: parts.item },
-      words,
-    );
+    sessionHeader({ data, scopedId: repertoireId }, parts.item, t);
   const frame = (parts: FrameParts): JSX.Element => (
     <TrainingFrame
       {...parts}

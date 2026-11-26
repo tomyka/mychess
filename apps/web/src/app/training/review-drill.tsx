@@ -2,22 +2,10 @@
 
 import { reviewProgress, type RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
-import { Board } from '../board/board';
-import { useSquareWords } from '../board/square-words';
-import { QUIET_ACTION, TONAL_BUTTON } from '../buttons';
-import { NextButton } from './next-button';
-import { DrillCoachNote } from './coach-note';
-import { DoneActions, DoneSummary } from './done-summary';
+import { TONAL_BUTTON } from '../buttons';
 import type { DrillProps } from './drill';
-import {
-  LineSoFar,
-  MoveRow,
-  StatusLine,
-  ToMove,
-  type StatusTone,
-} from './drill-panel';
+import { DrillShell } from './drill-shell';
 import {
   canHint,
   isRepeat,
@@ -26,8 +14,7 @@ import {
   sessionCounts,
   type DrillState,
 } from './review-drill-state';
-import { TwoAnswersNotice } from './two-answers-notice';
-import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
+import { useReviewDrill } from './use-review-drill';
 
 type StatusKey = 'correct' | 'lapse' | 'hinted' | 'again' | 'prompt';
 
@@ -39,69 +26,11 @@ function statusOf(state: DrillState): StatusKey {
   return isRepeat(state) ? 'again' : 'prompt';
 }
 
-const TONES: Record<StatusKey, StatusTone> = {
-  correct: 'success',
-  lapse: 'error',
-  hinted: 'due',
-  again: 'due',
-  prompt: 'prompt',
-};
-
-/**
- * The live line (docs/design/training-screen.md): the side to move, the
- * opponent's reply, and the answer's result, heard as each comes.
- */
-function Status({ drill }: { readonly drill: Drill }): JSX.Element {
-  const t = useTranslations();
-  const { state } = drill;
-  const status = statusOf(state);
-  const reply =
-    state.shown === null || state.session.phase !== 'ask'
-      ? null
-      : replyText(state.shown);
-  return (
-    <div aria-live="polite" className="flex flex-col gap-1">
-      <ToMove color={drill.toMove} />
-      {reply === null ? null : (
-        <p>{t('training.review.replied', { move: reply })}</p>
-      )}
-      <StatusLine tone={TONES[status]} text={t(`training.review.${status}`)} />
-      {state.unknownTyped ? (
-        <p className="text-error">{t('board.moveInput.unknown')}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function ReviewPanel({ drill }: { readonly drill: Drill }): JSX.Element {
-  const t = useTranslations('training.review');
-  return (
-    <>
-      <Status drill={drill} />
-      {/* While a coach note or the two-answers notice holds the drill only
-          it and Next count: the move field and Hint cannot be used, and on
-          a portrait tablet they would push the note out of the panel. */}
-      {drill.next === null ? (
-        <MoveRow input={drill} color={drill.toMove}>
-          <button
-            type="button"
-            onClick={drill.hint}
-            aria-disabled={!canHint(drill.state)}
-            className={TONAL_BUTTON}
-          >
-            {t('hint')}
-          </button>
-        </MoveRow>
-      ) : null}
-      <DrillCoachNote notes={drill.notes} />
-      <TwoAnswersNotice answers={drill.answers} />
-      <LineSoFar
-        moves={unannotated(playedMoves(drill.state))}
-        rootKey={drill.state.shown?.line.rootKey}
-      />
-    </>
-  );
-}
+/** The opponent's reply before the asked move, while it is asked. */
+const replyOf = (state: DrillState): string | null =>
+  state.shown === null || state.session.phase !== 'ask'
+    ? null
+    : replyText(state.shown);
 
 /**
  * `moves` without their NAGs: a review shows the board, not annotations, so
@@ -114,7 +43,8 @@ const unannotated = (
 /**
  * The review drill (docs/design/training-screen.md): the Due Reviews one at
  * a time, each in its repertoire and after its line so far (R-143), until
- * the done summary.
+ * the done summary. Its live line says the opponent's reply and the
+ * answer's result; Hint sits beside the move field.
  */
 export function ReviewDrill({
   data,
@@ -123,52 +53,34 @@ export function ReviewDrill({
   frame,
   clock,
 }: DrillProps): JSX.Element {
-  const t = useTranslations();
+  const t = useTranslations('training.review');
   const drill = useReviewDrill(data, sync, clock);
-  const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
-  const progress = reviewProgress(state.session);
-  const board = (
-    <Board
-      view={drill.view}
-      label={t('board.label')}
-      describe={describe}
-      onMove={drill.onMove}
+  const status = statusOf(state);
+  const reply = replyOf(state);
+  return (
+    <DrillShell
+      drill={drill}
+      links={links}
+      frame={frame}
+      progress={reviewProgress(state.session)}
+      counts={sessionCounts(state)}
+      status={{ key: status, text: t(status) }}
+      said={reply === null ? null : <p>{t('replied', { move: reply })}</p>}
+      tools={
+        <button
+          type="button"
+          onClick={drill.hint}
+          aria-disabled={!canHint(state)}
+          className={TONAL_BUTTON}
+        >
+          {t('hint')}
+        </button>
+      }
+      line={{
+        moves: unannotated(playedMoves(state)),
+        rootKey: state.shown?.line.rootKey,
+      }}
     />
   );
-  if (state.session.current === null)
-    // Done names no item: it has no context line (training-screen.md).
-    return frame({
-      progress,
-      board,
-      finished: true,
-      panel: (
-        <DoneSummary
-          counts={sessionCounts(state)}
-          progress={drill.progress()}
-          standing={drill.standing()}
-        />
-      ),
-      actions: (
-        <DoneActions
-          {...(drill.canContinue ? { onContinue: drill.restart } : {})}
-          {...(drill.learnable ? { learnHref: links.learn } : {})}
-          doneHref={links.back}
-        />
-      ),
-    });
-  return frame({
-    item: drill.item,
-    progress,
-    board,
-    panel: <ReviewPanel drill={drill} />,
-    actions: (
-      <>
-        {drill.next === null ? null : <NextButton onNext={drill.next} />}
-        <Link href={links.back} className={QUIET_ACTION}>
-          {t('training.drill.end')}
-        </Link>
-      </>
-    ),
-  });
 }

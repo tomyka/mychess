@@ -3,7 +3,8 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { DoneActions, DoneSummary, primaryAction } from './done-summary';
+import { doneSteps, NOTHING_MORE, type DoneOffer } from './done-offer';
+import { DoneActions, DoneSummary } from './done-summary';
 
 const T = MESSAGES.training.done;
 
@@ -147,35 +148,54 @@ describe('the done summary', () => {
   });
 });
 
+const LINKS = {
+  back: '/repertoires/r1',
+  learn: '/training?mode=learn',
+  review: '/training?mode=review',
+};
+
+/** The done summary's buttons for `offer`, with `onContinue`. */
+const renderActions = (
+  offer: Partial<DoneOffer> = {},
+  onContinue: () => void = vi.fn(),
+) =>
+  renderIn(
+    <DoneActions
+      offer={{ ...NOTHING_MORE, ...offer }}
+      links={LINKS}
+      onContinue={onContinue}
+    />,
+  );
+
 describe('the done summary’s buttons', () => {
   it('offers Continue only when more items exist', () => {
-    const { unmount } = renderIn(<DoneActions doneHref="/" />);
+    const { unmount } = renderActions();
     expect(screen.queryByRole('button', { name: T.continue })).toBeNull();
     unmount();
     const more = vi.fn();
-    renderIn(<DoneActions onContinue={more} doneHref="/" />);
+    renderActions({ continue: true }, more);
     fireEvent.click(screen.getByRole('button', { name: T.continue }));
     expect(more).toHaveBeenCalledOnce();
   });
 
   it('offers new moves only while the allowance is left, and leads back', () => {
-    const { unmount } = renderIn(<DoneActions doneHref="/repertoires/r1" />);
+    const { unmount } = renderActions();
     expect(screen.queryByRole('link', { name: T.learn })).toBeNull();
     expect(
       screen.getByRole('link', { name: T.done }).getAttribute('href'),
     ).toBe('/repertoires/r1');
     unmount();
-    renderIn(<DoneActions learnHref="/training?mode=learn" doneHref="/" />);
+    renderActions({ learn: true });
     expect(
       screen.getByRole('link', { name: T.learn }).getAttribute('href'),
     ).toBe('/training?mode=learn');
   });
 
-  it('offers to start review when given its way there, before Done', () => {
-    const { unmount } = renderIn(<DoneActions doneHref="/" />);
+  it('offers to start review when the drill offers it, before Done', () => {
+    const { unmount } = renderActions();
     expect(screen.queryByRole('link', { name: T.review })).toBeNull();
     unmount();
-    renderIn(<DoneActions reviewHref="/training?mode=review" doneHref="/" />);
+    renderActions({ review: true });
     expect(
       screen.getByRole('link', { name: T.review }).getAttribute('href'),
     ).toBe('/training?mode=review');
@@ -183,13 +203,7 @@ describe('the done summary’s buttons', () => {
   });
 
   it('puts the one next step first and Done last, quiet beside it', () => {
-    renderIn(
-      <DoneActions
-        onContinue={vi.fn()}
-        learnHref="/training?mode=learn"
-        doneHref="/"
-      />,
-    );
+    renderActions({ continue: true, learn: true });
     expect(actionNames()).toEqual([T.continue, T.learn, T.done]);
     const main = screen.getByRole('button', { name: T.continue }).className;
     expect(main).toContain('bg-accent ');
@@ -203,7 +217,7 @@ describe('the done summary’s buttons', () => {
   });
 
   it('makes Done the main button when nothing else is offered', () => {
-    renderIn(<DoneActions doneHref="/" />);
+    renderActions();
     const done = screen.getByRole('link', { name: T.done }).className;
     expect(done).toContain('bg-accent ');
     expect(done).toContain('basis-full');
@@ -211,14 +225,19 @@ describe('the done summary’s buttons', () => {
   });
 });
 
-describe('primaryAction', () => {
-  it('picks the first next step that applies', () => {
-    const go = (): void => undefined;
-    expect(
-      primaryAction({ onContinue: go, reviewHref: '/r', learnHref: '/l' }),
-    ).toBe('continue');
-    expect(primaryAction({ reviewHref: '/r', learnHref: '/l' })).toBe('review');
-    expect(primaryAction({ learnHref: '/l' })).toBe('learn');
-    expect(primaryAction({})).toBe('finish');
+describe('doneSteps', () => {
+  it('orders the steps offered Continue, Start review, Learn new moves, then Done', () => {
+    const all = { continue: true, review: true, learn: true };
+    expect(doneSteps(all)).toEqual(['continue', 'review', 'learn', 'finish']);
+    expect(doneSteps({ ...all, continue: false })).toEqual([
+      'review',
+      'learn',
+      'finish',
+    ]);
+    expect(doneSteps({ ...NOTHING_MORE, learn: true })).toEqual([
+      'learn',
+      'finish',
+    ]);
+    expect(doneSteps(NOTHING_MORE)).toEqual(['finish']);
   });
 });

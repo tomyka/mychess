@@ -3,12 +3,14 @@
 import { learnLines, playLearn, type BoardMove } from '@mychess/chess';
 import type { TrainingData } from '../../lib/training-data';
 import type { Step } from './drill-core';
+import { NOTHING_MORE } from './done-offer';
 import { BROWSER_CLOCK, type DrillClock } from './drill-input';
 import {
   advanced,
   afterPlay,
   answering,
   frameOf,
+  isDone,
   opponentMoving,
   released,
   startLearnDrill,
@@ -65,6 +67,9 @@ const LEARN_RULES: DrillRules<LearnDrillState> = {
   onward: released,
   sliding: opponentMoving,
   slid: advanced,
+  isDone,
+  // The plan already takes all that today's allowance allows: no Continue.
+  offer: ({ due }) => ({ ...NOTHING_MORE, review: due }),
 };
 
 /**

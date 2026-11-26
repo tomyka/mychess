@@ -175,35 +175,20 @@ const renderBoard = (f: DrillFrame) =>
   });
 
 describe('the drill board hook', () => {
-  it('shows the board from the side of the repertoire drilled, the item named by it and its chapter (R-224)', () => {
+  it('shows the board from the side of the repertoire drilled', () => {
     const { result } = renderBoard(
       frame({ repertoireId: SICILIAN_ID, chapterId: 'c1' }),
     );
     expect(result.current.view.orientation).toBe('black');
-    expect(result.current.item).toEqual({
-      name: 'Sicilijos gynyba',
-      side: 'black',
-      chapter: 'Najdorfas',
-    });
+    const london = renderBoard(frame({ repertoireId: LONDON_ID }));
+    expect(london.result.current.view.orientation).toBe('white');
   });
 
-  it('names no chapter when the line has none, or the entry has no title for it', () => {
-    const none = renderBoard(frame({ repertoireId: SICILIAN_ID }));
-    expect(none.result.current.item?.chapter).toBeNull();
-    const unknown = renderBoard(
-      frame({ repertoireId: SICILIAN_ID, chapterId: 'c9' }),
-    );
-    expect(unknown.result.current.item).toEqual({
-      name: 'Sicilijos gynyba',
-      side: 'black',
-      chapter: null,
-    });
-  });
-
-  it('shows the board from White, with no item, without a known repertoire', () => {
-    const { result } = renderBoard(frame({ chapterId: 'c1' }));
-    expect(result.current.view.orientation).toBe('white');
-    expect(result.current.item).toBeUndefined();
+  it('shows the board from White without a known repertoire', () => {
+    const none = renderBoard(frame({ chapterId: 'c1' }));
+    expect(none.result.current.view.orientation).toBe('white');
+    const unknown = renderBoard(frame({ repertoireId: 'gone' }));
+    expect(unknown.result.current.view.orientation).toBe('white');
   });
 
   it('gives the asked position’s legal moves, also while a wrong move is held', () => {

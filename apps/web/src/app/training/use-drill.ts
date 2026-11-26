@@ -7,9 +7,10 @@
 // each step's result with the clock's id and time (R-60), holds a right
 // answer for its flash or, while its Coach notes or the other answers wait
 // to be read, until Next (R-174, #330 decision 4), lets the opponent's move
-// slide in, and reads where the player's day stands. A drill supplies only
-// its rules: how it starts, what it asks, how a move is answered and what
-// comes next.
+// slide in, reads where the player's day stands, and once the session is
+// over offers its next steps, Continue starting it again. A drill supplies
+// only its rules: how it starts, what it asks, how a move is answered, what
+// comes next and what it offers when done.
 import {
   dayStanding,
   trainingProgress,
@@ -40,7 +41,8 @@ import {
   namedOf,
   type DrillNotices,
 } from './drill-notices';
-import type { HeaderItem } from './session-header';
+import type { DoneOffer } from './done-offer';
+import type { ItemIds } from './session-header';
 import type { ResultSync } from './use-result-sync';
 
 /** The move whose notices show now (R-174, R-54). */
@@ -71,14 +73,21 @@ export interface DrillRules<S extends DrillCore> {
   readonly sliding: (s: S) => boolean;
   /** Once it has slid in. */
   readonly slid: (s: S) => S;
+  /** The session is over: the Done state shows. */
+  readonly isDone: (s: S) => boolean;
+  /** What a finished session offers, `due` when its Reviews leave moves due now. */
+  readonly offer: (c: {
+    readonly day: TrainingDay;
+    readonly due: boolean;
+  }) => DoneOffer;
 }
 
 /** The drill as its component draws it. */
 export interface Drill<S> extends MoveInput, DrillNotices {
   readonly state: S;
   readonly view: BoardView;
-  /** The item drilled, for the header's context line (R-224). */
-  readonly item: HeaderItem | undefined;
+  /** The item drilled, by its ids, for the header's context line (R-224). */
+  readonly item: ItemIds;
   /** The side asked to move, also while a wrong move is held (#381). */
   readonly toMove: Color;
   /**
@@ -90,6 +99,13 @@ export interface Drill<S> extends MoveInput, DrillNotices {
   readonly progress: () => TrainingProgress;
   /** Where the player's day stands now (#319). */
   readonly standing: () => DayStanding;
+  /** Once the session is over, the next steps it offers; null while it runs. */
+  readonly done: DoneOffer | null;
+  /**
+   * Continue: a new session at the clock's time, from the training day
+   * with the drill's Reviews (R-62, R-78).
+   */
+  readonly restart: () => void;
 }
 
 /** The core of a drill, with what the drill adds its own steps through. */
@@ -197,7 +213,7 @@ export function useDrill<S extends DrillCore>(
   const frame = useMemo(() => rules.frameOf(state), [rules, state]);
   const { notices, held } = useNotices(rules, data, state, frame.repertoireId);
   const onward = useDrillTimers(rules, state, setState, { day, clock, held });
-  const { view, legal, item } = useDrillBoard(data, frame);
+  const { view, legal } = useDrillBoard(data, frame);
   useUnflash(state.flash, setState);
   const take = (step: (s: S, now: Date) => Step<S>): void => {
     const now = clock.now();
@@ -221,15 +237,40 @@ export function useDrill<S extends DrillCore>(
       setState(typedUnknown(state));
     },
   });
+  const days = dayView(day, state.reviews, clock);
   const drill: Drill<S> = {
     ...input,
     ...notices,
-    ...dayView(day, state.reviews, clock),
+    ...days,
     state,
     view,
-    item,
+    item: { repertoireId: frame.repertoireId, chapterId: frame.chapterId },
     toMove: frame.toMove,
     next: held ? onward : null,
+    done: rules.isDone(state)
+      ? rules.offer({ day, due: days.standing().kind === 'due' })
+      : null,
+    restart() {
+      take(restarted(rules, day, data));
+    },
   };
   return { drill, day, take };
 }
+
+/**
+ * A new session from `day` with the drill's Reviews, at a new revision so
+ * the board takes its position.
+ */
+const restarted =
+  <S extends DrillCore>(
+    rules: DrillRules<S>,
+    day: TrainingDay,
+    data: TrainingData,
+  ) =>
+  (s: S, now: Date): Step<S> => ({
+    state: {
+      ...rules.start({ day: { ...day, reviews: s.reviews }, data, now }),
+      revision: s.revision + 1,
+    },
+    result: null,
+  });

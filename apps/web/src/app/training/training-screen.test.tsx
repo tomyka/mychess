@@ -53,7 +53,8 @@ const drills = vi.hoisted(() => {
     (name: string) =>
     ({ data, links, frame }: DrillProps) =>
       frame({
-        item: { name: `${name} item`, side: 'white', chapter: 'Main line' },
+        // The drill reports the item by its ids; the screen names it.
+        item: { repertoireId: ID, chapterId: 'main' },
         progress: { done: 2, total: 5 },
         board: <div data-testid="live-board" />,
         panel: (
@@ -80,7 +81,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
         side: 'white',
         kind: 'own',
         active: true,
-        chapterTitles: {},
+        chapterTitles: { main: 'Main line' },
         graph: graphOf(LONDON),
       },
     ],
@@ -375,7 +376,7 @@ describe('the header: the session named, the item under it (R-224)', () => {
     renderScreen({ ...due, entries: two(true) }, null);
     expect(title().textContent).toBe(T.title.review);
     expect(title().nextElementSibling?.textContent).toBe(
-      'review item (White) · Main line',
+      'Londono sistema (White) · Main line',
     );
   });
 
@@ -383,7 +384,7 @@ describe('the header: the session named, the item under it (R-224)', () => {
     renderScreen({ ...due, mode: 'learn', entries: two(true) }, null);
     expect(title().textContent).toBe(T.title.learn);
     expect(title().nextElementSibling?.textContent).toBe(
-      'learn item (White) · Main line',
+      'Londono sistema (White) · Main line',
     );
   });
 

@@ -2,7 +2,6 @@
 
 import {
   answerReview,
-  dueCount,
   dueReviews,
   hintReview,
   nextDue,
@@ -36,12 +35,6 @@ const MAX_TIMER_MS = 2 ** 31 - 1;
 
 export interface ReviewDrill extends Drill<DrillState> {
   readonly hint: () => void;
-  /** A new session over what is due now (R-62's "continue"). */
-  readonly restart: () => void;
-  /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
-  readonly canContinue: boolean;
-  /** The snapshot's day has new moves to learn (the done summary's link). */
-  readonly learnable: boolean;
 }
 
 /** A session at `now`: the player's size, up to the end of their day. */
@@ -103,6 +96,14 @@ const REVIEW_RULES: DrillRules<DrillState> = {
   onward: (s, day, now) => advanced(s, day.repertoires, now),
   sliding: (s) => s.replying,
   slid: (s) => ({ ...s, replying: false }),
+  isDone,
+  // Continue while the Reviews graded so far leave more due now (R-62,
+  // R-78); new moves while the snapshot's day has some to learn.
+  offer: ({ day, due }) => ({
+    continue: due,
+    review: false,
+    learn: toLearnCount(day) > 0,
+  }),
 };
 
 /**
@@ -149,26 +150,15 @@ export function useReviewDrill(
 ): ReviewDrill {
   const { drill, day, take } = useDrill(REVIEW_RULES, { data, sync, clock });
   const { state } = drill;
-  const learnable = useMemo(() => toLearnCount(day) > 0, [day]);
   const gradedDay = useMemo(
     () => ({ ...day, reviews: state.reviews }),
     [day, state.reviews],
   );
-  const done = isDone(state);
-  useDueAgain(done, gradedDay, clock);
+  useDueAgain(isDone(state), gradedDay, clock);
   return {
     ...drill,
-    learnable,
-    canContinue: done && dueCount(gradedDay, clock.now()) > 0,
     hint() {
       if (canHint(state)) take(hinted);
-    },
-    restart() {
-      // A new revision, so the board takes the new session's position.
-      take((s, now) => ({
-        state: { ...drillAt(day, now), revision: s.revision + 1 },
-        result: null,
-      }));
     },
   };
 }

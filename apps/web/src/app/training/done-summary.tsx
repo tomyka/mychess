@@ -6,6 +6,8 @@ import { useEffect, useRef, type JSX } from 'react';
 import { PRIMARY_BUTTON, QUIET_ACTION, TONAL_BUTTON } from '../buttons';
 import { Icon, TICK_ICON } from '../line-icon';
 import { CARD } from '../surfaces';
+import { doneSteps, type DoneOffer, type DoneStep } from './done-offer';
+import type { TrainingLinks } from './drill';
 import { useReviewTime } from './review-time';
 import type { DayStanding, TrainingProgress } from '@mychess/chess';
 
@@ -28,14 +30,12 @@ export interface DoneSummaryProps {
 }
 
 export interface DoneActionsProps {
-  /** Given when the queue rebuilt from this session's reviews has more (R-62). */
-  readonly onContinue?: () => void;
-  /** Given when today's new-move allowance is not used up (R-146). */
-  readonly learnHref?: string;
-  /** Given when a learn pass ends with moves due: on to review them. */
-  readonly reviewHref?: string;
-  /** Back to where the player came from. */
-  readonly doneHref: string;
+  /** The steps the finished drill offers. */
+  readonly offer: DoneOffer;
+  /** Where Start review, Learn new moves and Done lead. */
+  readonly links: TrainingLinks;
+  /** Continue: a new session over what is due now (R-62). */
+  readonly onContinue: () => void;
 }
 
 type Stat = readonly [label: string, value: number, tone: string];
@@ -127,64 +127,64 @@ function Standing({
 }
 
 /**
- * The Done state's next steps, the first that applies taking the main
- * button; `finish` is the Done button, back to where the player came from.
- */
-export type DoneStep = 'continue' | 'review' | 'learn' | 'finish';
-
-/** The one main next step: Continue, else Start review, else Learn new moves, else Done. */
-export function primaryAction(
-  p: Pick<DoneActionsProps, 'onContinue' | 'learnHref' | 'reviewHref'>,
-): DoneStep {
-  if (p.onContinue !== undefined) return 'continue';
-  if (p.reviewHref !== undefined) return 'review';
-  if (p.learnHref !== undefined) return 'learn';
-  return 'finish';
-}
-
-/**
  * A step's look: the main one full width on a phone (the rest wrap under
  * it), any other next step tonal, Done quiet beside them.
  */
-function stepClass(step: DoneStep, primary: DoneStep): string {
+function stepClass(step: DoneStep, primary: DoneStep | undefined): string {
   if (step === primary)
     return `${PRIMARY_BUTTON} grow basis-full lg:basis-auto`;
   return step === 'finish' ? QUIET_ACTION : `${TONAL_BUTTON} grow`;
 }
 
+/** Where each linked step leads. */
+const HREF = {
+  review: 'review',
+  learn: 'learn',
+  finish: 'back',
+} as const satisfies Record<Exclude<DoneStep, 'continue'>, keyof TrainingLinks>;
+
+/** Each step's words (`training.done`). */
+const LABEL = {
+  continue: 'continue',
+  review: 'review',
+  learn: 'learn',
+  finish: 'done',
+} as const satisfies Record<DoneStep, string>;
+
 /**
  * The Done state's ways on, for the frame's bottom bar: the steps offered in
- * the order Continue, Start review, Learn new moves, the first of them the
- * main button, then Done.
+ * their order (doneSteps), the first of them the main button, then Done.
  */
-export function DoneActions(props: DoneActionsProps): JSX.Element {
-  const { onContinue, learnHref, reviewHref, doneHref } = props;
+export function DoneActions({
+  offer,
+  links,
+  onContinue,
+}: DoneActionsProps): JSX.Element {
   const t = useTranslations('training.done');
-  const primary = primaryAction(props);
+  const steps = doneSteps(offer);
+  const [primary] = steps;
   return (
     <>
-      {onContinue === undefined ? null : (
-        <button
-          type="button"
-          onClick={onContinue}
-          className={stepClass('continue', primary)}
-        >
-          {t('continue')}
-        </button>
+      {steps.map((step) =>
+        step === 'continue' ? (
+          <button
+            key={step}
+            type="button"
+            onClick={onContinue}
+            className={stepClass(step, primary)}
+          >
+            {t(LABEL[step])}
+          </button>
+        ) : (
+          <Link
+            key={step}
+            href={links[HREF[step]]}
+            className={stepClass(step, primary)}
+          >
+            {t(LABEL[step])}
+          </Link>
+        ),
       )}
-      {reviewHref === undefined ? null : (
-        <Link href={reviewHref} className={stepClass('review', primary)}>
-          {t('review')}
-        </Link>
-      )}
-      {learnHref === undefined ? null : (
-        <Link href={learnHref} className={stepClass('learn', primary)}>
-          {t('learn')}
-        </Link>
-      )}
-      <Link href={doneHref} className={stepClass('finish', primary)}>
-        {t('done')}
-      </Link>
     </>
   );
 }
