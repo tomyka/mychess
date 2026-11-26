@@ -51,6 +51,14 @@ const TAIMANOV_COUNTS = {
   moves: 107,
 };
 
+/** What taimanov-more.pgn holds on its own (`importPgn`, `summarize`). */
+const TAIMANOV_MORE_COUNTS = {
+  chapters: 3,
+  lines: 3,
+  transpositions: 0,
+  moves: 18,
+};
+
 // Two chapters each share these opening names, so each title carries its
 // ECO code and the move it parts at (R-158), proven with `importPgn` and
 // `chapterDistinctions`: 6.Be3 and 3.Nc3 (B48), 6.Be2 and 6.g3 (B47).
@@ -299,6 +307,8 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   await openRepertoireOptions(page, en);
   await addFromPgn.click();
   await previewImport(page, en, { file: TAIMANOV_MORE });
+  // Step 2 reads what the file holds, as for a new repertoire.
+  await expectSummary(page, en, TAIMANOV_MORE_COUNTS);
   await expect(
     page.getByText(
       plural(t.import.added, {
