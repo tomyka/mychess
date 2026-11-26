@@ -10,6 +10,7 @@ import {
   repertoireTraining,
   todayList,
   todaySummary,
+  trainedStandings,
 } from './training';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -518,10 +519,47 @@ describe('todayList (R-221)', () => {
   });
 });
 
+describe('trainedStandings (R-225)', () => {
+  it('gives every repertoire the player trains, own and assigned, its standing and due count', async () => {
+    const standings = await trainedStandings(ROKAS);
+    expect([...standings.keys()].sort()).toEqual([ID, OTHER].sort());
+    server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 3)));
+    expect(await trainedStandings(ROKAS)).toEqual(
+      new Map([
+        [
+          ID,
+          {
+            standing: {
+              counts: { notStarted: 0, skipped: 0, due: 3, learned: 5 },
+              mastered: false,
+            },
+            due: 3,
+          },
+        ],
+      ]),
+    );
+  });
+
+  it('reads the same snapshot as Today: every repertoire, as of now', async () => {
+    await trainedStandings(ROKAS);
+    expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
+      DB,
+      'rokas',
+      { kind: 'all' },
+      NOW,
+    );
+  });
+
+  it('is empty when the player trains nothing', async () => {
+    server.snapshot.mockResolvedValue(undefined);
+    expect((await trainedStandings(ROKAS)).size).toBe(0);
+  });
+});
+
 describe('repertoireTraining', () => {
   it('reads the session account’s counts for that repertoire', async () => {
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 3)));
-    expect(await repertoireTraining(ROKAS, ID)).toEqual({
+    expect(await repertoireTraining(ROKAS, ID)).toMatchObject({
       counts: { due: 3, toLearn: 0 },
       learn: {
         tracked: LONDON_KEYS,
@@ -542,6 +580,42 @@ describe('repertoireTraining', () => {
   it('is null for a repertoire the player does not train', async () => {
     server.snapshot.mockResolvedValue(undefined);
     expect(await repertoireTraining(ROKAS, OTHER)).toBeNull();
+  });
+
+  it('gives the repertoire’s standing and each chapter’s, by chapter id (R-225)', async () => {
+    // 3... c5 4. c3 is in the first chapter only; 1. d4 opens both.
+    const c3 = LONDON_KEYS.find((key) => key.endsWith('|c3')) ?? '';
+    const d4 = LONDON_KEYS.find((key) => key.endsWith('|d4')) ?? '';
+    const later = new Date('2026-10-22T08:00:00Z');
+    const learned = (key: string): ReviewState => {
+      const r = review(key);
+      return { ...r, fsrs: { ...r.fsrs, due: later } };
+    };
+    server.snapshot.mockResolvedValue({
+      ...londonDue([]),
+      reviews: new Map([
+        [c3, learned(c3)],
+        [d4, learned(d4)],
+      ]),
+      tracked: new Set([c3, d4]),
+      knownWithoutLearning: new Set([d4]),
+    });
+    const [first, second] = LONDON_GRAPH.chapters;
+    const training = await repertoireTraining(ROKAS, ID);
+    expect(training?.standing).toEqual({
+      counts: { notStarted: 6, skipped: 1, due: 0, learned: 1 },
+      mastered: false,
+    });
+    expect(training?.chapters).toEqual({
+      [first?.id ?? 'first']: {
+        counts: { notStarted: 3, skipped: 1, due: 0, learned: 1 },
+        mastered: false,
+      },
+      [second?.id ?? 'second']: {
+        counts: { notStarted: 3, skipped: 1, due: 0, learned: 0 },
+        mastered: false,
+      },
+    });
   });
 
   /** The London with one move tracked, another repertoire's key, and `learnedToday`. */
@@ -567,7 +641,7 @@ describe('repertoireTraining', () => {
 
   it('says when today’s new moves are used while moves are left (decision 11)', async () => {
     server.snapshot.mockResolvedValue(fresh(3));
-    expect(await repertoireTraining(ROKAS, ID)).toEqual({
+    expect(await repertoireTraining(ROKAS, ID)).toMatchObject({
       counts: { due: 0, toLearn: 0 },
       learn: {
         tracked: [LONDON_KEYS[0]],

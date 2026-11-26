@@ -29,6 +29,9 @@ export interface PlayerAssignment {
   readonly repertoireId: string;
   readonly name: string;
   readonly side: Side;
+  /** How many chapters and moves the coach's repertoire holds. */
+  readonly chapters: number;
+  readonly moves: number;
   readonly coachId: string;
   readonly coachName: string;
   /** effectiveDeadline: `YYYY-MM-DD` or null (R-16, R-134). */
@@ -96,6 +99,8 @@ function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
     repertoireId: assignment.repertoireId,
     name: loaded.repertoire.name,
     side: loaded.repertoire.side,
+    chapters: loaded.graph.chapters.length,
+    moves: loaded.graph.moves.length,
     coachId: assignment.coachId,
     coachName: facts.coachName,
     deadline,

@@ -5,22 +5,23 @@ import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { LearnLink } from './learn-link';
+import { panelTraining } from './test-training';
 import type { PanelTraining } from './train-buttons';
 
 const london = graphOf(LONDON);
 const chapterId = london.chapters[0]?.id ?? '';
 const LINES = lines(london, chapterId).length;
 
-const training = (learnedToday: number): PanelTraining => ({
-  repertoireId: 'r1',
-  counts: { due: 0, toLearn: 2 },
-  learn: {
-    tracked: [],
-    learnedToday,
-    limits: { reviews: 20, newPerDay: 2 },
-  },
-  limitReached: false,
-});
+const training = (learnedToday: number): PanelTraining =>
+  panelTraining({
+    repertoireId: 'r1',
+    counts: { due: 0, toLearn: 2 },
+    learn: {
+      tracked: [],
+      learnedToday,
+      limits: { reviews: 20, newPerDay: 2 },
+    },
+  });
 
 function renderLink(
   learnedToday: number,

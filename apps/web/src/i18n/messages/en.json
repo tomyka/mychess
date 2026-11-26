@@ -355,10 +355,16 @@
       "emptyBlack": "No Black repertoire yet.",
       "empty": "You have no repertoires yet.",
       "meta": "{chapters, plural, one {# chapter} other {# chapters}} · {moves, plural, one {# move} other {# moves}}",
-      "changed": "Changed {date}",
-      "forkOf": "Your own copy of {coach}'s assignment",
-      "importTitle": "Have a PGN file?",
-      "importIntro": "Upload a PGN file and see what it holds before saving.",
+      "changed": "changed {date}",
+      "due": "due {date}",
+      "noDeadline": "no deadline",
+      "separator": " · ",
+      "tagAssigned": "Assigned",
+      "tagFork": "Own copy",
+      "forkOf": "Copy of {coach}'s repertoire",
+      "assignedTo": "Assigned to {count}",
+      "new": "New",
+      "cancel": "Cancel",
       "import": "Import PGN"
     },
     "create": {
@@ -773,6 +779,12 @@
     "twoAnswers": {
       "other": "Your other repertoire {name} plays {move} here."
     }
+  },
+  "standing": {
+    "learned": "{percent}% learned",
+    "learnedDue": "{percent}% learned · {due} due",
+    "new": "New · {count, plural, one {# move} other {# moves}}",
+    "mastered": "Mastered"
   },
   "today": {
     "title": "Today",

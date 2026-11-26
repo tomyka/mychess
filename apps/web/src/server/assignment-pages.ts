@@ -97,7 +97,14 @@ async function loadAssignedRepertoire(
 /** An assignment under its side on My repertoires (#328). */
 export type AssignedListItem = Pick<
   PlayerAssignment,
-  'repertoireId' | 'name' | 'side' | 'coachName' | 'deadline' | 'badges'
+  | 'repertoireId'
+  | 'name'
+  | 'side'
+  | 'chapters'
+  | 'moves'
+  | 'coachName'
+  | 'deadline'
+  | 'badges'
 >;
 
 /**
@@ -133,10 +140,21 @@ export async function myAssignedRepertoires(): Promise<AssignedListItem[]> {
   const player = await requireOnboarded();
   const mine = await playerAssignments(getDb(), player.id, new Date());
   return mine.map(
-    ({ repertoireId, name, side, coachName, deadline, badges }) => ({
+    ({
       repertoireId,
       name,
       side,
+      chapters,
+      moves,
+      coachName,
+      deadline,
+      badges,
+    }) => ({
+      repertoireId,
+      name,
+      side,
+      chapters,
+      moves,
       coachName,
       deadline,
       badges,

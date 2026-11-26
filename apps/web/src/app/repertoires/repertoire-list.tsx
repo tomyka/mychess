@@ -1,20 +1,24 @@
 import { SIDES, type Side } from '@mychess/chess';
-import { byName, vilniusDay } from '@mychess/domain';
+import { byName, vilniusDay, type BadgeSet } from '@mychess/domain';
 import {
   useFormatter,
   useTranslations,
   type DateTimeFormatOptions,
 } from 'next-intl';
 import Link from 'next/link';
-import { useId, type JSX } from 'react';
+import { Fragment, useId, type JSX } from 'react';
 import { CLOCK, shortDateFormat } from '../../lib/date-format';
 import { assignedRepertoirePath, repertoireRoute } from '../../lib/routes';
 import type { AssignedListItem } from '../../server/assignment-pages';
-import { AssignmentFacts } from '../assignment-facts';
+import type { TrainedStanding } from '../../server/training';
+import { AssignmentBadges } from '../assignment-badges';
+import { SideKing } from '../side-king';
+import { StandingLine } from '../standing-line';
+import { useDeadline } from '../use-deadline';
 import { CARD } from '../surfaces';
 
 /** A card on the list: the whole card is the link to its page. */
-const LIST_CARD = `${CARD} flex min-h-touch flex-col gap-1 p-4`;
+const LIST_CARD = `${CARD} flex min-h-touch flex-col gap-2 p-4`;
 
 /** One repertoire as My repertoires lists it. */
 export interface RepertoireCard {
@@ -26,10 +30,28 @@ export interface RepertoireCard {
   readonly updatedAt: Date;
   /** The coach whose assignment this is a Fork of (R-135, #328); null when it is none. */
   readonly forkCoachName: string | null;
+  /** How many players have it from the viewer as their coach (R-225); 0 when none. */
+  readonly assignedTo: number;
+}
+
+/** The training standings of what the viewer trains, by repertoire id. */
+type Standings = ReadonlyMap<string, TrainedStanding>;
+
+/** What every card shows, whatever its kind. */
+interface CardView {
+  readonly href: string;
+  readonly name: string;
+  readonly tag: 'assigned' | 'fork' | null;
+  /** The meta line's parts, already worded. */
+  readonly meta: readonly string[];
+  /** An assignment's badges (Overdue, Paused, Updated), or null. */
+  readonly badges: BadgeSet | null;
+  /** Its standing, when the viewer trains it. */
+  readonly standing: TrainedStanding | undefined;
 }
 
 /**
- * How "Changed" shows a time (docs/design/repertoire-screen.md): today as a
+ * How "changed" shows a time (docs/design/repertoire-screen.md): today as a
  * 24-hour time, this year as day and month, older with the year.
  */
 const changedFormat = (updatedAt: Date, now: Date): DateTimeFormatOptions =>
@@ -37,95 +59,168 @@ const changedFormat = (updatedAt: Date, now: Date): DateTimeFormatOptions =>
     ? CLOCK
     : shortDateFormat(updatedAt, now);
 
-function Card({
-  item,
-  now,
-}: {
-  readonly item: RepertoireCard;
-  readonly now: Date;
-}): JSX.Element {
+/** An own card's meta line: counts, change, a fork's coach, assignees. */
+function useOwnMeta(item: RepertoireCard, now: Date): string[] {
   const t = useTranslations('repertoires.list');
   const format = useFormatter();
-  const nameId = useId();
-  const metaId = useId();
   const changed = format.dateTime(
     item.updatedAt,
     changedFormat(item.updatedAt, now),
   );
+  return [
+    t('meta', { chapters: item.chapters, moves: item.moves }),
+    t('changed', { date: changed }),
+    ...(item.forkCoachName === null
+      ? []
+      : [t('forkOf', { coach: item.forkCoachName })]),
+    ...(item.assignedTo > 0
+      ? [t('assignedTo', { count: item.assignedTo })]
+      : []),
+  ];
+}
+
+/** An assigned card's meta line: its coach, deadline (R-51) and size. */
+function useAssignedMeta(item: AssignedListItem, now: Date): string[] {
+  const t = useTranslations('repertoires.list');
+  const date = useDeadline((day) => shortDateFormat(day, now));
+  return [
+    item.coachName,
+    item.deadline === null
+      ? t('noDeadline')
+      : t('due', { date: date(item.deadline) }),
+    t('meta', { chapters: item.chapters, moves: item.moves }),
+  ];
+}
+
+const TAG_STYLE = {
+  assigned: 'bg-accent-subtle text-accent',
+  fork: 'bg-sunken text-fg-muted',
+} as const;
+
+const TAG_KEY = { assigned: 'tagAssigned', fork: 'tagFork' } as const;
+
+/** The pill after the name: Assigned or Own copy; none on an own card. */
+function Tag({ tag }: { readonly tag: CardView['tag'] }): JSX.Element | null {
+  const t = useTranslations('repertoires.list');
+  if (tag === null) return null;
+  return (
+    <span
+      className={`rounded-pill px-2 py-0.5 text-xs font-semibold ${TAG_STYLE[tag]}`}
+    >
+      {t(TAG_KEY[tag])}
+    </span>
+  );
+}
+
+/** The meta line, its parts separated by a middle dot. */
+function MetaLine({
+  id,
+  parts,
+}: {
+  readonly id: string;
+  readonly parts: readonly string[];
+}): JSX.Element {
+  const t = useTranslations('repertoires.list');
+  return (
+    <span id={id} className="text-sm text-fg-muted">
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          {index === 0 ? null : t('separator')}
+          <span>{part}</span>
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * One card of any kind (R-225): the name line (the name, two lines at
+ * most, in full in its title and accessible name; its tag; an
+ * assignment's badges), the meta line and the standing. The whole card is
+ * the link.
+ */
+function CardLink({ view }: { readonly view: CardView }): JSX.Element {
+  const nameId = useId();
+  const metaId = useId();
+  const standingId = useId();
+  const { standing } = view;
   return (
     <Link
-      href={repertoireRoute(item.id)}
+      href={view.href}
       aria-labelledby={nameId}
-      aria-describedby={metaId}
-      title={item.name}
+      aria-describedby={
+        standing === undefined ? metaId : `${metaId} ${standingId}`
+      }
+      title={view.name}
       className={LIST_CARD}
     >
-      <span id={nameId} className="line-clamp-2 text-lg font-semibold">
-        {item.name}
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span id={nameId} className="line-clamp-2 text-base font-semibold">
+          {view.name}
+        </span>
+        <Tag tag={view.tag} />
+        {view.badges === null ? null : <AssignmentBadges flags={view.badges} />}
       </span>
-      <span id={metaId} className="flex flex-col text-sm text-fg-muted">
-        {item.forkCoachName === null ? null : (
-          <span>{t('forkOf', { coach: item.forkCoachName })}</span>
-        )}
-        <span>{t('meta', { chapters: item.chapters, moves: item.moves })}</span>
-        <span>{t('changed', { date: changed })}</span>
-      </span>
+      <MetaLine id={metaId} parts={view.meta} />
+      {standing === undefined ? null : (
+        <span id={standingId}>
+          <StandingLine standing={standing.standing} due={standing.due} />
+        </span>
+      )}
     </Link>
+  );
+}
+
+function OwnCard({
+  item,
+  now,
+  standings,
+}: {
+  readonly item: RepertoireCard;
+  readonly now: Date;
+  readonly standings: Standings;
+}): JSX.Element {
+  const meta = useOwnMeta(item, now);
+  return (
+    <CardLink
+      view={{
+        href: repertoireRoute(item.id),
+        name: item.name,
+        tag: item.forkCoachName === null ? null : 'fork',
+        meta,
+        badges: null,
+        standing: standings.get(item.id),
+      }}
+    />
+  );
+}
+
+/** A repertoire a coach assigned to the player (#328). */
+function AssignedCard({
+  item,
+  now,
+  standings,
+}: {
+  readonly item: AssignedListItem;
+  readonly now: Date;
+  readonly standings: Standings;
+}): JSX.Element {
+  const meta = useAssignedMeta(item, now);
+  return (
+    <CardLink
+      view={{
+        href: assignedRepertoirePath(item.repertoireId),
+        name: item.name,
+        tag: 'assigned',
+        meta,
+        badges: item.badges,
+        standing: standings.get(item.repertoireId),
+      }}
+    />
   );
 }
 
 const EMPTY_KEY = { white: 'emptyWhite', black: 'emptyBlack' } as const;
-
-/**
- * The side's king beside its heading: the side's fill in both themes, an
- * outline that stands out from the page (tokens.css, piece glyphs).
- */
-function King({ side }: { readonly side: Side }): JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={`size-6 shrink-0 stroke-piece-outline ${side === 'white' ? 'fill-piece-white' : 'fill-piece-black'}`}
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2.5v4M10 4.5h4" fill="none" />
-      <path d="M12 8.5c-2-2.5-7-2-7 2.5 0 2.5 2 4 2 6.5h10c0-2.5 2-4 2-6.5 0-4.5-5-5-7-2.5z" />
-      <path d="M6.5 17.5h11v3.5h-11z" />
-    </svg>
-  );
-}
-
-/**
- * A repertoire a coach assigned to the player: its page, who assigned it,
- * the deadline and the badges, as its row on Today shows them.
- */
-function AssignedCard({
-  item,
-}: {
-  readonly item: AssignedListItem;
-}): JSX.Element {
-  const nameId = useId();
-  const metaId = useId();
-  return (
-    <Link
-      href={assignedRepertoirePath(item.repertoireId)}
-      aria-labelledby={nameId}
-      aria-describedby={metaId}
-      title={item.name}
-      className={LIST_CARD}
-    >
-      <span id={nameId} className="line-clamp-2 text-lg font-semibold">
-        {item.name}
-      </span>
-      <AssignmentFacts
-        assignment={item}
-        id={metaId}
-        className="text-sm text-fg-muted"
-      />
-    </Link>
-  );
-}
 
 /** One card of a side: the account's own repertoire or an assigned one. */
 type Entry =
@@ -143,10 +238,12 @@ const byEntryName = byName((entry: Entry) => ({
 function SideGroup({
   side,
   entries,
+  standings,
   now,
 }: {
   readonly side: Side;
   readonly entries: readonly Entry[];
+  readonly standings: Standings;
   readonly now: Date;
 }): JSX.Element {
   const t = useTranslations('repertoires.list');
@@ -157,7 +254,7 @@ function SideGroup({
         id={titleId}
         className="flex items-center gap-2 text-lg font-semibold"
       >
-        <King side={side} />
+        <SideKing side={side} />
         {t(side)}
       </h2>
       {entries.length === 0 ? (
@@ -167,9 +264,13 @@ function SideGroup({
           {entries.map((entry) => (
             <li key={keyOf(entry)}>
               {entry.kind === 'own' ? (
-                <Card item={entry.item} now={now} />
+                <OwnCard item={entry.item} now={now} standings={standings} />
               ) : (
-                <AssignedCard item={entry.item} />
+                <AssignedCard
+                  item={entry.item}
+                  now={now}
+                  standings={standings}
+                />
               )}
             </li>
           ))}
@@ -181,15 +282,19 @@ function SideGroup({
 
 /**
  * The account's repertoires and those assigned to it (#328) by side, White
- * then Black, each sorted by name in English order (R-160, R-217); one line when there are none at all.
+ * then Black, each sorted by name in English order (R-160, R-217), each
+ * with its standing where the viewer trains it (R-225); one line when there
+ * are none at all.
  */
 export function RepertoireList({
   items,
   assigned,
+  standings,
   now,
 }: {
   readonly items: readonly RepertoireCard[];
   readonly assigned: readonly AssignedListItem[];
+  readonly standings: Standings;
   readonly now: Date;
 }): JSX.Element {
   const t = useTranslations('repertoires.list');
@@ -206,6 +311,7 @@ export function RepertoireList({
           key={side}
           side={side}
           entries={entries.filter((entry) => entry.item.side === side)}
+          standings={standings}
           now={now}
         />
       ))}

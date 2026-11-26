@@ -12,7 +12,7 @@ import { AssignmentFacts } from '../assignment-facts';
 import { TONAL_BUTTON } from '../buttons';
 import { MasteredBadge } from '../coach/state-bar';
 import { CARD } from '../surfaces';
-import { LearnedBar } from './learned-bar';
+import { LearnedBar } from '../learned-bar';
 
 /**
  * The repertoire's name as a link one text line high, so the lines under

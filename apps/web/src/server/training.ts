@@ -6,12 +6,16 @@ import 'server-only';
 // scope, and the snapshot query checks it is a repertoire the player trains.
 import {
   nextDue,
+  progressOf,
   repertoireLearn,
   todayRows,
   trackedIn,
+  trackedReviews,
   trainingCounts,
   type LearnFocus,
+  type RepertoireGraph,
   type Side,
+  type Standing,
   type TodayRow,
   type TrainingCounts,
   type TrainingDay,
@@ -321,15 +325,60 @@ async function loadTodayList(account: Account): Promise<TodayListRow[]> {
 /** todayList once per request. */
 export const todayList = cache(loadTodayList);
 
+/** A trained repertoire's standing and due count, for My repertoires (R-225). */
+export interface TrainedStanding {
+  readonly standing: Standing;
+  readonly due: number;
+}
+
+/**
+ * Every repertoire the session account trains, by id: the same
+ * request-cached read as Today's list, so My repertoires adds no query.
+ */
+export async function trainedStandings(
+  account: Account,
+): Promise<ReadonlyMap<string, TrainedStanding>> {
+  const rows = await todayList(account);
+  return new Map(
+    rows.map((row) => [
+      row.repertoireId,
+      { standing: row.standing, due: row.due },
+    ]),
+  );
+}
+
 /**
  * A repertoire page's training: its counts, what learning one chapter or
- * line of it would teach today (R-206), and whether today's limit stops
- * learning while moves are left (decision 11).
+ * line of it would teach today (R-206), whether today's limit stops
+ * learning while moves are left (decision 11), and the standings its
+ * chapter rows show (R-225).
  */
 export interface RepertoireTraining {
   readonly counts: TrainingCounts;
   readonly learn: LearnScope;
   readonly limitReached: boolean;
+  /** The repertoire's R-151 standing (R-225). */
+  readonly standing: Standing;
+  /** Each chapter's standing by chapter id (R-225). */
+  readonly chapters: Readonly<Record<string, Standing>>;
+}
+
+/** The standing of `graph` and of each of its chapters, by chapter id. */
+function standingsOf(
+  graph: RepertoireGraph,
+  day: TrainingDay,
+  now: Date,
+): Pick<RepertoireTraining, 'standing' | 'chapters'> {
+  const progress = progressOf(graph, trackedReviews(day), now);
+  return {
+    standing: { counts: progress.counts, mastered: progress.mastered },
+    chapters: Object.fromEntries(
+      progress.chapters.map(({ chapter, counts, mastered }) => [
+        chapter.id,
+        { counts, mastered },
+      ]),
+    ),
+  };
 }
 
 /**
@@ -356,5 +405,6 @@ export async function repertoireTraining(
     },
     limitReached:
       repertoireLearn(day, entry.repertoire.id).kind === 'limitReached',
+    ...standingsOf(entry.repertoire.graph, day, read.now),
   };
 }

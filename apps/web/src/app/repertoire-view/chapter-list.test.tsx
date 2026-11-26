@@ -13,6 +13,7 @@ import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { FieldOutcome } from './field-save';
+import { panelTraining } from './test-training';
 
 const server = vi.hoisted(() => ({
   count: vi.fn<(form: FormData) => Promise<unknown>>(),
@@ -339,18 +340,7 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
           }}
           onSelect={vi.fn()}
           training={
-            training
-              ? {
-                  repertoireId: REPERTOIRE,
-                  counts: { due: 0, toLearn: 0 },
-                  learn: {
-                    tracked: [],
-                    learnedToday: 0,
-                    limits: { reviews: 20, newPerDay: 10 },
-                  },
-                  limitReached: false,
-                }
-              : undefined
+            training ? panelTraining({ repertoireId: REPERTOIRE }) : undefined
           }
         />
       </NextIntlClientProvider>,
@@ -400,7 +390,7 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
           names={{ taxonomyNames: {}, distinctions: {} }}
           onSelect={vi.fn()}
           graph={london}
-          training={{
+          training={panelTraining({
             repertoireId: REPERTOIRE,
             counts: { due: 0, toLearn: 2 },
             learn: {
@@ -408,8 +398,7 @@ describe('ChapterList’s Learn on each chapter row (R-206)', () => {
               learnedToday,
               limits: { reviews: 20, newPerDay: 2 },
             },
-            limitReached: false,
-          }}
+          })}
         />
       </NextIntlClientProvider>,
     );

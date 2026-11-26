@@ -106,7 +106,7 @@ one chosen chapter or line), R-217, R-218, R-219, R-220, R-221, R-222.
     none for own; plus the existing Overdue and Paused pills;
   - one meta line: own and fork: "N chapters · N moves · changed <date>";
     assigned: "<coach> · due <date> · N chapters · N moves"; a fork adds
-    "Copy of <coach>'s <name>" as today, on the meta line;
+    "Copy of <coach>'s repertoire" at the end of the meta line;
   - Today's `LearnedBar` (6px track), then "64% learned · 3 due", "New" when
     nothing is learned, "Mastered" when mastered (R-178). The due count only
     when above zero.

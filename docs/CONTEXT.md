@@ -101,7 +101,7 @@ _Avoid_: Copy, share, subscription
 **Fork**:
 A Player's personal, editable copy of an assigned Repertoire, cut off from the Coach's later edits. The only way for a Player to change or add Moves to something they were assigned.
 Its **Fork origin** records the source Repertoire and the assigning Coach's display name at fork time; the source becomes unknown when that Repertoire is deleted, and the name stays (R-49), so the Player's list can say whose Assignment it was. A Coach learns that a Repertoire shared with them is the Fork of their own Assignment, and links to it, only while it is shared through an active link (R-43, R-155); the newest such Fork is named.
-_Avoid_: Clone, copy, duplicate
+_Avoid_: Clone, copy, duplicate (in the code and docs; the UI labels a Fork "Own copy" and its action "Make my own copy", ruled UI wording, R-226)
 
 **Fork offer**:
 A 30-day offer to keep a Fork of an Assignment that ended for a Player (unassigned, unlinked, left the Group, or the Repertoire deleted). It holds a snapshot taken when the Assignment ended, so later Coach edits or deletes do not change what the Player can keep (R-44, R-130, R-131).

@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import { PRIMARY_BUTTON } from '../buttons';
+import { panelTraining } from './test-training';
 import { TrainButtons } from './train-buttons';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -17,12 +18,12 @@ function renderButtons(due: number, toLearn: number, limitReached = false) {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainButtons
-        training={{
+        training={panelTraining({
           repertoireId: ID,
           counts: { due, toLearn },
           learn: LEARN,
           limitReached,
-        }}
+        })}
       />
     </NextIntlClientProvider>,
   );

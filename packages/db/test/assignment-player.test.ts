@@ -186,6 +186,8 @@ describe('playerAssignments', () => {
         repertoireId: rep,
         name: 'Londono sistema',
         side: 'white',
+        chapters: 1,
+        moves: 4,
         coachId: 'c',
         coachName: 'Name c',
         deadline: '2026-11-01',

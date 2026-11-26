@@ -3,9 +3,8 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
-import type { LearnScope } from '../../lib/learn-scope';
 import { ROUTES, trainingPath } from '../../lib/routes';
-import type { TrainingCounts } from '@mychess/chess';
+import type { RepertoireTraining } from '../../server/training';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { TEXT_LINK } from '../settings/styles';
 
@@ -13,14 +12,8 @@ import { TEXT_LINK } from '../settings/styles';
  * The player's training of the repertoire a page shows. Absent where the
  * viewer does not train it: a coach's view, or a paused assignment (R-46).
  */
-export interface PanelTraining {
+export interface PanelTraining extends RepertoireTraining {
   readonly repertoireId: string;
-  /** Due now and to learn today, as the page loaded. */
-  readonly counts: TrainingCounts;
-  /** What learning a chapter or line would teach today (R-206). */
-  readonly learn: LearnScope;
-  /** Moves are left but today's new moves are used (decision 11). */
-  readonly limitReached: boolean;
 }
 
 /** The button weight of an action: the main one, or any other. */

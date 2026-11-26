@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { KnowSection } from './know-section';
+import { panelTraining } from './test-training';
 
 vi.mock('../repertoires/know-actions', () => ({
   knowCountAction: vi.fn(),
@@ -22,16 +23,14 @@ function renderSection(depth: number, learnedToday = 10): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <KnowSection
-        training={{
+        training={panelTraining({
           repertoireId: ID,
-          counts: { due: 0, toLearn: 0 },
           learn: {
             tracked: [],
             learnedToday,
             limits: { reviews: 20, newPerDay: 10 },
           },
-          limitReached: false,
-        }}
+        })}
         graph={london}
         chapterId={chapterId}
         path={c5.slice(0, depth)}

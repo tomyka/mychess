@@ -4,6 +4,7 @@ import 'server-only';
 // again by the queries, which filter by owner (CLAUDE.md, decision 12), or
 // by the player's live assignment (R-202).
 import {
+  assignedPlayerCount,
   assignedRepertoireForPlayer,
   coachNotesOn,
   forkCoachNotesOn,
@@ -20,6 +21,7 @@ import {
 import {
   canEditRepertoire,
   canViewRepertoire,
+  isCoach,
   REPERTOIRE_REFUSALS,
   type Account,
   type AccountRef,
@@ -102,15 +104,33 @@ export async function downloadableRepertoire(
  */
 export type MyRepertoire = Omit<RepertoireListItem, 'forkedFrom'> & {
   readonly forkCoachName: string | null;
+  /** How many players have it live from the coach (R-225); 0 for a non-coach. */
+  readonly assignedTo: number;
 };
+
+/**
+ * How many players have each of `items` assigned, in order: read only for
+ * a coach, filtered by the session coach in the query.
+ */
+function assignedCounts(
+  account: Account,
+  items: readonly RepertoireListItem[],
+): Promise<number[]> {
+  if (!isCoach(account)) return Promise.resolve(items.map(() => 0));
+  return Promise.all(
+    items.map((item) => assignedPlayerCount(getDb(), account.id, item.id)),
+  );
+}
 
 /** My repertoires: the session account's own repertoires. */
 export async function myRepertoires(): Promise<MyRepertoire[]> {
   const account = await requireOnboarded();
   const items = await listRepertoires(getDb(), account.id);
-  return items.map(({ forkedFrom, ...item }) => ({
+  const counts = await assignedCounts(account, items);
+  return items.map(({ forkedFrom, ...item }, index) => ({
     ...item,
     forkCoachName: forkedFrom?.coachName ?? null,
+    assignedTo: counts[index] ?? 0,
   }));
 }
 
