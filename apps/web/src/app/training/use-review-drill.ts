@@ -18,14 +18,15 @@ import type { DrillResult, Step } from './drill-core';
 import { BROWSER_CLOCK, type DrillClock } from './drill-input';
 import {
   advanced,
+  released,
   afterAnswer,
   afterHint,
   answeredMove,
   canHint,
   frameOf,
   isDone,
-  startDrill,
-  type DrillState,
+  startReviewDrill,
+  type ReviewDrillState,
 } from './review-drill-state';
 import { useDrill, type Drill, type DrillRules } from './use-drill';
 import type { ResultSync } from './use-result-sync';
@@ -33,7 +34,7 @@ import type { ResultSync } from './use-result-sync';
 /** The longest wait `setTimeout` keeps (about 24.8 days). */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
-export interface ReviewDrill extends Drill<DrillState> {
+export interface ReviewDrill extends Drill<ReviewDrillState> {
   readonly hint: () => void;
 }
 
@@ -48,8 +49,8 @@ const boundsOf = (
  * `now` falls in: the clock's, not the snapshot's, so a page loaded
  * yesterday still repeats today's lapses (R-78).
  */
-const drillAt = (day: TrainingDay, now: Date): DrillState =>
-  startDrill(
+const drillAt = (day: TrainingDay, now: Date): ReviewDrillState =>
+  startReviewDrill(
     dueReviews(day, now),
     day.repertoires,
     day.reviews,
@@ -67,7 +68,11 @@ const resultOf = (emit: ReviewEmit | null): DrillResult | null =>
       };
 
 /** The player's `move`, answered and graded in the local Reviews at `now`. */
-function answered(s: DrillState, move: BoardMove, now: Date): Step<DrillState> {
+function answered(
+  s: ReviewDrillState,
+  move: BoardMove,
+  now: Date,
+): Step<ReviewDrillState> {
   const answer = answerReview(s.session, move.san, {
     now,
     reviews: s.reviews,
@@ -76,7 +81,7 @@ function answered(s: DrillState, move: BoardMove, now: Date): Step<DrillState> {
 }
 
 /** The hint at `now`: the piece shown, the hint graded (R-61). */
-function hinted(s: DrillState, now: Date): Step<DrillState> {
+function hinted(s: ReviewDrillState, now: Date): Step<ReviewDrillState> {
   const hint = hintReview(s.session, { now, reviews: s.reviews });
   return { state: afterHint(s, hint), result: resultOf(hint.emit) };
 }
@@ -87,15 +92,15 @@ function hinted(s: DrillState, now: Date): Step<DrillState> {
  * notices until Next, then the next item is chosen at its time (a repeat
  * may be due, R-78); a Lapse's arrow waits for its move.
  */
-const REVIEW_RULES: DrillRules<DrillState> = {
+const REVIEW_RULES: DrillRules<ReviewDrillState> = {
   start: ({ day, now }) => drillAt(day, now),
   frameOf,
   play: answered,
   noticed: (s) => ({ move: answeredMove(s), holds: true }),
   answeredRight: (s) => s.session.phase === 'correct',
-  onward: (s, day, now) => advanced(s, day.repertoires, now),
+  onward: (s, day, now) => released(s, day.repertoires, now),
   sliding: (s) => s.replying,
-  slid: (s) => ({ ...s, replying: false }),
+  slid: advanced,
   isDone,
   // Continue while the Reviews graded so far leave more due now (R-62,
   // R-78); new moves while the snapshot's day has some to learn.

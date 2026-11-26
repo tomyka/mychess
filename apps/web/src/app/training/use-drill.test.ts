@@ -12,6 +12,7 @@ import { NOTHING_MORE } from './done-offer';
 import { drillFrame } from './drill-frame';
 import { FEEDBACK_MS, type DrillClock } from './drill-input';
 import { useDrill, type DrillRules } from './use-drill';
+import type { BoardView } from '../board/board-config';
 import type { ResultSync } from './use-result-sync';
 
 const NOW = new Date('2026-10-25T08:00:00Z');
@@ -91,6 +92,10 @@ function type(drill: () => { onTyped: (t: string) => boolean }, san: string) {
   return taken;
 }
 
+/** The board's mark on `square`: the answer's flash or the hint. */
+const markOf = (drill: () => { view: BoardView }, square: string) =>
+  [...(drill().view.marked ?? [])].find(([key]) => key === square)?.[1];
+
 /** Lets `ms` of the drill's timers run. */
 function wait(ms: number): void {
   act(() => {
@@ -124,13 +129,13 @@ describe('the drill core', () => {
     expect(FEEDBACK_MS).toBe(700);
     const { drill } = renderDrill();
     expect(type(drill, 'e4')).toBe(true);
-    expect(drill().state.flash?.kind).toBe('wrong');
+    expect(markOf(drill, 'e4')).toBe('wrong');
     expect(drill().view.dests.size).toBe(0);
     expect(type(drill, 'd4')).toBe(false);
     wait(FEEDBACK_MS - 1);
-    expect(drill().state.flash).not.toBeNull();
+    expect(markOf(drill, 'e4')).toBe('wrong');
     wait(1);
-    expect(drill().state.flash).toBeNull();
+    expect(markOf(drill, 'e4')).toBeUndefined();
     expect(drill().view.dests.size).toBeGreaterThan(0);
     expect(type(drill, 'd4')).toBe(true);
   });
@@ -140,12 +145,12 @@ describe('the drill core', () => {
     type(drill, 'd4');
     wait(200);
     type(drill, 'e4');
-    const newer = drill().state.flash;
     wait(FEEDBACK_MS - 200);
-    expect(drill().state.flash).toBe(newer);
-    expect(drill().view.marked?.get('e4')).toBe('wrong');
-    wait(200);
-    expect(drill().state.flash).toBeNull();
+    expect(markOf(drill, 'e4')).toBe('wrong');
+    wait(199);
+    expect(markOf(drill, 'e4')).toBe('wrong');
+    wait(1);
+    expect(markOf(drill, 'e4')).toBeUndefined();
   });
 
   it('puts a wrong move back on the board and marks an unknown typed move', () => {
@@ -153,14 +158,25 @@ describe('the drill core', () => {
     const revision = drill().view.revision;
     type(drill, 'e4');
     expect(drill().view.revision).toBe(revision + 1);
-    expect(drill().state.unknownTyped).toBe(false);
+    expect(drill().unknownTyped).toBe(false);
     wait(FEEDBACK_MS);
     expect(type(drill, 'Zz9')).toBe(false);
-    expect(drill().state.unknownTyped).toBe(true);
+    expect(drill().unknownTyped).toBe(true);
     act(() => {
       drill().onMove('e2', 'e5');
     });
     expect(drill().view.revision).toBe(revision + 2);
+  });
+
+  it('keeps a move taken just before an unknown typed move in the same turn', () => {
+    const { drill } = renderDrill();
+    const before = drill();
+    act(() => {
+      before.onTyped('d4');
+      before.onTyped('Zz9');
+    });
+    expect(markOf(drill, 'd4')).toBe('correct');
+    expect(drill().unknownTyped).toBe(true);
   });
 
   it('shows the side asked and where the day stands', () => {
@@ -177,7 +193,7 @@ describe('the drill core once done', () => {
 
   it('reports the item by its ids, and offers nothing while the session runs', () => {
     const { drill } = renderDrill();
-    expect(drill().item).toEqual({
+    expect(drill().item).toMatchObject({
       repertoireId: LONDON_ID,
       chapterId: undefined,
     });

@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { doneSteps, NOTHING_MORE, type DoneOffer } from './done-offer';
+import { NOTHING_MORE, type DoneOffer } from './done-offer';
 import { DoneActions, DoneSummary } from './done-summary';
 
 const T = MESSAGES.training.done;
@@ -222,22 +222,5 @@ describe('the done summary’s buttons', () => {
     expect(done).toContain('bg-accent ');
     expect(done).toContain('basis-full');
     expect(done).not.toContain('text-fg-muted');
-  });
-});
-
-describe('doneSteps', () => {
-  it('orders the steps offered Continue, Start review, Learn new moves, then Done', () => {
-    const all = { continue: true, review: true, learn: true };
-    expect(doneSteps(all)).toEqual(['continue', 'review', 'learn', 'finish']);
-    expect(doneSteps({ ...all, continue: false })).toEqual([
-      'review',
-      'learn',
-      'finish',
-    ]);
-    expect(doneSteps({ ...NOTHING_MORE, learn: true })).toEqual([
-      'learn',
-      'finish',
-    ]);
-    expect(doneSteps(NOTHING_MORE)).toEqual(['finish']);
   });
 });

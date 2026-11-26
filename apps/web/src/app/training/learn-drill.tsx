@@ -13,6 +13,10 @@ import {
 } from './learn-drill-state';
 import { useLearnDrill } from './use-learn-drill';
 
+/**
+ * What the panel says. 'known' mirrors chess's `kind: 'known'` learn step:
+ * a Tracked move, played for its line.
+ */
 type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind' | 'recall';
 
 /**

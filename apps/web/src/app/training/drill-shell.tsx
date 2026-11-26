@@ -17,7 +17,6 @@ import { QUIET_ACTION } from '../buttons';
 import { DrillCoachNote } from './coach-note';
 import { DoneActions, DoneSummary, type SessionCounts } from './done-summary';
 import type { DrillProps, FrameParts } from './drill';
-import type { DrillCore } from './drill-core';
 import {
   LineSoFar,
   MoveRow,
@@ -57,7 +56,7 @@ const TONES: Record<StatusKey, StatusTone> = {
 };
 
 export interface DrillShellProps extends Pick<DrillProps, 'links' | 'frame'> {
-  readonly drill: Drill<DrillCore>;
+  readonly drill: Drill<unknown>;
   /** The session's done / total: the counter and the progress bar. */
   readonly progress: NonNullable<FrameParts['progress']>;
   /** What the session did, for the Done summary. */
@@ -90,9 +89,7 @@ function Status({
       <ToMove color={drill.toMove} />
       {said}
       <StatusLine tone={TONES[status.key]} text={status.text} />
-      {drill.state.unknownTyped ? (
-        <p className="text-error">{t('unknown')}</p>
-      ) : null}
+      {drill.unknownTyped ? <p className="text-error">{t('unknown')}</p> : null}
     </div>
   );
 }

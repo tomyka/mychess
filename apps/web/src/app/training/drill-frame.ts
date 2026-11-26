@@ -6,7 +6,14 @@
 // wrong move stays on the board for its flash in place of the asked
 // position, with no arrow or hint, and no move is taken meanwhile. The
 // board adapter (drill-board) only draws the frame.
-import { positionAfterMove, sideToMove, type BoardMove } from '@mychess/chess';
+import {
+  positionAfterMove,
+  sideToMove,
+  START_KEY,
+  type BoardMove,
+  type RepertoireMove,
+} from '@mychess/chess';
+import type { ItemIds } from './session-header';
 
 /** A square's answer flash (docs/design/training-screen.md, Move feedback). */
 export interface Flash {
@@ -28,12 +35,8 @@ export function answerFlash(
   return { square: move.dest, kind: 'wrong', after };
 }
 
-/** What a drill asks now, before any hold. */
-export interface Asked {
-  /** The repertoire of the item drilled, if any. */
-  readonly repertoireId: string | undefined;
-  /** The chapter of the item drilled, if any. */
-  readonly chapterId: string | undefined;
+/** What a drill asks now, before any hold: the item drilled, by its ids, and its position. */
+export interface Asked extends ItemIds {
   /** The position asked, as a position key. */
   readonly key: string;
   /** The move that led to it (UCI), if any. */
@@ -50,6 +53,18 @@ export interface Asked {
    * moment the reply shows must not be lost (#324).
    */
   readonly typeable: boolean;
+}
+
+/**
+ * The position at the end of `moves` played from `rootKey` (the start
+ * without one), and the move that led to it.
+ */
+export function lineEnd(
+  moves: readonly RepertoireMove[],
+  rootKey: string | undefined,
+): Pick<Asked, 'key' | 'last'> {
+  const last = moves.at(-1);
+  return { key: last?.to ?? rootKey ?? START_KEY, last: last?.uci };
 }
 
 /** The answer's marks a drill keeps. */

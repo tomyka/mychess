@@ -88,6 +88,8 @@ export interface Drill<S> extends MoveInput, DrillNotices {
   readonly view: BoardView;
   /** The item drilled, by its ids, for the header's context line (R-224). */
   readonly item: ItemIds;
+  /** The last typed move was not a legal one: the panel says so. */
+  readonly unknownTyped: boolean;
   /** The side asked to move, also while a wrong move is held (#381). */
   readonly toMove: Color;
   /**
@@ -234,7 +236,7 @@ export function useDrill<S extends DrillCore>(
       setState(putBack);
     },
     unknown() {
-      setState(typedUnknown(state));
+      setState(typedUnknown);
     },
   });
   const days = dayView(day, state.reviews, clock);
@@ -244,7 +246,8 @@ export function useDrill<S extends DrillCore>(
     ...days,
     state,
     view,
-    item: { repertoireId: frame.repertoireId, chapterId: frame.chapterId },
+    item: frame,
+    unknownTyped: state.unknownTyped,
     toMove: frame.toMove,
     next: held ? onward : null,
     done: rules.isDone(state)

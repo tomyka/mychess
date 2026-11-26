@@ -74,7 +74,9 @@ const LEARN_RULES: DrillRules<LearnDrillState> = {
 
 /**
  * The learn drill (plan Task C6): each move learned recorded and started
- * as a Review in the browser, and the board's view of it.
+ * as a Review in the browser, and the board's view of it. The learn mode's
+ * entry point: the drill core run over the learn rules, which add nothing
+ * of their own to it (a review adds its Hint).
  */
 export function useLearnDrill(
   data: TrainingData,

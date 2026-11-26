@@ -14,7 +14,7 @@ import { dayEnd } from '@mychess/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { graphOf, pgnWithMoves } from '../../../test/fixtures/repertoires';
 import {
-  advanced,
+  released,
   afterAnswer,
   answeredMove,
   canHint,
@@ -23,12 +23,12 @@ import {
   frameOf,
   sessionCounts,
   shownKey,
-  startDrill,
-  type DrillState,
+  startReviewDrill,
+  type ReviewDrillState,
 } from './review-drill-state';
 
 /** The session's progress, as the review panel's counter shows it. */
-const progress = (s: DrillState) => reviewProgress(s.session);
+const progress = (s: ReviewDrillState) => reviewProgress(s.session);
 
 const NOW = new Date('2026-10-25T08:00:00Z');
 /** 23:59 in Vilnius: a Lapse's 1-minute step falls due exactly at midnight. */
@@ -54,7 +54,7 @@ const dueEverything = (): ReadonlyMap<string, ReviewState> =>
   );
 
 /** A drill over the session-size's worth of due moves. */
-function drill(size: number): DrillState {
+function drill(size: number): ReviewDrillState {
   const day = {
     repertoires: REPERTOIRES,
     reviews: dueEverything(),
@@ -62,40 +62,43 @@ function drill(size: number): DrillState {
     learnedToday: 0,
     limits: { reviews: size, newPerDay: 0 },
   };
-  return startDrill(dueReviews(day, at), REPERTOIRES, day.reviews, {
+  return startReviewDrill(dueReviews(day, at), REPERTOIRES, day.reviews, {
     size,
     dayEnd: dayEnd(at),
   });
 }
 
 /** A legal move on the board of `s`: the board move behind any answer. */
-function aMove(s: DrillState): BoardMove {
+function aMove(s: ReviewDrillState): BoardMove {
   const [move] = legalMoves(shownKey(s));
   if (move === undefined) throw new Error('the position has a legal move');
   return move;
 }
 
 /** Plays `san` for the current item, then lets the drill go on. */
-function play(s: DrillState, san: string): DrillState {
+function play(s: ReviewDrillState, san: string): ReviewDrillState {
   const answered = afterAnswer(
     s,
     aMove(s),
     answerReview(s.session, san, { now: at, reviews: s.reviews }),
   );
   return answered.session.phase === 'correct'
-    ? advanced(answered, REPERTOIRES, at)
+    ? released(answered, REPERTOIRES, at)
     : answered;
 }
 
 /** The current item's move. */
-function expected(s: DrillState): string {
+function expected(s: ReviewDrillState): string {
   const san = s.session.current?.item.san;
   if (san === undefined) throw new Error('the drill asks nothing');
   return san;
 }
 
 /** Answers right until the drill is done or `stop` holds. */
-function passUntil(s: DrillState, stop: (s: DrillState) => boolean) {
+function passUntil(
+  s: ReviewDrillState,
+  stop: (s: ReviewDrillState) => boolean,
+) {
   let state = s;
   for (let i = 0; i < 50 && !isDone(state) && !stop(state); i++)
     state = play(state, expected(state));
@@ -103,7 +106,7 @@ function passUntil(s: DrillState, stop: (s: DrillState) => boolean) {
 }
 
 /** A lapse on the current item, then its move played after the arrow. */
-function lapse(s: DrillState): DrillState {
+function lapse(s: ReviewDrillState): ReviewDrillState {
   return play(play(s, 'wrong'), expected(s));
 }
 

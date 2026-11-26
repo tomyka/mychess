@@ -12,14 +12,14 @@ import {
   playedMoves,
   replyText,
   sessionCounts,
-  type DrillState,
+  type ReviewDrillState,
 } from './review-drill-state';
 import { useReviewDrill } from './use-review-drill';
 
 type StatusKey = 'correct' | 'lapse' | 'hinted' | 'again' | 'prompt';
 
 /** What the panel says about the current answer. */
-function statusOf(state: DrillState): StatusKey {
+function statusOf(state: ReviewDrillState): StatusKey {
   if (state.session.phase === 'correct') return 'correct';
   if (state.session.phase === 'replay') return 'lapse';
   if (state.session.hinted) return 'hinted';
@@ -27,7 +27,7 @@ function statusOf(state: DrillState): StatusKey {
 }
 
 /** The opponent's reply before the asked move, while it is asked. */
-const replyOf = (state: DrillState): string | null =>
+const replyOf = (state: ReviewDrillState): string | null =>
   state.shown === null || state.session.phase !== 'ask'
     ? null
     : replyText(state.shown);

@@ -9,7 +9,6 @@ import {
   advanceLearn,
   currentLearnStep,
   newKeys,
-  START_KEY,
   startLearnSession,
   startReview,
   type BoardMove,
@@ -22,7 +21,12 @@ import {
   type ReviewState,
 } from '@mychess/chess';
 import { answerMarks, startCore, type DrillCore } from './drill-core';
-import { drillFrame, type Asked, type DrillFrame } from './drill-frame';
+import {
+  drillFrame,
+  lineEnd,
+  type Asked,
+  type DrillFrame,
+} from './drill-frame';
 
 /**
  * The learn drill's state; its `reviews` have one started for each key
@@ -134,10 +138,12 @@ export function playedMoves(s: LearnDrillState): readonly RepertoireMove[] {
 }
 
 /** The position on the board, as a position key. */
-export function shownKey(s: LearnDrillState): string {
-  const root = s.session?.line.rootKey;
-  return playedMoves(s).at(-1)?.to ?? root ?? START_KEY;
-}
+/** The position on the board, and the move that led to it. */
+const shownEnd = (s: LearnDrillState): Pick<Asked, 'key' | 'last'> =>
+  lineEnd(playedMoves(s), s.session?.line.rootKey);
+
+/** The position on the board, as a position key. */
+export const shownKey = (s: LearnDrillState): string => shownEnd(s).key;
 
 /** `learned` and `reviews` with `key` learned at `now`. */
 function learnedAt(
@@ -223,8 +229,7 @@ function askedOf(s: LearnDrillState): Asked {
   return {
     repertoireId: s.session?.line.repertoireId,
     chapterId: s.session?.line.chapterId,
-    key: shownKey(s),
-    last: playedMoves(s).at(-1)?.uci,
+    ...shownEnd(s),
     playable: asking(s),
     typeable: asking(answering(s)),
     arrow: s.session?.arrow === true ? asked : undefined,
