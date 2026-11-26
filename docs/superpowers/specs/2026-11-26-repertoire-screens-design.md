@@ -105,10 +105,11 @@ one chosen chapter or line), R-217, R-218, R-219, R-220, R-221, R-222.
   - a tag after the name: **Assigned** (assigned), **Own copy** (fork),
     none for own; plus the existing Overdue and Paused pills;
   - one meta line: own and fork: "N chapters · N moves · changed <date>";
-    assigned: "<coach> · due <date> · N chapters · N moves"; a fork adds
+    assigned: "<coach> · due <date> · N chapters · N moves" ("no deadline"
+    when it has none); a fork adds
     "Copy of <coach>'s repertoire" at the end of the meta line;
-  - Today's `LearnedBar` (6px track), then "64% learned · 3 due", "New" when
-    nothing is learned, "Mastered" when mastered (R-178). The due count only
+  - Today's `LearnedBar` (6px track), then "64% learned · 3 due", "New · N
+    moves" when no move is started, the Mastered pill when mastered (R-178). The due count only
     when above zero.
 - The whole card stays the link. Coach: an own card that is assigned to
   players adds "Assigned to N" to its meta line.
@@ -161,7 +162,8 @@ the scrolling panel; desktop keeps the sticky board beside the panel.
   scrolls). Choosing one selects it and closes the list (focus returns to
   the line).
 - **Chapter rows:** the title (wraps in full, R-158), then a `LearnedBar`
-  and "64% · 4 due" / "New · 18 moves" / "Mastered". No icons in browse
+  and "64% learned · 4 due" / "New · 18 moves" / the Mastered pill (the
+  same words as the cards). No icons in browse
   mode. The current chapter's row is highlighted.
 
 ### Comment strip
@@ -187,8 +189,10 @@ keep their place under the comment, unchanged.
 - Chips: compact (28px) on desktop, `min-h-touch` on phone. Own-side moves
   stay bold, the comment glyph stays, the current chip stays the accent
   fill.
-- Selecting a move scrolls only the panel (`scrollIntoView` with
-  `block: 'nearest'` on the panel's scroller), never the page.
+- Selecting a move scrolls only its own scroller, never the page: the
+  panel on a phone; on desktop the move list keeps its own box (at most
+  half the viewport high, as since #331) so the comment strip and the
+  summary above it stay in view while stepping.
 
 ### Train here (browse)
 
@@ -238,7 +242,9 @@ one content column. Sections as `SECTION` cards:
   copy, each with one muted line saying what it does (catalogue keys).
 - **Coach, own repertoire assigned to players:** an **Assigned to**
   section: one compact row per player: name, `LearnedBar` with % (R-177;
-  a fork shows the Own copy badge and no %, R-155), deadline or "No
+  a fork shows the coach's forked badge, "Made their own copy", and no %,
+  R-155; the player's own card calls the same thing "Own copy"), deadline
+  or "No
   deadline", and **Change**, which opens deadline / clear / unassign inline
   in that row. The assign form (choose players or a group) stays, under the
   rows.

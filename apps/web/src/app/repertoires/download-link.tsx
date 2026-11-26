@@ -8,7 +8,7 @@ import { SECONDARY_BUTTON } from '../buttons';
  * the coach's on an assignment (R-202).
  */
 export function DownloadLink({ id }: { readonly id: string }): JSX.Element {
-  const t = useTranslations('repertoires.header');
+  const t = useTranslations('repertoires.manage');
   return (
     <a
       href={repertoireExportRoute(id)}

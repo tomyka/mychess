@@ -53,6 +53,7 @@ export {
   percentLearned,
   progressOf,
   repertoireStanding,
+  standingOf,
   totalMoves,
 } from './coach-progress';
 export type {

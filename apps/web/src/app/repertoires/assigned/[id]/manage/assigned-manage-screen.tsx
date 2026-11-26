@@ -3,13 +3,11 @@
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type ReactNode } from 'react';
 import { assignedRepertoirePath } from '../../../../../lib/routes';
+import { SECTION, SECTION_TITLE } from '../../../../settings/styles';
 import { PageHeader } from '../../../../shell/page-header';
 import { CONTENT } from '../../../../surfaces';
 import type { Repertoire } from '../../../[id]/repertoire-types';
 import { DownloadLink } from '../../../download-link';
-import { SECTION_LOOK } from '../../../section-look';
-
-const CARD = SECTION_LOOK.card;
 import { ForkCopy, type ForkAction } from '../fork-copy';
 import { PauseControl, usePause } from '../pause-control';
 
@@ -25,9 +23,9 @@ function ActionSection({
 }): JSX.Element {
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className={CARD.section}>
+    <section aria-labelledby={titleId} className={SECTION}>
       <div className="flex flex-col gap-1">
-        <h2 id={titleId} className={CARD.title}>
+        <h2 id={titleId} className={SECTION_TITLE}>
           {title}
         </h2>
         <p className="text-fg-muted">{intro}</p>
@@ -43,7 +41,7 @@ function ActionSection({
  * their own copy (R-20, R-43), each with what it does. `forkOpen` starts
  * with the copy's question asked (`?fork=1`).
  */
-export function AssignedManage({
+export function AssignedManageScreen({
   repertoire,
   paused,
   forkAction,
@@ -76,7 +74,7 @@ export function AssignedManage({
         <PauseControl repertoireId={id} pause={pause} />
       </ActionSection>
       <ActionSection
-        title={t('repertoires.header.download')}
+        title={t('repertoires.manage.download')}
         intro={t('assignment.manage.downloadIntro')}
       >
         <DownloadLink id={id} />

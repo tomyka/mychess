@@ -154,7 +154,7 @@ async function coachOpensShared(coach: Page): Promise<void> {
     coach.getByRole('switch', { name: r.mode.build }),
     // No Repertoire screen for him: no More, so no Add from PGN or sharing.
     coach.getByRole('link', { name: r.more }),
-    coach.getByRole('link', { name: r.header.importInto }),
+    coach.getByRole('link', { name: r.manage.importInto }),
     coach.getByRole('button', { name: r.note.label }),
     coach.getByRole('textbox', { name: r.builder.commentLabel }),
     coach.getByRole('region', { name: en.share.title }),
@@ -282,7 +282,7 @@ test(`G-M1-3: a shared repertoire, its coach note, and how unshare and unlink en
     await openRepertoireOptions(gabija, messages);
     await expect(
       gabija.getByRole('link', {
-        name: en.repertoires.header.download,
+        name: en.repertoires.manage.download,
         exact: true,
       }),
     ).toBeVisible();

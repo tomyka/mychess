@@ -113,7 +113,7 @@ describe('My repertoires', () => {
     expect(
       screen.getByRole('link', { name: l.import }).getAttribute('href'),
     ).toBe('/repertoires/import');
-    expect(screen.queryByText(MESSAGES.repertoires.header.deleted)).toBeNull();
+    expect(screen.queryByText(MESSAGES.repertoires.manage.deleted)).toBeNull();
   });
 
   it('opens the create form for an account with no repertoire at all, under the empty line', async () => {
@@ -146,7 +146,7 @@ describe('My repertoires', () => {
     await renderPage({ deleted: '1' });
     expect(
       screen
-        .getByText(MESSAGES.repertoires.header.deleted)
+        .getByText(MESSAGES.repertoires.manage.deleted)
         .getAttribute('role'),
     ).toBe('status');
   });

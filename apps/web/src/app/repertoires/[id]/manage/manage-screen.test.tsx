@@ -36,7 +36,6 @@ vi.mock('../assign-actions', () => ({
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
-const h = MESSAGES.repertoires.header;
 const m = MESSAGES.repertoires.manage;
 
 const SHARED: RepertoireSharing = {
@@ -122,14 +121,14 @@ describe('the Repertoire screen (R-226)', () => {
 
   it('offers rename, the PGN download and adding from PGN first', () => {
     renderScreen();
-    const own = screen.getByRole('region', { name: h.section });
-    expect(within(own).getByRole('button', { name: h.rename })).toBeDefined();
-    const download = within(own).getByRole('link', { name: h.download });
+    const own = screen.getByRole('region', { name: m.section });
+    expect(within(own).getByRole('button', { name: m.rename })).toBeDefined();
+    const download = within(own).getByRole('link', { name: m.download });
     expect(download.getAttribute('href')).toBe(`/api/repertoires/${ID}/export`);
     expect(download.hasAttribute('download')).toBe(true);
     expect(
       within(own)
-        .getByRole('link', { name: h.importInto })
+        .getByRole('link', { name: m.importInto })
         .getAttribute('href'),
     ).toBe(`/repertoires/import?i=${ID}`);
   });
@@ -137,7 +136,7 @@ describe('the Repertoire screen (R-226)', () => {
   it('then sharing, with its status as text, and delete last', () => {
     renderScreen();
     expect(sectionTitles()).toEqual([
-      h.section,
+      m.section,
       MESSAGES.share.title,
       m.deleteTitle,
     ]);
@@ -150,7 +149,7 @@ describe('the Repertoire screen (R-226)', () => {
   it('has Assigned to in Coach mode, before delete, with each player’s progress (R-225)', () => {
     renderScreen(PANEL);
     expect(sectionTitles()).toEqual([
-      h.section,
+      m.section,
       MESSAGES.share.title,
       MESSAGES.assignment.panel.list,
       m.deleteTitle,
@@ -161,33 +160,33 @@ describe('the Repertoire screen (R-226)', () => {
 
   it('renames in place and says so', async () => {
     renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: h.rename }));
-    const field = screen.getByLabelText<HTMLInputElement>(h.renameLabel);
+    fireEvent.click(screen.getByRole('button', { name: m.rename }));
+    const field = screen.getByLabelText<HTMLInputElement>(m.renameLabel);
     expect(field.value).toBe('Londono sistema');
     fireEvent.change(field, { target: { value: 'Londonas' } });
-    const own = screen.getByRole('region', { name: h.section });
-    fireEvent.click(within(own).getByRole('button', { name: h.renameSubmit }));
-    expect(await screen.findByText(h.renamed)).toBeDefined();
-    expect(screen.queryByLabelText(h.renameLabel)).toBeNull();
+    const own = screen.getByRole('region', { name: m.section });
+    fireEvent.click(within(own).getByRole('button', { name: m.renameSubmit }));
+    expect(await screen.findByText(m.renamed)).toBeDefined();
+    expect(screen.queryByLabelText(m.renameLabel)).toBeNull();
     expect(server.rename.mock.lastCall?.[1].get('name')).toBe('Londonas');
   });
 
   it('cancels a rename back to the Rename button', () => {
     renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: h.rename }));
-    fireEvent.click(screen.getByRole('button', { name: h.renameCancel }));
+    fireEvent.click(screen.getByRole('button', { name: m.rename }));
+    fireEvent.click(screen.getByRole('button', { name: m.renameCancel }));
     expect(document.activeElement).toBe(
-      screen.getByRole('button', { name: h.rename }),
+      screen.getByRole('button', { name: m.rename }),
     );
   });
 
   it('deletes only after the second step, in its own danger section', async () => {
     renderScreen(PANEL);
     const danger = screen.getByRole('region', { name: m.deleteTitle });
-    fireEvent.click(within(danger).getByRole('button', { name: h.delete }));
+    fireEvent.click(within(danger).getByRole('button', { name: m.delete }));
     expect(
       within(danger).getByText(
-        h.deleteQuestion.replace('{name}', 'Londono sistema'),
+        m.deleteQuestion.replace('{name}', 'Londono sistema'),
       ),
     ).toBeDefined();
     // The player who has it by assignment is told about (R-131).
@@ -198,7 +197,7 @@ describe('the Repertoire screen (R-226)', () => {
     ).toBeDefined();
     expect(server.remove).not.toHaveBeenCalled();
     fireEvent.click(
-      within(danger).getByRole('button', { name: h.deleteConfirm }),
+      within(danger).getByRole('button', { name: m.deleteConfirm }),
     );
     await waitFor(() => {
       expect(server.remove).toHaveBeenCalledTimes(1);
@@ -208,12 +207,12 @@ describe('the Repertoire screen (R-226)', () => {
   it('cancels a delete back to the Delete button', () => {
     renderScreen();
     const danger = screen.getByRole('region', { name: m.deleteTitle });
-    fireEvent.click(within(danger).getByRole('button', { name: h.delete }));
+    fireEvent.click(within(danger).getByRole('button', { name: m.delete }));
     fireEvent.click(
-      within(danger).getByRole('button', { name: h.deleteCancel }),
+      within(danger).getByRole('button', { name: m.deleteCancel }),
     );
     expect(document.activeElement).toBe(
-      within(danger).getByRole('button', { name: h.delete }),
+      within(danger).getByRole('button', { name: m.delete }),
     );
   });
 });

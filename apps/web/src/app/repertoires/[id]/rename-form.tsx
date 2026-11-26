@@ -45,7 +45,7 @@ export function RenameForm({
       {/* On a wide screen the field takes the title's one row, so the
           board below does not move: the label is read, not shown. */}
       <label htmlFor={fieldId} className="font-medium lg:sr-only">
-        {t('repertoires.header.renameLabel')}
+        {t('repertoires.manage.renameLabel')}
       </label>
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <input
@@ -62,10 +62,10 @@ export function RenameForm({
         />
         <div className="flex flex-wrap gap-2 lg:flex-nowrap">
           <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-            {t('repertoires.header.renameSubmit')}
+            {t('repertoires.manage.renameSubmit')}
           </button>
           <button type="button" onClick={onCancel} className={SECONDARY_BUTTON}>
-            {t('repertoires.header.renameCancel')}
+            {t('repertoires.manage.renameCancel')}
           </button>
         </div>
       </div>

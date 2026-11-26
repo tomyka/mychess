@@ -84,7 +84,7 @@ function EmptyRepertoire({
       </p>
       <div className="flex flex-wrap gap-2">
         <Link href={importIntoRoute(id)} className={SECONDARY_BUTTON}>
-          {t('header.importInto')}
+          {t('manage.importInto')}
         </Link>
         {browsing ? (
           <button type="button" onClick={onBuild} className={SECONDARY_BUTTON}>

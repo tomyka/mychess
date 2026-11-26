@@ -63,7 +63,16 @@ interface Reading {
   readonly now: Date;
 }
 
-function standingOf(keys: readonly string[], reading: Reading): Standing {
+/**
+ * A progress (the repertoire's, a chapter's or a line's) as its bare
+ * standing: the counts and Mastered alone, for a caller that keeps them
+ * apart from the drill-down.
+ */
+export function standingOf(progress: Standing): Standing {
+  return { counts: progress.counts, mastered: progress.mastered };
+}
+
+function keysStanding(keys: readonly string[], reading: Reading): Standing {
   const counts: Record<MoveState, number> = {
     notStarted: 0,
     skipped: 0,
@@ -102,7 +111,7 @@ export function repertoireStanding(
   reviews: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): Standing {
-  return standingOf(allPlayerKeys(graph), { reviews, now });
+  return keysStanding(allPlayerKeys(graph), { reviews, now });
 }
 
 function chapterProgress(
@@ -115,12 +124,12 @@ function chapterProgress(
     const keys = playerKeysOf(graph, path);
     return keys.length === 0
       ? []
-      : [{ sans: path.map((m) => m.san), ...standingOf(keys, reading) }];
+      : [{ sans: path.map((m) => m.san), ...keysStanding(keys, reading) }];
   });
   return {
     chapter,
     whiteFirst: sideToMove(chapter.rootKey) === 'w',
-    ...standingOf(playerKeysOf(graph, walk.moves()), reading),
+    ...keysStanding(playerKeysOf(graph, walk.moves()), reading),
     lines,
   };
 }
@@ -138,7 +147,7 @@ export function progressOf(
   const reading = { reviews, now };
   const walks = chapterWalks(graph);
   return {
-    ...standingOf(allPlayerKeys(graph), reading),
+    ...keysStanding(allPlayerKeys(graph), reading),
     chapters: graph.chapters.map((c) =>
       chapterProgress(graph, c, walks(c.id), reading),
     ),

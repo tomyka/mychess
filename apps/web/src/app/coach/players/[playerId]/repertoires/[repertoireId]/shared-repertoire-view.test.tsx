@@ -155,7 +155,7 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
   it('has none of the owner’s controls', () => {
     renderView();
     forward();
-    const header = MESSAGES.repertoires.header;
+    const header = MESSAGES.repertoires.manage;
     for (const name of [
       MESSAGES.repertoires.mode.toBuild,
       header.rename,

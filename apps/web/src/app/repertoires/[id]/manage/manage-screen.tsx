@@ -7,7 +7,11 @@ import { importIntoRoute, repertoireRoute } from '../../../../lib/routes';
 import type { AssignPanelData } from '../../../../server/coach-assignments';
 import type { RepertoireSharing } from '../../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../../buttons';
-import { DANGER_SECTION } from '../../../settings/styles';
+import {
+  DANGER_SECTION,
+  SECTION,
+  SECTION_TITLE,
+} from '../../../settings/styles';
 import { PageHeader } from '../../../shell/page-header';
 import { StatusLine } from '../../../status-line';
 import { CONTENT } from '../../../surfaces';
@@ -18,9 +22,6 @@ import { useReturnFocus, type Step } from './use-return-focus';
 import type { Holders, Repertoire } from '../repertoire-types';
 import { ShareWithCoach } from '../share-with-coach';
 import { DownloadLink } from '../../download-link';
-import { SECTION_LOOK } from '../../section-look';
-
-const CARD = SECTION_LOOK.card;
 
 /** Rename, the PGN download and Add from PGN, as one wrapping row. */
 function OwnActions({
@@ -32,7 +33,7 @@ function OwnActions({
   readonly renameRef: RefObject<HTMLButtonElement | null>;
   readonly onRename: () => void;
 }): JSX.Element {
-  const t = useTranslations('repertoires.header');
+  const t = useTranslations('repertoires.manage');
   return (
     <div className="flex flex-wrap gap-2">
       <button
@@ -71,12 +72,12 @@ function OwnSection({
   readonly repertoire: Repertoire;
   readonly steps: Steps;
 }): JSX.Element {
-  const t = useTranslations('repertoires.header');
+  const t = useTranslations('repertoires.manage');
   const titleId = useId();
   const { step, set, focus } = steps;
   return (
-    <section aria-labelledby={titleId} className={CARD.section}>
-      <h2 id={titleId} className={CARD.title}>
+    <section aria-labelledby={titleId} className={SECTION}>
+      <h2 id={titleId} className={SECTION_TITLE}>
         {t('section')}
       </h2>
       {step === 'renaming' ? (
@@ -115,13 +116,13 @@ function DangerSection({
   readonly repertoire: Repertoire;
   readonly steps: Steps;
 } & Holders): JSX.Element {
-  const t = useTranslations('repertoires');
+  const t = useTranslations('repertoires.manage');
   const titleId = useId();
   const { step, set, focus } = steps;
   return (
     <section aria-labelledby={titleId} className={DANGER_SECTION}>
-      <h2 id={titleId} className={`${CARD.title} text-error`}>
-        {t('manage.deleteTitle')}
+      <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>
+        {t('deleteTitle')}
       </h2>
       {step === 'deleting' ? (
         <DeleteConfirm
@@ -140,7 +141,7 @@ function DangerSection({
           }}
           className={`${SECONDARY_BUTTON} self-start border-error text-error`}
         >
-          {t('header.delete')}
+          {t('delete')}
         </button>
       )}
     </section>
@@ -171,17 +172,9 @@ export function ManageScreen({
         title={repertoire.name}
       />
       <OwnSection repertoire={repertoire} steps={steps} />
-      <ShareWithCoach
-        repertoireId={repertoire.id}
-        sharing={sharing}
-        look="card"
-      />
+      <ShareWithCoach repertoireId={repertoire.id} sharing={sharing} />
       {assignPanel === null ? null : (
-        <AssignPanel
-          repertoireId={repertoire.id}
-          data={assignPanel}
-          look="card"
-        />
+        <AssignPanel repertoireId={repertoire.id} data={assignPanel} />
       )}
       <DangerSection
         repertoire={repertoire}

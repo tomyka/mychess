@@ -13,7 +13,7 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 /** After a delete, the repertoire page comes here with `?deleted=1`. */
 function DeletedNotice({ shown }: { readonly shown: boolean }): JSX.Element {
-  const t = useTranslations('repertoires.header');
+  const t = useTranslations('repertoires.manage');
   return <StatusLine text={shown ? t('deleted') : null} tone="success" />;
 }
 

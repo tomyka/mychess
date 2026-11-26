@@ -5,7 +5,7 @@ import { useId, type JSX } from 'react';
 import type { AssignPanelData } from '../../../server/coach-assignments';
 import { AssigneeRows } from './assignee-rows';
 import { AssignNew } from './assign-new';
-import { SECTION_LOOK, type SectionLook } from '../section-look';
+import { SECTION, SECTION_TITLE } from '../../settings/styles';
 
 /**
  * "Assigned to" on the coach's own repertoire (R-15, R-16, R-51, R-130,
@@ -17,18 +17,15 @@ import { SECTION_LOOK, type SectionLook } from '../section-look';
 export function AssignPanel({
   repertoireId,
   data,
-  look = 'panel',
 }: {
   readonly repertoireId: string;
   readonly data: AssignPanelData;
-  readonly look?: SectionLook;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const titleId = useId();
-  const { section, title, subtitle } = SECTION_LOOK[look];
   return (
-    <section aria-labelledby={titleId} className={section}>
-      <h2 id={titleId} className={title}>
+    <section aria-labelledby={titleId} className={SECTION}>
+      <h2 id={titleId} className={SECTION_TITLE}>
         {t('list')}
       </h2>
       <AssigneeRows
@@ -37,7 +34,7 @@ export function AssignPanel({
         today={data.today}
       />
       <div className="flex flex-col gap-2">
-        <h3 className={`${subtitle} mt-2`}>{t('title')}</h3>
+        <h3 className="mt-2 text-base font-semibold">{t('title')}</h3>
         <p className="text-sm text-fg-muted">{t('intro')}</p>
         <AssignNew repertoireId={repertoireId} data={data} />
       </div>

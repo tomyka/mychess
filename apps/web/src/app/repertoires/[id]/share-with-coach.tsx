@@ -6,7 +6,7 @@ import type { RepertoireSharing } from '../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { submitByHand } from '../../submit-by-hand';
 import { PANEL_LABEL } from '../../repertoire-view';
-import { SECTION_LOOK, type SectionLook } from '../section-look';
+import { SECTION, SECTION_TITLE } from '../../settings/styles';
 import { setSharesAction, type ShareState } from './sharing-actions';
 
 /**
@@ -83,19 +83,16 @@ function ShareForm({
 export function ShareWithCoach({
   repertoireId,
   sharing,
-  look = 'panel',
 }: {
   readonly repertoireId: string;
   readonly sharing: RepertoireSharing;
-  readonly look?: SectionLook;
 }): JSX.Element | null {
   const t = useTranslations('share');
   const titleId = useId();
   if (sharing.coaches.length === 0) return null;
-  const { section, title } = SECTION_LOOK[look];
   return (
-    <section aria-labelledby={titleId} className={section}>
-      <h2 id={titleId} className={title}>
+    <section aria-labelledby={titleId} className={SECTION}>
+      <h2 id={titleId} className={SECTION_TITLE}>
         {t('title')}
       </h2>
       <p className="text-sm text-fg-muted">{t('intro')}</p>

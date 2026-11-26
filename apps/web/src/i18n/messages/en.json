@@ -375,7 +375,8 @@
       "black": "Black",
       "submit": "Create"
     },
-    "header": {
+    "manage": {
+      "deleteTitle": "Delete repertoire",
       "section": "Repertoire",
       "rename": "Rename",
       "renameLabel": "Repertoire name",
@@ -389,9 +390,6 @@
       "deleteConfirm": "Delete permanently",
       "deleteCancel": "Cancel",
       "deleted": "The repertoire was deleted."
-    },
-    "manage": {
-      "deleteTitle": "Delete repertoire"
     },
     "chapters": {
       "title": "Chapters",

@@ -58,7 +58,7 @@ async function expectEmptyBrowse(page: Page, id: string): Promise<void> {
     page.getByText(t.panel.emptyBrowse, { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: t.header.importInto, exact: true }),
+    page.getByRole('link', { name: t.manage.importInto, exact: true }),
   ).toHaveAttribute('href', `/repertoires/import?i=${id}`);
   await expect(
     page.getByRole('region', { name: en.training.know.section }),
@@ -124,7 +124,7 @@ test(
 
 /** Renames the repertoire in place on its Repertoire screen. */
 async function rename(page: Page, name: string): Promise<void> {
-  const h = t.header;
+  const h = t.manage;
   await page.getByRole('button', { name: h.rename, exact: true }).click();
   const field = page.getByLabel(h.renameLabel, { exact: true });
   await expect(field).toBeFocused();
@@ -138,7 +138,7 @@ async function rename(page: Page, name: string): Promise<void> {
 
 /** Delete asks first; Keep is Cancel, then Delete permanently. */
 async function deleteIt(page: Page, name: string): Promise<void> {
-  const h = t.header;
+  const h = t.manage;
   const danger = page.getByRole('region', {
     name: t.manage.deleteTitle,
     exact: true,
@@ -186,7 +186,7 @@ test(
     await deleteIt(page, renamed);
     await expect(page).toHaveURL(/\/repertoires\?deleted=1$/);
     await expect(
-      page.getByText(t.header.deleted, { exact: true }),
+      page.getByText(t.manage.deleted, { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: new RegExp(`^${renamed}`) }),

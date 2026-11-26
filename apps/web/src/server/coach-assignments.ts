@@ -11,7 +11,7 @@ import {
   type CoachAssignment,
   type Db,
 } from '@mychess/db';
-import type { Standing } from '@mychess/chess';
+import { standingOf, type Standing } from '@mychess/chess';
 import {
   assignableTargets,
   isCoach,
@@ -53,7 +53,7 @@ export interface AssignPanelData {
  * progress page's access-checked read (Q26, R-156): no new query, and
  * whatever that read withholds is null here.
  */
-async function standingsOf(
+async function assigneeStandings(
   db: Db,
   of: { readonly coachId: string; readonly repertoireId: string },
   assignments: readonly CoachAssignment[],
@@ -65,9 +65,7 @@ async function standingsOf(
   const read = async (playerId: string) => {
     const view = await coachRepertoireProgress(db, { ...of, playerId }, now);
     const standing: Standing | null =
-      view === undefined
-        ? null
-        : { counts: view.progress.counts, mastered: view.progress.mastered };
+      view === undefined ? null : standingOf(view.progress);
     return [playerId, standing] as const;
   };
   return new Map(await Promise.all(playerIds.map(read)));
@@ -95,7 +93,7 @@ async function panelOf(
     groups.map(({ id, name }) => ({ id, name })),
     assignments.map((assignment) => assignment.target),
   );
-  const standings = await standingsOf(
+  const standings = await assigneeStandings(
     db,
     { coachId, repertoireId },
     assignments,

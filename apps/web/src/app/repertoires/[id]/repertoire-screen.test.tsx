@@ -250,9 +250,9 @@ describe('RepertoireScreen: browsing', () => {
     expect(
       screen.getByRole('link', { name: r.more }).getAttribute('href'),
     ).toBe(`/repertoires/${ID}/manage`);
-    for (const name of [r.header.rename, r.header.delete])
+    for (const name of [r.manage.rename, r.manage.delete])
       expect(screen.queryByRole('button', { name })).toBeNull();
-    expect(screen.queryByRole('link', { name: r.header.download })).toBeNull();
+    expect(screen.queryByRole('link', { name: r.manage.download })).toBeNull();
     expect(
       screen.queryByRole('heading', { name: MESSAGES.share.title }),
     ).toBeNull();
@@ -432,7 +432,7 @@ describe('RepertoireScreen: an empty repertoire', () => {
     // The same words as the header's "Add from PGN": one action, one name.
     expect(
       within(empty)
-        .getByRole('link', { name: r.header.importInto })
+        .getByRole('link', { name: r.manage.importInto })
         .getAttribute('href'),
     ).toBe(`/repertoires/import?i=${ID}`);
     expect(
@@ -706,7 +706,7 @@ describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () =
     if (empty === null) throw new Error('no empty state');
     expect(
       within(empty)
-        .getByRole('link', { name: r.header.importInto })
+        .getByRole('link', { name: r.manage.importInto })
         .getAttribute('href'),
     ).toBe(`/repertoires/import?i=${ID}`);
     expect(
@@ -719,7 +719,7 @@ describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () =
       screen.queryByRole('button', { name: /^(Review|Learn) / }),
     ).toBeNull();
     expect(screen.queryByRole('link', { name: /^(Review|Learn) / })).toBeNull();
-    expect(screen.queryByText(r.header.download)).toBeNull();
+    expect(screen.queryByText(r.manage.download)).toBeNull();
     fireEvent.click(
       within(empty).getByRole('button', { name: r.mode.toBuild }),
     );

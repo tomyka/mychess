@@ -3,15 +3,53 @@ import {
   type RepertoireGraph,
   type RepertoireMove,
 } from '@mychess/chess';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { CommentStrip, type CommentStripProps } from './comment-strip';
 
 const p = MESSAGES.repertoires.panel;
 const TAIMANOV_GRAPH = graphOf(TAIMANOV, 'black');
+
+/**
+ * jsdom lays nothing out: each test says whether the text runs past its
+ * two lines (its scroll height over its client height), and the resize
+ * observers the strip watches with are kept to call by hand.
+ */
+const layout = {
+  overflowing: false,
+  observers: new Set<() => void>(),
+};
+
+class FakeResizeObserver {
+  readonly #callback: () => void;
+  constructor(callback: () => void) {
+    this.#callback = callback;
+  }
+  observe(): void {
+    layout.observers.add(this.#callback);
+  }
+  disconnect(): void {
+    layout.observers.delete(this.#callback);
+  }
+}
+
+beforeEach(() => {
+  layout.overflowing = false;
+  layout.observers.clear();
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(40);
+  vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(
+    () => (layout.overflowing ? 60 : 40),
+  );
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 /** The moves `sans` play from the start, as the repertoire holds them. */
 function pathOf(
@@ -51,6 +89,7 @@ function renderStrip(over: Partial<CommentStripProps> = {}) {
     </NextIntlClientProvider>,
   );
   return {
+    unmount: view.unmount,
     rerender: (next: Partial<CommentStripProps>) => {
       view.rerender(
         <NextIntlClientProvider locale="en" messages={MESSAGES}>
@@ -151,15 +190,54 @@ describe('CommentStrip', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('shows a short comment whole, without More', () => {
+  it('shows a comment that fits in two lines without More', () => {
     renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
     expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.getByText('Flexible').closest('p')?.className).not.toContain(
-      'line-clamp-2',
-    );
   });
 
-  it('clamps a long comment to two lines with More, which expands it and says Less', () => {
+  it('gives no More to a long comment that still fits in two lines (a wide strip)', () => {
+    const path = pathOf(TAIMANOV_GRAPH, MAIN);
+    const last = path.at(-1);
+    if (last === undefined) throw new Error('no move');
+    renderStrip({ path: [...path.slice(0, -1), commented(last, LONG)] });
+    expect(screen.getByText(LONG).closest('p')?.className).toContain(
+      'line-clamp-2',
+    );
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('gives More to a short comment that runs past two lines (a narrow strip)', () => {
+    layout.overflowing = true;
+    renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
+    expect(screen.getByRole('button', { name: p.more })).toBeDefined();
+  });
+
+  it('measures again when the strip is resized', () => {
+    renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
+    expect(screen.queryByRole('button')).toBeNull();
+    layout.overflowing = true;
+    act(() => {
+      for (const resized of layout.observers) resized();
+    });
+    expect(screen.getByRole('button', { name: p.more })).toBeDefined();
+  });
+
+  it('measures once where there is no ResizeObserver', () => {
+    vi.stubGlobal('ResizeObserver', undefined);
+    layout.overflowing = true;
+    renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
+    expect(screen.getByRole('button', { name: p.more })).toBeDefined();
+  });
+
+  it('stops watching the size once gone', () => {
+    const { unmount } = renderStrip({ path: pathOf(TAIMANOV_GRAPH, MAIN) });
+    expect(layout.observers.size).toBe(1);
+    unmount();
+    expect(layout.observers.size).toBe(0);
+  });
+
+  it('clamps a comment past two lines with More, which expands it and says Less', () => {
+    layout.overflowing = true;
     const path = pathOf(TAIMANOV_GRAPH, MAIN);
     const last = path.at(-1);
     if (last === undefined) throw new Error('no move');
@@ -177,6 +255,7 @@ describe('CommentStrip', () => {
   });
 
   it('clamps again on a new move', () => {
+    layout.overflowing = true;
     const path = pathOf(TAIMANOV_GRAPH, MAIN);
     const nc3 = path[8];
     const a6 = path[11];

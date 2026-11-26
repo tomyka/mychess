@@ -269,7 +269,7 @@ test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-impor
   await openRepertoireOptions(page, en);
   const downloading = page.waitForEvent('download');
   await page
-    .getByRole('link', { name: t.header.download, exact: true })
+    .getByRole('link', { name: t.manage.download, exact: true })
     .click();
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/\.pgn$/);
@@ -291,7 +291,7 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   // Nothing to add: refused, and the repertoire is not touched (R-115).
   // Add from PGN is on the Repertoire screen (R-226).
   const addFromPgn = page.getByRole('link', {
-    name: t.header.importInto,
+    name: t.manage.importInto,
     exact: true,
   });
   await openRepertoireOptions(page, en);

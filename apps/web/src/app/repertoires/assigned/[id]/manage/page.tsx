@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { FORK_PARAM } from '../../../../../lib/routes';
 import { assignedRepertoireData } from '../../../../../server/assignment-pages';
 import { forkAction } from '../actions';
-import { AssignedManage } from './assigned-manage';
+import { AssignedManageScreen } from './assigned-manage-screen';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -25,7 +25,7 @@ export default async function AssignedManagePage({
   const data = await assignedRepertoireData(id);
   const fork = forkParam.safeParse((await searchParams)[FORK_PARAM]);
   return (
-    <AssignedManage
+    <AssignedManageScreen
       repertoire={{ id: data.repertoire.id, name: data.repertoire.name }}
       paused={data.paused}
       forkAction={forkAction}

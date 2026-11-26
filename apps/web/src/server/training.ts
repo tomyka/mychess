@@ -8,6 +8,7 @@ import {
   nextDue,
   progressOf,
   repertoireLearn,
+  standingOf,
   todayRows,
   trackedIn,
   trackedReviews,
@@ -364,18 +365,18 @@ export interface RepertoireTraining {
 }
 
 /** The standing of `graph` and of each of its chapters, by chapter id. */
-function standingsOf(
+function repertoireStandings(
   graph: RepertoireGraph,
   day: TrainingDay,
   now: Date,
 ): Pick<RepertoireTraining, 'standing' | 'chapters'> {
   const progress = progressOf(graph, trackedReviews(day), now);
   return {
-    standing: { counts: progress.counts, mastered: progress.mastered },
+    standing: standingOf(progress),
     chapters: Object.fromEntries(
-      progress.chapters.map(({ chapter, counts, mastered }) => [
-        chapter.id,
-        { counts, mastered },
+      progress.chapters.map((chapter) => [
+        chapter.chapter.id,
+        standingOf(chapter),
       ]),
     ),
   };
@@ -405,6 +406,6 @@ export async function repertoireTraining(
     },
     limitReached:
       repertoireLearn(day, entry.repertoire.id).kind === 'limitReached',
-    ...standingsOf(entry.repertoire.graph, day, read.now),
+    ...repertoireStandings(entry.repertoire.graph, day, read.now),
   };
 }

@@ -11,7 +11,6 @@ import { MESSAGES } from '../../../i18n/catalogue';
 import type { CoachAssignment } from '@mychess/db';
 import type { AssignPanelData } from '../../../server/coach-assignments';
 import type { AssignmentActionState } from './assign-actions';
-import type { SectionLook } from '../section-look';
 import { AssignPanel } from './assign-panel';
 
 type Action = (
@@ -93,17 +92,14 @@ const withStandings = (data: Data): AssignPanelData => ({
   standings: new Map(),
 });
 
-function renderPanel(
-  data: Data = { ...PEOPLE, assignments: [] },
-  look: SectionLook = 'panel',
-): void {
+function renderPanel(data: Data = { ...PEOPLE, assignments: [] }): void {
   render(
     <NextIntlClientProvider
       locale="en"
       messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
-      <AssignPanel repertoireId={ID} data={withStandings(data)} look={look} />
+      <AssignPanel repertoireId={ID} data={withStandings(data)} />
     </NextIntlClientProvider>,
   );
 }
@@ -269,7 +265,7 @@ describe('AssignPanel: whom it is assigned to (R-225)', () => {
   });
 
   it('gives the assign form a subheading on the Repertoire screen', () => {
-    renderPanel({ ...PEOPLE, assignments: [] }, 'card');
+    renderPanel({ ...PEOPLE, assignments: [] });
     const form = screen.getByRole('heading', { level: 3, name: p.title });
     expect([...form.classList]).toEqual(
       expect.arrayContaining(['text-base', 'font-semibold']),

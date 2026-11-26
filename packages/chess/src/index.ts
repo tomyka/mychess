@@ -144,6 +144,7 @@ export {
   QUEUE_LIMITS,
   repertoireKeys,
   repertoireStanding,
+  standingOf,
   reconcile,
   repertoireLearn,
   reviewStateSchema,

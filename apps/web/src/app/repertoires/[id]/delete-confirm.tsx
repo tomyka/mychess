@@ -30,7 +30,7 @@ export function DeleteConfirm({
       className="flex w-full flex-col gap-2"
     >
       <input type="hidden" name="repertoireId" value={id} />
-      <p>{t('repertoires.header.deleteQuestion', { name })}</p>
+      <p>{t('repertoires.manage.deleteQuestion', { name })}</p>
       {assignedPlayers === 0 ? null : (
         <p>
           {t('assignment.deleteHolders', {
@@ -41,7 +41,7 @@ export function DeleteConfirm({
       )}
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending} className={DANGER_BUTTON}>
-          {t('repertoires.header.deleteConfirm')}
+          {t('repertoires.manage.deleteConfirm')}
         </button>
         <button
           ref={cancel}
@@ -49,7 +49,7 @@ export function DeleteConfirm({
           onClick={onCancel}
           className={SECONDARY_BUTTON}
         >
-          {t('repertoires.header.deleteCancel')}
+          {t('repertoires.manage.deleteCancel')}
         </button>
       </div>
       <StatusLine

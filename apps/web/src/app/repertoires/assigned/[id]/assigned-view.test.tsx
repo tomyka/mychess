@@ -124,7 +124,7 @@ describe('AssignedView (R-21, R-102)', () => {
   it('is read-only: none of the owner’s controls and no comment field', () => {
     renderView();
     forward();
-    const header = MESSAGES.repertoires.header;
+    const header = MESSAGES.repertoires.manage;
     for (const name of [
       MESSAGES.repertoires.mode.toBuild,
       header.rename,
@@ -145,7 +145,7 @@ describe('AssignedView (R-21, R-102)', () => {
     ).toBe(`/repertoires/assigned/${ID}/manage`);
     expect(
       screen.queryByRole('link', {
-        name: MESSAGES.repertoires.header.download,
+        name: MESSAGES.repertoires.manage.download,
       }),
     ).toBeNull();
     for (const name of [a.pause.pause, a.fork.label])

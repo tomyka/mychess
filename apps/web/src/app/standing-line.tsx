@@ -10,7 +10,7 @@ import { LearnedBar } from './learned-bar';
  * when above zero. The repertoire page's summary row passes no due count
  * (its Review button says it).
  */
-export function useStandingText(
+function useStandingText(
   standing: Standing,
   percent: number,
   due: number,
@@ -42,25 +42,30 @@ function StandingText({
  * then Mastered as Today's success pill (R-178), or one muted line: New
  * with the size while no own move is started (an "I know this" move is
  * started, R-151), or the share learned and the due count when above zero.
- * Nothing for a set without own moves.
+ * Nothing for a set without own moves. `bar={false}` drops the bar, for
+ * the repertoire page's summary row, which says the words alone.
  */
 export function StandingLine({
   standing,
   due,
+  bar = true,
 }: {
   readonly standing: Standing;
   readonly due: number;
+  readonly bar?: boolean;
 }): JSX.Element | null {
   const percent = percentLearned(standing.counts);
   if (percent === null) return null;
+  const words = standing.mastered ? (
+    <MasteredBadge />
+  ) : (
+    <StandingText standing={standing} percent={percent} due={due} />
+  );
+  if (!bar) return words;
   return (
     <span className="flex flex-col gap-1">
       <LearnedBar percent={percent} />
-      {standing.mastered ? (
-        <MasteredBadge />
-      ) : (
-        <StandingText standing={standing} percent={percent} due={due} />
-      )}
+      {words}
     </span>
   );
 }

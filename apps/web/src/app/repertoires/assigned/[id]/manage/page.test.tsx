@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../../server/assignment-pages';
-import AssignedManageLoading from './loading';
+import ManageLoading from './loading';
 import AssignedManagePage from './page';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -98,7 +98,7 @@ describe('the assigned Repertoire screen page (R-226)', () => {
 
 describe('the assigned Repertoire screen while it loads', () => {
   it('is busy, with no spinner and no text', () => {
-    const { container } = renderIn(<AssignedManageLoading />);
+    const { container } = renderIn(<ManageLoading />);
     expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
     expect(container.textContent).toBe('');
   });

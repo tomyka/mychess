@@ -6,9 +6,8 @@ import type { JSX } from 'react';
 import { ROUTES, trainingPath } from '../../lib/routes';
 import { AssignmentBadges } from '../assignment-badges';
 import { COMPACT_TONAL } from '../buttons';
-import { MasteredBadge } from '../mastered-badge';
 import { TEXT_LINK } from '../settings/styles';
-import { useStandingText } from '../standing-line';
+import { StandingLine } from '../standing-line';
 import { noonOf, useShortDeadline } from '../use-deadline';
 import type { PanelTraining } from './panel-training';
 
@@ -24,32 +23,9 @@ export interface SummaryAssignment {
   readonly paused: boolean;
 }
 
-/**
- * The share learned in the list card's words without the due part (Review
- * says it): "16% learned", "New · 15 moves" while no own move is started,
- * or Mastered as the pill (R-177, R-178).
- */
-function Progress({
-  standing,
-  percent,
-}: {
-  readonly standing: Standing;
-  readonly percent: number;
-}): JSX.Element {
-  // The standing line's words, with no due count.
-  const text = useStandingText(standing, percent, 0);
-  if (standing.mastered) return <MasteredBadge />;
-  return <span className="text-sm text-fg-muted">{text}</span>;
-}
-
-/** The standing and its share learned, or null where there is none to show. */
-function progressOf(
-  standing: Standing | undefined,
-): { readonly standing: Standing; readonly percent: number } | null {
-  if (standing === undefined) return null;
-  const percent = percentLearned(standing.counts);
-  return percent === null ? null : { standing, percent };
-}
+/** Whether there is a share learned to show: a standing with own moves. */
+const hasProgress = (standing: Standing | undefined): standing is Standing =>
+  standing !== undefined && percentLearned(standing.counts) !== null;
 
 /** Whether Review, Learn or the daily-limit line has anything to show. */
 const hasTrainLinks = (training: PanelTraining | undefined): boolean =>
@@ -155,18 +131,21 @@ function StatusStrip({
   );
 }
 
-/** The share learned, then Review and Learn, on one wrapping row. */
+/**
+ * The share learned in the list card's words, with no bar and no due part
+ * (Review says it), then Review and Learn, on one wrapping row.
+ */
 function SummaryRow({
-  progress,
+  standing,
   links,
 }: {
-  readonly progress: ReturnType<typeof progressOf>;
+  readonly standing: Standing | undefined;
   readonly links: PanelTraining | undefined;
 }): JSX.Element {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      {progress === null ? null : (
-        <Progress standing={progress.standing} percent={progress.percent} />
+      {standing === undefined ? null : (
+        <StandingLine standing={standing} due={0} bar={false} />
       )}
       {links === undefined ? null : <TrainLinks training={links} />}
     </div>
@@ -193,13 +172,13 @@ export function SummaryLine({
   readonly training?: PanelTraining | undefined;
   readonly assignment?: SummaryAssignment | undefined;
 }): JSX.Element | null {
-  const progress = progressOf(standing);
+  const shown = hasProgress(standing) ? standing : undefined;
   const links = hasTrainLinks(training) ? training : undefined;
-  const row = progress !== null || links !== undefined;
+  const row = shown !== undefined || links !== undefined;
   if (!row && assignment === undefined) return null;
   return (
     <div className="flex flex-col gap-1">
-      {row ? <SummaryRow progress={progress} links={links} /> : null}
+      {row ? <SummaryRow standing={shown} links={links} /> : null}
       {assignment === undefined ? null : (
         <StatusStrip assignment={assignment} />
       )}

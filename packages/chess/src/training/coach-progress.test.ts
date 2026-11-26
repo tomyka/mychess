@@ -12,6 +12,7 @@ import {
   percentLearned,
   progressOf,
   repertoireStanding,
+  standingOf,
   totalMoves,
 } from './coach-progress';
 import { moveState, type MoveState, type TrackedReview } from './move-state';
@@ -127,6 +128,29 @@ describe('repertoireStanding', () => {
       due: 0,
       learned: 0,
     });
+  });
+});
+
+describe('standingOf', () => {
+  it('keeps only the counts and Mastered of a progress', () => {
+    const [first] = KEYS;
+    if (first === undefined) throw new Error('fixture');
+    const progress = progressOf(GRAPH, new Map([[first, dueNow(first)]]), NOW);
+    expect(standingOf(progress)).toStrictEqual({
+      counts: progress.counts,
+      mastered: progress.mastered,
+    });
+    const [chapter] = progress.chapters;
+    if (chapter === undefined) throw new Error('fixture');
+    expect(standingOf(chapter)).toStrictEqual({
+      counts: chapter.counts,
+      mastered: chapter.mastered,
+    });
+  });
+
+  it('says Mastered as the progress does', () => {
+    const reviews = new Map(KEYS.map((key) => [key, reviewedToday(key)]));
+    expect(standingOf(progressOf(GRAPH, reviews, NOW)).mastered).toBe(true);
   });
 });
 

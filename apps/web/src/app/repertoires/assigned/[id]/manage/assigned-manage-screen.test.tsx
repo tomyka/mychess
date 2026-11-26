@@ -9,7 +9,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../../i18n/catalogue';
 import type { ForkState, PauseState } from '../actions';
-import { AssignedManage } from './assigned-manage';
+import { AssignedManageScreen } from './assigned-manage-screen';
 
 const server = vi.hoisted(() => ({
   pause: vi.fn<(previous: PauseState, form: FormData) => Promise<PauseState>>(),
@@ -21,6 +21,7 @@ vi.mock('../actions', () => ({ pauseAction: server.pause }));
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const a = MESSAGES.assignment;
 const m = a.manage;
+const download = MESSAGES.repertoires.manage.download;
 
 function renderScreen({
   paused = false,
@@ -28,7 +29,7 @@ function renderScreen({
 }: { paused?: boolean; forkOpen?: boolean } = {}): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <AssignedManage
+      <AssignedManageScreen
         repertoire={{ id: ID, name: 'Londono sistema' }}
         paused={paused}
         forkAction={server.fork}
@@ -69,19 +70,13 @@ describe('the assigned Repertoire screen (R-226)', () => {
       screen
         .getAllByRole('heading', { level: 2 })
         .map((heading) => heading.textContent),
-    ).toEqual([
-      a.pause.pause,
-      MESSAGES.repertoires.header.download,
-      a.fork.label,
-    ]);
+    ).toEqual([a.pause.pause, download, a.fork.label]);
     expect(
       within(section(a.pause.pause)).getByText(m.pauseIntro),
     ).toBeDefined();
-    const download = section(MESSAGES.repertoires.header.download);
-    expect(within(download).getByText(m.downloadIntro)).toBeDefined();
-    const link = within(download).getByRole('link', {
-      name: MESSAGES.repertoires.header.download,
-    });
+    const card = section(download);
+    expect(within(card).getByText(m.downloadIntro)).toBeDefined();
+    const link = within(card).getByRole('link', { name: download });
     expect(link.getAttribute('href')).toBe(`/api/repertoires/${ID}/export`);
     expect(link.hasAttribute('download')).toBe(true);
     expect(within(section(a.fork.label)).getByText(m.forkIntro)).toBeDefined();

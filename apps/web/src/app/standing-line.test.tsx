@@ -94,4 +94,42 @@ describe('StandingLine (R-225, R-177)', () => {
   it('shows nothing without own moves', () => {
     expect(renderLine(standing(0, 0, 0), 0).innerHTML).toBe('');
   });
+
+  it('draws the learned bar by default', () => {
+    expect(
+      renderLine(standing(6, 0, 4), 0).querySelector('.bg-learned'),
+    ).not.toBeNull();
+  });
+});
+
+describe('StandingLine without the bar (the summary row)', () => {
+  function renderWords(of: Standing): HTMLElement {
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <StandingLine standing={of} due={0} bar={false} />
+      </NextIntlClientProvider>,
+    );
+    return container;
+  }
+
+  it('says the same words, with no bar', () => {
+    const line = renderWords(standing(6, 3, 1));
+    expect(line.textContent).toBe('60% learned');
+    expect(line.querySelector('.bg-learned')).toBeNull();
+    expect(line.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it('says New with the size', () => {
+    expect(renderWords(standing(0, 0, 18)).textContent).toBe('New · 18 moves');
+  });
+
+  it('shows Mastered as the pill alone', () => {
+    const line = renderWords(standing(5, 0, 0, true));
+    expect(line.textContent).toBe('Mastered');
+    expect(line.querySelector('.bg-learned')).toBeNull();
+  });
+
+  it('shows nothing without own moves', () => {
+    expect(renderWords(standing(0, 0, 0)).innerHTML).toBe('');
+  });
 });
