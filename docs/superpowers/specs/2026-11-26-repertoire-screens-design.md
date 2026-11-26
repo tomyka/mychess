@@ -201,9 +201,10 @@ The same layout. Train here and the progress (summary %, chapter bars) are
 replaced by the builder's own controls, unchanged in behaviour (remove
 move, draw colours, comments). Chapter rename and delete move into the open
 chapter row (shown only for the selected chapter, under its title), so
-titles do not squeeze. Draw swatches get lighter dark-theme tokens
-(`--mark-red`, `--mark-blue`, ... redefined under dark) that pass 3:1 against
-the dark panel, added to `tokens.test.ts`.
+titles do not squeeze. Draw swatches get an inset `border-strong` ring
+that passes 3:1 against the dark panel (3.55:1), so the board's arrow
+colours stay as they are; the contrast is recorded in
+`docs/design/README.md`.
 
 ### Board
 
@@ -236,14 +237,18 @@ player lands on My repertoires as today.
 
 - **Preview stats:** one plain line, "6 chapters · 13 lines · 123 moves · 1
   transposition" (positions dropped). Not tiles.
-- **Name prefill:** the Event tag when every game shares one, otherwise the
-  file name without its extension; editable; the existing name refusals
-  apply.
+- **Name prefill:** the Event tag when every game shares one (a blank or
+  "?" Event counts as none), otherwise the file name without its
+  extension, cut to the name maximum; decided in `packages/chess`. It
+  replaces the field only while the field still holds the last
+  suggestion, so a typed name is never overwritten; the existing name
+  refusals apply.
 - **Add to an existing one:** the file summary (step 2) is shown in this
   mode too.
-- **Disabled primary buttons** everywhere: 50% opacity on the muted
-  surface, `cursor-not-allowed`, a change to `PRIMARY_BUTTON`'s disabled
-  state in `buttons.ts`.
+- **Disabled primary buttons** everywhere: muted text on the sunken
+  surface at full opacity (5.34:1 light, 7.66:1 dark, so a pending label
+  keeps 4.5:1), `cursor-not-allowed`, a change to `PRIMARY_BUTTON`'s
+  disabled state in `buttons.ts`.
 - Kept: numbered steps, side detection, the collapsed step 1, the sticky
   Import bar on phone, full chapter titles, "All N games are valid".
 

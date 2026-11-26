@@ -47,7 +47,6 @@ const TAIMANOV_NOTHING = fixture('taimanov-nothing.pgn');
 const TAIMANOV_COUNTS = {
   chapters: 6,
   lines: 8,
-  positions: 107,
   transpositions: 1,
   moves: 107,
 };
@@ -243,6 +242,10 @@ test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-impor
       }),
     ),
   ).toBeVisible();
+  // The games' Event tags differ, so the name is the file's, without .pgn.
+  await expect(page.getByLabel(t.import.name, { exact: true })).toHaveValue(
+    'taimanov',
+  );
   await page.getByLabel(t.import.name, { exact: true }).fill('Taimanovas');
   await page
     .getByRole('button', { name: t.import.confirm, exact: true })

@@ -468,7 +468,7 @@
     },
     "mode": {
       "build": "Edit",
-      "toBuild": "Start editing"
+      "toBuild": "Start building"
     },
     "builder": {
       "remove": "Remove move",
@@ -513,7 +513,6 @@
       "summary": {
         "chapters": "{count, plural, one {# chapter} other {# chapters}}",
         "lines": "{count, plural, one {# line} other {# lines}}",
-        "positions": "{count, plural, one {# position} other {# positions}}",
         "transpositions": "{count, plural, one {# transposition} other {# transpositions}}",
         "moves": "{count, plural, one {# move} other {# moves}}"
       },

@@ -19,34 +19,33 @@ const SKIPPED_SHOWN = 10;
 /** Added comments shown before "Show all", as for skipped games. */
 const ADDED_SHOWN = 10;
 
+/** The counts the summary line reads, in order; positions only repeat moves. */
 const COUNTS = [
   'chapters',
   'lines',
-  'positions',
-  'transpositions',
   'moves',
+  'transpositions',
 ] as const satisfies readonly (keyof RepertoireSummary)[];
 
 const SUBTITLE = 'text-base font-semibold';
 
-/** The five counts, each tile one text run ("6 chapters") so it reads right. */
-function CountTiles({
+/**
+ * What the file holds as one line: "6 chapters · 13 lines · 123 moves ·
+ * 1 transposition", leaving out transpositions when there are none.
+ */
+function CountsLine({
   summary,
 }: {
   readonly summary: RepertoireSummary;
 }): JSX.Element {
   const t = useTranslations('repertoires.import.summary');
+  const shown = COUNTS.filter(
+    (count) => count !== 'transpositions' || summary[count] > 0,
+  );
   return (
-    <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
-      {COUNTS.map((count) => (
-        <li
-          key={count}
-          className="rounded-card bg-sunken p-3 text-center text-lg font-semibold tabular-nums"
-        >
-          {t(count, { count: summary[count] })}
-        </li>
-      ))}
-    </ul>
+    <p className="text-fg-muted tabular-nums">
+      {shown.map((count) => t(count, { count: summary[count] })).join(' · ')}
+    </p>
   );
 }
 
@@ -257,8 +256,8 @@ export interface ImportSummaryProps {
 }
 
 /**
- * The counts, the chapters it brings, the existing ones it renames, the
- * comments and NAGs it adds, and how many games were read.
+ * The chapters it brings, the existing ones it renames, the comments and
+ * NAGs it adds, and how many games were read.
  */
 function Accepted({
   preview,
@@ -268,7 +267,6 @@ function Accepted({
   const t = useTranslations('repertoires.import');
   return (
     <>
-      <CountTiles summary={preview.summary} />
       {preview.chapters.length === 0 ? null : (
         <ChapterNames names={preview.chapters} />
       )}
@@ -289,10 +287,10 @@ function Accepted({
 }
 
 /**
- * Step 2: what the file holds (R-64), or the merge with the chosen
- * repertoire. When nothing can be added (R-115) the counts would only be
- * the target's own, so it shows just the games left out and why; the
- * refusal itself is step 3's status line.
+ * Step 2: what the file holds (R-64), the same for a new repertoire and a
+ * merge, and what the merge with the chosen repertoire brings. When nothing
+ * can be added (R-115) it shows the counts and the games left out and why;
+ * the refusal itself is step 3's status line.
  */
 export function ImportSummary({
   preview,
@@ -319,6 +317,7 @@ export function ImportSummary({
           onSwitch={onSwitchSide}
         />
       )}
+      <CountsLine summary={preview.summary} />
       {preview.refusal === null ? <Accepted preview={preview} /> : null}
       {preview.skipped.length === 0 ? null : (
         <SkippedGames skipped={preview.skipped} side={side} />

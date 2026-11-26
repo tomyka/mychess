@@ -55,6 +55,7 @@ const PREVIEW: ImportPreview = {
   target: null,
   refusal: null,
   suggestedSide: null,
+  suggestedName: 'Taimanov',
 };
 
 const MERGED: ImportPreview = {
@@ -147,11 +148,12 @@ describe('ImportFlow', () => {
       text: PGN,
       side: 'black',
       into: undefined,
+      fileName: 'taimanov.pgn',
     });
     await waitFor(() => {
       expect(document.activeElement).toBe(heading);
     });
-    expect(screen.getByText('1 chapter')).toBeDefined();
+    expect(screen.getByText('1 chapter · 1 line · 2 moves')).toBeDefined();
     expect(screen.getByText(`taimanov.pgn · ${c.black}`)).toBeDefined();
     expect(screen.queryByRole('button', { name: i.preview })).toBeNull();
   });
@@ -280,6 +282,7 @@ describe('ImportFlow', () => {
         text: PGN,
         side: 'black',
         into: 'r-black',
+        fileName: 'taimanov.pgn',
       });
     });
     expect(
@@ -313,11 +316,81 @@ describe('ImportFlow', () => {
       text: PGN,
       side: 'white',
       into: undefined,
+      fileName: 'taimanov.pgn',
     });
     expect(
       screen.getByRole<HTMLInputElement>('radio', { name: i.targetNew })
         .checked,
     ).toBe(true);
+  });
+
+  it('names the repertoire as the preview suggests from the file', async () => {
+    renderFlow();
+    await previewAsBlack();
+    expect(server.preview).toHaveBeenCalledWith({
+      text: PGN,
+      side: 'black',
+      into: undefined,
+      fileName: 'taimanov.pgn',
+    });
+    expect(screen.getByLabelText<HTMLInputElement>(i.name).value).toBe(
+      'Taimanov',
+    );
+  });
+
+  it('sends no file name for pasted text', async () => {
+    renderFlow();
+    paste(PGN);
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    expect(server.preview.mock.calls[0]?.[0]).not.toHaveProperty(
+      'fileName',
+      expect.anything(),
+    );
+  });
+
+  it('never overwrites a name the player typed', async () => {
+    renderFlow();
+    await previewAsBlack();
+    const name = () => screen.getByLabelText<HTMLInputElement>(i.name);
+    expect(name().value).toBe('Taimanov');
+    fireEvent.change(name(), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(/Adds 2 chapters/);
+    fireEvent.click(screen.getByRole('radio', { name: i.targetNew }));
+    await enabledConfirm();
+    expect(name().value).toBe('');
+    fireEvent.change(name(), { target: { value: 'Mine' } });
+    fireEvent.click(screen.getByRole('button', { name: i.change }));
+    chooseFile(new File([PGN], 'other.pgn'));
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    expect(name().value).toBe('Mine');
+  });
+
+  it('suggests again for another file when the name was not changed', async () => {
+    renderFlow();
+    await previewAsBlack();
+    server.preview.mockResolvedValue({
+      ok: true,
+      preview: { ...PREVIEW, suggestedName: 'najdorf' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: i.change }));
+    chooseFile(new File([PGN], 'najdorf.pgn'));
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    expect(screen.getByLabelText<HTMLInputElement>(i.name).value).toBe(
+      'najdorf',
+    );
+  });
+
+  it('shows what the file holds when adding to an existing one', async () => {
+    renderFlow();
+    await previewAsBlack();
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(/Adds 2 chapters/);
+    expect(screen.getByRole('heading', { name: i.summaryTitle })).toBeDefined();
+    expect(screen.getByText('3 chapters · 1 line · 2 moves')).toBeDefined();
   });
 
   it('confirms a new repertoire with its name', async () => {
@@ -375,6 +448,7 @@ describe('ImportFlow', () => {
         text: PGN,
         side: 'black',
         into: 'r-black',
+        fileName: 'taimanov.pgn',
       });
     });
     await waitFor(() => {
@@ -406,6 +480,8 @@ describe('ImportFlow', () => {
     expect(confirm.hasAttribute('disabled')).toBe(true);
     // The target card does not promise "adds 0 chapters and 0 moves".
     expect(screen.queryByText(/^Adds /)).toBeNull();
+    // Step 2 still says what the file holds.
+    expect(screen.getByText('3 chapters · 1 line · 2 moves')).toBeDefined();
     fireEvent.click(confirm);
     expect(server.confirm).not.toHaveBeenCalled();
     // A new repertoire can still take the file.
@@ -508,6 +584,7 @@ describe('ImportFlow', () => {
       text: PGN,
       side: 'white',
       into: 'r-white',
+      fileName: 'taimanov.pgn',
     });
     expect(
       screen.getByRole<HTMLInputElement>('radio', { name: i.targetExisting })
@@ -790,6 +867,7 @@ describe('ImportFlow side check (#364, R-214)', () => {
       text: PGN,
       side: 'black',
       into: undefined,
+      fileName: 'taimanov.pgn',
     });
     // The side is now Black: the chosen-file line says so.
     expect(screen.getByText(`taimanov.pgn · ${c.black}`)).toBeDefined();

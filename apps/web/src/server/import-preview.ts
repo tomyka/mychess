@@ -20,6 +20,7 @@ import {
   importPgn,
   mergeInto,
   moveNumber,
+  suggestedRepertoireName,
   suggestedSide as sideToSuggest,
   SIDES,
   summarize,
@@ -47,6 +48,7 @@ import {
   importPreviewRateKey,
   importRateKey,
   REPERTOIRE_ISSUES,
+  REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
   type Account,
@@ -96,6 +98,7 @@ export interface RenamedChapter {
 
 /** What the import summary shows before the player confirms (R-64). */
 export interface ImportPreview {
+  /** What the file holds, alone: for a merge too, not the merged repertoire. */
   readonly summary: RepertoireSummary;
   /**
    * The titles of the chapters the upload brings, in order, as the
@@ -122,6 +125,11 @@ export interface ImportPreview {
    * as that side. Null when the chosen side fits.
    */
   readonly suggestedSide: Side | null;
+  /**
+   * The name a new repertoire is suggested: the Event tag every game
+   * shares, else the file's name without its extension, else ''.
+   */
+  readonly suggestedName: string;
 }
 
 const PGN_UNREADABLE = 'pgn.unreadable';
@@ -173,8 +181,11 @@ export interface ImportRefused {
 export type PreviewOutcome =
   { readonly ok: true; readonly preview: ImportPreview } | ImportRefused;
 
-/** A preview before the side check: what the import and merge give. */
-type PreviewBody = Omit<ImportPreview, 'suggestedSide'>;
+/**
+ * A preview before the side check and the suggested name: what the import
+ * and merge give.
+ */
+type PreviewBody = Omit<ImportPreview, 'suggestedSide' | 'suggestedName'>;
 
 type BodyOutcome =
   { readonly ok: true; readonly preview: PreviewBody } | ImportRefused;
@@ -206,6 +217,8 @@ const repertoireId = z.uuid(REPERTOIRE_REFUSALS.notFound);
 const previewRequestSchema = z.object({
   ...fileFields,
   into: repertoireId.optional(),
+  /** The file's name, to suggest the repertoire's from; none for pasted text. */
+  fileName: z.string().optional().catch(undefined),
 });
 
 const confirmRequestSchema = z.object({
@@ -334,7 +347,10 @@ function listedAnnotations(
   });
 }
 
-/** The preview of adding `imported` to `loaded`: the merged repertoire. */
+/**
+ * The preview of adding `imported` to `loaded`: what the file holds, and
+ * the chapters, renames and annotations the merge brings.
+ */
 function mergedPreview(
   loaded: LoadedRepertoire,
   imported: ImportedRepertoire,
@@ -348,7 +364,7 @@ function mergedPreview(
     addition.ok ? addition.value.annotations : [],
   );
   return {
-    summary: summarize(after),
+    summary: summarize(imported.graph),
     chapters: titlesFrom(after, before.chapters.length),
     renamed: renamedBy(before, after),
     skipped: [...imported.skipped, ...merged.skipped].sort(
@@ -431,11 +447,19 @@ export async function previewImport(
   if (!request.success) return requestRefused(request.error);
   const imported = importFile(request.data);
   if (!imported.ok) return imported;
-  const { text, side, into } = request.data;
+  const { text, side, into, fileName } = request.data;
   const body = await previewBody(account, into, imported.value);
   if (!body.ok) return body;
   const suggestedSide = sideToSuggest(text, side, imported.value);
-  return { ok: true, preview: { ...body.preview, suggestedSide } };
+  const suggestedName = suggestedRepertoireName(
+    text,
+    fileName ?? null,
+    REPERTOIRE_NAME_MAX,
+  );
+  return {
+    ok: true,
+    preview: { ...body.preview, suggestedSide, suggestedName },
+  };
 }
 
 /** The preview of `imported` as a new repertoire, or merged `into` one. */

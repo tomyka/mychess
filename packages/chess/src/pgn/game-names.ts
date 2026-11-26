@@ -4,7 +4,7 @@ import type { PgnHeaders } from './split-games';
 const TITLE_HEADERS = ['Event', 'White', 'Black'] as const;
 
 /** A header value, trimmed; blank and PGN's "?" placeholder are no value. */
-function usable(value: string | undefined): string | null {
+export function usable(value: string | undefined): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed === '' || trimmed === '?' ? null : trimmed;
 }

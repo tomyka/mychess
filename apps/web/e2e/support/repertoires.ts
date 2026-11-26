@@ -280,20 +280,14 @@ export async function previewImport(
 export interface SummaryCounts {
   readonly chapters: number;
   readonly lines: number;
-  readonly positions: number;
   readonly transpositions: number;
   readonly moves: number;
 }
 
-const COUNTS = [
-  'chapters',
-  'lines',
-  'positions',
-  'transpositions',
-  'moves',
-] as const;
+/** The stats line's order; transpositions only when there are some. */
+const COUNTS = ['chapters', 'lines', 'moves', 'transpositions'] as const;
 
-/** The five summary tiles read `counts`. */
+/** The summary's one stats line reads `counts`. */
 export async function expectSummary(
   page: Page,
   messages: Messages,
@@ -303,12 +297,12 @@ export async function expectSummary(
   await expect(
     page.getByRole('heading', { name: t.summaryTitle }),
   ).toBeVisible();
-  for (const key of COUNTS)
-    await expect(
-      page.getByText(plural(t.summary[key], { count: counts[key] }), {
-        exact: true,
-      }),
-    ).toBeVisible();
+  const line = COUNTS.filter(
+    (key) => key !== 'transpositions' || counts[key] > 0,
+  )
+    .map((key) => plural(t.summary[key], { count: counts[key] }))
+    .join(' · ');
+  await expect(page.getByText(line, { exact: true })).toBeVisible();
 }
 
 /** The screen-reader text of a move's one arrow. */

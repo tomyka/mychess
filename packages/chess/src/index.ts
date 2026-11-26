@@ -10,6 +10,7 @@ export {
   type Skipped,
   type SkipReason,
 } from './pgn/import-pgn';
+export { suggestedRepertoireName } from './pgn/suggested-name';
 export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
 export { playerSide } from './pgn/player-side';
 export { suggestedSide } from './pgn/side-check';

@@ -1,4 +1,4 @@
-import { mergeInto, summarize, importPgn } from '@mychess/chess';
+import { summarize, importPgn } from '@mychess/chess';
 import { deleteRepertoire, loadRepertoire } from '@mychess/db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -117,6 +117,7 @@ const previewSchema = z.object({
     skipped: z.array(z.unknown()),
     target: z.unknown(),
     refusal: z.string().nullable(),
+    suggestedName: z.string(),
   }),
 });
 
@@ -156,9 +157,8 @@ describe('previewImportAction', () => {
     );
     const imported = importPgn(INTO_TAIMANOV, 'black');
     if (!imported.ok) throw new Error('fixture does not import');
-    const merged = mergeInto(graphOf(TAIMANOV, 'black'), imported.value);
-    if (!merged.ok) throw new Error('fixture does not merge');
-    expect(outcome.preview.summary).toEqual(summarize(merged.value.graph));
+    // Step 2 says what the file holds, not the merged repertoire.
+    expect(outcome.preview.summary).toEqual(summarize(imported.value.graph));
     // Game 1 adds no new move, so it adds no chapter (R-117).
     expect(outcome.preview.chapters).toHaveLength(1);
     expect(outcome.preview.renamed).toEqual([]);

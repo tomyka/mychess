@@ -221,6 +221,6 @@ describe('the done summary’s buttons', () => {
     const done = screen.getByRole('link', { name: T.done }).className;
     expect(done).toContain('bg-accent ');
     expect(done).toContain('basis-full');
-    expect(done).not.toContain('text-fg-muted');
+    expect(done.split(' ')).not.toContain('text-fg-muted');
   });
 });

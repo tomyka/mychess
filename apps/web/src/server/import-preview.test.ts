@@ -129,6 +129,48 @@ describe('previewImport chapter titles (R-158)', () => {
   });
 });
 
+describe('previewImport what the file holds', () => {
+  it('counts the file alone when merging, not the merged repertoire', async () => {
+    ownsRepertoireOf([CLASSICAL, BISHOP].join('\n\n'));
+    const merged = await preview(ADVANCE, INTO);
+    expect(merged.summary).toEqual((await preview(ADVANCE)).summary);
+    expect(merged.summary.chapters).toBe(1);
+  });
+
+  it('counts the file even when nothing in it can be added (R-115)', async () => {
+    ownsRepertoireOf([ADVANCE, CLASSICAL].join('\n\n'));
+    const merged = await preview(ADVANCE, INTO);
+    expect(merged.refusal).toBe('pgn.nothingToAdd');
+    expect(merged.summary).toMatchObject({ chapters: 1, moves: 8 });
+  });
+
+  it('suggests the name from the Event every game shares, for a merge too', async () => {
+    const shared = [ADVANCE, CLASSICAL]
+      .map((game) => `[Event "Karo-Kan"]\n\n${game}`)
+      .join('\n\n');
+    expect((await preview(shared)).suggestedName).toBe('Karo-Kan');
+    ownsRepertoireOf(BISHOP);
+    expect((await preview(shared, INTO)).suggestedName).toBe('Karo-Kan');
+  });
+
+  it('suggests the file name without its extension, cut to the name limit', async () => {
+    const named = async (fileName: unknown): Promise<string> => {
+      const outcome = await previewImport(
+        ACCOUNT,
+        { text: ADVANCE, side: 'black', fileName },
+        NOW,
+      );
+      if (!outcome.ok) throw new Error(outcome.refusal.reason);
+      return outcome.preview.suggestedName;
+    };
+    expect(await named('karo-kan.pgn')).toBe('karo-kan');
+    expect(await named(`${'k'.repeat(100)}.pgn`)).toBe('k'.repeat(80));
+    // Pasted text, or a file name that is not text: nothing to suggest.
+    expect(await named(undefined)).toBe('');
+    expect(await named(42)).toBe('');
+  });
+});
+
 describe('previewImport renamed chapters (R-159)', () => {
   /** The 3. Bd3 line, told apart at `move` from the 2. a3 line it gains. */
   const bishopRenamed = (move: string) => ({

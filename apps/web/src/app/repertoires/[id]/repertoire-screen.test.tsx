@@ -682,11 +682,30 @@ describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () =
     expect(current()).toBe('d4');
   });
 
-  it('offers the builder from browse mode', () => {
+  it('offers Add from PGN and the builder from browse mode, and nothing to train or download', () => {
     renderScreen({ side: 'white', chapters: [], moves: [] }, 'Naujas');
     fireEvent.click(modeSwitch());
-    expect(screen.getByText(r.panel.emptyBrowse)).toBeDefined();
-    fireEvent.click(named(r.mode.toBuild));
+    const empty = screen.getByText(r.panel.emptyBrowse).parentElement;
+    if (empty === null) throw new Error('no empty state');
+    expect(
+      within(empty)
+        .getByRole('link', { name: r.header.importInto })
+        .getAttribute('href'),
+    ).toBe(`/repertoires/import?i=${ID}`);
+    expect(
+      within(empty).getByRole('button', { name: r.mode.toBuild }).textContent,
+    ).toBe('Start building');
+    const know = MESSAGES.training.know;
+    expect(screen.queryByRole('region', { name: know.section })).toBeNull();
+    expect(screen.queryByText(know.iKnowThis)).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /^(Review|Learn) / }),
+    ).toBeNull();
+    expect(screen.queryByRole('link', { name: /^(Review|Learn) / })).toBeNull();
+    expect(screen.queryByText(r.header.download)).toBeNull();
+    fireEvent.click(
+      within(empty).getByRole('button', { name: r.mode.toBuild }),
+    );
     expect(modeSwitch().getAttribute('aria-checked')).toBe('true');
   });
 });

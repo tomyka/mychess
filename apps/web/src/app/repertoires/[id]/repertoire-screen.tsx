@@ -76,28 +76,22 @@ function EmptyRepertoire({
   readonly onBuild: () => void;
 }): JSX.Element {
   const t = useTranslations('repertoires');
-  if (mode === 'browse')
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="text-fg-muted">{t('panel.emptyBrowse')}</p>
-        <button
-          type="button"
-          onClick={onBuild}
-          className={`${SECONDARY_BUTTON} self-start`}
-        >
-          {t('mode.toBuild')}
-        </button>
-      </div>
-    );
+  const browsing = mode === 'browse';
   return (
     <div className="flex flex-col gap-3">
-      <p>{t('panel.emptyBuild')}</p>
-      <Link
-        href={importIntoRoute(id)}
-        className={`${SECONDARY_BUTTON} self-start`}
-      >
-        {t('header.importInto')}
-      </Link>
+      <p className={browsing ? 'text-fg-muted' : undefined}>
+        {t(browsing ? 'panel.emptyBrowse' : 'panel.emptyBuild')}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link href={importIntoRoute(id)} className={SECONDARY_BUTTON}>
+          {t('header.importInto')}
+        </Link>
+        {browsing ? (
+          <button type="button" onClick={onBuild} className={SECONDARY_BUTTON}>
+            {t('mode.toBuild')}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

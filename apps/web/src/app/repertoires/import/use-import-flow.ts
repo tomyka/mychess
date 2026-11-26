@@ -58,6 +58,11 @@ interface FlowState {
   readonly preview: ImportPreview | null;
   readonly target: TargetChoice;
   readonly name: string;
+  /**
+   * The name last suggested from a file: while `name` is still it, the
+   * player has not changed it and the next file's suggestion replaces it.
+   */
+  readonly suggested: string;
   readonly message: FlowMessage | null;
   /** The repertoire changed since the preview: offer "Preview again". */
   readonly stale: boolean;
@@ -114,6 +119,7 @@ function initialFlow(fixed: ImportOption | null): FlowState {
     preview: null,
     target: fixed === null ? NEW : { kind: 'existing', id: fixed.id },
     name: '',
+    suggested: '',
     message: null,
     stale: false,
     busy: 'reading',
@@ -158,6 +164,16 @@ const withSource = (state: FlowState, source: Source | null): FlowState =>
     : { ...state, file: source, pasted: '' };
 
 /**
+ * The name once a preview arrives: the one it suggests, unless the player
+ * changed the last suggestion.
+ */
+function named(state: FlowState, preview: ImportPreview): Partial<FlowState> {
+  if (state.name !== state.suggested) return {};
+  const name = preview.suggestedName;
+  return { name, suggested: name };
+}
+
+/**
  * The flow once `upload` is previewed. A preview as the other side
  * (switchSide) takes that side only now, so a refused one leaves the side
  * and the target as they were; once taken, the side counts as chosen.
@@ -168,6 +184,7 @@ function previewed(
   preview: ImportPreview,
 ): FlowState {
   return patched(state, {
+    ...named(state, preview),
     upload,
     preview,
     side: upload.side,
@@ -270,6 +287,7 @@ const previewer =
         text: upload.text,
         side: upload.side,
         into: choice.kind === 'existing' ? choice.id : undefined,
+        fileName: upload.name ?? undefined,
       });
       dispatch(
         outcome.ok

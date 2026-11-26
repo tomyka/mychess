@@ -124,7 +124,7 @@ function ColorButtons({
           className="inline-flex min-h-touch min-w-touch items-center rounded-control"
         >
           <span
-            className={`inline-flex size-touch items-center justify-center rounded-control ${SWATCH[color]} ${color === chosen ? 'ring-2 ring-fg' : ''}`}
+            className={`inline-flex size-touch items-center justify-center rounded-control ${SWATCH[color]} ${color === chosen ? 'ring-2 ring-fg' : 'ring-1 ring-border-strong ring-inset'}`}
           >
             {color === chosen ? (
               <span className="inline-flex rounded-full bg-surface p-0.5 text-fg">

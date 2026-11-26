@@ -11,10 +11,10 @@ const i = MESSAGES.repertoires.import;
 const PREVIEW: ImportPreview = {
   summary: {
     chapters: 6,
-    lines: 7,
+    lines: 13,
     positions: 88,
-    transpositions: 3,
-    moves: 1,
+    transpositions: 1,
+    moves: 123,
   },
   chapters: ['Sicilian Defense: Taimanov Variation', 'Chapter 2'],
   renamed: [],
@@ -27,6 +27,7 @@ const PREVIEW: ImportPreview = {
   target: null,
   refusal: null,
   suggestedSide: null,
+  suggestedName: '',
 };
 
 /** An existing chapter a merge tells apart from a namesake (R-159). */
@@ -47,20 +48,40 @@ function renderSummary(
 }
 
 describe('ImportSummary', () => {
-  it('shows the five counts, each as one text run', () => {
+  it('shows the counts as one line, without positions', () => {
     renderSummary(PREVIEW);
     expect(
       screen.getByRole('heading', { level: 2, name: i.summaryTitle }),
     ).toBeDefined();
-    for (const text of [
-      '6 chapters',
-      '7 lines',
-      '88 positions',
-      '3 transpositions',
-      '1 move',
-    ]) {
-      expect(screen.getByText(text)).toBeDefined();
-    }
+    const line = screen.getByText(
+      '6 chapters · 13 lines · 123 moves · 1 transposition',
+    );
+    expect(line.tagName).toBe('P');
+    expect(screen.queryByText(/88 positions/)).toBeNull();
+  });
+
+  it('writes each count in the singular or plural', () => {
+    renderSummary({
+      ...PREVIEW,
+      summary: {
+        chapters: 1,
+        lines: 1,
+        positions: 3,
+        transpositions: 2,
+        moves: 1,
+      },
+    });
+    expect(
+      screen.getByText('1 chapter · 1 line · 1 move · 2 transpositions'),
+    ).toBeDefined();
+  });
+
+  it('leaves out transpositions when there are none', () => {
+    renderSummary({
+      ...PREVIEW,
+      summary: { ...PREVIEW.summary, transpositions: 0 },
+    });
+    expect(screen.getByText('6 chapters · 13 lines · 123 moves')).toBeDefined();
   });
 
   it('lists the chapters, translating an untitled one', () => {
@@ -131,14 +152,16 @@ describe('ImportSummary', () => {
     expect(screen.queryByRole('list', { name: i.chaptersTitle })).toBeNull();
   });
 
-  it('shows only the skipped games when nothing can be added (R-115)', () => {
+  it('shows what the file holds and its skipped games when nothing can be added (R-115)', () => {
     renderSummary({
       ...PREVIEW,
       chapters: [],
       skipped: [{ game: 1, reason: 'pgn.secondAnswer', san: 'd6', move: 2 }],
       refusal: 'pgn.nothingToAdd',
     });
-    expect(screen.queryByText('6 chapters')).toBeNull();
+    expect(
+      screen.getByText('6 chapters · 13 lines · 123 moves · 1 transposition'),
+    ).toBeDefined();
     expect(screen.queryByRole('list', { name: i.chaptersTitle })).toBeNull();
     expect(
       screen.getByText('Game 1: a second answer in the same position, 2...d6'),
@@ -153,7 +176,6 @@ describe('ImportSummary', () => {
       refusal: 'pgn.nothingToAdd',
     });
     expect(screen.queryByText(/games are valid/)).toBeNull();
-    expect(screen.queryByText('6 chapters')).toBeNull();
   });
 
   it('shows the first 10 skipped games and the rest on request', () => {
