@@ -261,6 +261,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-225** (#381, 2026-11-26): The repertoire screens show training progress in the R-177 meaning: learned % on every My repertoires card, learned % and due count on each chapter row of the repertoire page, and, for the coach, each assigned player's learned % on the repertoire's Repertoire screen. Move states are not shown in the move list.
 - **R-226** (#381, 2026-11-26): The repertoire page's panel is for studying. Rename, Download PGN, Add from PGN, share, assign, pause, make my own copy and delete live on a separate Repertoire screen opened from the page's header, on phone and desktop alike.
 - **R-227** (#381, 2026-11-26): "I know this" is one labelled control under the move list offering this move, this line and this chapter for the current position, each with its move count; chapter rows carry progress only. Refines R-58 and R-147 (the confirmation with the count stays).
+- **R-228** (#386, 2026-11-26): A paused assignment keeps all its progress on the repertoire page: the overall learned % and each chapter's progress row (R-225). Only training hides while paused (Review, Learn, "I know this", R-46). Extends R-222 to the repertoire page.
 
 ## Open questions
 

@@ -28,7 +28,7 @@ import {
   plainChapterTitle,
 } from '../../../server/chapter-names';
 import type { NoteOutcome } from '../../repertoire-view';
-import { panelTraining } from '../../repertoire-view/test-training';
+import { pageTraining } from '../../repertoire-view/test-training';
 import type { EditOutcome } from './actions';
 import {
   RepertoireScreen,
@@ -82,14 +82,13 @@ const GRAPH = graphOf(LONDON);
 const r = MESSAGES.repertoires;
 
 /** The owner's training: 4 due, 9 to learn today, 64% learned. */
-const TRAINING = panelTraining({
-  repertoireId: ID,
-  counts: { due: 4, toLearn: 9 },
-  standing: {
+const TRAINING = pageTraining(
+  { repertoireId: ID, counts: { due: 4, toLearn: 9 } },
+  {
     counts: { notStarted: 5, skipped: 0, due: 4, learned: 16 },
     mastered: false,
   },
-});
+);
 
 type Coaching = Partial<
   Pick<RepertoireScreenProps, 'coachNotes' | 'forkNotes' | 'training'>
@@ -295,17 +294,14 @@ describe('RepertoireScreen: browsing', () => {
   it('shows each chapter’s progress in the open chapter line while browsing, not in the builder (spec, Chapter line)', () => {
     const [first, second] = GRAPH.chapters.map((c) => c.id);
     renderScreen(GRAPH, 'Londono sistema', {
-      training: panelTraining({
-        repertoireId: ID,
-        chapters: {
-          [first ?? '']: {
-            counts: { notStarted: 0, skipped: 0, due: 3, learned: 7 },
-            mastered: false,
-          },
-          [second ?? '']: {
-            counts: { notStarted: 4, skipped: 0, due: 0, learned: 0 },
-            mastered: false,
-          },
+      training: pageTraining({ repertoireId: ID }, undefined, {
+        [first ?? '']: {
+          counts: { notStarted: 0, skipped: 0, due: 3, learned: 7 },
+          mastered: false,
+        },
+        [second ?? '']: {
+          counts: { notStarted: 4, skipped: 0, due: 0, learned: 0 },
+          mastered: false,
         },
       }),
     });

@@ -15,7 +15,7 @@ import { currentLineIndex } from './current-line';
 import { KnowChoice, type KnowFields } from './know-choice';
 import { LearnLink } from './learn-link';
 import { moveLabel } from './move-label';
-import type { PanelTraining } from './panel-training';
+import type { TrainNow } from '../../server/training';
 
 /** Where the view stands: the chapter, the moves to the current one, its line. */
 export interface Standpoint {
@@ -142,7 +142,7 @@ function KnowChoices({
 }
 
 export interface TrainHereProps {
-  readonly training: PanelTraining;
+  readonly training: TrainNow;
   readonly graph: RepertoireGraph;
   readonly chapterId: string;
   /** The moves from the chapter root to the current one. */

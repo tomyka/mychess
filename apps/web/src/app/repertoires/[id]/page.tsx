@@ -48,9 +48,7 @@ export default async function RepertoirePage({
       chapterId={chapter.success ? chapter.data : null}
       coachNotes={coachNotes}
       forkNotes={forkNotes}
-      training={
-        training === null ? null : { repertoireId: repertoire.id, ...training }
-      }
+      training={training}
     />
   );
 }

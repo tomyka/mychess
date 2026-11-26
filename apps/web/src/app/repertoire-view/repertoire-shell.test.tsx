@@ -8,8 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { RepertoireShell, useBrowseView } from '.';
-import type { PanelTraining } from './panel-training';
-import { panelTraining } from './test-training';
+import type { RepertoireTraining } from '../../server/training';
+import { pageTraining } from './test-training';
 
 const ground = vi.hoisted(() => {
   const created: Config[] = [];
@@ -38,7 +38,7 @@ interface ViewOptions {
   readonly said?: string;
   readonly onSquare?: (square: Key) => void;
   readonly notedMoves?: Readonly<Record<string, string>>;
-  readonly training?: PanelTraining;
+  readonly training?: RepertoireTraining;
 }
 
 /** A read-only view built on the module, as a third view would build it. */
@@ -296,7 +296,7 @@ describe('the panel', () => {
   });
 
   it('puts Train here, then the move’s notes, under the move list', () => {
-    renderView({ training: panelTraining({}) });
+    renderView({ training: pageTraining({}) });
     forward();
     const trainHere = screen.getByRole('region', {
       name: MESSAGES.training.know.section,

@@ -9,7 +9,11 @@ import { COMPACT_TONAL } from '../buttons';
 import { TEXT_LINK } from '../settings/styles';
 import { StandingLine } from '../standing-line';
 import { noonOf, useShortDeadline } from '../use-deadline';
-import type { PanelTraining } from './panel-training';
+import type { RepertoireTraining, TrainNow } from '../../server/training';
+import type { ScreenState } from './screen-state';
+
+/** What of the view decides whether there is a row: its mode and chapters. */
+type SummaryState = Pick<ScreenState, 'mode' | 'graph'>;
 
 /** What the assigned view's status strip says (spec, Header). */
 export interface SummaryAssignment {
@@ -28,7 +32,7 @@ const hasProgress = (standing: Standing | undefined): standing is Standing =>
   standing !== undefined && percentLearned(standing.counts) !== null;
 
 /** Whether Review, Learn or the daily-limit line has anything to show. */
-const hasTrainLinks = (training: PanelTraining | undefined): boolean =>
+const hasTrainLinks = (training: TrainNow | undefined): boolean =>
   training !== undefined &&
   (training.counts.due > 0 ||
     training.counts.toLearn > 0 ||
@@ -42,7 +46,7 @@ const hasTrainLinks = (training: PanelTraining | undefined): boolean =>
 function TrainLinks({
   training,
 }: {
-  readonly training: PanelTraining;
+  readonly training: TrainNow;
 }): JSX.Element {
   const t = useTranslations('repertoires.summary');
   const limit = useTranslations('training.repertoire');
@@ -140,7 +144,7 @@ function SummaryRow({
   links,
 }: {
   readonly standing: Standing | undefined;
-  readonly links: PanelTraining | undefined;
+  readonly links: TrainNow | undefined;
 }): JSX.Element {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -152,28 +156,50 @@ function SummaryRow({
   );
 }
 
+/** What the row shows: the share learned and the train links, each if any. */
+interface RowParts {
+  readonly standing: Standing | undefined;
+  readonly links: TrainNow | undefined;
+}
+
+/**
+ * The row's parts. Builder mode and an empty repertoire have no row (spec,
+ * Summary row); a paused assignment keeps its share learned (R-222) and its
+ * loader gives it nothing to train (R-46).
+ */
+function rowParts(
+  training: RepertoireTraining | undefined,
+  state: SummaryState,
+): RowParts {
+  if (state.mode === 'build' || state.graph.chapters.length === 0)
+    return { standing: undefined, links: undefined };
+  const standing = training?.standing;
+  const trainable = training?.trainable ?? undefined;
+  return {
+    standing: hasProgress(standing) ? standing : undefined,
+    links: hasTrainLinks(trainable) ? trainable : undefined,
+  };
+}
+
 /**
  * The summary row, first in the panel (spec, Summary row): the share
  * learned, then Review and Learn for a player who trains it, on one
  * wrapping row; on an assignment, the status strip as a second line. Side
- * and chapters are not repeated: the board and "Ch 1/6" say them. A paused
- * assignment keeps its share learned (R-222) but trains nothing (R-46):
- * its view passes the standing and no training. Nothing when there is
- * nothing to say, so the panel has no empty gap.
+ * and chapters are not repeated: the board and "Ch 1/6" say them. Nothing
+ * when there is nothing to say, so the panel has no empty gap.
  */
 export function SummaryLine({
-  standing,
   training,
   assignment,
+  state,
 }: {
-  /** The share learned; absent where the viewer does not train it. */
-  readonly standing?: Standing | undefined;
-  /** Review and Learn; absent also while paused. */
-  readonly training?: PanelTraining | undefined;
+  /** The viewer's training as its page loaded; absent where they do not train it. */
+  readonly training?: RepertoireTraining | undefined;
   readonly assignment?: SummaryAssignment | undefined;
+  /** The view's mode and graph: the builder and an empty repertoire have no row. */
+  readonly state: SummaryState;
 }): JSX.Element | null {
-  const shown = hasProgress(standing) ? standing : undefined;
-  const links = hasTrainLinks(training) ? training : undefined;
+  const { standing: shown, links } = rowParts(training, state);
   const row = shown !== undefined || links !== undefined;
   if (!row && assignment === undefined) return null;
   return (

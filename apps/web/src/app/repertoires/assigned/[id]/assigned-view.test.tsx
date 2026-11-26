@@ -12,7 +12,10 @@ import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import type { RepertoireTraining } from '../../../../server/training';
-import { panelTraining } from '../../../repertoire-view/test-training';
+import {
+  pageTraining,
+  standingsOnly,
+} from '../../../repertoire-view/test-training';
 import type { NoteOutcome } from '../../../repertoire-view';
 import { AssignedView } from './assigned-view';
 
@@ -52,13 +55,14 @@ const GRAPH = graphOf(LONDON);
 const TODAY = '2026-11-26';
 
 /** Rokas's training of it: 3 due, 5 to learn today, 60% learned. */
-const TRAINING: RepertoireTraining = panelTraining({
-  counts: { due: 3, toLearn: 5 },
-  standing: {
-    counts: { notStarted: 1, skipped: 0, due: 3, learned: 6 },
-    mastered: false,
-  },
-});
+const STANDING = {
+  counts: { notStarted: 1, skipped: 0, due: 3, learned: 6 },
+  mastered: false,
+};
+const TRAINING: RepertoireTraining = pageTraining(
+  { counts: { due: 3, toLearn: 5 } },
+  STANDING,
+);
 
 /** Rokas's London as his coach Jonas assigned it, nothing changed since. */
 const DATA: AssignedRepertoirePage = {
@@ -213,12 +217,32 @@ describe('AssignedView (R-21, R-102)', () => {
   });
 
   it('keeps the share learned and shows the Paused pill, but offers no training while paused (R-222, R-46)', () => {
-    renderView({ paused: true }, TRAINING);
+    // While paused the loader gives the standing and nothing to train.
+    renderView({ paused: true }, standingsOnly(STANDING));
     const header = panel();
     expect(header.getByText('60% learned')).toBeDefined();
     expect(header.getByText(a.badge.paused)).toBeDefined();
     expect(screen.queryByRole('link', { name: /^Review/u })).toBeNull();
     expect(screen.queryByRole('link', { name: /^Learn/u })).toBeNull();
+    forward();
+    expect(
+      screen.queryByRole('region', { name: MESSAGES.training.know.section }),
+    ).toBeNull();
+  });
+
+  it('keeps each chapter’s progress in the chapter line while paused (R-228)', () => {
+    const [first] = GRAPH.chapters.map((chapter) => chapter.id);
+    renderView(
+      { paused: true },
+      standingsOnly(STANDING, {
+        [first ?? '']: {
+          counts: { notStarted: 0, skipped: 0, due: 3, learned: 7 },
+          mastered: false,
+        },
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Ch 1\/2 · / }));
+    expect(screen.getByText('70% learned · 3 due')).toBeDefined();
   });
 
   it('shows the Overdue pill once the deadline passed (R-16, R-51)', () => {

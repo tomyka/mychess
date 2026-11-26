@@ -14,7 +14,7 @@ import {
   trackedReviews,
   trainingCounts,
   type LearnFocus,
-  type RepertoireGraph,
+  type RepertoireProgress,
   type Side,
   type Standing,
   type TodayRow,
@@ -349,28 +349,50 @@ export async function trainedStandings(
 }
 
 /**
- * A repertoire page's training: its counts, what learning one chapter or
- * line of it would teach today (R-206), whether today's limit stops
- * learning while moves are left (decision 11), and the standings its
- * chapter rows show (R-225).
+ * What a repertoire page offers a viewer who may train it now: Review and
+ * Learn with its counts, what learning one chapter or line of it would
+ * teach today (R-206), and whether today's limit stops learning while moves
+ * are left (decision 11).
  */
-export interface RepertoireTraining {
+export interface TrainNow {
+  readonly repertoireId: string;
   readonly counts: TrainingCounts;
   readonly learn: LearnScope;
   readonly limitReached: boolean;
-  /** The repertoire's R-151 standing (R-225). */
-  readonly standing: Standing;
-  /** Each chapter's standing by chapter id (R-225). */
-  readonly chapters: Readonly<Record<string, Standing>>;
 }
 
-/** The standing of `graph` and of each of its chapters, by chapter id. */
-function repertoireStandings(
-  graph: RepertoireGraph,
-  day: TrainingDay,
-  now: Date,
+/**
+ * What a repertoire page shows of the viewer's training: its R-151
+ * standing and each chapter's (R-225), kept while paused (R-222, R-228),
+ * and what they may train now, null while it trains nothing (a paused
+ * assignment, R-46).
+ */
+export interface RepertoireTraining {
+  readonly standing: Standing;
+  /** Each chapter's standing by chapter id. */
+  readonly chapters: Readonly<Record<string, Standing>>;
+  readonly trainable: TrainNow | null;
+}
+
+/** The trainable part of `entry` on `day` as of `now`. */
+function trainNow(entry: SnapshotEntry, day: TrainingDay, now: Date): TrainNow {
+  const { id, graph } = entry.repertoire;
+  return {
+    repertoireId: id,
+    counts: trainingCounts(day, now),
+    learn: {
+      tracked: trackedIn(graph, day.tracked),
+      learnedToday: day.learnedToday,
+      limits: day.limits,
+    },
+    limitReached: repertoireLearn(day, id).kind === 'limitReached',
+  };
+}
+
+/** The standing of a repertoire's `progress` and of each of its chapters. */
+function standingsOf(
+  progress: RepertoireProgress,
 ): Pick<RepertoireTraining, 'standing' | 'chapters'> {
-  const progress = progressOf(graph, trackedReviews(day), now);
   return {
     standing: standingOf(progress),
     chapters: Object.fromEntries(
@@ -383,8 +405,10 @@ function repertoireStandings(
 }
 
 /**
- * The session account's training of one repertoire, for its page's train
- * buttons and Learn links; null when they do not train it.
+ * The session account's training of one repertoire, for its page; null
+ * when they do not train it. Whether they may train it now is the
+ * snapshot's `active`, which the domain decides (isTrainingActive: a
+ * paused assignment is not, R-46).
  */
 export async function repertoireTraining(
   account: Account,
@@ -397,15 +421,13 @@ export async function repertoireTraining(
   const entry = read?.snapshot.entries[0];
   if (read === undefined || entry === undefined) return null;
   const day = snapshotDay(read.snapshot);
+  const progress = progressOf(
+    entry.repertoire.graph,
+    trackedReviews(day),
+    read.now,
+  );
   return {
-    counts: trainingCounts(day, read.now),
-    learn: {
-      tracked: trackedIn(entry.repertoire.graph, day.tracked),
-      learnedToday: day.learnedToday,
-      limits: day.limits,
-    },
-    limitReached:
-      repertoireLearn(day, entry.repertoire.id).kind === 'limitReached',
-    ...repertoireStandings(entry.repertoire.graph, day, read.now),
+    ...standingsOf(progress),
+    trainable: entry.repertoire.active ? trainNow(entry, day, read.now) : null,
   };
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import type { Standing } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, type JSX } from 'react';
@@ -22,7 +21,7 @@ import {
   useNotes,
   type Notes,
   type PanelContent,
-  type PanelTraining,
+  type RepertoireView,
   type ScreenMessage,
 } from '../../../repertoire-view';
 import { markSeenAction, setPersonalNoteAction } from './actions';
@@ -65,13 +64,16 @@ function AssignedTopBar({
   );
 }
 
-/** What the player's training of it adds to the panel. */
-interface AssignedTraining {
-  /** The share learned, paused or not (R-222). */
-  readonly standing: Standing | undefined;
-  /** Review and Learn; none while paused (R-46). */
-  readonly links: PanelTraining | undefined;
+interface AssignedViewProps {
+  readonly data: AssignedRepertoirePage;
+  /** The page's day, `YYYY-MM-DD` in Vilnius, for the days left. */
   readonly today: string;
+  /**
+   * The player's training of it, as the page loaded (R-142, R-206): its
+   * loader gives its progress but nothing to train while paused (R-46,
+   * R-228).
+   */
+  readonly training?: RepertoireTraining | null;
 }
 
 /**
@@ -79,20 +81,20 @@ interface AssignedTraining {
  * assigned it, its deadline and badges.
  */
 function AssignedSummary({
-  data,
-  training,
+  props: { data, today, training },
+  state,
 }: {
-  readonly data: AssignedRepertoirePage;
-  readonly training: AssignedTraining;
+  readonly props: AssignedViewProps;
+  readonly state: RepertoireView['state'];
 }): JSX.Element {
   return (
     <SummaryLine
-      standing={training.standing}
-      training={training.links}
+      training={training ?? undefined}
+      state={state}
       assignment={{
         coachName: data.coachName,
         deadline: data.deadline,
-        today: training.today,
+        today,
         overdue: data.overdue,
         paused: data.paused,
       }}
@@ -106,14 +108,15 @@ function AssignedSummary({
  * player's own note under each (R-21).
  */
 function useAssignedPanel(
-  data: AssignedRepertoirePage,
+  props: AssignedViewProps,
   notes: Notes,
-  training: AssignedTraining,
+  state: RepertoireView['state'],
 ): PanelContent {
   const t = useTranslations();
+  const { data } = props;
   return {
-    summary: <AssignedSummary data={data} training={training} />,
-    training: training.links,
+    summary: <AssignedSummary props={props} state={state} />,
+    training: props.training,
     lead: (
       <ChangesSummary
         graph={data.graph}
@@ -143,33 +146,14 @@ function useAssignedPanel(
  * screen (R-226). Opening it marks the version shown seen, so "Updated"
  * and the summary show once (R-133).
  */
-export function AssignedView({
-  data,
-  today,
-  training = null,
-}: {
-  readonly data: AssignedRepertoirePage;
-  /** The page's day, `YYYY-MM-DD` in Vilnius, for the days left. */
-  readonly today: string;
-  /** The player's training of it, as the page loaded (R-142, R-206). */
-  readonly training?: RepertoireTraining | null;
-}): JSX.Element {
+export function AssignedView(props: AssignedViewProps): JSX.Element {
+  const { data } = props;
   const { id, version } = data.repertoire;
   const view = useBrowseView(data.graph, data.repertoire.side, NOT_IN_CHAPTER);
   const notes = useNotes(data.personalNotes, (moveKey, text) =>
     setPersonalNoteAction({ repertoireId: id, moveKey, text }),
   );
-  // A paused assignment trains nothing new (R-46): no Review or Learn, no
-  // "I know this".
-  const trained: PanelTraining | undefined =
-    training === null || data.paused
-      ? undefined
-      : { repertoireId: id, ...training };
-  const panel = useAssignedPanel(data, notes, {
-    standing: training?.standing,
-    links: trained,
-    today,
-  });
+  const panel = useAssignedPanel(props, notes, view.state);
   useEffect(() => {
     markSeenAction({ repertoireId: id, seenVersion: version }).catch(
       () => undefined,

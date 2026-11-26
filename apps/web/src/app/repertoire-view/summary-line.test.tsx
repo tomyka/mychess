@@ -1,14 +1,17 @@
-import type { Standing } from '@mychess/chess';
+import type { RepertoireGraph } from '@mychess/chess';
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
+import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
-import type { PanelTraining } from './panel-training';
+import type { RepertoireTraining } from '../../server/training';
 import { SummaryLine, type SummaryAssignment } from './summary-line';
-import { panelTraining } from './test-training';
+import { pageTraining, standingsOnly } from './test-training';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const a = MESSAGES.assignment;
+const GRAPH = graphOf(LONDON);
+const EMPTY: RepertoireGraph = { side: 'white', chapters: [], moves: [] };
 
 /** 64% learned: 16 of 25 own moves. */
 const STANDING = {
@@ -20,20 +23,19 @@ function trained(
   due: number,
   toLearn: number,
   limitReached = false,
-): PanelTraining {
-  return panelTraining({
-    repertoireId: ID,
-    counts: { due, toLearn },
-    standing: STANDING,
-    limitReached,
-  });
+): RepertoireTraining {
+  return pageTraining(
+    { repertoireId: ID, counts: { due, toLearn }, limitReached },
+    STANDING,
+  );
 }
 
 function renderLine(
   props: {
-    readonly standing?: Standing;
-    readonly training?: PanelTraining;
+    readonly training?: RepertoireTraining;
     readonly assignment?: SummaryAssignment;
+    readonly mode?: 'browse' | 'build';
+    readonly graph?: RepertoireGraph;
   } = {},
 ): void {
   render(
@@ -43,9 +45,9 @@ function renderLine(
       timeZone="Europe/Vilnius"
     >
       <SummaryLine
-        standing={props.standing ?? props.training?.standing}
         training={props.training}
         assignment={props.assignment}
+        state={{ mode: props.mode ?? 'browse', graph: props.graph ?? GRAPH }}
       />
     </NextIntlClientProvider>,
   );
@@ -93,20 +95,20 @@ describe('SummaryLine (spec, Summary row)', () => {
 
   it('says New with the size while nothing is started', () => {
     renderLine({
-      standing: {
+      training: standingsOnly({
         counts: { notStarted: 15, skipped: 0, due: 0, learned: 0 },
         mastered: false,
-      },
+      }),
     });
     expect(screen.getByText('New · 15 moves')).toBeDefined();
   });
 
   it('shows Mastered as the pill', () => {
     renderLine({
-      standing: {
+      training: standingsOnly({
         counts: { notStarted: 0, skipped: 0, due: 0, learned: 25 },
         mastered: true,
-      },
+      }),
     });
     expect(screen.getByText(MESSAGES.coach.progress.mastered)).toBeDefined();
     expect(screen.queryByText(/learned/u)).toBeNull();
@@ -142,6 +144,16 @@ describe('SummaryLine (spec, Summary row)', () => {
 
   it('is nothing without training or an assignment, so it leaves no gap', () => {
     renderLine();
+    expect(document.body.textContent).toBe('');
+  });
+
+  it('is nothing in the builder (spec, Summary row)', () => {
+    renderLine({ training: trained(4, 9), mode: 'build' });
+    expect(document.body.textContent).toBe('');
+  });
+
+  it('is nothing in an empty repertoire (spec, Empty repertoire)', () => {
+    renderLine({ training: trained(4, 9), graph: EMPTY });
     expect(document.body.textContent).toBe('');
   });
 });
@@ -195,13 +207,24 @@ describe('SummaryLine: the assigned status strip', () => {
   });
 
   it('keeps the share learned while paused, with the Paused pill and no buttons (R-222, R-46)', () => {
-    // The assigned view passes the standing and, while paused, no training.
+    // While paused the loader gives the standing and nothing to train.
     renderLine({
-      standing: STANDING,
+      training: standingsOnly(STANDING),
       assignment: assignment({ paused: true }),
     });
     expect(screen.getByText('64% learned')).toBeDefined();
     expect(screen.getByText(a.badge.paused)).toBeDefined();
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('keeps the status strip in a repertoire without chapters, with no row', () => {
+    renderLine({
+      training: trained(4, 9),
+      assignment: assignment(),
+      graph: EMPTY,
+    });
+    expect(screen.getByText('Rimantas V.')).toBeDefined();
+    expect(screen.queryByText('64% learned')).toBeNull();
     expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
 });

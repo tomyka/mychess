@@ -12,7 +12,7 @@ import { graphOf, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { KnowCounts, KnowOutcome } from '../repertoires/know-actions';
 import { currentLineIndex } from './current-line';
-import { panelTraining } from './test-training';
+import { trainNow } from './test-training';
 import { knowChoices, TrainHere } from './train-here';
 
 const server = vi.hoisted(() => ({
@@ -55,7 +55,7 @@ function renderHere(
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <TrainHere
-        training={panelTraining({
+        training={trainNow({
           repertoireId: ID,
           learn: {
             tracked: [],

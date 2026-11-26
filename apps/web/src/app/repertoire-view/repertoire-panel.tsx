@@ -6,7 +6,7 @@ import type { ChapterNames } from '../../lib/chapter-label';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { CommentEditor } from './comment';
 import { MoveList, type MoveListProps } from './move-list';
-import type { PanelTraining } from './panel-training';
+import type { RepertoireTraining } from '../../server/training';
 import { PositionBody, PositionEdit } from './position-body';
 import { TrainHere } from './train-here';
 import type { RepertoireView } from './view';
@@ -43,11 +43,13 @@ export interface PanelContent {
   /** The moves carrying a coach note kept by a fork (R-47). */
   readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
   /**
-   * The player's training of it: while browsing, Train here under the move
-   * list (Learn this line or chapter, R-206; "I know this", R-227) and each
-   * chapter's standing (R-225). Absent where the viewer does not train it.
+   * The player's training of it, as its loader gave it: while browsing,
+   * each chapter's standing (R-225, kept while paused, R-228) and, when
+   * they may train it now, Train here under the move list (Learn this line
+   * or chapter, R-206; "I know this", R-227). Absent or null where the
+   * viewer does not train it.
    */
-  readonly training?: PanelTraining | undefined;
+  readonly training?: RepertoireTraining | null | undefined;
 }
 
 interface RepertoirePanelProps {
@@ -72,11 +74,12 @@ function UnderMoves({
   readonly content: PanelContent;
 }): JSX.Element {
   const move = state.path.at(-1);
+  const trainable = content.training?.trainable ?? null;
   return (
     <>
-      {content.training === undefined || state.mode !== 'browse' ? null : (
+      {trainable === null || state.mode !== 'browse' ? null : (
         <TrainHere
-          training={content.training}
+          training={trainable}
           graph={state.graph}
           chapterId={chapter.id}
           path={state.path}

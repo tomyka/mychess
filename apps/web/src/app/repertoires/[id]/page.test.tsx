@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/catalogue';
 import type { RepertoirePageData } from '../../../server/repertoires';
+import { pageTraining } from '../../repertoire-view/test-training';
 import RepertoireLoading from './loading';
 import RepertoireNotFound from '../not-found';
 import RepertoirePage from './page';
@@ -88,20 +89,15 @@ function renderIn(element: React.ReactNode): void {
 }
 
 beforeEach(() => {
-  loader.training.mockReset().mockResolvedValue({
-    counts: { due: 4, toLearn: 6 },
-    learn: {
-      tracked: [],
-      learnedToday: 0,
-      limits: { reviews: 20, newPerDay: 6 },
-    },
-    limitReached: false,
-    standing: {
-      counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
-      mastered: false,
-    },
-    chapters: {},
-  });
+  loader.training.mockReset().mockResolvedValue(
+    pageTraining(
+      { repertoireId: ID, counts: { due: 4, toLearn: 6 } },
+      {
+        counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
+        mastered: false,
+      },
+    ),
+  );
 });
 
 describe('the repertoire page', () => {

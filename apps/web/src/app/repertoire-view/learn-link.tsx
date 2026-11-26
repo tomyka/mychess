@@ -11,7 +11,7 @@ import { useMemo, type JSX } from 'react';
 import { learnDayOf } from '../../lib/learn-scope';
 import { learnPath } from '../../lib/routes';
 import { TONAL_BUTTON } from '../buttons';
-import type { PanelTraining } from './panel-training';
+import type { TrainNow } from '../../server/training';
 
 /**
  * "Learn this line (n)" or "Learn this chapter (n)" (R-206): the new moves
@@ -23,7 +23,7 @@ export function LearnLink({
   graph,
   focus,
 }: {
-  readonly training: PanelTraining;
+  readonly training: TrainNow;
   readonly graph: RepertoireGraph;
   /** A line of the chapter, or the whole chapter without `lineIndex`. */
   readonly focus: Omit<LearnFocus, 'repertoireId'>;

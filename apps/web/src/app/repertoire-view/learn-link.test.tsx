@@ -6,15 +6,15 @@ import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { TONAL_BUTTON } from '../buttons';
 import { LearnLink } from './learn-link';
-import { panelTraining } from './test-training';
-import type { PanelTraining } from './panel-training';
+import type { TrainNow } from '../../server/training';
+import { trainNow } from './test-training';
 
 const london = graphOf(LONDON);
 const chapterId = london.chapters[0]?.id ?? '';
 const LINES = lines(london, chapterId).length;
 
-const training = (learnedToday: number): PanelTraining =>
-  panelTraining({
+const training = (learnedToday: number): TrainNow =>
+  trainNow({
     repertoireId: 'r1',
     counts: { due: 0, toLearn: 2 },
     learn: {

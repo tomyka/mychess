@@ -560,14 +560,17 @@ describe('repertoireTraining', () => {
   it('reads the session account’s counts for that repertoire', async () => {
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 3)));
     expect(await repertoireTraining(ROKAS, ID)).toMatchObject({
-      counts: { due: 3, toLearn: 0 },
-      learn: {
-        tracked: LONDON_KEYS,
-        learnedToday: 3,
-        limits: { reviews: 20, newPerDay: 5 },
+      trainable: {
+        repertoireId: ID,
+        counts: { due: 3, toLearn: 0 },
+        learn: {
+          tracked: LONDON_KEYS,
+          learnedToday: 3,
+          limits: { reviews: 20, newPerDay: 5 },
+        },
+        // Every move is learned: nothing is left, which is no limit.
+        limitReached: false,
       },
-      // Every move is learned: nothing is left, which is no limit.
-      limitReached: false,
     });
     expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
       DB,
@@ -630,46 +633,67 @@ describe('repertoireTraining', () => {
   it('sends only this repertoire’s tracked moves in its learn budget (R-206)', async () => {
     server.snapshot.mockResolvedValue(fresh(0));
     const training = await repertoireTraining(ROKAS, ID);
-    expect(training?.learn).toEqual({
+    expect(training?.trainable?.learn).toEqual({
       tracked: [LONDON_KEYS[0]],
       learnedToday: 0,
       limits: { reviews: 20, newPerDay: 3 },
     });
-    expect(training?.counts.toLearn).toBe(3);
-    expect(training?.limitReached).toBe(false);
+    expect(training?.trainable?.counts.toLearn).toBe(3);
+    expect(training?.trainable?.limitReached).toBe(false);
   });
 
   it('says when today’s new moves are used while moves are left (decision 11)', async () => {
     server.snapshot.mockResolvedValue(fresh(3));
     expect(await repertoireTraining(ROKAS, ID)).toMatchObject({
-      counts: { due: 0, toLearn: 0 },
-      learn: {
-        tracked: [LONDON_KEYS[0]],
-        learnedToday: 3,
-        limits: { reviews: 20, newPerDay: 3 },
+      trainable: {
+        counts: { due: 0, toLearn: 0 },
+        learn: {
+          tracked: [LONDON_KEYS[0]],
+          learnedToday: 3,
+          limits: { reviews: 20, newPerDay: 3 },
+        },
+        limitReached: true,
       },
-      limitReached: true,
     });
   });
 
   it('leaves what today’s allowance has left to learn, with no limit yet (R-146)', async () => {
     server.snapshot.mockResolvedValue(fresh(2));
     const training = await repertoireTraining(ROKAS, ID);
-    expect(training?.counts.toLearn).toBe(1);
-    expect(training?.limitReached).toBe(false);
+    expect(training?.trainable?.counts.toLearn).toBe(1);
+    expect(training?.trainable?.limitReached).toBe(false);
   });
 
-  it('says no limit for a paused assignment: it offers nothing to learn (R-46)', async () => {
-    const paused = fresh(3);
-    server.snapshot.mockResolvedValue({
-      ...paused,
-      entries: paused.entries.map((e) => ({
-        ...e,
-        repertoire: { ...e.repertoire, active: false },
-      })),
-    });
+  /** `snapshot` with its one entry paused: the domain's isTrainingActive said no. */
+  const pausedIn = (snapshot: TrainingSnapshot): TrainingSnapshot => ({
+    ...snapshot,
+    entries: snapshot.entries.map((e) => ({
+      ...e,
+      repertoire: { ...e.repertoire, active: false },
+    })),
+  });
+
+  it('trains an active repertoire now: Review, Learn and "I know this" (R-142)', async () => {
+    server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 2)));
     const training = await repertoireTraining(ROKAS, ID);
-    expect(training?.counts.toLearn).toBe(0);
-    expect(training?.limitReached).toBe(false);
+    expect(training?.trainable).toMatchObject({
+      repertoireId: ID,
+      counts: { due: 2, toLearn: 0 },
+    });
+  });
+
+  it('trains nothing while paused, yet keeps its standing and each chapter’s (R-46, R-228)', async () => {
+    server.snapshot.mockResolvedValue(
+      pausedIn(londonDue(LONDON_KEYS.slice(0, 2))),
+    );
+    const training = await repertoireTraining(ROKAS, ID);
+    expect(training?.trainable).toBeNull();
+    // 8 own moves, all tracked: 2 due now, 6 learned.
+    expect(training?.standing).toEqual({
+      counts: { notStarted: 0, skipped: 0, due: 2, learned: 6 },
+      mastered: false,
+    });
+    const ids = LONDON_GRAPH.chapters.map((chapter) => chapter.id);
+    expect(Object.keys(training?.chapters ?? {})).toEqual(ids);
   });
 });

@@ -8,7 +8,6 @@
 export { RepertoireShell } from './repertoire-shell';
 export type { PanelContent } from './repertoire-panel';
 export type { RepertoireView } from './view';
-export type { PanelTraining } from './panel-training';
 export { useBrowseView } from './use-browse-view';
 export { useBuilderView } from './use-builder-view';
 export {

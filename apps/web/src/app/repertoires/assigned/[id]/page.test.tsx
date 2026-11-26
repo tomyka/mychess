@@ -5,10 +5,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
+import {
+  pageTraining,
+  standingsOnly,
+} from '../../../repertoire-view/test-training';
 import AssignedRepertoireNotFound from '../not-found';
 import AssignedRepertoirePageView from './page';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
+
+/** Nothing started yet: "New · 10 moves". */
+const NEW_STANDING = {
+  counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
+  mastered: false,
+};
 
 const loader = vi.hoisted(() => ({
   data: vi.fn<(id: unknown) => Promise<AssignedRepertoirePage>>(),
@@ -81,20 +91,14 @@ function london(paused: boolean): AssignedRepertoirePage {
 
 describe('the assigned repertoire page', () => {
   beforeEach(() => {
-    loader.training.mockReset().mockResolvedValue({
-      counts: { due: 3, toLearn: 5 },
-      learn: {
-        tracked: [],
-        learnedToday: 0,
-        limits: { reviews: 20, newPerDay: 5 },
-      },
-      limitReached: false,
-      standing: {
-        counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
-        mastered: false,
-      },
-      chapters: {},
-    });
+    loader.training
+      .mockReset()
+      .mockResolvedValue(
+        pageTraining(
+          { repertoireId: ID, counts: { due: 3, toLearn: 5 } },
+          NEW_STANDING,
+        ),
+      );
   });
 
   it('loads the repertoire the path names and shows it', async () => {
@@ -125,6 +129,8 @@ describe('the assigned repertoire page', () => {
 
   it('hides Review, Learn and "I know this" while paused, and says it is paused (R-46)', async () => {
     loader.data.mockResolvedValue(london(true));
+    // The loader decides a paused assignment trains nothing (its own test).
+    loader.training.mockResolvedValue(standingsOnly(NEW_STANDING));
     renderLt(
       await AssignedRepertoirePageView({ params: Promise.resolve({ id: ID }) }),
     );

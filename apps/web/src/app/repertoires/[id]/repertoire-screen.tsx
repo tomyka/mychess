@@ -12,6 +12,7 @@ import {
   ROUTES,
 } from '../../../lib/routes';
 import type { ForkNote, OwnerCoachNote } from '../../../server/repertoires';
+import type { RepertoireTraining } from '../../../server/training';
 import { SECONDARY_BUTTON } from '../../buttons';
 import {
   RepertoireShell,
@@ -22,7 +23,6 @@ import {
   type MoveCoachNote,
   type Notes,
   type PanelContent,
-  type PanelTraining,
   type RepertoireView,
 } from '../../repertoire-view';
 import { savePersonalNoteAction } from './actions';
@@ -59,7 +59,7 @@ export interface RepertoireScreenProps {
   /** On a fork, the notes it kept from the coach who assigned it (R-47). */
   readonly forkNotes: readonly ForkNote[];
   /** The owner's training of it (R-142); null when they do not train it. */
-  readonly training?: PanelTraining | null;
+  readonly training?: RepertoireTraining | null;
 }
 
 type ScreenState = RepertoireView['state'];
@@ -132,7 +132,9 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
   const { props, state, dispatch, edit } = screen;
   const { id } = props.repertoire;
   return {
-    summary: <OwnerSummary screen={screen} />,
+    summary: (
+      <SummaryLine training={props.training ?? undefined} state={state} />
+    ),
     chapterBuilder: chapterBuilder(state, edit),
     empty: (
       <EmptyRepertoire
@@ -152,25 +154,10 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
         onSaveNote={notes.save(key)}
       />
     ),
-    training: props.training ?? undefined,
+    training: props.training,
     notedMoves: notes.byMove,
     keptNoteMoves: new Set(props.forkNotes.map((note) => note.moveKey)),
   };
-}
-
-/**
- * The summary row, first in the panel: the share learned, Review and
- * Learn. None in the builder or in an empty repertoire (spec, Summary row).
- */
-function OwnerSummary({
-  screen,
-}: {
-  readonly screen: Screen;
-}): JSX.Element | null {
-  const { props, state } = screen;
-  const training = props.training ?? undefined;
-  if (state.mode === 'build' || state.graph.chapters.length === 0) return null;
-  return <SummaryLine standing={training?.standing} training={training} />;
 }
 
 /** The page's header (spec, Header): back to Repertoires, the name, Edit and More. */
