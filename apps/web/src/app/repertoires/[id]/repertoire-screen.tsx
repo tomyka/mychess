@@ -111,12 +111,14 @@ function ownerPanel(
 ): PanelContent {
   return {
     ...builder.panel,
-    summary: (
-      <SummaryLine
-        training={props.training ?? undefined}
-        state={builder.view.state}
-      />
-    ),
+    summary: {
+      line: (
+        <SummaryLine
+          training={props.training ?? undefined}
+          state={builder.view.state}
+        />
+      ),
+    },
     empty: (
       <EmptyRepertoire
         id={props.repertoire.id}
@@ -126,17 +128,19 @@ function ownerPanel(
         }}
       />
     ),
-    renderNotes: (key) => (
-      <OwnerNotes
-        key={key}
-        coachNotes={coachNotesOn(props, key)}
-        note={notes.byMove[key] ?? ''}
-        onSaveNote={notes.save(key)}
-      />
-    ),
+    notes: {
+      byMove: notes.byMove,
+      kept: new Set(props.forkNotes.map((note) => note.moveKey)),
+      render: (key) => (
+        <OwnerNotes
+          key={key}
+          coachNotes={coachNotesOn(props, key)}
+          note={notes.byMove[key] ?? ''}
+          onSaveNote={notes.save(key)}
+        />
+      ),
+    },
     training: props.training,
-    notedMoves: notes.byMove,
-    keptNoteMoves: new Set(props.forkNotes.map((note) => note.moveKey)),
   };
 }
 

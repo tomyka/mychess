@@ -2,9 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { graphOf, LONDON } from '../../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../../i18n/catalogue';
-import type { AssignedRepertoirePage } from '../../../../../server/assignment-pages';
+import type { AssignedManageData } from '../../../../../server/assignment-pages';
 import ManageLoading from './loading';
 import AssignedManagePage from './page';
 
@@ -13,13 +12,13 @@ const NOT_FOUND = 'NEXT_NOT_FOUND';
 const a = MESSAGES.assignment;
 
 const loader = vi.hoisted(() => ({
-  data: vi.fn<(id: unknown) => Promise<AssignedRepertoirePage>>(),
+  data: vi.fn<(id: unknown) => Promise<AssignedManageData>>(),
 }));
 
 // The loader's access check (404 unless assigned to the session player
 // now, live and not forked) is its own test and the feature suite's.
 vi.mock('../../../../../server/assignment-pages', () => ({
-  assignedRepertoireData: loader.data,
+  assignedManageData: loader.data,
 }));
 
 vi.mock('../actions', () => ({ pauseAction: vi.fn(), forkAction: vi.fn() }));
@@ -42,18 +41,8 @@ const page = (search: Record<string, string> = {}) =>
   });
 
 /** Rokas's London from Jonas, as the loader gives it. */
-function london(paused: boolean): AssignedRepertoirePage {
-  return {
-    repertoire: { id: ID, name: 'Londono sistema', side: 'white', version: 1 },
-    coachName: 'Jonas',
-    graph: graphOf(LONDON),
-    personalNotes: {},
-    paused,
-    deadline: null,
-    overdue: false,
-    names: { taxonomyNames: {}, distinctions: {} },
-    changes: { added: [], removed: [], commentsChanged: 0 },
-  };
+function london(paused: boolean): AssignedManageData {
+  return { repertoire: { id: ID, name: 'Londono sistema' }, paused };
 }
 
 const forkQuestion = a.fork.question.replace('{name}', 'Londono sistema');

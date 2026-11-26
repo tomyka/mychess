@@ -115,27 +115,31 @@ function useAssignedPanel(
   const t = useTranslations();
   const { data } = props;
   return {
-    summary: <AssignedSummary props={props} state={state} />,
+    summary: {
+      line: <AssignedSummary props={props} state={state} />,
+      changes: (
+        <ChangesSummary
+          graph={data.graph}
+          changes={data.changes}
+          names={data.names}
+        />
+      ),
+    },
     training: props.training,
-    lead: (
-      <ChangesSummary
-        graph={data.graph}
-        changes={data.changes}
-        names={data.names}
-      />
-    ),
     empty: (
       <p className="text-fg-muted">{t('repertoires.panel.emptyBrowse')}</p>
     ),
-    commentLabel: t('coachNote.byCoach', { name: data.coachName }),
-    renderNotes: (key) => (
-      <PersonalNote
-        key={key}
-        initial={notes.byMove[key] ?? ''}
-        onSaveNote={notes.save(key)}
-      />
-    ),
-    notedMoves: notes.byMove,
+    comment: { label: t('coachNote.byCoach', { name: data.coachName }) },
+    notes: {
+      byMove: notes.byMove,
+      render: (key) => (
+        <PersonalNote
+          key={key}
+          initial={notes.byMove[key] ?? ''}
+          onSaveNote={notes.save(key)}
+        />
+      ),
+    },
   };
 }
 
@@ -150,7 +154,7 @@ export function AssignedView(props: AssignedViewProps): JSX.Element {
   const { data } = props;
   const { id, version } = data.repertoire;
   const view = useBrowseView(data.graph, data.repertoire.side, NOT_IN_CHAPTER);
-  const notes = useNotes(data.personalNotes, (moveKey, text) =>
+  const notes = useNotes(data.notes, (moveKey, text) =>
     setPersonalNoteAction({ repertoireId: id, moveKey, text }),
   );
   const panel = useAssignedPanel(props, notes, view.state);

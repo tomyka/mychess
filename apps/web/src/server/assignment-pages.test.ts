@@ -8,6 +8,7 @@ import type { Account } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../test/fixtures/repertoires';
 import {
+  assignedManageData,
   assignedRepertoireData,
   myAssignedRepertoires,
   todayAssignments,
@@ -109,7 +110,7 @@ describe('assignedRepertoireData', () => {
       },
       coachName: 'Jonas',
       graph: GRAPH,
-      personalNotes: { 'k|d4': 'Mano planas' },
+      notes: { 'k|d4': 'Mano planas' },
       paused: true,
       deadline: '2026-10-19',
       overdue: true,
@@ -131,9 +132,35 @@ describe('assignedRepertoireData', () => {
     await expect(assignedRepertoireData(ID)).rejects.toBeInstanceOf(NotFound);
   });
 
-  it('is 404 when the assignment ended between the two reads', async () => {
+  it('shows no changes, not a 404, when the assignment ended between the two reads (the layout decided, #331)', async () => {
     server.changes.mockResolvedValue(undefined);
-    await expect(assignedRepertoireData(ID)).rejects.toBeInstanceOf(NotFound);
+    const data = await assignedRepertoireData(ID);
+    expect(data.changes).toEqual({
+      added: [],
+      removed: [],
+      commentsChanged: 0,
+    });
+    expect(data.repertoire.id).toBe(ID);
+  });
+});
+
+describe('assignedManageData', () => {
+  it('reads the assignment for the session player as of now: its id, name and pause, and nothing of what changed', async () => {
+    expect(await assignedManageData(ID)).toEqual({
+      repertoire: { id: ID, name: 'Londono sistema' },
+      paused: true,
+    });
+    expect(server.assigned).toHaveBeenCalledWith(DB, 'rokas', ID, NOW);
+    expect(server.changes).not.toHaveBeenCalled();
+  });
+
+  it('is 404 as the page is: a malformed id read nowhere, one not assigned now', async () => {
+    await expect(assignedManageData('not-a-uuid')).rejects.toBeInstanceOf(
+      NotFound,
+    );
+    expect(server.assigned).not.toHaveBeenCalled();
+    server.assigned.mockResolvedValue(undefined);
+    await expect(assignedManageData(ID)).rejects.toBeInstanceOf(NotFound);
   });
 });
 

@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { z } from 'zod';
 import { FORK_PARAM } from '../../../../../lib/routes';
-import { assignedRepertoireData } from '../../../../../server/assignment-pages';
+import { assignedManageData } from '../../../../../server/assignment-pages';
 import { forkAction } from '../actions';
 import { AssignedManageScreen } from './assigned-manage-screen';
 
@@ -22,12 +22,12 @@ export default async function AssignedManagePage({
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
   const { id } = await params;
-  const data = await assignedRepertoireData(id);
+  const { repertoire, paused } = await assignedManageData(id);
   const fork = forkParam.safeParse((await searchParams)[FORK_PARAM]);
   return (
     <AssignedManageScreen
-      repertoire={{ id: data.repertoire.id, name: data.repertoire.name }}
-      paused={data.paused}
+      repertoire={repertoire}
+      paused={paused}
       forkAction={forkAction}
       forkOpen={fork.success}
     />

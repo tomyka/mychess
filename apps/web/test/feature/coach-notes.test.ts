@@ -297,6 +297,8 @@ describe('sharedRepertoireData (the coach’s read-only view)', () => {
       name: 'Taimanovas',
       side: 'black',
     });
+    // How often the player edits it is not the coach's to watch.
+    expect(Object.keys(data.repertoire)).not.toContain('version');
     expect(data.notes).toEqual({});
     expect(data.graph.moves.map((move) => move.comment)).toContain(
       'The main line',

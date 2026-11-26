@@ -22,16 +22,17 @@ import {
   type ProgressRow,
   type RepertoireRef,
 } from '@mychess/db';
-import type { RepertoireGraph, Side } from '@mychess/chess';
 import type { AccountRef } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
-import type { ChapterNames } from '../lib/chapter-label';
 import { daysSince } from '../lib/days-ago';
 import { accountIdSchema } from './account-id';
-import { chapterNamesOf } from './chapter-names';
 import { assertCoachMaySeeBy, requireCoach } from './coaching';
 import { getDb } from './db';
+import {
+  repertoireForViewer,
+  type RepertoireForViewer,
+} from './repertoire-for-viewer';
 
 /**
  * A player on the coach's home, with when they last trained (R-154), their
@@ -118,20 +119,13 @@ export async function coachPlayerData(
   };
 }
 
-/** A player's repertoire as the coach it is shared with sees it (R-42). */
-export interface SharedRepertoirePage {
+/**
+ * A player's repertoire as the coach it is shared with sees it (R-42):
+ * its notes are the coach's own (R-125), never the player's personal
+ * notes.
+ */
+export interface SharedRepertoirePage extends RepertoireForViewer {
   readonly player: { readonly id: string; readonly displayName: string };
-  readonly repertoire: {
-    readonly id: string;
-    readonly name: string;
-    readonly side: Side;
-  };
-  /** With its move comments (R-102); never the player's personal notes. */
-  readonly graph: RepertoireGraph;
-  /** The coach's own notes on it by move key (R-125). */
-  readonly notes: Readonly<Record<string, string>>;
-  /** What titles its chapters: opening names and distinctions (R-158). */
-  readonly names: ChapterNames;
 }
 
 const sharedIdsSchema = z.object({
@@ -170,15 +164,12 @@ export async function sharedRepertoireData(
   );
   const shared = snapshot.shared ?? notFound();
   const player = snapshot.player ?? notFound();
-  const { id, name, side } = shared.repertoire;
   return {
-    player: { id: player.id, displayName: player.displayName },
-    repertoire: { id, name, side },
-    graph: shared.graph,
-    notes: Object.fromEntries(
-      shared.notes.map((note) => [note.moveKey, note.text]),
+    ...repertoireForViewer(
+      shared,
+      Object.fromEntries(shared.notes.map((note) => [note.moveKey, note.text])),
     ),
-    names: chapterNamesOf(shared.graph),
+    player: { id: player.id, displayName: player.displayName },
   };
 }
 

@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { outOfOrder } from '../../../../../test/dom-order';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
@@ -69,7 +70,7 @@ const DATA: AssignedRepertoirePage = {
   repertoire: { id: ID, name: 'Londono sistema', side: 'white', version: 4 },
   coachName: 'Jonas',
   graph: GRAPH,
-  personalNotes: {},
+  notes: {},
   paused: false,
   deadline: null,
   overdue: false,
@@ -188,7 +189,7 @@ describe('AssignedView (R-21, R-102)', () => {
   });
 
   it('shows the player’s own note and marks its move in the move list', () => {
-    renderView({ personalNotes: { [D4]: 'Mano planas' } });
+    renderView({ notes: { [D4]: 'Mano planas' } });
     const d4 = screen.getByRole('button', {
       name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}, ${MESSAGES.repertoires.moves.hasNote}`,
     });
@@ -272,6 +273,26 @@ describe('AssignedView (R-21, R-102)', () => {
   it('shows what the coach changed since the last visit, if anything', () => {
     renderView({ changes: { added: [], removed: [], commentsChanged: 2 } });
     expect(screen.getByRole('region', { name: a.changes.title })).toBeDefined();
+  });
+
+  it('places its panel: the summary, the changes, the chapters, the moves, Train here, then the player’s own note', () => {
+    renderView(
+      { changes: { added: [], removed: [], commentsChanged: 2 } },
+      TRAINING,
+    );
+    forward();
+    expect(
+      outOfOrder([
+        screen.getByText('60% learned'),
+        screen.getByRole('region', { name: a.changes.title }),
+        screen.getByRole('button', { name: /^Ch 1\/2 · / }),
+        screen.getByRole('button', {
+          name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}`,
+        }),
+        screen.getByRole('region', { name: MESSAGES.training.know.section }),
+        screen.getByRole('button', { name: MESSAGES.repertoires.note.label }),
+      ]),
+    ).toEqual([]);
   });
 
   it('shows no summary when nothing changed', () => {

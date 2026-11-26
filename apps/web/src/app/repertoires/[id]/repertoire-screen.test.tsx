@@ -21,6 +21,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { outOfOrder } from '../../../../test/dom-order';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/catalogue';
 import {
@@ -281,6 +282,30 @@ describe('RepertoireScreen: browsing', () => {
     fireEvent.click(screen.getByRole('switch', { name: r.mode.build }));
     expect(screen.queryByText('64% learned')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Review 4' })).toBeNull();
+  });
+
+  it('places its panel: the summary, the chapters, the moves, Train here, then the coaches’ notes on the move', () => {
+    renderScreen(GRAPH, 'Londono sistema', {
+      training: TRAINING,
+      coachNotes: [
+        {
+          coachId: 'c-1',
+          coachName: 'Rimantas',
+          moveKey: moveKey(START_KEY, 'd4'),
+          text: 'Pirmiausia Bf4',
+        },
+      ],
+    });
+    fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
+    expect(
+      outOfOrder([
+        screen.getByText('64% learned'),
+        screen.getByRole('button', { name: /^Ch 1\/2 · / }),
+        screen.getByRole('button', { name: `1. d4, ${r.moves.hasComment}` }),
+        screen.getByRole('region', { name: MESSAGES.training.know.section }),
+        screen.getByRole('list', { name: MESSAGES.coachNote.list }),
+      ]),
+    ).toEqual([]);
   });
 
   it('has no summary row in an empty repertoire (spec, Empty repertoire)', () => {

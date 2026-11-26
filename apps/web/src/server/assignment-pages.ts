@@ -10,88 +10,113 @@ import {
   changesSince,
   openForkOffers,
   playerAssignments,
+  type AssignedRepertoire,
   type OpenForkOffer,
   type PlayerAssignment,
 } from '@mychess/db';
-import type { MoveChanges, RepertoireGraph, Side } from '@mychess/chess';
+import type { MoveChanges } from '@mychess/chess';
 import type { Account } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { z } from 'zod';
-import type { ChapterNames } from '../lib/chapter-label';
-import { chapterNamesOf } from './chapter-names';
 import { getDb } from './db';
+import {
+  versionedRepertoireForViewer,
+  type VersionedRepertoireForViewer,
+} from './repertoire-for-viewer';
 import { requireOnboarded } from './session';
 
-/** An assigned repertoire as its player opens it (R-21, R-102, R-133). */
-export interface AssignedRepertoirePage {
-  readonly repertoire: {
-    readonly id: string;
-    readonly name: string;
-    readonly side: Side;
-    /** The version shown, which the page marks seen (R-133). */
-    readonly version: number;
-  };
+/**
+ * An assigned repertoire as its player opens it (R-21, R-102, R-133): the
+ * graph has the coach's comments, which the player sees as coach notes,
+ * and its notes are the player's own Personal notes.
+ */
+export interface AssignedRepertoirePage extends VersionedRepertoireForViewer {
   /** Who assigned it: the repertoire's owner. */
   readonly coachName: string;
-  /** With the coach's comments, which the player sees as coach notes (R-102). */
-  readonly graph: RepertoireGraph;
-  /** The player's own notes on it, by move key (R-21). */
-  readonly personalNotes: Readonly<Record<string, string>>;
   readonly paused: boolean;
   /** The effective deadline, `YYYY-MM-DD`, or null (R-16, R-134). */
   readonly deadline: string | null;
   /** Decided by the domain's assignmentStatus as of the page load (R-51). */
   readonly overdue: boolean;
-  /** What titles its chapters: opening names and distinctions (R-158). */
-  readonly names: ChapterNames;
   /** What changed since the player last opened it; empty when nothing did. */
   readonly changes: MoveChanges;
+}
+
+/** The session player and what they have by assignment. */
+interface AssignedRead {
+  readonly player: Account;
+  readonly assigned: AssignedRepertoire;
 }
 
 /**
  * Repertoire `rawId` as the session player has it by assignment. Not
  * assigned to them now, forked, missing or a malformed id: all 404 (plan
  * decision 12); the queries filter by the player again. Read once per
- * request: the page's layout decides with it before the page streams
- * (#331), and the page reads the same.
+ * request: the layout decides with it before the page streams (#331), and
+ * the page and its Repertoire screen read the same.
  */
-export const assignedRepertoireData = cache(loadAssignedRepertoire);
+export const viewedAssignedRepertoire = cache(
+  async (rawId: unknown): Promise<AssignedRead> => {
+    const player = await requireOnboarded();
+    const parsed = z.uuid().safeParse(rawId);
+    if (!parsed.success) notFound();
+    const assigned =
+      (await assignedRepertoireForPlayer(
+        getDb(),
+        player.id,
+        parsed.data,
+        new Date(),
+      )) ?? notFound();
+    return { player, assigned };
+  },
+);
 
-async function loadAssignedRepertoire(
+/** The assigned page's repertoire, with what changed since the last visit. */
+export async function assignedRepertoireData(
   rawId: unknown,
 ): Promise<AssignedRepertoirePage> {
-  const player = await requireOnboarded();
-  const parsed = z.uuid().safeParse(rawId);
-  if (!parsed.success) notFound();
-  const db = getDb();
-  const assigned =
-    (await assignedRepertoireForPlayer(
-      db,
-      player.id,
-      parsed.data,
-      new Date(),
-    )) ?? notFound();
-  const { id, name, side, version } = assigned.repertoire;
+  const { player, assigned } = await viewedAssignedRepertoire(rawId);
+  const { id, version } = assigned.repertoire;
   // Up to the version read with the graph, so the summary matches what the
-  // page shows; a later edit waits for the next visit.
-  const since =
-    (await changesSince(db, {
-      playerId: player.id,
-      repertoireId: id,
-      upToVersion: version,
-    })) ?? notFound();
+  // page shows; a later edit waits for the next visit. The layout already
+  // decided access before the page streamed (#331): an assignment that
+  // ended since shows no changes, not a 404 inside a 200.
+  const since = await changesSince(getDb(), {
+    playerId: player.id,
+    repertoireId: id,
+    upToVersion: version,
+  });
   return {
-    repertoire: { id, name, side, version },
+    ...versionedRepertoireForViewer(assigned, assigned.personalNotes),
     coachName: assigned.coachName,
-    graph: assigned.graph,
-    personalNotes: assigned.personalNotes,
     paused: assigned.paused,
     deadline: assigned.deadline,
     overdue: assigned.overdue,
-    names: chapterNamesOf(assigned.graph),
-    changes: since.changes,
+    changes: since?.changes ?? NO_CHANGES,
   };
+}
+
+/** What changed when nothing can be said to have. */
+const NO_CHANGES: MoveChanges = { added: [], removed: [], commentsChanged: 0 };
+
+/** What the Repertoire screen of an assigned repertoire shows (R-226). */
+export interface AssignedManageData {
+  readonly repertoire: { readonly id: string; readonly name: string };
+  readonly paused: boolean;
+}
+
+/**
+ * An assigned repertoire's Repertoire screen: its id, name and whether it
+ * is paused, from the layout's read; nothing of what changed (404 as for
+ * the page).
+ */
+export async function assignedManageData(
+  rawId: unknown,
+): Promise<AssignedManageData> {
+  const { assigned } = await viewedAssignedRepertoire(rawId);
+  const { id, name } = assigned.repertoire;
+  return { repertoire: { id, name }, paused: assigned.paused };
 }
 
 /** An assignment under its side on My repertoires (#328). */

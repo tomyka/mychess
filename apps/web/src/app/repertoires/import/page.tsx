@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { ROUTES } from '../../../lib/routes';
 import { lichessUsername } from '../../../server/provider-links';
-import { myRepertoires } from '../../../server/repertoires';
+import { importTargets } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 import { PageHeader } from '../../shell/page-header';
 import { CONTENT } from '../../surfaces';
@@ -37,16 +37,15 @@ async function ownNames(): Promise<string[]> {
 
 // The PGN import (docs/design/repertoire-screen.md, section 3). `?i=` names
 // the repertoire it was opened from; it counts only when it is one of the
-// account's own (myRepertoires lists only those).
+// account's own (importTargets lists only those).
 export default async function ImportPage({
   searchParams,
 }: {
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
-  const items = await myRepertoires();
+  const options = await importTargets();
   const names = await ownNames();
   const { i } = await searchParams;
-  const options = items.map(({ id, name, side }) => ({ id, name, side }));
   const preselected = options.find((option) => option.id === i)?.id ?? null;
   return (
     <main className={`${CONTENT} gap-8`}>

@@ -264,13 +264,13 @@ describe('the assigned repertoire page (plan decision 11)', () => {
     expect(await assignedRepertoireData(london)).toMatchObject({
       repertoire: { id: london, name: 'Londono sistema', side: 'white' },
       coachName: 'Rimantas',
-      personalNotes: { [D4]: ROKAS_NOTE },
+      notes: { [D4]: ROKAS_NOTE },
       paused: false,
     });
     expect(await assignedRepertoireData(taimanov)).toMatchObject({
       repertoire: { id: taimanov, name: 'Taimanovas', side: 'black' },
       coachName: 'Rimantas',
-      personalNotes: {},
+      notes: {},
     });
     expect(await state()).toEqual(before);
   });
@@ -757,7 +757,7 @@ describe('savePersonalNoteAction on an assigned repertoire (R-21, Q26)', () => {
     });
     actAs(rokas);
     const assigned = await assignedRepertoireData(london);
-    expect(assigned.personalNotes).toEqual({ [D4]: ROKAS_NOTE });
+    expect(assigned.notes).toEqual({ [D4]: ROKAS_NOTE });
     expect(JSON.stringify(assigned)).not.toContain(coachText);
     expect(await state()).toEqual(before);
   });

@@ -29,13 +29,15 @@ import {
   type RepertoireAccessRefusal,
   type Result,
 } from '@mychess/domain';
-import type { RepertoireGraph } from '@mychess/chess';
+import type { RepertoireGraph, Side } from '@mychess/chess';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { z } from 'zod';
-import type { ChapterNames } from '../lib/chapter-label';
-import { chapterNamesOf } from './chapter-names';
 import { getDb } from './db';
+import {
+  versionedRepertoireForViewer,
+  type VersionedRepertoireForViewer,
+} from './repertoire-for-viewer';
 import { requireOnboarded } from './session';
 
 type Own = Result<LoadedRepertoire, RepertoireAccessRefusal>;
@@ -122,6 +124,23 @@ function assignedCounts(
   );
 }
 
+/** One of the account's own repertoires a PGN import can add to. */
+export interface ImportTarget {
+  readonly id: string;
+  readonly name: string;
+  readonly side: Side;
+}
+
+/**
+ * The session account's own repertoires as the import offers them: no
+ * counts, so no assignee count is read for a coach.
+ */
+export async function importTargets(): Promise<ImportTarget[]> {
+  const account = await requireOnboarded();
+  const items = await listRepertoires(getDb(), account.id);
+  return items.map(({ id, name, side }) => ({ id, name, side }));
+}
+
 /** My repertoires: the session account's own repertoires. */
 export async function myRepertoires(): Promise<MyRepertoire[]> {
   const account = await requireOnboarded();
@@ -149,14 +168,11 @@ export type OwnerCoachNote = Omit<CoachNote, 'updatedAt'>;
 /** A note a fork kept from the coach who assigned it, with their name (R-47). */
 export type ForkNote = ForkCoachNote;
 
-/** What the repertoire page shows. */
-export interface RepertoirePageData {
-  readonly repertoire: Repertoire;
-  readonly graph: RepertoireGraph;
-  /** The viewer's own Personal notes on it, by move key (R-21). */
-  readonly notes: Readonly<Record<string, string>>;
-  /** What titles its chapters: opening names and distinctions (R-158). */
-  readonly names: ChapterNames;
+/**
+ * What the repertoire page shows: the repertoire as its owner sees it,
+ * their Personal notes as its notes (R-21), and the coaches' notes.
+ */
+export interface RepertoirePageData extends VersionedRepertoireForViewer {
   /** Every coach's notes on it, read-only (R-107, R-125). */
   readonly coachNotes: readonly OwnerCoachNote[];
   /**
@@ -214,21 +230,22 @@ export const viewedRepertoire = cache(
 
 /** What the Repertoire screen of an own repertoire shows (R-226). */
 export interface RepertoireManageData {
-  readonly repertoire: Repertoire;
+  readonly repertoire: Pick<Repertoire, 'id' | 'name'>;
   readonly sharing: RepertoireSharing;
 }
 
 /**
- * One own repertoire's Repertoire screen: the repertoire and its sharing,
- * no more. Anything the account may not view is 404, one only assigned to
- * it included (that one's screen is under /assigned).
+ * One own repertoire's Repertoire screen: its id and name and its
+ * sharing, no more (its layout's read, shared through the request cache;
+ * no notes). Anything the account may not view is 404, one only assigned
+ * to it included (that one's screen is under /assigned).
  */
 export async function repertoireManageData(
   rawId: unknown,
 ): Promise<RepertoireManageData> {
   const { account, loaded } = await viewedRepertoire(rawId);
-  const { repertoire } = loaded;
-  return { repertoire, sharing: await sharingOf(account.id, repertoire.id) };
+  const { id, name } = loaded.repertoire;
+  return { repertoire: { id, name }, sharing: await sharingOf(account.id, id) };
 }
 
 /** One repertoire's page; anything the account may not view is 404. */
@@ -236,13 +253,14 @@ export async function repertoirePageData(
   rawId: unknown,
 ): Promise<RepertoirePageData> {
   const { account, loaded } = await viewedRepertoire(rawId);
-  const { repertoire, graph } = loaded;
+  const { id } = loaded.repertoire;
+  const db = getDb();
   return {
-    repertoire,
-    graph,
-    notes: await listPersonalNotes(getDb(), account.id, repertoire.id),
-    names: chapterNamesOf(graph),
-    coachNotes: await ownerCoachNotes(account.id, repertoire.id),
-    forkNotes: await forkCoachNotesOn(getDb(), account.id, repertoire.id),
+    ...versionedRepertoireForViewer(
+      loaded,
+      await listPersonalNotes(db, account.id, id),
+    ),
+    coachNotes: await ownerCoachNotes(account.id, id),
+    forkNotes: await forkCoachNotesOn(db, account.id, id),
   };
 }

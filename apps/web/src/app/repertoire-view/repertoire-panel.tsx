@@ -11,37 +11,60 @@ import { PositionBody, PositionEdit } from './position-body';
 import { TrainHere } from './train-here';
 import type { RepertoireView } from './view';
 
-/** What a view puts in the panel; the panel derives the rest from the view. */
+/**
+ * First in the panel's scroller at every width (sign-off), out of the top
+ * bar so the phone keeps one row above the board.
+ */
+interface PanelSummary {
+  /**
+   * The summary line (SummaryLine) with Review, Learn and an assignment's
+   * status strip, or the coach's line with the player's name.
+   */
+  readonly line: ReactNode;
+  /** Under it, over the chapters: an assignment's changes since the last visit. */
+  readonly changes?: ReactNode;
+}
+
+/**
+ * The notes on the moves as the viewer has them: which moves the move list
+ * marks and what shows under a move.
+ */
+interface PanelNotes {
+  /** The viewer's own notes by move key; the move list marks their moves. */
+  readonly byMove: Readonly<Record<string, string>>;
+  /** Whose they are, and so their mark: Personal notes unless a coach's. */
+  readonly kind?: MoveListProps['noteKind'];
+  /** The moves carrying a coach note kept by a fork (R-47), marked too. */
+  readonly kept?: MoveListProps['keptNoteMoves'];
+  /** What shows under a move's comment, given the move's key. */
+  readonly render: (moveKey: string) => ReactNode;
+  /**
+   * A line under the move list before them (the coach's "read-only"), at
+   * every move; after the empty state in a repertoire without chapters.
+   */
+  readonly preface?: ReactNode;
+}
+
+/** The move's Comment (R-102): what it is called, and in builder mode its field. */
+interface PanelComment {
+  /** What the comment strip is called, if not "Comment" (an assignment's: Coach note). */
+  readonly label?: string | undefined;
+  /** Builder mode: the comment is a field (R-102, R-105). */
+  readonly editor?: CommentEditor | undefined;
+}
+
+/**
+ * What a view puts in the panel; the panel places it and derives the rest
+ * from the view.
+ */
 export interface PanelContent {
-  /**
-   * First in the panel's scroller at every width (sign-off): the summary line
-   * (SummaryLine) with Review, Learn and an assignment's status strip, or
-   * the coach's line with the player's name. Out of the top bar, so the
-   * phone keeps one row above the board.
-   */
-  readonly summary?: ReactNode;
-  /** A line over the chapters (the assigned view's changes since the last visit). */
-  readonly lead?: ReactNode;
-  /**
-   * A line under the move list, by the notes (the coach's "read-only");
-   * after the empty state in a repertoire without chapters.
-   */
-  readonly afterMoves?: ReactNode;
+  readonly summary: PanelSummary;
+  readonly notes: PanelNotes;
+  readonly comment?: PanelComment | undefined;
   /** Builder mode: add, rename and delete chapters. */
   readonly chapterBuilder?: ChapterBuilder | undefined;
   /** What shows in place of the position in a repertoire without chapters. */
   readonly empty: ReactNode;
-  /** Builder mode: the comment is a field (R-102, R-105). */
-  readonly commentEditor?: CommentEditor | undefined;
-  /** What the comment strip is called, if not "Comment" (a coach's: Coach note). */
-  readonly commentLabel?: string | undefined;
-  /** The notes under a move's comment, given the move's key. */
-  readonly renderNotes?: ((moveKey: string) => ReactNode) | undefined;
-  /** The moves the move list marks as carrying the viewer's own note. */
-  readonly notedMoves: Readonly<Record<string, string>>;
-  readonly noteKind?: MoveListProps['noteKind'];
-  /** The moves carrying a coach note kept by a fork (R-47). */
-  readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
   /**
    * The player's training of it, as its loader gave it: while browsing,
    * each chapter's standing (R-225, kept while paused, R-228) and, when
@@ -61,8 +84,7 @@ interface RepertoirePanelProps {
 
 /**
  * Under the move list: Train here while a player who trains it browses
- * (spec, "Train here (browse)"), the view's line under the moves, then the
- * move's notes.
+ * (spec, "Train here (browse)"), the notes' preface, then the move's notes.
  */
 function UnderMoves({
   chapter,
@@ -85,10 +107,10 @@ function UnderMoves({
           path={state.path}
         />
       )}
-      {content.afterMoves}
+      {content.notes.preface}
       {/* No box at the root, where there are no notes: it would add a gap. */}
       {move === undefined ? null : (
-        <PositionBody move={move} renderNotes={content.renderNotes} />
+        <PositionBody move={move} renderNotes={content.notes.render} />
       )}
     </>
   );
@@ -109,12 +131,12 @@ const SCROLLER =
 const MOVES_BOX = 'lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto';
 
 /**
- * The scrolling part of the panel: the view's summary line, its lead, the
- * chapter line, in builder mode the intro or the comment field, the moves,
- * then Train here and the move's notes. While browsing the comment strip
- * shows the intro and the comment just above this scroller, at every
- * width. The DOM order is the visual order, so Tab follows what the eye
- * sees (WCAG 2.4.3).
+ * The scrolling part of the panel: the view's summary line and any changes
+ * since the last visit, the chapter line, in builder mode the intro or the
+ * comment field, the moves, then Train here, the notes' preface and the
+ * move's notes. While browsing the comment strip shows the intro and the
+ * comment just above this scroller, at every width. The DOM order is the
+ * visual order, so Tab follows what the eye sees (WCAG 2.4.3).
  */
 export function RepertoirePanel({
   view,
@@ -128,8 +150,8 @@ export function RepertoirePanel({
       : chapterOf(state.graph, state.chapterId);
   return (
     <div data-panel-scroller="" className={SCROLLER}>
-      {content.summary}
-      {content.lead}
+      {content.summary.line}
+      {content.summary.changes}
       <ChapterList
         chapters={state.graph.chapters}
         chapterId={state.chapterId}
@@ -143,10 +165,10 @@ export function RepertoirePanel({
         }
       />
       {chapter === undefined ? (
-        // No chapter: the view's empty state, then its line under the moves.
+        // No chapter: the view's empty state, then the notes' preface.
         <>
           {content.empty}
-          {content.afterMoves}
+          {content.notes.preface}
         </>
       ) : (
         <ChapterBody chapter={chapter} view={view} content={content} />
@@ -175,16 +197,16 @@ function ChapterBody({
         intro={chapter.intro}
         move={state.path.at(-1) ?? null}
         mode={state.mode}
-        commentEditor={content.commentEditor}
+        commentEditor={content.comment?.editor}
       />
       <div data-moves="" className={MOVES_BOX}>
         <MoveList
           graph={state.graph}
           chapterId={state.chapterId}
           path={state.path}
-          notedMoves={content.notedMoves}
-          noteKind={content.noteKind}
-          keptNoteMoves={content.keptNoteMoves}
+          notedMoves={content.notes.byMove}
+          noteKind={content.notes.kind}
+          keptNoteMoves={content.notes.kept}
           building={state.mode === 'build'}
           onGoto={(path) => {
             dispatch({ type: 'goto', path });

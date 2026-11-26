@@ -86,28 +86,30 @@ function useSharedPanel(data: SharedRepertoirePage): PanelContent {
   const t = useTranslations();
   const notes = useCoachNotes(data.notes);
   return {
-    summary: <SharedSummary data={data} />,
-    afterMoves: (
-      <p className="text-sm text-fg-muted">{t('coach.shared.readOnly')}</p>
-    ),
+    summary: { line: <SharedSummary data={data} /> },
     empty: (
       <p className="text-fg-muted">{t('repertoires.panel.emptyBrowse')}</p>
     ),
-    renderNotes: (key) => (
-      <CoachNoteForm
-        key={key}
-        target={{
-          playerId: data.player.id,
-          repertoireId: data.repertoire.id,
-          moveKey: key,
-        }}
-        playerName={data.player.displayName}
-        initial={notes.byMove[key] ?? ''}
-        onChange={notes.onChange(key)}
-      />
-    ),
-    notedMoves: notes.byMove,
-    noteKind: 'coach',
+    notes: {
+      byMove: notes.byMove,
+      kind: 'coach',
+      preface: (
+        <p className="text-sm text-fg-muted">{t('coach.shared.readOnly')}</p>
+      ),
+      render: (key) => (
+        <CoachNoteForm
+          key={key}
+          target={{
+            playerId: data.player.id,
+            repertoireId: data.repertoire.id,
+            moveKey: key,
+          }}
+          playerName={data.player.displayName}
+          initial={notes.byMove[key] ?? ''}
+          onChange={notes.onChange(key)}
+        />
+      ),
+    },
   };
 }
 

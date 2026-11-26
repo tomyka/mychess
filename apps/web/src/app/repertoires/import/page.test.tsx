@@ -4,19 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/catalogue';
 import ImportPage from './page';
 
-// requireOnboarded, inside myRepertoires, never returns for a signed-out or
+// requireOnboarded, inside importTargets, never returns for a signed-out or
 // new account; the feature suite covers that.
 vi.mock('../../../server/repertoires', () => ({
-  myRepertoires: () =>
+  importTargets: () =>
     Promise.resolve([
-      {
-        id: 'r-white',
-        side: 'white',
-        name: 'Londono sistema',
-        chapters: 2,
-        moves: 21,
-        updatedAt: new Date('2026-10-18T08:00:00Z'),
-      },
+      { id: 'r-white', side: 'white', name: 'Londono sistema' },
     ]),
 }));
 

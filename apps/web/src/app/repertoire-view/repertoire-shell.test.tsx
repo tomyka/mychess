@@ -5,6 +5,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { outOfOrder } from '../../../test/dom-order';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { RepertoireShell, useBrowseView } from '.';
@@ -32,12 +33,15 @@ vi.mock('@lichess-org/chessground', () => ({
 const r = MESSAGES.repertoires;
 const D4 = moveKey(START_KEY, 'd4');
 const NOTE_LABEL = 'Coach note';
+const CHANGES = 'Du nauji ėjimai';
+const PREFACE = 'Tik skaityti';
 
 interface ViewOptions {
   readonly graph?: RepertoireGraph;
   readonly said?: string;
   readonly onSquare?: (square: Key) => void;
-  readonly notedMoves?: Readonly<Record<string, string>>;
+  readonly byMove?: Readonly<Record<string, string>>;
+  readonly kept?: ReadonlySet<string>;
   readonly training?: RepertoireTraining;
 }
 
@@ -46,7 +50,8 @@ function View({
   graph = graphOf(LONDON),
   said,
   onSquare = vi.fn(),
-  notedMoves = {},
+  byMove = {},
+  kept = new Set(),
   training,
 }: ViewOptions): JSX.Element {
   const view = useBrowseView(graph, 'white');
@@ -58,15 +63,21 @@ function View({
       view={view}
       toolbar={<p>Įrankiai</p>}
       panel={{
-        summary: <p>Baltieji · 2 skyriai</p>,
-        lead: <p>Tik skaityti</p>,
+        summary: {
+          line: <p>Baltieji · 2 skyriai</p>,
+          changes: <p>{CHANGES}</p>,
+        },
         empty: <p>Skyrių nėra</p>,
-        commentLabel: NOTE_LABEL,
-        renderNotes: (key) => (
-          <p>{key === D4 ? 'Pastaba apie d4' : 'Kita pastaba'}</p>
-        ),
-        notedMoves,
-        noteKind: 'coach',
+        comment: { label: NOTE_LABEL },
+        notes: {
+          byMove,
+          kind: 'coach',
+          kept,
+          preface: <p>{PREFACE}</p>,
+          render: (key) => (
+            <p>{key === D4 ? 'Pastaba apie d4' : 'Kita pastaba'}</p>
+          ),
+        },
         training,
       }}
       {...(said === undefined
@@ -102,10 +113,6 @@ beforeEach(() => {
   ground.created.length = 0;
 });
 
-/** Whether `a` comes before `b` in the document. */
-const precedes = (a: Element, b: Element): boolean =>
-  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-
 describe('RepertoireShell', () => {
   it('lays the top bar, the board, the toolbar and the panel out in one main landmark', () => {
     renderView();
@@ -122,12 +129,11 @@ describe('RepertoireShell', () => {
 
   it('puts the top bar once, over the board on a phone and first in the panel column on a desktop (spec, Header)', () => {
     renderView();
-    const heading = screen.getAllByRole('heading', { level: 1 });
-    expect(heading).toHaveLength(1);
-    const board = screen.getByRole('application');
-    expect(precedes(heading[0] ?? board, board)).toBe(true);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(outOfOrder([heading, screen.getByRole('application')])).toEqual([]);
     // The grid places it in the panel's column, in the row above the panel.
-    const bar = heading[0]?.parentElement;
+    const bar = heading.parentElement;
     expect(bar?.className).toContain('lg:col-start-2');
     expect(bar?.className).toContain('lg:row-start-1');
   });
@@ -144,9 +150,12 @@ describe('RepertoireShell', () => {
     renderView();
     const strip = screen.getByRole('region', { name: r.panel.intro });
     expect(
-      precedes(screen.getByRole('button', { name: r.nav.forward }), strip),
-    ).toBe(true);
-    expect(precedes(strip, screen.getByText('Tik skaityti'))).toBe(true);
+      outOfOrder([
+        screen.getByRole('button', { name: r.nav.forward }),
+        strip,
+        screen.getByText(CHANGES),
+      ]),
+    ).toEqual([]);
   });
 
   it('keeps the one strip in its DOM place at every width, above the scroller, so Tab follows what is seen (sign-off)', () => {
@@ -164,16 +173,19 @@ describe('RepertoireShell', () => {
       expect(node.getAttribute('class') ?? '').not.toMatch(/(^|\s)lg:order-/);
   });
 
-  it('keeps one row above the board: the summary is first in the panel’s scroller, before the lead and the chapter line (sign-off)', () => {
+  it('keeps one row above the board: the summary is first in the panel’s scroller, before the changes and the chapter line (sign-off)', () => {
     renderView();
     const summary = screen.getByText('Baltieji · 2 skyriai');
     const scroller = document.querySelector('[data-panel-scroller]');
     expect(scroller?.firstElementChild).toBe(summary);
-    expect(precedes(screen.getByRole('application'), summary)).toBe(true);
-    expect(precedes(summary, screen.getByText('Tik skaityti'))).toBe(true);
     expect(
-      precedes(summary, screen.getByRole('button', { expanded: false })),
-    ).toBe(true);
+      outOfOrder([
+        screen.getByRole('application'),
+        summary,
+        screen.getByText(CHANGES),
+        screen.getByRole('button', { expanded: false }),
+      ]),
+    ).toEqual([]);
   });
 
   it('gives the phone board the height first: a shrinking cell, the largest square in it (spec, Board height)', () => {
@@ -232,11 +244,11 @@ describe('RepertoireShell', () => {
     expect(strip.getByText('Solid')).toBeDefined();
     expect(strip.queryByText('Pastaba apie d4')).toBeNull();
     expect(
-      precedes(
+      outOfOrder([
         screen.getByRole('region', { name: NOTE_LABEL }),
         screen.getByText('Pastaba apie d4'),
-      ),
-    ).toBe(true);
+      ]),
+    ).toEqual([]);
     expect(screen.getByText('Arrows: c1 to f4, green')).toBeDefined();
     forward();
     expect(screen.queryByRole('region', { name: NOTE_LABEL })).toBeNull();
@@ -270,29 +282,41 @@ describe('RepertoireShell', () => {
 });
 
 describe('the panel', () => {
-  it('shows the strip, then the summary, the lead, the chapters and the moves in that order', () => {
+  it('shows the strip, then the summary line, the changes, the chapters, the moves, the notes’ preface and the move’s notes in that order', () => {
     renderView();
-    const order = [
-      screen.getByRole('region', { name: r.panel.intro }),
-      screen.getByText('Baltieji · 2 skyriai'),
-      screen.getByText('Tik skaityti'),
-      screen.getByRole('button', { expanded: false }),
-      firstMove(),
-    ];
-    for (const [i, node] of order.entries()) {
-      const next = order[i + 1];
-      if (next === undefined) continue;
-      expect(
-        node.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    }
+    forward();
+    expect(
+      outOfOrder([
+        screen.getByRole('region', { name: NOTE_LABEL }),
+        screen.getByText('Baltieji · 2 skyriai'),
+        screen.getByText(CHANGES),
+        screen.getByRole('button', { expanded: false }),
+        firstMove(),
+        screen.getByText(PREFACE),
+        screen.getByText('Pastaba apie d4'),
+      ]),
+    ).toEqual([]);
   });
 
   it('marks the moves carrying the view’s notes with their kind', () => {
-    renderView({ notedMoves: { [D4]: 'Pirmiau Nf3' } });
+    renderView({ byMove: { [D4]: 'Pirmiau Nf3' } });
     expect(
       firstMove(`1. d4, ${r.moves.hasComment}, ${r.moves.hasCoachNote}`),
     ).toBeDefined();
+  });
+
+  it('marks the moves carrying a kept coach note too', () => {
+    renderView({ kept: new Set([D4]) });
+    expect(
+      firstMove(`1. d4, ${r.moves.hasComment}, ${r.moves.hasKeptCoachNote}`),
+    ).toBeDefined();
+  });
+
+  it('shows the notes’ preface after the empty state in a repertoire without chapters', () => {
+    renderView({ graph: { side: 'white', chapters: [], moves: [] } });
+    expect(
+      outOfOrder([screen.getByText('Skyrių nėra'), screen.getByText(PREFACE)]),
+    ).toEqual([]);
   });
 
   it('puts Train here, then the move’s notes, under the move list', () => {
@@ -304,8 +328,7 @@ describe('the panel', () => {
     const moves = document.querySelector('[data-moves]');
     const note = screen.getByText('Pastaba apie d4');
     if (moves === null) throw new Error('no move list');
-    expect(precedes(moves, trainHere)).toBe(true);
-    expect(precedes(trainHere, note)).toBe(true);
+    expect(outOfOrder([moves, trainHere, note])).toEqual([]);
     expect(
       within(trainHere).getByRole('button', {
         name: MESSAGES.training.know.iKnowThis,

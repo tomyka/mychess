@@ -58,19 +58,9 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-const NOW = new Date('2026-10-18T08:00:00Z');
-
 /** Rokas's London (two chapters) as the loader gives it. */
 const LONDON_DATA: RepertoirePageData = {
-  repertoire: {
-    id: ID,
-    ownerId: 'rokas',
-    side: 'white',
-    name: 'Londono sistema',
-    version: 2,
-    createdAt: NOW,
-    updatedAt: NOW,
-  },
+  repertoire: { id: ID, side: 'white', name: 'Londono sistema', version: 2 },
   graph: graphOf(LONDON),
   notes: {},
   names: { taxonomyNames: {}, distinctions: {} },

@@ -80,7 +80,7 @@ function london(paused: boolean): AssignedRepertoirePage {
     },
     coachName: 'Jonas',
     graph: graphOf(LONDON),
-    personalNotes: {},
+    notes: {},
     paused,
     deadline: null,
     overdue: false,

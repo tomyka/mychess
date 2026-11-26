@@ -4,6 +4,7 @@ import { moveKey, START_KEY } from '@mychess/chess';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { outOfOrder } from '../../../../../../../test/dom-order';
 import {
   graphOf,
   LONDON,
@@ -112,27 +113,35 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     const moves = document.querySelector('[data-moves]');
     const readOnly = screen.getByText(s.readOnly);
     if (moves === null) throw new Error('no move list');
-    expect(
-      moves.compareDocumentPosition(readOnly) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(outOfOrder([moves, readOnly])).toEqual([]);
     forward();
-    const field = noteField();
-    if (field === null) throw new Error('no coach note');
+    expect(outOfOrder([readOnly, screen.getByLabelText(s.note)])).toEqual([]);
+  });
+
+  it('places its panel: the player’s line, the chapters, the moves, read-only, then the coach’s own note', () => {
+    renderView();
+    forward();
     expect(
-      readOnly.compareDocumentPosition(field) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      outOfOrder([
+        screen.getByRole('link', { name: MESSAGES.coach.progress.title }),
+        screen.getByRole('button', { name: /^Ch 1\/2 · / }),
+        screen.getByRole('button', {
+          name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}, ${MESSAGES.repertoires.moves.hasCoachNote}`,
+        }),
+        screen.getByText(s.readOnly),
+        screen.getByLabelText(s.note),
+      ]),
+    ).toEqual([]);
   });
 
   it('still says read-only, after the empty message, in a repertoire without chapters', () => {
     renderView({ ...DATA, graph: { side: 'white', chapters: [], moves: [] } });
-    const empty = screen.getByText(MESSAGES.repertoires.panel.emptyBrowse);
-    const readOnly = screen.getByText(s.readOnly);
     expect(
-      empty.compareDocumentPosition(readOnly) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      outOfOrder([
+        screen.getByText(MESSAGES.repertoires.panel.emptyBrowse),
+        screen.getByText(s.readOnly),
+      ]),
+    ).toEqual([]);
   });
 
   it('links to the player’s progress on this repertoire, first in the panel (S7 decision 7, sign-off)', () => {

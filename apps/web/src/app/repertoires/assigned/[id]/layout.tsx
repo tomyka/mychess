@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from 'react';
-import { assignedRepertoireData } from '../../../../server/assignment-pages';
+import { viewedAssignedRepertoire } from '../../../../server/assignment-pages';
 
 // Decides access before the page's loading.tsx starts streaming: a
 // notFound() inside a streamed page answers 200, here it answers 404
@@ -11,6 +11,6 @@ export default async function AssignedRepertoireLayout({
   readonly params: Promise<{ id: string }>;
   readonly children: ReactNode;
 }): Promise<JSX.Element> {
-  await assignedRepertoireData((await params).id);
+  await viewedAssignedRepertoire((await params).id);
   return <>{children}</>;
 }

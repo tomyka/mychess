@@ -66,7 +66,7 @@ export interface RepertoireBuilder {
   /** The builder row under the board row; null while browsing. */
   readonly toolbar: ReactNode;
   /** The panel's builder fields; absent while browsing. */
-  readonly panel: Pick<PanelContent, 'chapterBuilder' | 'commentEditor'>;
+  readonly panel: Pick<PanelContent, 'chapterBuilder' | 'comment'>;
 }
 
 type Dispatch = ActionDispatch<[action: ScreenAction]>;
@@ -117,7 +117,7 @@ function builderParts(
     toolbar: <BuilderRow state={state} dispatch={dispatch} edit={edit} />,
     panel: {
       chapterBuilder: chapterBuilder(state, edit),
-      commentEditor: commentEditor(state, edit),
+      comment: { editor: commentEditor(state, edit) },
     },
   };
 }

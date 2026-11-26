@@ -124,7 +124,7 @@ export function RepertoireShell({
           onReload={onReload}
           statusAction={statusAction}
         />
-        <BrowseCommentStrip state={state} label={panel.commentLabel} />
+        <BrowseCommentStrip state={state} label={panel.comment?.label} />
         <RepertoirePanel view={view} names={names} content={panel} />
       </div>
       <Announcer state={state} />

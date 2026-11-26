@@ -130,7 +130,7 @@ describe('useRepertoireBuilder: browsing', () => {
 
   it('leaves builder mode, taking its row and fields with it', () => {
     const builder = building(vi.fn<BuilderSave>(), 1);
-    expect(builder().panel.commentEditor).toBeDefined();
+    expect(builder().panel.comment?.editor).toBeDefined();
     act(() => {
       builder().setBuilding(false);
     });
@@ -261,7 +261,7 @@ describe('useRepertoireBuilder: a refused save', () => {
     await waitFor(() => {
       expect(builder().view.state.stale).toBe(true);
     });
-    expect(builder().panel.commentEditor?.disabled).toBe(true);
+    expect(builder().panel.comment?.editor?.disabled).toBe(true);
     expect(builder().panel.chapterBuilder?.disabled).toBe(true);
     expect(
       screen.getByRole('button', { name: b.remove }).hasAttribute('disabled'),
@@ -272,13 +272,13 @@ describe('useRepertoireBuilder: a refused save', () => {
 describe('useRepertoireBuilder: the comment field', () => {
   it('has none at a chapter root', () => {
     expect(
-      building(vi.fn<BuilderSave>())().panel.commentEditor,
+      building(vi.fn<BuilderSave>())().panel.comment?.editor,
     ).toBeUndefined();
   });
 
   it('saves the current move’s comment', async () => {
     const save = fakeSave(savedAs({ ok: true, value: GRAPH }));
-    const editor = building(save, 1)().panel.commentEditor;
+    const editor = building(save, 1)().panel.comment?.editor;
     let outcome: unknown;
     await act(async () => {
       outcome = await editor?.onSave('Tvirta');
@@ -299,7 +299,7 @@ describe('useRepertoireBuilder: the comment field', () => {
     const builder = building(fakeSave({ ok: false, refusal }), 1);
     let outcome: unknown;
     await act(async () => {
-      outcome = await builder().panel.commentEditor?.onSave('x');
+      outcome = await builder().panel.comment?.editor?.onSave('x');
     });
     expect(outcome).toEqual({ ok: false, refusal });
     expect(builder().view.state.message).toBeNull();
@@ -312,7 +312,7 @@ describe('useRepertoireBuilder: the comment field', () => {
       1,
     );
     await act(async () => {
-      await builder().panel.commentEditor?.onSave('x');
+      await builder().panel.comment?.editor?.onSave('x');
     });
     expect(builder().view.state.stale).toBe(true);
     expect(builder().view.state.message?.key).toBe('repertoire.stale');

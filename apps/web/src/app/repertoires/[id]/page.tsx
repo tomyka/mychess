@@ -36,12 +36,7 @@ export default async function RepertoirePage({
   return (
     <RepertoireScreen
       key={repertoire.version}
-      repertoire={{
-        id: repertoire.id,
-        name: repertoire.name,
-        side: repertoire.side,
-        version: repertoire.version,
-      }}
+      repertoire={repertoire}
       graph={graph}
       notes={notes}
       names={names}
