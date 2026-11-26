@@ -22,6 +22,7 @@ import { destsOf, isKey, squaresOf } from '../board/squares';
 import { childBySan, movesBetween } from './board-play';
 import {
   currentKey,
+  editsBlocked,
   type ScreenAction,
   type ScreenMessage,
   type ScreenState,
@@ -53,10 +54,7 @@ function canPlay(state: ScreenState): boolean {
 /** Whether the current move's marks can be changed now (builder, on a move). */
 export function canMark(state: ScreenState): boolean {
   return (
-    state.mode === 'build' &&
-    state.path.length > 0 &&
-    !state.saving &&
-    !state.stale
+    state.mode === 'build' && state.path.length > 0 && !editsBlocked(state)
   );
 }
 

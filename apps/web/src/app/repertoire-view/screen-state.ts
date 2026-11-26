@@ -38,6 +38,11 @@ export interface ScreenState {
   readonly revision: number;
 }
 
+/** Saving, or the repertoire changed elsewhere: no edit now. */
+export const editsBlocked = (
+  state: Pick<ScreenState, 'saving' | 'stale'>,
+): boolean => state.saving || state.stale;
+
 type NavigationAction =
   | { readonly type: 'chapter'; readonly chapterId: string }
   | { readonly type: 'goto'; readonly path: readonly RepertoireMove[] }

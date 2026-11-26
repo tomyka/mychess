@@ -11,7 +11,7 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from 'react';
-import { DANGER_BUTTON, SECONDARY_BUTTON } from '../../buttons';
+import { DANGER_BUTTON, SECONDARY_BUTTON } from '../buttons';
 
 export interface BuilderBarProps {
   /** The current move as the move list numbers it ("6...a6"); null at a chapter root. */

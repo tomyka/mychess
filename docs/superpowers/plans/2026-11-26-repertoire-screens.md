@@ -46,7 +46,7 @@
 | `apps/web/src/app/repertoires/[id]/repertoire-screen.tsx`, `repertoire-header.tsx`, `mode-switch.tsx` | new header, actions gone from the panel, empty state |
 | `apps/web/src/app/repertoires/assigned/[id]/assigned-view.tsx` | new header with status strip, actions gone |
 | `apps/web/src/app/coach/players/[playerId]/repertoires/[repertoireId]/shared-repertoire-view.tsx` | adopts `RepertoireTopBar` (no More, no Edit) |
-| `apps/web/src/app/repertoires/[id]/builder-bar.tsx` | swatch outline |
+| `apps/web/src/app/repertoire-view/builder-bar.tsx` | swatch outline |
 | `apps/web/src/app/board/board.css` | coordinates 0.75rem |
 | `apps/web/src/app/repertoires/import/import-summary.tsx`, `use-import-flow.ts`, `target-step.tsx`, `apps/web/src/server/import-preview.ts` (+ tests) | stats line, name prefill, summary in "existing" |
 | `apps/web/src/app/buttons.ts` | disabled primary muted |

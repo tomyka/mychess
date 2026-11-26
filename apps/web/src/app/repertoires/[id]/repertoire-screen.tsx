@@ -4,7 +4,7 @@ import type { RepertoireGraph, Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type JSX } from 'react';
+import type { JSX } from 'react';
 import type { ChapterNames } from '../../../lib/chapter-label';
 import {
   importIntoRoute,
@@ -18,27 +18,16 @@ import {
   RepertoireShell,
   RepertoireTopBar,
   SummaryLine,
-  useBuilderView,
   useNotes,
+  useRepertoireBuilder,
   type MoveCoachNote,
   type Notes,
   type PanelContent,
-  type RepertoireView,
+  type RepertoireBuilder,
 } from '../../repertoire-view';
-import { savePersonalNoteAction } from './actions';
-import { BuilderBar } from './builder-bar';
+import { editRepertoireAction, savePersonalNoteAction } from './actions';
 import { ModeSwitch } from './mode-switch';
 import { OwnerNotes } from './owner-notes';
-import {
-  addMove,
-  chapterBuilder,
-  commentEditor,
-  editor,
-  removalTarget,
-  useDrawing,
-  useRemoveMove,
-  type Edit,
-} from './use-builder';
 
 export interface RepertoireScreenProps {
   readonly repertoire: {
@@ -62,21 +51,18 @@ export interface RepertoireScreenProps {
   readonly training?: RepertoireTraining | null;
 }
 
-type ScreenState = RepertoireView['state'];
-type Dispatch = RepertoireView['dispatch'];
-
 /** A repertoire without chapters: play the first move, or add games from PGN. */
 function EmptyRepertoire({
   id,
-  mode,
+  building,
   onBuild,
 }: {
   readonly id: string;
-  readonly mode: ScreenState['mode'];
+  readonly building: boolean;
   readonly onBuild: () => void;
 }): JSX.Element {
   const t = useTranslations('repertoires');
-  const browsing = mode === 'browse';
+  const browsing = !building;
   return (
     <div className="flex flex-col gap-3">
       <p className={browsing ? 'text-fg-muted' : undefined}>
@@ -94,16 +80,6 @@ function EmptyRepertoire({
       </div>
     </div>
   );
-}
-
-/** The screen's state and what changes it, as the panel's parts need them. */
-interface Screen {
-  readonly props: RepertoireScreenProps;
-  readonly state: ScreenState;
-  readonly dispatch: Dispatch;
-  readonly edit: Edit;
-  /** What titles the chapters, as of the last save (R-158). */
-  readonly names: ChapterNames;
 }
 
 /**
@@ -128,24 +104,28 @@ function coachNotesOn(
  * fields, and the coaches' notes and the Personal note under each move.
  * The repertoire's actions are on its Repertoire screen (R-226).
  */
-function ownerPanel(screen: Screen, notes: Notes): PanelContent {
-  const { props, state, dispatch, edit } = screen;
-  const { id } = props.repertoire;
+function ownerPanel(
+  props: RepertoireScreenProps,
+  builder: RepertoireBuilder,
+  notes: Notes,
+): PanelContent {
   return {
+    ...builder.panel,
     summary: (
-      <SummaryLine training={props.training ?? undefined} state={state} />
+      <SummaryLine
+        training={props.training ?? undefined}
+        state={builder.view.state}
+      />
     ),
-    chapterBuilder: chapterBuilder(state, edit),
     empty: (
       <EmptyRepertoire
-        id={id}
-        mode={state.mode}
+        id={props.repertoire.id}
+        building={builder.building}
         onBuild={() => {
-          dispatch({ type: 'mode', mode: 'build' });
+          builder.setBuilding(true);
         }}
       />
     ),
-    commentEditor: commentEditor(state, edit),
     renderNotes: (key) => (
       <OwnerNotes
         key={key}
@@ -161,99 +141,58 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
 }
 
 /** The page's header (spec, Header): back to Repertoires, the name, Edit and More. */
-function OwnerTopBar({ screen }: { readonly screen: Screen }): JSX.Element {
-  const { props, state, dispatch } = screen;
-  const { id, name } = props.repertoire;
+function OwnerTopBar({
+  repertoire,
+  builder,
+}: {
+  readonly repertoire: RepertoireScreenProps['repertoire'];
+  readonly builder: RepertoireBuilder;
+}): JSX.Element {
   const t = useTranslations('nav');
-  const building = state.mode === 'build';
   return (
     <RepertoireTopBar
       back={{ href: ROUTES.repertoires, parent: t('repertoires') }}
-      name={name}
+      name={repertoire.name}
       edit={
         <ModeSwitch
-          building={building}
-          onChange={(on) => {
-            dispatch({ type: 'mode', mode: on ? 'build' : 'browse' });
-          }}
+          building={builder.building}
+          onChange={builder.setBuilding}
         />
       }
-      moreHref={repertoireManageRoute(id)}
+      moreHref={repertoireManageRoute(repertoire.id)}
     />
   );
 }
 
 /**
- * The builder row under the board row, once there is a chapter: remove the
- * current move, draw (docs/design/repertoire-screen.md, Phone, builder).
- */
-function ScreenBuilderBar({
-  screen,
-}: {
-  readonly screen: Screen;
-}): JSX.Element | null {
-  const { state, dispatch, edit } = screen;
-  const onRemove = useRemoveMove(state, edit);
-  if (state.mode !== 'build' || state.chapterId === null) return null;
-  const { move, count } = removalTarget(state);
-  return (
-    <div className="shrink-0 px-gutter pb-2 lg:px-0">
-      <BuilderBar
-        move={move}
-        count={count}
-        disabled={state.saving || state.stale}
-        drawMode={state.drawMode}
-        drawColor={state.drawColor}
-        onRemove={onRemove}
-        onDraw={(on) => {
-          dispatch({ type: 'draw', on });
-        }}
-        onColor={(color) => {
-          dispatch({ type: 'drawColor', color });
-        }}
-      />
-    </div>
-  );
-}
-
-/** The screen's state, its edits and the board's handlers. */
-function useRepertoireScreen(props: RepertoireScreenProps) {
-  const { repertoire, graph, chapterId } = props;
-  const [names, setNames] = useState(props.names);
-  const editOf = (state: ScreenState, dispatch: Dispatch): Edit =>
-    editor(repertoire.id, state, dispatch, setNames);
-  const view = useBuilderView(
-    { graph, version: repertoire.version, chapterId },
-    repertoire.side,
-    (state, dispatch, from) => addMove(state, editOf(state, dispatch), from),
-  );
-  const { state, dispatch } = view;
-  const edit = editOf(state, dispatch);
-  const drawing = useDrawing(state, dispatch, edit);
-  const screen: Screen = { props, state, dispatch, edit, names };
-  return { screen, view, drawing };
-}
-
-/**
  * The repertoire page (docs/design/repertoire-screen.md, section 2), browse
- * and builder, on the repertoire-view shell.
+ * and builder, on the repertoire-view shell: the builder gets the page's
+ * edit action as its save; the page adds its header and the notes.
  */
 export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
   const { repertoire } = props;
-  const { screen, view, drawing } = useRepertoireScreen(props);
+  const builder = useRepertoireBuilder({
+    graph: props.graph,
+    version: repertoire.version,
+    side: repertoire.side,
+    chapterId: props.chapterId,
+    names: props.names,
+    save: (edit) =>
+      editRepertoireAction({ repertoireId: repertoire.id, ...edit }),
+  });
   const notes = useNotes(props.notes, (moveKey, text) =>
     savePersonalNoteAction({ repertoireId: repertoire.id, moveKey, text }),
   );
   const router = useRouter();
   return (
     <RepertoireShell
-      topBar={<OwnerTopBar screen={screen} />}
+      topBar={<OwnerTopBar repertoire={repertoire} builder={builder} />}
       name={repertoire.name}
-      names={screen.names}
-      view={view}
-      panel={ownerPanel(screen, notes)}
-      drawing={drawing}
-      toolbar={<ScreenBuilderBar screen={screen} />}
+      names={builder.names}
+      view={builder.view}
+      panel={ownerPanel(props, builder, notes)}
+      drawing={builder.drawing}
+      toolbar={builder.toolbar}
       onReload={() => {
         router.refresh();
       }}

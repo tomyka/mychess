@@ -3,13 +3,21 @@
 // assigned view are built from. Everything outside this folder imports from
 // here, never from the parts.
 
-// The view: shell, panel content, the browse-only and builder views, the
-// loading state.
+// The view: shell, panel content, status messages, the browse-only view,
+// the loading state.
 export { RepertoireShell } from './repertoire-shell';
 export type { PanelContent } from './repertoire-panel';
 export type { RepertoireView } from './view';
+export type { ScreenMessage } from './screen-state';
 export { useBrowseView } from './use-browse-view';
-export { useBuilderView } from './use-builder-view';
+
+// The owner's builder: given the repertoire and the owner's save, the
+// screen state, the board's adding and drawing, the chapter and comment
+// fields and the builder row (#387).
+export {
+  useRepertoireBuilder,
+  type RepertoireBuilder,
+} from './use-repertoire-builder';
 export {
   EMPTY_BOARD,
   RepertoireLoadingShell,
@@ -32,14 +40,3 @@ export { CoachNotes, type MoveCoachNote } from './coach-notes';
 // A move played on the board: the legal moves joining its two squares (one,
 // or four promotions). The training drills take moves the same way.
 export { movesBetween } from './board-play';
-
-// The builder block: only the owner's builder hooks
-// (repertoires/[id]/use-builder.ts) use these, to turn the screen state into
-// edits (where a new move lands, what a mark change says, the remove bar)
-// and to fill the panel's builder fields.
-export { SAVING, type ScreenMessage } from './screen-state';
-export { canMark } from './use-screen';
-export { markChange, placeAdded } from './board-play';
-export type { ChapterBuilder } from './chapter-list';
-export type { CommentEditor } from './comment';
-export type { FieldOutcome } from './field-save';

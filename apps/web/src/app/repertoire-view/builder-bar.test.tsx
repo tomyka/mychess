@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/catalogue';
+import { MESSAGES } from '../../i18n/catalogue';
 import { BuilderBar, type BuilderBarProps } from './builder-bar';
 
 const b = MESSAGES.repertoires.builder;
