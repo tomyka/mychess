@@ -61,7 +61,7 @@ export const coachGroupPath = (groupId: string): string =>
 
 /** One repertoire's page (browse and builder). */
 export const repertoireRoute = (id: string): string =>
-  `${ROUTES.repertoires}/${id}`;
+  `${ROUTES.repertoires}/${encodeURIComponent(id)}`;
 
 /** A repertoire the player has by assignment, as they see it (decision 11). */
 export const assignedRepertoirePath = (id: string): string =>
@@ -94,7 +94,7 @@ export const repertoireChapterRoute = (id: string, chapterId: string): string =>
 
 /** One repertoire's PGN download. */
 export const repertoireExportRoute = (id: string): string =>
-  `/api/repertoires/${id}/export`;
+  `/api/repertoires/${encodeURIComponent(id)}/export`;
 
 /** The import page with an existing repertoire chosen as the target. */
 export const importIntoRoute = (id: string): string =>

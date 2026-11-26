@@ -42,9 +42,8 @@ export function RenameForm({
       className="flex w-full flex-col gap-2"
     >
       <input type="hidden" name="repertoireId" value={id} />
-      {/* On a wide screen the field takes the title's one row, so the
-          board below does not move: the label is read, not shown. */}
-      <label htmlFor={fieldId} className="font-medium lg:sr-only">
+      {/* The Repertoire screen's own card: the label shows at every width. */}
+      <label htmlFor={fieldId} className="font-medium">
         {t('repertoires.manage.renameLabel')}
       </label>
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">

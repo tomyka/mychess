@@ -91,6 +91,7 @@ describe('coachGroupPath', () => {
 describe('repertoireRoute', () => {
   it('is the repertoire list path followed by the id', () => {
     expect(repertoireRoute('3f1c')).toBe('/repertoires/3f1c');
+    expect(repertoireRoute('a/b')).toBe('/repertoires/a%2Fb');
   });
 });
 
@@ -115,6 +116,7 @@ describe('repertoireChapterRoute', () => {
 describe('repertoireExportRoute', () => {
   it('is the English API path for the PGN download', () => {
     expect(repertoireExportRoute('3f1c')).toBe('/api/repertoires/3f1c/export');
+    expect(repertoireExportRoute('a/b')).toBe('/api/repertoires/a%2Fb/export');
   });
 });
 
