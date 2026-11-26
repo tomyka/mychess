@@ -3,7 +3,6 @@ import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/catalogue';
-import type { CoachAssignData } from '../../../server/coach-assignments';
 import type { RepertoirePageData } from '../../../server/repertoires';
 import RepertoireLoading from './loading';
 import RepertoireNotFound from '../not-found';
@@ -13,7 +12,6 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
 const loader = vi.hoisted(() => ({
   data: vi.fn<(id: unknown) => Promise<RepertoirePageData>>(),
-  assign: vi.fn<(id: string) => Promise<CoachAssignData>>(),
   training: vi.fn<(account: unknown, id: string) => Promise<unknown>>(),
 }));
 
@@ -55,22 +53,6 @@ vi.mock('./actions', () => ({
   deleteRepertoireAction: vi.fn(),
 }));
 
-vi.mock('./sharing-actions', () => ({ setSharesAction: vi.fn() }));
-
-// Which assignments it reads, and for whom, is the loader's own test.
-vi.mock('../../../server/coach-assignments', () => ({
-  coachAssignData: loader.assign,
-}));
-
-vi.mock('./assign-actions', () => ({
-  assignAction: vi.fn(),
-  unassignAction: vi.fn(),
-  setDeadlineAction: vi.fn(),
-  clearDeadlineAction: vi.fn(),
-}));
-
-const NOT_COACHING: CoachAssignData = { assignedPlayers: 0, panel: null };
-
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
@@ -91,7 +73,6 @@ const LONDON_DATA: RepertoirePageData = {
   graph: graphOf(LONDON),
   notes: {},
   names: { taxonomyNames: {}, distinctions: {} },
-  sharing: { coaches: [], sharedWith: [] },
   coachNotes: [],
   forkNotes: [],
 };
@@ -107,7 +88,6 @@ function renderIn(element: React.ReactNode): void {
 }
 
 beforeEach(() => {
-  loader.assign.mockReset().mockResolvedValue(NOT_COACHING);
   loader.training.mockReset().mockResolvedValue({
     counts: { due: 4, toLearn: 6 },
     learn: {
@@ -116,6 +96,11 @@ beforeEach(() => {
       limits: { reviews: 20, newPerDay: 6 },
     },
     limitReached: false,
+    standing: {
+      counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
+      mastered: false,
+    },
+    chapters: {},
   });
 });
 
@@ -166,41 +151,32 @@ describe('the repertoire page', () => {
     );
     expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
-      screen.getByRole('link', { name: 'Review (4)' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Review 4' }).getAttribute('href'),
     ).toBe(`/training?mode=review&r=${ID}`);
     expect(
-      screen.getByRole('link', { name: 'Learn (6)' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Learn 6 today' }).getAttribute('href'),
     ).toBe(`/training?mode=learn&r=${ID}`);
   });
 
-  it('shows the assign panel only in Coach mode (R-15)', async () => {
+  it('leaves assigning and sharing to its Repertoire screen (R-226)', async () => {
     loader.data.mockResolvedValue(LONDON_DATA);
-    const page = () =>
-      RepertoirePage({
+    renderIn(
+      await RepertoirePage({
         params: Promise.resolve({ id: ID }),
         searchParams: NO_QUERY,
-      });
-    const title = MESSAGES.assignment.panel.title;
-    const { unmount } = render(
-      <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        {await page()}
-      </NextIntlClientProvider>,
+      }),
     );
-    expect(screen.queryByRole('heading', { name: title })).toBeNull();
-    unmount();
-    loader.assign.mockResolvedValue({
-      assignedPlayers: 0,
-      panel: {
-        players: [],
-        groups: [],
-        assignments: [],
-        today: '2026-10-20',
-        standings: new Map(),
-      },
-    });
-    renderIn(await page());
-    expect(loader.assign).toHaveBeenCalledWith(ID);
-    expect(screen.getByRole('heading', { name: title })).toBeDefined();
+    expect(
+      screen.queryByRole('heading', { name: MESSAGES.assignment.panel.title }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: MESSAGES.share.title }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole('link', { name: MESSAGES.repertoires.more })
+        .getAttribute('href'),
+    ).toBe(`/repertoires/${ID}/manage`);
   });
 
   it('says the same thing for a missing and a foreign repertoire', () => {

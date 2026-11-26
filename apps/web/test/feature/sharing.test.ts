@@ -5,7 +5,10 @@ import { moveKey, START_KEY } from '@mychess/chess';
 import { shareRepertoire, upsertCoachNote } from '@mychess/db';
 import { describe, expect, it, vi } from 'vitest';
 import { setSharesAction } from '../../src/app/repertoires/[id]/sharing-actions';
-import { repertoirePageData } from '../../src/server/repertoires';
+import {
+  repertoireManageData,
+  repertoirePageData,
+} from '../../src/server/repertoires';
 import {
   actAs,
   coachPerson,
@@ -189,7 +192,7 @@ describe('the owner’s repertoire page with coaches', () => {
     const { rimantas, dovydas, gabija, taimanov } = await cast();
     actAs(gabija);
     await outcomeOf(setSharesAction({}, sharesForm(taimanov, [dovydas.id])));
-    const data = await repertoirePageData(taimanov);
+    const data = await repertoireManageData(taimanov);
     expect(data.sharing).toEqual({
       coaches: [
         { id: dovydas.id, displayName: 'Dovydas' },
@@ -247,8 +250,9 @@ describe('the owner’s repertoire page with coaches', () => {
   it('has no coaches or notes for a player without a coach', async () => {
     const { rokas, london } = await cast();
     actAs(rokas);
-    const data = await repertoirePageData(london);
-    expect(data.coachNotes).toEqual([]);
-    expect(data.sharing.sharedWith).toHaveLength(1);
+    expect((await repertoirePageData(london)).coachNotes).toEqual([]);
+    expect(
+      (await repertoireManageData(london)).sharing.sharedWith,
+    ).toHaveLength(1);
   });
 });

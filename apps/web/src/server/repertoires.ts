@@ -157,7 +157,6 @@ export interface RepertoirePageData {
   readonly notes: Readonly<Record<string, string>>;
   /** What titles its chapters: opening names and distinctions (R-158). */
   readonly names: ChapterNames;
-  readonly sharing: RepertoireSharing;
   /** Every coach's notes on it, read-only (R-107, R-125). */
   readonly coachNotes: readonly OwnerCoachNote[];
   /**
@@ -243,7 +242,6 @@ export async function repertoirePageData(
     graph,
     notes: await listPersonalNotes(getDb(), account.id, repertoire.id),
     names: chapterNamesOf(graph),
-    sharing: await sharingOf(account.id, repertoire.id),
     coachNotes: await ownerCoachNotes(account.id, repertoire.id),
     forkNotes: await forkCoachNotesOn(getDb(), account.id, repertoire.id),
   };

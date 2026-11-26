@@ -34,7 +34,12 @@ import {
 import { passGroupDeadline } from './support/assignment-db';
 import { createGroup, createInvite } from './support/coaching';
 import { en, format, test } from './support/journey';
-import { chip, typeMove } from './support/repertoires';
+import {
+  backToRepertoire,
+  chip,
+  openRepertoireOptions,
+  typeMove,
+} from './support/repertoires';
 import { todayRow } from './support/today';
 
 const KARO_KAN = 'Karo-Kan gynyba: pagrindai';
@@ -92,9 +97,16 @@ async function assignToGroup(
     name: KARO_KAN,
   });
   await assignTo(coach, cast.messages, { target: GROUP, deadline });
-  const row = assignmentRow(coach, cast.messages, GROUP);
+  // A row per member, each saying the group it comes through (R-225).
+  const inGroup = format(cast.messages.assignment.panel.inGroup, {
+    name: GROUP,
+  });
   for (const name of [ROKAS, GABIJA, DOVYDAS])
-    await expect(row.getByText(name, { exact: true })).toBeVisible();
+    await expect(
+      assignmentRow(coach, cast.messages, name).getByText(inGroup, {
+        exact: true,
+      }),
+    ).toBeVisible();
   for (const member of members) {
     await member.reload();
     await expectAssigned(member, cast, KARO_KAN, deadline);
@@ -155,6 +167,7 @@ async function laterMember(
   });
   await expectAssigned(fourth, cast, KARO_KAN, deadline);
   await openOwn(coach, KARO_KAN);
+  await openRepertoireOptions(coach, cast.messages);
   await expectPastDeadlineRefused(coach, cast.messages, vilniusDay(-1));
   await passGroupDeadline(email, KARO_KAN, vilniusDay(-1));
   await fourth.reload();
@@ -195,9 +208,13 @@ async function leaveAndRejoin(
   await expect(forkOffers(rokas, messages)).toHaveCount(0);
 }
 
-/** The coach adds 9.h3 after 8...Ba7 in the Italian's first chapter. */
+/**
+ * From the Italian's Repertoire screen, the coach goes back to its page
+ * and adds 9.h3 after 8...Ba7 in its first chapter.
+ */
 async function coachAddsMove(coach: Page, cast: Cast): Promise<void> {
   const { messages } = cast;
+  await backToRepertoire(coach, messages, ITALIAN);
   await coach
     .getByRole('switch', { name: messages.repertoires.mode.build })
     .click();
@@ -235,7 +252,10 @@ async function updatedOnce(rokas: Page, cast: Cast): Promise<string> {
   return assigned;
 }
 
-/** R-46: Rokas pauses (Today and the coach show it), then resumes. */
+/**
+ * R-46: Rokas pauses on the assigned Repertoire screen (Today and the
+ * coach's Repertoire screen show it), then resumes.
+ */
 async function pauseAndResume(
   rokas: Page,
   coach: Page,
@@ -245,16 +265,18 @@ async function pauseAndResume(
   const t = messages.assignment.pause;
   const item = todayRow(rokas, messages, ITALIAN);
   const assigned = rokas.url();
+  await openRepertoireOptions(rokas, messages);
+  const options = rokas.url();
   await rokas.getByRole('button', { name: t.pause, exact: true }).click();
   const resume = rokas.getByRole('button', { name: t.resume, exact: true });
   await expect(resume).toBeVisible();
   await expect(rokas.getByText(t.pausedHint)).toBeVisible();
   await rokas.goto('/');
   await expect(badge(item, messages, 'paused')).toBeVisible();
-  await coach.reload();
+  await openRepertoireOptions(coach, messages);
   const row = assignmentRow(coach, messages, ROKAS);
   await expect(badge(row, messages, 'paused')).toBeVisible();
-  await rokas.goto(assigned);
+  await rokas.goto(options);
   await resume.click();
   await expect(
     rokas.getByRole('button', { name: t.pause, exact: true }),
@@ -266,7 +288,8 @@ async function pauseAndResume(
 }
 
 /**
- * R-47, R-128: "Make my own copy" opens the copy, where the coach's comment
+ * R-47, R-128: "Make my own copy" on the assigned Repertoire screen asks,
+ * then opens the copy, where the coach's comment
  * is a read-only note under his name; on Today the row is his copy, and the
  * coach sees "forked".
  */
@@ -279,6 +302,7 @@ async function makeOwnCopy(
   const t = messages.assignment.fork;
   const r = messages.repertoires;
   const assigned = rokas.url();
+  await openRepertoireOptions(rokas, messages);
   await rokas.getByRole('button', { name: t.label, exact: true }).click();
   await expect(
     rokas.getByText(format(t.question, { name: ITALIAN })),

@@ -20,7 +20,7 @@ import { StatusLine } from '../status-line';
 import type { FieldOutcome } from './field-save';
 import { KnowThisMenu } from './know-this-menu';
 import { LearnLink } from './learn-link';
-import type { PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 
 /** What the chapter list can change in builder mode. */
 export interface ChapterBuilder {

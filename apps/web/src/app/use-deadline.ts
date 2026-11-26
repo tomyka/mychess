@@ -5,7 +5,7 @@ import { LONG_DATE, shortDateFormat } from '../lib/date-format';
  * A `YYYY-MM-DD` calendar day at noon UTC, which is the same day in
  * Vilnius, the zone it is shown in.
  */
-const noonOf = (day: string): Date => new Date(`${day}T12:00:00Z`);
+export const noonOf = (day: string): Date => new Date(`${day}T12:00:00Z`);
 
 /**
  * Writes a deadline, a `YYYY-MM-DD` calendar day (plan decision 10), as a

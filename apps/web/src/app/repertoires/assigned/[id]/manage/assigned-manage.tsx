@@ -5,7 +5,7 @@ import { useId, useState, type JSX, type ReactNode } from 'react';
 import { assignedRepertoirePath } from '../../../../../lib/routes';
 import { PageHeader } from '../../../../shell/page-header';
 import { CONTENT } from '../../../../surfaces';
-import type { Repertoire } from '../../../[id]/repertoire-header-types';
+import type { Repertoire } from '../../../[id]/repertoire-types';
 import { DownloadLink } from '../../../download-link';
 import { SECTION_LOOK } from '../../../section-look';
 

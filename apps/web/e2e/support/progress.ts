@@ -12,7 +12,7 @@ import {
 import { expect, type Page } from '@playwright/test';
 import { COACH } from './assignment-people';
 import { en, format, type Messages } from './journey';
-import { plural } from './repertoires';
+import { openRepertoireOptions, plural } from './repertoires';
 import { todayRow } from './today';
 
 /**
@@ -72,11 +72,15 @@ export function percentText(counts: Counts): string {
   });
 }
 
-/** On the player's repertoire page: shares it with the coach and saves. */
+/**
+ * From the player's repertoire page: on its Repertoire screen, shares it
+ * with the coach and saves.
+ */
 export async function shareWithCoach(
   page: Page,
   messages: Messages,
 ): Promise<void> {
+  await openRepertoireOptions(page, messages);
   const section = page.getByRole('region', { name: messages.share.title });
   await section.getByRole('checkbox', { name: COACH }).setChecked(true);
   await section
@@ -101,6 +105,9 @@ export async function makeOwnCopy(
     .getByRole('link', { name, exact: true })
     .click();
   await expect(page).toHaveURL(/\/repertoires\/assigned\//);
+  // Through More: the Repertoire screen asks nothing until it is pressed.
+  await openRepertoireOptions(page, messages);
+  await expect(page.getByText(format(t.question, { name }))).toHaveCount(0);
   await page.getByRole('button', { name: t.label, exact: true }).click();
   await page.getByRole('button', { name: t.confirm, exact: true }).click();
   await expect(page).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);

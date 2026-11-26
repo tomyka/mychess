@@ -4,18 +4,19 @@ import type { RepertoireGraph, Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type JSX, type ReactNode } from 'react';
+import { useState, type JSX } from 'react';
 import type { ChapterNames } from '../../../lib/chapter-label';
-import { importIntoRoute } from '../../../lib/routes';
-import type {
-  ForkNote,
-  OwnerCoachNote,
-  RepertoireSharing,
-} from '../../../server/repertoires';
+import {
+  importIntoRoute,
+  repertoireManageRoute,
+  ROUTES,
+} from '../../../lib/routes';
+import type { ForkNote, OwnerCoachNote } from '../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../buttons';
 import {
-  PANEL_LABEL,
   RepertoireShell,
+  RepertoireTopBar,
+  SummaryLine,
   useBuilderView,
   useNotes,
   type MoveCoachNote,
@@ -28,9 +29,6 @@ import { savePersonalNoteAction } from './actions';
 import { BuilderBar } from './builder-bar';
 import { ModeSwitch } from './mode-switch';
 import { OwnerNotes } from './owner-notes';
-import { RepertoireActions } from './repertoire-actions';
-import { RepertoireHeader } from './repertoire-header';
-import { ShareWithCoach } from './share-with-coach';
 import {
   addMove,
   chapterBuilder,
@@ -56,18 +54,12 @@ export interface RepertoireScreenProps {
   readonly names: ChapterNames;
   /** The chapter to open on; null or unknown opens the first. */
   readonly chapterId?: string | null;
-  /** The owner's linked coaches and the shares (R-42). */
-  readonly sharing: RepertoireSharing;
   /** Every coach's notes on it, read-only (R-107). */
   readonly coachNotes: readonly OwnerCoachNote[];
   /** On a fork, the notes it kept from the coach who assigned it (R-47). */
   readonly forkNotes: readonly ForkNote[];
-  /** How many players have it by assignment, for the delete dialog (R-131). */
-  readonly assignedPlayers?: number | undefined;
   /** The owner's training of it (R-142); null when they do not train it. */
   readonly training?: PanelTraining | null;
-  /** The assign panel, in Coach mode only (R-15); last in the panel. */
-  readonly assignPanel?: ReactNode;
 }
 
 type ScreenState = RepertoireView['state'];
@@ -110,32 +102,6 @@ function EmptyRepertoire({
   );
 }
 
-/** The repertoire's actions at the end of the panel, on a phone only. */
-function PhoneActions({
-  id,
-  name,
-  assignedPlayers,
-}: {
-  readonly id: string;
-  readonly name: string;
-  readonly assignedPlayers?: number | undefined;
-}): JSX.Element {
-  const t = useTranslations('repertoires.header');
-  return (
-    <section
-      aria-label={t('section')}
-      className="flex flex-col gap-2 lg:hidden"
-    >
-      <h2 className={PANEL_LABEL}>{t('section')}</h2>
-      <RepertoireActions
-        id={id}
-        name={name}
-        assignedPlayers={assignedPlayers}
-      />
-    </section>
-  );
-}
-
 /** The screen's state and what changes it, as the panel's parts need them. */
 interface Screen {
   readonly props: RepertoireScreenProps;
@@ -165,12 +131,12 @@ function coachNotesOn(
 
 /**
  * What the owner puts in the panel: the builder's chapter and comment
- * fields, the coaches' notes and the Personal note under each move, and the
- * repertoire's actions, assigning, and sharing last (#331).
+ * fields, and the coaches' notes and the Personal note under each move.
+ * The repertoire's actions are on its Repertoire screen (R-226).
  */
 function ownerPanel(screen: Screen, notes: Notes): PanelContent {
   const { props, state, dispatch, edit } = screen;
-  const { id, name } = props.repertoire;
+  const { id } = props.repertoire;
   return {
     chapterBuilder: chapterBuilder(state, edit),
     empty: (
@@ -194,18 +160,42 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
     training: props.training ?? undefined,
     notedMoves: notes.byMove,
     keptNoteMoves: new Set(props.forkNotes.map((note) => note.moveKey)),
-    footer: (
-      <>
-        <PhoneActions
-          id={id}
-          name={name}
-          assignedPlayers={props.assignedPlayers}
-        />
-        {props.assignPanel}
-        <ShareWithCoach repertoireId={id} sharing={props.sharing} />
-      </>
-    ),
   };
+}
+
+/**
+ * The page's header (spec, Header): back to Repertoires, the name, Edit and
+ * More, then the summary line. The builder shows no progress (spec,
+ * Builder).
+ */
+function OwnerTopBar({ screen }: { readonly screen: Screen }): JSX.Element {
+  const { props, state, dispatch } = screen;
+  const { id, name, side } = props.repertoire;
+  const t = useTranslations('nav');
+  const building = state.mode === 'build';
+  const training = building ? undefined : (props.training ?? undefined);
+  return (
+    <RepertoireTopBar
+      back={{ href: ROUTES.repertoires, parent: t('repertoires') }}
+      name={name}
+      edit={
+        <ModeSwitch
+          building={building}
+          onChange={(on) => {
+            dispatch({ type: 'mode', mode: on ? 'build' : 'browse' });
+          }}
+        />
+      }
+      moreHref={repertoireManageRoute(id)}
+    >
+      <SummaryLine
+        side={side}
+        chapters={state.graph.chapters.length}
+        standing={training?.standing}
+        training={training}
+      />
+    </RepertoireTopBar>
+  );
 }
 
 /**
@@ -266,27 +256,13 @@ function useRepertoireScreen(props: RepertoireScreenProps) {
 export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
   const { repertoire } = props;
   const { screen, view, drawing } = useRepertoireScreen(props);
-  const { state, dispatch } = screen;
   const notes = useNotes(props.notes, (moveKey, text) =>
     savePersonalNoteAction({ repertoireId: repertoire.id, moveKey, text }),
   );
   const router = useRouter();
   return (
     <RepertoireShell
-      header={
-        <RepertoireHeader
-          id={repertoire.id}
-          name={repertoire.name}
-          assignedPlayers={props.assignedPlayers}
-        >
-          <ModeSwitch
-            building={state.mode === 'build'}
-            onChange={(building) => {
-              dispatch({ type: 'mode', mode: building ? 'build' : 'browse' });
-            }}
-          />
-        </RepertoireHeader>
-      }
+      topBar={<OwnerTopBar screen={screen} />}
       name={repertoire.name}
       names={screen.names}
       view={view}

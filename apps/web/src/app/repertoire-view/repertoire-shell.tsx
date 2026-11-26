@@ -5,6 +5,13 @@ import type { ChapterNames } from '../../lib/chapter-label';
 import { Board, type BoardProps } from '../board/board';
 import { BoardRow } from './board-row';
 import { Announcer, useBoardWords } from './board-words';
+import {
+  BOARD_CELL,
+  PANEL_CELL,
+  PanelCard,
+  REPERTOIRE_GRID,
+  TOP_BAR_CELL,
+} from './repertoire-layout';
 import { RepertoirePanel, type PanelContent } from './repertoire-panel';
 import type { ScreenMessage, ScreenState } from './screen-state';
 import { ScreenStatus } from './screen-status';
@@ -16,8 +23,10 @@ type Drawing = Required<
 > & { readonly said: string };
 
 interface RepertoireShellProps {
-  /** The top bar: the way back and the repertoire's name. */
-  readonly header: ReactNode;
+  /** The repertoire's header (RepertoireTopBar): over the board on a phone, first in the panel on a desktop. */
+  readonly topBar: ReactNode;
+  /** The current move's comment, between the board row and the scrolling panel. */
+  readonly commentStrip?: ReactNode;
   /** The repertoire's name, which the board's accessible name carries. */
   readonly name: string;
   /** What titles the chapters (decision 17, R-158). */
@@ -71,11 +80,14 @@ const noAction: StatusAction = () => null;
 
 /**
  * A repertoire page (docs/design/repertoire-screen.md, section 2): on a
- * phone the top bar, board, board row and toolbar stay put and the panel
- * scrolls below; on a desktop the board and the panel sit side by side.
+ * phone the top bar, board, board row, toolbar and comment strip stay put
+ * and the panel scrolls below; on a desktop the board sits beside one card
+ * that holds the top bar, then the panel (repertoire-layout.tsx). The top
+ * bar is rendered once, so the page has one h1 and one Edit switch.
  */
 export function RepertoireShell({
-  header,
+  topBar,
+  commentStrip,
   name,
   names,
   view,
@@ -89,35 +101,30 @@ export function RepertoireShell({
   const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
   const words = useBoardWords(name, state, board.view.fen, names);
   return (
-    <main className="flex h-[calc(100dvh-var(--shell-chrome,0px))] flex-col lg:mx-auto lg:h-auto lg:gap-6 lg:px-gutter-wide lg:py-8">
-      {header}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        {/* On a desktop the panel scrolls with the page, not inside a box
-            (#331); the board stays in view beside it. */}
-        <div className="shrink-0 lg:sticky lg:top-[calc(var(--shell-chrome,0px)+2rem)] lg:w-[min(calc(100dvh-12rem-var(--shell-chrome,0px)),42rem)]">
-          <Board
-            view={board.view}
-            label={words.label}
-            describe={words.describe}
-            onMove={play.onMove}
-            {...handlers}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
-          <BoardRow
-            state={state}
-            dispatch={dispatch}
-            board={board}
-            play={play}
-          />
-          {toolbar}
-          <PanelStatus
-            state={state}
-            onReload={onReload}
-            statusAction={statusAction}
-          />
-          <RepertoirePanel view={view} names={names} content={panel} />
-        </div>
+    <main className={REPERTOIRE_GRID}>
+      <PanelCard />
+      <div className={`shrink-0 ${TOP_BAR_CELL}`}>{topBar}</div>
+      {/* On a desktop the panel scrolls with the page, not inside a box
+          (#331); the board stays in view beside it. */}
+      <div className={`shrink-0 lg:sticky ${BOARD_CELL}`}>
+        <Board
+          view={board.view}
+          label={words.label}
+          describe={words.describe}
+          onMove={play.onMove}
+          {...handlers}
+        />
+      </div>
+      <div className={`flex min-h-0 flex-1 flex-col ${PANEL_CELL}`}>
+        <BoardRow state={state} dispatch={dispatch} board={board} play={play} />
+        {toolbar}
+        <PanelStatus
+          state={state}
+          onReload={onReload}
+          statusAction={statusAction}
+        />
+        {commentStrip}
+        <RepertoirePanel view={view} names={names} content={panel} />
       </div>
       <Announcer state={state} />
       {said === undefined ? null : (

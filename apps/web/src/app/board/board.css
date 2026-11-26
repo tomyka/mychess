@@ -3,6 +3,18 @@
    imported, so the squares are coloured here. `.cg-wrap` raises these rules
    over the base sheet's `cg-board { background-size: cover }`. */
 
+/* The board fills its frame, so the phone board is the full viewport width
+   (finding 7). Chessground sizes its container inline to a whole number of
+   8 device pixels (render.ts, updateBounds): at a device pixel ratio of 1 a
+   390px frame got a 384px board and a 6px strip at its right edge.
+   Chessground reads the squares' size back from the board's own bounds, so
+   pieces, marks and pointer events follow the full size. `!important` is the
+   only way over an inline style. */
+.cg-wrap cg-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* Two squares per tile: light at the top left (a8 with White below) and the
    bottom right (h1), dark on the other diagonal. */
 .cg-wrap cg-board {

@@ -8,7 +8,7 @@
 export { RepertoireShell } from './repertoire-shell';
 export type { PanelContent } from './repertoire-panel';
 export type { RepertoireView } from './view';
-export type { PanelTraining } from './train-buttons';
+export type { PanelTraining } from './panel-training';
 export { useBrowseView } from './use-browse-view';
 export { useBuilderView } from './use-builder-view';
 export {
@@ -18,8 +18,10 @@ export {
 } from './loading-shell';
 export { PANEL_LABEL } from './panel-styles';
 
-// A read-only view's top bar: its frame and the way back.
-export { BackLink, HeaderFrame } from './view-header';
+// The repertoire's header: the top bar (back, name, Edit, More) and the
+// summary line and status strip under the name (spec, Header).
+export { RepertoireTopBar } from './top-bar';
+export { SummaryLine } from './summary-line';
 
 // Notes on moves: the viewer's Personal note, the coaches' notes, and notes
 // kept by move key.

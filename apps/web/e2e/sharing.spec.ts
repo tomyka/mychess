@@ -24,9 +24,11 @@ import {
   type Messages,
 } from './support/journey';
 import {
+  backToRepertoire,
   chip,
   chooseChapter,
   distinctTitle,
+  openRepertoireOptions,
   plural,
   previewImport,
 } from './support/repertoires';
@@ -62,7 +64,7 @@ const ne5 = (page: Page, messages: Messages, ...extra: string[]): Locator =>
     ['9... Ne5', messages.repertoires.moves.hasComment, ...extra].join(', '),
   );
 
-/** The "Share with a coach" section of Gabija's repertoire page. */
+/** The "Share with a coach" section of her Repertoire screen (R-226). */
 const shareSection = (page: Page, messages: Messages): Locator =>
   page.getByRole('region', { name: messages.share.title });
 
@@ -97,12 +99,16 @@ async function playerImports(page: Page, link: string): Promise<string> {
   return page.url();
 }
 
-/** On her repertoire page: ticks (or unticks) Rimantas and saves. */
+/**
+ * From her repertoire page, on its Repertoire screen: ticks (or unticks)
+ * Rimantas and saves; then back to the repertoire.
+ */
 async function setShared(
   page: Page,
   messages: Messages,
   shared: boolean,
 ): Promise<void> {
+  await openRepertoireOptions(page, messages);
   const section = shareSection(page, messages);
   await section.getByRole('checkbox', { name: COACH }).setChecked(shared);
   await section
@@ -116,6 +122,7 @@ async function setShared(
       { exact: true },
     ),
   ).toBeVisible();
+  await backToRepertoire(page, messages, REPERTOIRE);
 }
 
 /** Rimantas opens Gabija's page from his dashboard; returns its URL. */
@@ -145,6 +152,8 @@ async function coachOpensShared(coach: Page): Promise<void> {
   const r = en.repertoires;
   for (const control of [
     coach.getByRole('switch', { name: r.mode.build }),
+    // No Repertoire screen for him: no More, so no Add from PGN or sharing.
+    coach.getByRole('link', { name: r.more }),
     coach.getByRole('link', { name: r.header.importInto }),
     coach.getByRole('button', { name: r.note.label }),
     coach.getByRole('textbox', { name: r.builder.commentLabel }),
@@ -265,8 +274,18 @@ test(`G-M1-3: a shared repertoire, its coach note, and how unshare and unlink en
     await coach.reload();
     await expectNotFound(coach);
     await gabija.goto(repertoire);
-    // No linked coach left: no share section at all (#331).
-    await expect(gabija.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(gabija.getByRole('heading', { level: 1 })).toHaveText(
+      REPERTOIRE,
+    );
+    // No linked coach left: her Repertoire screen has no share section at
+    // all (#331).
+    await openRepertoireOptions(gabija, messages);
+    await expect(
+      gabija.getByRole('link', {
+        name: en.repertoires.header.download,
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(shareSection(gabija, messages)).toHaveCount(0);
   });
 });

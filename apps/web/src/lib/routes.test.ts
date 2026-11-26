@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   acceptedInvitePath,
+  assignedForkRoute,
   assignedManageRoute,
   assignedRepertoirePath,
   coachGroupPath,
@@ -172,6 +173,12 @@ describe('the Repertoire screens (R-226)', () => {
   it('sits under the assigned repertoire, the id encoded', () => {
     expect(assignedManageRoute('r 1')).toBe(
       '/repertoires/assigned/r%201/manage',
+    );
+  });
+
+  it('opens the assigned one on "make my own copy"', () => {
+    expect(assignedForkRoute('r 1')).toBe(
+      '/repertoires/assigned/r%201/manage?fork=1',
     );
   });
 });

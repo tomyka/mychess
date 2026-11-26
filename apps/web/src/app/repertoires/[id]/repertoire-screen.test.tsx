@@ -28,6 +28,7 @@ import {
   plainChapterTitle,
 } from '../../../server/chapter-names';
 import type { NoteOutcome } from '../../repertoire-view';
+import { panelTraining } from '../../repertoire-view/test-training';
 import type { EditOutcome } from './actions';
 import {
   RepertoireScreen,
@@ -80,11 +81,18 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const GRAPH = graphOf(LONDON);
 const r = MESSAGES.repertoires;
 
+/** The owner's training: 4 due, 9 to learn today, 64% learned. */
+const TRAINING = panelTraining({
+  repertoireId: ID,
+  counts: { due: 4, toLearn: 9 },
+  standing: {
+    counts: { notStarted: 5, skipped: 0, due: 4, learned: 16 },
+    mastered: false,
+  },
+});
+
 type Coaching = Partial<
-  Pick<
-    RepertoireScreenProps,
-    'sharing' | 'coachNotes' | 'forkNotes' | 'assignedPlayers' | 'assignPanel'
-  >
+  Pick<RepertoireScreenProps, 'coachNotes' | 'forkNotes' | 'training'>
 >;
 
 function renderScreen(
@@ -99,11 +107,9 @@ function renderScreen(
         graph={graph}
         notes={{}}
         names={chapterNamesOf(graph)}
-        sharing={coaching.sharing ?? { coaches: [], sharedWith: [] }}
         coachNotes={coaching.coachNotes ?? []}
         forkNotes={coaching.forkNotes ?? []}
-        assignedPlayers={coaching.assignedPlayers}
-        assignPanel={coaching.assignPanel}
+        training={coaching.training ?? null}
       />
     </NextIntlClientProvider>,
   );
@@ -234,46 +240,39 @@ describe('RepertoireScreen: browsing', () => {
     ).not.toBeNull();
   });
 
-  it('offers sharing with the linked coaches', () => {
-    renderScreen(GRAPH, 'Londono sistema', {
-      sharing: {
-        coaches: [{ id: 'c-1', displayName: 'Rimantas' }],
-        sharedWith: ['c-1'],
-      },
-    });
+  it('leads back to Repertoires and to its Repertoire screen, with none of its actions on the page (R-226)', () => {
+    renderScreen();
     expect(
-      screen.getByRole('heading', { level: 2, name: MESSAGES.share.title }),
-    ).toBeDefined();
-    expect(screen.getByRole('checkbox', { name: 'Rimantas' })).toHaveProperty(
-      'checked',
-      true,
-    );
+      screen
+        .getByRole('link', { name: 'Back to Repertoires' })
+        .getAttribute('href'),
+    ).toBe('/repertoires');
+    expect(
+      screen.getByRole('link', { name: r.more }).getAttribute('href'),
+    ).toBe(`/repertoires/${ID}/manage`);
+    for (const name of [r.header.rename, r.header.delete])
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    expect(screen.queryByRole('link', { name: r.header.download })).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: MESSAGES.share.title }),
+    ).toBeNull();
   });
 
-  it('puts the assign panel before sharing and counts its players on delete (R-131, #331)', () => {
+  it('sums it up under the name, with Review and Learn today (spec, Header)', () => {
     renderScreen(GRAPH, 'Londono sistema', {
-      assignedPlayers: 2,
-      assignPanel: <section aria-label="Assign slot" />,
-      sharing: {
-        coaches: [{ id: 'c-1', displayName: 'Rimantas' }],
-        sharedWith: [],
-      },
+      training: TRAINING,
     });
-    const slot = screen.getByRole('region', { name: 'Assign slot' });
-    expect(slot.nextElementSibling?.getAttribute('aria-labelledby')).toBe(
-      screen.getByRole('heading', { level: 2, name: MESSAGES.share.title }).id,
-    );
-    // The phone's and the desktop's Delete both ask with the count.
-    for (const remove of screen.getAllByRole('button', {
-      name: r.header.delete,
-    })) {
-      fireEvent.click(remove);
-    }
+    expect(screen.getByText('White · 2 chapters · 64% learned')).toBeDefined();
     expect(
-      screen.getAllByText(
-        '2 players have this repertoire; each has 30 days to keep their own copy.',
-      ),
-    ).toHaveLength(2);
+      screen.getByRole('link', { name: 'Review 4' }).getAttribute('href'),
+    ).toBe(`/training?mode=review&r=${ID}`);
+    expect(
+      screen.getByRole('link', { name: 'Learn 9 today' }).getAttribute('href'),
+    ).toBe(`/training?mode=learn&r=${ID}`);
+    // The builder shows no progress (spec, Builder).
+    fireEvent.click(screen.getByRole('switch', { name: r.mode.build }));
+    expect(screen.getByText('White · 2 chapters')).toBeDefined();
+    expect(screen.queryByRole('link', { name: 'Review 4' })).toBeNull();
   });
 
   it('goes to a move played on the board when the chapter has it', () => {

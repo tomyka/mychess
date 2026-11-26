@@ -81,6 +81,10 @@ export const assignedManageRoute = (id: string): string =>
  */
 export const FORK_PARAM = 'fork';
 
+/** The assigned Repertoire screen with "make my own copy"'s question open. */
+export const assignedForkRoute = (id: string): string =>
+  `${assignedManageRoute(id)}?${FORK_PARAM}=1`;
+
 /** The query parameter a repertoire's page opens on a chapter by. */
 export const CHAPTER_PARAM = 'chapter';
 

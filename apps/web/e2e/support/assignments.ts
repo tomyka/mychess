@@ -4,7 +4,7 @@
 import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { format, LOCALE, type Messages } from './journey';
-import { previewImport } from './repertoires';
+import { openRepertoireOptions, previewImport } from './repertoires';
 
 /** A PGN under e2e/fixtures. */
 export const fixture = (name: string): string =>
@@ -54,29 +54,68 @@ export async function importRepertoire(
   return page.url();
 }
 
-/** The coach's assign panel on their repertoire page. */
+/** The coach's "Assigned to" section on their Repertoire screen (R-225). */
 const assignPanel = (page: Page, messages: Messages): Locator =>
-  page.getByRole('region', { name: messages.assignment.panel.title });
+  page.getByRole('region', {
+    name: messages.assignment.panel.list,
+    exact: true,
+  });
 
-/** One row of the panel's list: the assignment to `target`. */
+/** The row of the player `name` in the section's list. */
 export const assignmentRow = (
   page: Page,
   messages: Messages,
-  target: string,
+  name: string,
+): Locator =>
+  assignPanel(page, messages).getByRole('listitem', { name, exact: true });
+
+/**
+ * The rows of the group `group`'s players: each player has a row of their
+ * own, with the group it comes through under the name.
+ */
+export const groupRows = (
+  page: Page,
+  messages: Messages,
+  group: string,
 ): Locator =>
   assignPanel(page, messages)
     .getByRole('listitem')
     .filter({
-      has: page.getByRole('heading', { level: 4, name: target, exact: true }),
+      has: page.getByText(
+        format(messages.assignment.panel.inGroup, { name: group }),
+        { exact: true },
+      ),
     });
 
-/** In the assign panel: assigns to `target` (a player or a group). */
+/**
+ * Opens the row's Change, "Change for <group>" in a group's row: the
+ * deadline forms and Unassign of the assignment it names.
+ */
+export async function openChange(
+  row: Locator,
+  messages: Messages,
+  group?: string,
+): Promise<void> {
+  const t = messages.assignment.panel;
+  const label =
+    group === undefined ? t.change : format(t.changeFor, { name: group });
+  const change = row.getByRole('button', { name: label, exact: true });
+  await change.click();
+  await expect(change).toHaveAttribute('aria-expanded', 'true');
+}
+
+/**
+ * Assigns the repertoire to `target` (a player or a group) on its
+ * Repertoire screen, opened through More from the repertoire's page.
+ */
 export async function assignTo(
   page: Page,
   messages: Messages,
   { target, deadline }: { target: string; deadline?: string },
 ): Promise<void> {
   const t = messages.assignment.panel;
+  if (!new URL(page.url()).pathname.endsWith('/manage'))
+    await openRepertoireOptions(page, messages);
   const panel = assignPanel(page, messages);
   await panel
     .getByLabel(t.target, { exact: true })
@@ -85,8 +124,13 @@ export async function assignTo(
     await panel.getByLabel(t.deadline, { exact: true }).fill(deadline);
   await panel.getByRole('button', { name: t.assign, exact: true }).click();
   // Not "Assigned.": that status goes with the form once no one is left
-  // to assign to. The new row is what shows it saved.
-  await expect(assignmentRow(page, messages, target)).toBeVisible();
+  // to assign to. The new row is what shows it saved: the player's, or the
+  // first of the group's (a group with no players has one under its name).
+  await expect(
+    assignmentRow(page, messages, target)
+      .or(groupRows(page, messages, target))
+      .first(),
+  ).toBeVisible();
 }
 
 /** The open fork offers on Today ("Copies you can keep"). */

@@ -1,11 +1,9 @@
 import type { JSX } from 'react';
 import { CHAPTER_PARAM } from '../../../lib/routes';
-import { coachAssignData } from '../../../server/coach-assignments';
 import { chapterIdSchema } from '../../../server/repertoire-edit';
 import { repertoirePageData } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 import { repertoireTraining } from '../../../server/training';
-import { AssignPanel } from './assign-panel';
 import { RepertoireScreen } from './repertoire-screen';
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -14,9 +12,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
 // account may not view, a malformed id included, is 404 (decision 12). The
 // screen is keyed by version, so a reload after a stale save starts afresh.
 // `?chapter=` opens it on that chapter (after an import, its first new
-// one); a chapter it does not have opens the first. In Coach mode the
-// owner also gets the assign panel (R-15). The owner trains it: the panel
-// has the train buttons with its counts (R-142).
+// one); a chapter it does not have opens the first. The owner trains it:
+// the summary line has Review and Learn with its counts (R-142). Sharing,
+// assigning and the other actions are on its Repertoire screen (R-226).
 export default async function RepertoirePage({
   params,
   searchParams,
@@ -29,9 +27,8 @@ export default async function RepertoirePage({
   const chapter = chapterIdSchema.safeParse(
     (await searchParams)[CHAPTER_PARAM],
   );
-  const { repertoire, graph, notes, names, sharing, coachNotes, forkNotes } =
+  const { repertoire, graph, notes, names, coachNotes, forkNotes } =
     await repertoirePageData(id);
-  const { assignedPlayers, panel } = await coachAssignData(repertoire.id);
   const training = await repertoireTraining(
     await requireOnboarded(),
     repertoire.id,
@@ -49,17 +46,10 @@ export default async function RepertoirePage({
       notes={notes}
       names={names}
       chapterId={chapter.success ? chapter.data : null}
-      sharing={sharing}
       coachNotes={coachNotes}
       forkNotes={forkNotes}
-      assignedPlayers={assignedPlayers}
       training={
         training === null ? null : { repertoireId: repertoire.id, ...training }
-      }
-      assignPanel={
-        panel === null ? null : (
-          <AssignPanel repertoireId={repertoire.id} data={panel} />
-        )
       }
     />
   );

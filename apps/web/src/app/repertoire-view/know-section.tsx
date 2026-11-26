@@ -15,7 +15,7 @@ import { currentLineIndex } from './current-line';
 import { KnowThisMenu } from './know-this-menu';
 import { LearnLink } from './learn-link';
 import { PANEL_LABEL } from './panel-styles';
-import type { PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 
 export interface KnowSectionProps {
   readonly training: PanelTraining;

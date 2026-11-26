@@ -48,8 +48,6 @@ vi.mock('@lichess-org/chessground', () => ({
 }));
 
 vi.mock('./actions', () => ({
-  pauseAction: vi.fn(),
-  forkAction: vi.fn(),
   markSeenAction: vi.fn(() => Promise.resolve()),
   setPersonalNoteAction: vi.fn(),
 }));
@@ -91,6 +89,11 @@ describe('the assigned repertoire page', () => {
         limits: { reviews: 20, newPerDay: 5 },
       },
       limitReached: false,
+      standing: {
+        counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
+        mastered: false,
+      },
+      chapters: {},
     });
   });
 
@@ -115,12 +118,12 @@ describe('the assigned repertoire page', () => {
     );
     expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
-      screen.getByRole('link', { name: 'Review (3)' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Review 3' }).getAttribute('href'),
     ).toBe(`/training?mode=review&r=${ID}`);
-    expect(screen.getByRole('link', { name: 'Learn (5)' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Learn 5 today' })).toBeDefined();
   });
 
-  it('hides the train buttons and "I know this" while paused (R-46)', async () => {
+  it('hides Review, Learn and "I know this" while paused, and says it is paused (R-46)', async () => {
     loader.data.mockResolvedValue(london(true));
     renderLt(
       await AssignedRepertoirePageView({ params: Promise.resolve({ id: ID }) }),
@@ -130,9 +133,7 @@ describe('the assigned repertoire page', () => {
     expect(
       screen.queryByRole('button', { name: /I know this or learn again/ }),
     ).toBeNull();
-    expect(
-      screen.getByText(MESSAGES.assignment.pause.pausedHint),
-    ).toBeDefined();
+    expect(screen.getByText(MESSAGES.assignment.badge.paused)).toBeDefined();
   });
 });
 

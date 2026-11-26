@@ -48,7 +48,8 @@ function View({
   const view = useBrowseView(graph, 'white');
   return (
     <RepertoireShell
-      header={<h1>Londono sistema</h1>}
+      topBar={<h1>Londono sistema</h1>}
+      commentStrip={<p>Komentaro juosta</p>}
       name="Londono sistema"
       names={{ taxonomyNames: {}, distinctions: {} }}
       view={view}
@@ -62,7 +63,6 @@ function View({
         ),
         notedMoves,
         noteKind: 'coach',
-        footer: <p>Pabaiga</p>,
       }}
       {...(said === undefined
         ? {}
@@ -97,8 +97,12 @@ beforeEach(() => {
   ground.created.length = 0;
 });
 
+/** Whether `a` comes before `b` in the document. */
+const precedes = (a: Element, b: Element): boolean =>
+  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
 describe('RepertoireShell', () => {
-  it('lays the header, the board, the toolbar and the panel out in one main landmark', () => {
+  it('lays the top bar, the board, the toolbar and the panel out in one main landmark', () => {
     renderView();
     const main = within(screen.getByRole('main'));
     expect(
@@ -109,7 +113,35 @@ describe('RepertoireShell', () => {
     ).toBeDefined();
     expect(main.getByText('Įrankiai')).toBeDefined();
     expect(main.getByRole('button', { name: r.nav.back })).toBeDefined();
-    expect(main.getByText('Pabaiga')).toBeDefined();
+  });
+
+  it('puts the top bar once, over the board on a phone and first in the panel column on a desktop (spec, Header)', () => {
+    renderView();
+    const heading = screen.getAllByRole('heading', { level: 1 });
+    expect(heading).toHaveLength(1);
+    const board = screen.getByRole('application');
+    expect(precedes(heading[0] ?? board, board)).toBe(true);
+    // The grid places it in the panel's column, in the row above the panel.
+    const bar = heading[0]?.parentElement;
+    expect(bar?.className).toContain('lg:col-start-2');
+    expect(bar?.className).toContain('lg:row-start-1');
+  });
+
+  it('sizes the desktop board to the viewport: at 1280x800 at least 640px, never wider than the room beside the panel (finding 7)', () => {
+    renderView();
+    const frame = screen.getByRole('application').closest('.lg\\:sticky');
+    expect(frame?.className).toContain(
+      'lg:w-[min(calc(100dvh-3rem-var(--shell-chrome,0px)),46rem,calc(100vw-var(--spacing-panel)-6rem))]',
+    );
+  });
+
+  it('puts the comment strip under the board row, before the scrolling panel', () => {
+    renderView();
+    const strip = screen.getByText('Komentaro juosta');
+    expect(
+      precedes(screen.getByRole('button', { name: r.nav.forward }), strip),
+    ).toBe(true);
+    expect(precedes(strip, screen.getByText('Tik skaityti'))).toBe(true);
   });
 
   it('opens browsing at the chapter root with its intro, and no notes there', () => {
@@ -160,14 +192,13 @@ describe('RepertoireShell', () => {
 });
 
 describe('the panel', () => {
-  it('shows the lead, the chapters, the position, the moves and the footer in that order', () => {
+  it('shows the lead, the chapters, the position and the moves in that order', () => {
     renderView();
     const order = [
       screen.getByText('Tik skaityti'),
       screen.getByRole('button', { expanded: false }),
       screen.getByRole('region', { name: r.panel.intro }),
       firstMove(),
-      screen.getByText('Pabaiga'),
     ];
     for (const [i, node] of order.entries()) {
       const next = order[i + 1];
@@ -189,6 +220,5 @@ describe('the panel', () => {
     renderView({ graph: { side: 'white', chapters: [], moves: [] } });
     expect(screen.getByText('Skyrių nėra')).toBeDefined();
     expect(screen.queryByRole('button', { name: /^1\. d4/ })).toBeNull();
-    expect(screen.getByText('Pabaiga')).toBeDefined();
   });
 });

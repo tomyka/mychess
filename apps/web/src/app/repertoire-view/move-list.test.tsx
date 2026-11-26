@@ -1,7 +1,7 @@
 import { moveKey, type RepertoireMove } from '@mychess/chess';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { MoveList, type MoveListProps } from './move-list';
@@ -168,6 +168,143 @@ describe('MoveList', () => {
       '1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Be3 ' +
         '6. Be2 a6 7. O-O 7. Be3 Nf6 7... Nf6 6. g3 a6 6... a6 7. Qd2 Nf6',
     );
+  });
+
+  describe('bringing the current move into view (finding 8)', () => {
+    /** A rect from `top` to `bottom`, the rest zero. */
+    const rect = (top: number, bottom: number): DOMRect => ({
+      top,
+      bottom,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: bottom - top,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    });
+
+    /**
+     * Renders the list in a 100px scroller scrolled to `scrollTop`, with
+     * the current move's chip at `chipTop` (44px high) as the scroller sees
+     * it. Between the list and the scroller sits a box that clips sideways
+     * (overflow-x hidden makes its overflow-y compute to auto) but has
+     * nothing to scroll; outside the scroller, an ancestor that clips and
+     * scrolls too. The page never scrolls.
+     */
+    function renderScrolled(scrollTop: number, chipTop: number) {
+      setScrollTop(scrollTop);
+      stubHeight('scrollHeight');
+      stubHeight('clientHeight');
+      const pageScroll = vi.spyOn(window, 'scrollTo').mockReturnValue();
+      const intoView = vi.fn();
+      Object.defineProperty(Element.prototype, 'scrollIntoView', {
+        configurable: true,
+        value: intoView,
+      });
+      vi.spyOn(
+        HTMLElement.prototype,
+        'getBoundingClientRect',
+      ).mockImplementation(function (this: HTMLElement) {
+        if (this.dataset['testid'] === 'scroller') return rect(0, 100);
+        if (this.getAttribute('aria-current') === 'true')
+          return rect(chipTop, chipTop + 44);
+        return rect(0, 0);
+      });
+      const d5 = LONDON_GRAPH.moves.find((m) => m.san === 'd5');
+      const d4 = LONDON_GRAPH.moves.find((m) => m.san === 'd4');
+      render(
+        <NextIntlClientProvider locale="en" messages={MESSAGES}>
+          <div
+            data-testid="outer"
+            data-scroll-height="2000"
+            data-client-height="800"
+            style={{ overflowX: 'hidden', overflowY: 'auto' }}
+          >
+            <div
+              data-testid="scroller"
+              data-scroll-height="400"
+              data-client-height="100"
+              style={{ overflowY: 'auto' }}
+            >
+              <div
+                data-testid="clipper"
+                style={{ overflowX: 'hidden', overflowY: 'auto' }}
+              >
+                <MoveList
+                  graph={LONDON_GRAPH}
+                  chapterId="c1"
+                  path={d4 === undefined || d5 === undefined ? [] : [d4, d5]}
+                  notedMoves={{}}
+                  onGoto={vi.fn()}
+                />
+              </div>
+            </div>
+          </div>
+        </NextIntlClientProvider>,
+      );
+      return {
+        scroller: screen.getByTestId('scroller'),
+        clipper: screen.getByTestId('clipper'),
+        outer: screen.getByTestId('outer'),
+        pageScroll,
+        intoView,
+      };
+    }
+
+    /** `scrollHeight` or `clientHeight` from the element's data, else 0. */
+    function stubHeight(name: 'scrollHeight' | 'clientHeight'): void {
+      Object.defineProperty(HTMLElement.prototype, name, {
+        configurable: true,
+        get(this: HTMLElement) {
+          return Number(this.dataset[name] ?? 0);
+        },
+      });
+    }
+
+    function setScrollTop(scrollTop: number): void {
+      Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+        configurable: true,
+        get(this: HTMLElement) {
+          return Number(this.dataset['scrollTop'] ?? scrollTop);
+        },
+        set(this: HTMLElement, value: number) {
+          this.dataset['scrollTop'] = String(value);
+        },
+      });
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollTop');
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollHeight');
+      Reflect.deleteProperty(HTMLElement.prototype, 'clientHeight');
+    });
+
+    it('scrolls its scroller down to a move below it, and never the page', () => {
+      const { scroller, pageScroll, intoView } = renderScrolled(0, 150);
+      expect(scroller.scrollTop).toBe(94);
+      expect(pageScroll).not.toHaveBeenCalled();
+      expect(intoView).not.toHaveBeenCalled();
+    });
+
+    it('passes over a box that clips but has nothing to scroll, and leaves the ancestors outside alone', () => {
+      const { scroller, clipper, outer } = renderScrolled(0, 150);
+      expect(scroller.scrollTop).toBe(94);
+      expect(clipper.scrollTop).toBe(0);
+      expect(outer.scrollTop).toBe(0);
+    });
+
+    it('scrolls its scroller up to a move above it', () => {
+      const { scroller } = renderScrolled(200, -50);
+      expect(scroller.scrollTop).toBe(150);
+    });
+
+    it('leaves a move already in view where it is', () => {
+      const { scroller } = renderScrolled(30, 20);
+      expect(scroller.scrollTop).toBe(30);
+    });
   });
 
   it('says when the chapter has no moves', () => {

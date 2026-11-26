@@ -10,7 +10,7 @@ import {
 } from '../../lib/chapter-label';
 import { SECONDARY_BUTTON } from '../buttons';
 import { ChapterRow, type ChapterBuilder } from './chapter-row';
-import type { PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 
 export type { ChapterBuilder } from './chapter-row';
 

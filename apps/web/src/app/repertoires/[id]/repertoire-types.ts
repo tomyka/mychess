@@ -1,4 +1,4 @@
-/** The repertoire the header and its actions are about. */
+/** The repertoire the Repertoire screen and its actions are about. */
 export interface Repertoire {
   readonly id: string;
   readonly name: string;

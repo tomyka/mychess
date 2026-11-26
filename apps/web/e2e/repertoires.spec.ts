@@ -25,6 +25,7 @@ import {
   disclosure,
   distinctTitle,
   expectSummary,
+  openRepertoireOptions,
   openRepertoires,
   plural,
   previewImport,
@@ -255,9 +256,13 @@ test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-impor
   );
   await expectTaimanovNotes(page);
 
-  // G-M1-6: the download re-imports to the same tree, comments included.
+  // G-M1-6: the download, on the Repertoire screen (R-226), re-imports to
+  // the same tree, comments included.
+  await openRepertoireOptions(page, en);
   const downloading = page.waitForEvent('download');
-  await page.getByRole('link', { name: t.header.download }).first().click();
+  await page
+    .getByRole('link', { name: t.header.download, exact: true })
+    .click();
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/\.pgn$/);
   const path = await download.path();
@@ -276,7 +281,13 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   const url = await importAsNew(page, TAIMANOV, 'Taimanovas');
 
   // Nothing to add: refused, and the repertoire is not touched (R-115).
-  await page.getByRole('link', { name: t.header.importInto }).first().click();
+  // Add from PGN is on the Repertoire screen (R-226).
+  const addFromPgn = page.getByRole('link', {
+    name: t.header.importInto,
+    exact: true,
+  });
+  await openRepertoireOptions(page, en);
+  await addFromPgn.click();
   await previewImport(page, en, { file: TAIMANOV_NOTHING });
   await expect(page.getByText(en.pgn.nothingToAdd)).toBeVisible();
   await expect(
@@ -285,7 +296,8 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
 
   // Two new lines and one it has: two chapters after the six (R-117).
   await page.goto(url);
-  await page.getByRole('link', { name: t.header.importInto }).first().click();
+  await openRepertoireOptions(page, en);
+  await addFromPgn.click();
   await previewImport(page, en, { file: TAIMANOV_MORE });
   await expect(
     page.getByText(
@@ -322,8 +334,13 @@ test('the board takes a move from the keyboard in builder mode', async ({
   await newOnboardedAccount(page, request, 'Rokas Petrauskas');
   await openRepertoires(page, en);
   await createRepertoire(page, en, { name: 'Klaviatūra', side: 'white' });
-  // Tab from the mode switch lands on the board: one tab stop.
+  // The top bar is Edit, then More; Tab from Edit passes More and lands on
+  // the board: one tab stop for the board.
   await page.getByRole('switch', { name: en.repertoires.mode.build }).focus();
+  await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('link', { name: en.repertoires.more, exact: true }),
+  ).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('application')).toBeFocused();
   // The cursor starts on a1: to d2, pick up; to d4, drop.

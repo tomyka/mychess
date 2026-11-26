@@ -1,154 +1,109 @@
 'use client';
 
-import { assignmentBadges } from '@mychess/domain';
+import type { Standing } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import { useEffect, useState, type JSX } from 'react';
+import Link from 'next/link';
+import { useEffect, type JSX } from 'react';
 import type { MessageKey } from '../../../../i18n/message-key';
-import { ROUTES } from '../../../../lib/routes';
-import { SECONDARY_BUTTON } from '../../../buttons';
-import type { Asking } from '../../../confirmed-action';
+import {
+  assignedForkRoute,
+  assignedManageRoute,
+  ROUTES,
+} from '../../../../lib/routes';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import type { RepertoireTraining } from '../../../../server/training';
+import { SECONDARY_BUTTON } from '../../../buttons';
 import {
-  BackLink,
-  HeaderFrame,
   PersonalNote,
   RepertoireShell,
+  RepertoireTopBar,
+  SummaryLine,
   useBrowseView,
   useNotes,
   type Notes,
   type PanelContent,
+  type PanelTraining,
   type ScreenMessage,
 } from '../../../repertoire-view';
 import { markSeenAction, setPersonalNoteAction } from './actions';
 import { ChangesSummary } from './changes-summary';
-import { DownloadLink } from '../../download-link';
-import { ForkCopy, type ForkAction } from './fork-copy';
-import { AssignmentBadges } from '../../../assignment-badges';
-import { useDeadline } from '../../../use-deadline';
-import { PauseControl, usePause, type PauseHandle } from './pause-control';
-
-/**
- * The way back to Repertoires, the repertoire's name, who assigned it, its deadline and
- * badges (docs/design/coach-shared-repertoire.md's top bar).
- */
-function AssignedHeader({
-  data,
-  paused,
-}: {
-  readonly data: AssignedRepertoirePage;
-  /** The pause as it is now, which may have changed since the page loaded. */
-  readonly paused: boolean;
-}): JSX.Element {
-  const t = useTranslations('assignment');
-  const root = useTranslations();
-  const date = useDeadline();
-  const { deadline } = data;
-  return (
-    <HeaderFrame>
-      <BackLink
-        href={ROUTES.repertoires}
-        label={root('nav.back', { parent: root('nav.repertoires') })}
-      />
-      <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
-        <h1
-          title={data.repertoire.name}
-          className="truncate text-lg font-semibold lg:whitespace-normal lg:text-3xl lg:font-bold"
-        >
-          {data.repertoire.name}
-        </h1>
-        <p className="truncate text-sm text-fg-muted">
-          {t('page.assignedBy', { name: data.coachName })}
-        </p>
-        {deadline === null ? null : (
-          <p className="text-sm">{t('deadlineOn', { date: date(deadline) })}</p>
-        )}
-        <AssignmentBadges
-          flags={assignmentBadges({
-            audience: 'player',
-            opened: true,
-            overdue: data.overdue,
-            paused,
-          })}
-        />
-      </div>
-    </HeaderFrame>
-  );
-}
 
 /** What the board says for a move the chapter lacks: the coach's to change. */
 const NOT_IN_CHAPTER: MessageKey = 'assignment.notInChapter';
 
-/** Pause or resume, download the PGN, then "make my own copy". */
-function AssignmentActions({
-  data,
-  pause,
-  forkAction,
-  forkAsking,
-}: {
-  readonly data: AssignedRepertoirePage;
-  readonly pause: PauseHandle;
-  readonly forkAction: ForkAction;
-  readonly forkAsking: Asking;
-}): JSX.Element {
-  const { id, name } = data.repertoire;
+/**
+ * Beside "this is your coach's repertoire" (#320): the way to a Fork, a
+ * copy the player can change, on the Repertoire screen with its question
+ * open. Not a Fork offer (R-44, R-130), which follows an unlink.
+ */
+function ForkLink({ id }: { readonly id: string }): JSX.Element {
+  const t = useTranslations('assignment.fork');
   return (
-    <div className="flex flex-col gap-4 border-t border-border pt-4">
-      <PauseControl repertoireId={id} pause={pause} />
-      <DownloadLink id={id} />
-      <ForkCopy
-        repertoireId={id}
-        name={name}
-        action={forkAction}
-        asking={forkAsking}
-      />
-    </div>
+    <Link
+      href={assignedForkRoute(id)}
+      className={`${SECONDARY_BUTTON} self-start`}
+    >
+      {t('label')}
+    </Link>
   );
 }
 
 /**
- * Beside "this is your coach's repertoire" (#320): the way to a Fork, a
- * copy the player can change. It opens "make my own copy"'s question below
- * the panel. Not a Fork offer (R-44, R-130), which follows an unlink.
+ * The header (spec, Header): back to Repertoires, the name and More, then
+ * the summary line and the status strip: who assigned it, its deadline and
+ * badges.
  */
-function OpenForkButton({ asking }: { readonly asking: Asking }): JSX.Element {
-  const t = useTranslations('assignment.fork');
+function AssignedTopBar({
+  data,
+  standing,
+  training,
+  today,
+}: {
+  readonly data: AssignedRepertoirePage;
+  /** The share learned, paused or not (R-222). */
+  readonly standing: Standing | undefined;
+  /** Review and Learn; none while paused (R-46). */
+  readonly training: PanelTraining | undefined;
+  readonly today: string;
+}): JSX.Element {
+  const t = useTranslations('nav');
+  const { id, name, side } = data.repertoire;
   return (
-    <button
-      type="button"
-      onClick={() => {
-        asking.set(true);
-      }}
-      className={`${SECONDARY_BUTTON} self-start`}
+    <RepertoireTopBar
+      back={{ href: ROUTES.repertoires, parent: t('repertoires') }}
+      name={name}
+      moreHref={assignedManageRoute(id)}
     >
-      {t('label')}
-    </button>
+      <SummaryLine
+        side={side}
+        chapters={data.graph.chapters.length}
+        standing={standing}
+        training={training}
+        assignment={{
+          coachName: data.coachName,
+          deadline: data.deadline,
+          today,
+          overdue: data.overdue,
+          paused: data.paused,
+        }}
+      />
+    </RepertoireTopBar>
   );
 }
 
 /**
  * What the player sees in the panel: what changed since the last visit,
- * the coach's comments as coach notes (R-102), the player's own note under
- * each (R-21), and the assignment's actions last.
+ * the coach's comments as coach notes (R-102) and the player's own note
+ * under each (R-21).
  */
 function useAssignedPanel(
   data: AssignedRepertoirePage,
   notes: Notes,
-  actions: {
-    readonly pause: PauseHandle;
-    readonly forkAction: ForkAction;
-    readonly forkAsking: Asking;
-  },
-  training: RepertoireTraining | null,
+  training: PanelTraining | undefined,
 ): PanelContent {
   const t = useTranslations();
-  // A paused assignment trains nothing new (R-46): no train buttons, no
-  // Learn and no "I know this"; the pause control says why.
-  const trains = training !== null && !actions.pause.state.paused;
   return {
-    training: trains
-      ? { repertoireId: data.repertoire.id, ...training }
-      : undefined,
+    training,
     lead: (
       <ChangesSummary
         graph={data.graph}
@@ -168,24 +123,24 @@ function useAssignedPanel(
       />
     ),
     notedMoves: notes.byMove,
-    footer: <AssignmentActions data={data} {...actions} />,
   };
 }
 
 /**
  * A repertoire the player has from their coach (R-15, R-21): the board,
- * chapters and moves read-only, the coach's comments, the player's own
- * notes, pause and "make my own copy". Opening it marks the version shown
- * seen, so "Updated" and the summary show once (R-133). `forkAction`: the
- * fork's server action.
+ * chapters and moves read-only, the coach's comments and the player's own
+ * notes. Pause, Download PGN and "make my own copy" are on its Repertoire
+ * screen (R-226). Opening it marks the version shown seen, so "Updated"
+ * and the summary show once (R-133).
  */
 export function AssignedView({
   data,
-  forkAction,
+  today,
   training = null,
 }: {
   readonly data: AssignedRepertoirePage;
-  readonly forkAction: ForkAction;
+  /** The page's day, `YYYY-MM-DD` in Vilnius, for the days left. */
+  readonly today: string;
   /** The player's training of it, as the page loaded (R-142, R-206). */
   readonly training?: RepertoireTraining | null;
 }): JSX.Element {
@@ -194,15 +149,13 @@ export function AssignedView({
   const notes = useNotes(data.personalNotes, (moveKey, text) =>
     setPersonalNoteAction({ repertoireId: id, moveKey, text }),
   );
-  const pause = usePause(data.paused);
-  const [forkOpen, setForkOpen] = useState(false);
-  const forkAsking: Asking = { open: forkOpen, set: setForkOpen };
-  const panel = useAssignedPanel(
-    data,
-    notes,
-    { pause, forkAction, forkAsking },
-    training,
-  );
+  // A paused assignment trains nothing new (R-46): no Review or Learn, no
+  // "I know this".
+  const trained: PanelTraining | undefined =
+    training === null || data.paused
+      ? undefined
+      : { repertoireId: id, ...training };
+  const panel = useAssignedPanel(data, notes, trained);
   useEffect(() => {
     markSeenAction({ repertoireId: id, seenVersion: version }).catch(
       () => undefined,
@@ -210,15 +163,20 @@ export function AssignedView({
   }, [id, version]);
   return (
     <RepertoireShell
-      header={<AssignedHeader data={data} paused={pause.state.paused} />}
+      topBar={
+        <AssignedTopBar
+          data={data}
+          standing={training?.standing}
+          training={trained}
+          today={today}
+        />
+      }
       name={data.repertoire.name}
       names={data.names}
       view={view}
       panel={panel}
       statusAction={(message: ScreenMessage) =>
-        message.key === NOT_IN_CHAPTER ? (
-          <OpenForkButton asking={forkAsking} />
-        ) : null
+        message.key === NOT_IN_CHAPTER ? <ForkLink id={id} /> : null
       }
     />
   );

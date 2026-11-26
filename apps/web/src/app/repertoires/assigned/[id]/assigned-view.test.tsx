@@ -11,8 +11,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../i18n/catalogue';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
+import type { RepertoireTraining } from '../../../../server/training';
+import { panelTraining } from '../../../repertoire-view/test-training';
 import type { NoteOutcome } from '../../../repertoire-view';
-import type { ForkState, PauseState } from './actions';
 import { AssignedView } from './assigned-view';
 
 vi.mock('@lichess-org/chessground', () => ({
@@ -26,13 +27,11 @@ vi.mock('@lichess-org/chessground', () => ({
 }));
 
 const server = vi.hoisted(() => ({
-  pause: vi.fn<(previous: PauseState, form: FormData) => Promise<PauseState>>(),
   seen: vi.fn<(input: unknown) => Promise<void>>(),
   note: vi.fn<(input: unknown) => Promise<NoteOutcome>>(),
 }));
 
 vi.mock('./actions', () => ({
-  pauseAction: server.pause,
   markSeenAction: server.seen,
   setPersonalNoteAction: server.note,
 }));
@@ -42,11 +41,17 @@ const D4 = moveKey(START_KEY, 'd4');
 const a = MESSAGES.assignment;
 const GRAPH = graphOf(LONDON);
 
-const day = (iso: string): string =>
-  new Intl.DateTimeFormat('en', {
-    dateStyle: 'long',
-    timeZone: 'Europe/Vilnius',
-  }).format(new Date(`${iso}T12:00:00Z`));
+/** The page's day. */
+const TODAY = '2026-11-26';
+
+/** Rokas's training of it: 3 due, 5 to learn today, 60% learned. */
+const TRAINING: RepertoireTraining = panelTraining({
+  counts: { due: 3, toLearn: 5 },
+  standing: {
+    counts: { notStarted: 1, skipped: 0, due: 3, learned: 6 },
+    mastered: false,
+  },
+});
 
 /** Rokas's London as his coach Jonas assigned it, nothing changed since. */
 const DATA: AssignedRepertoirePage = {
@@ -61,17 +66,21 @@ const DATA: AssignedRepertoirePage = {
   changes: { added: [], removed: [], commentsChanged: 0 },
 };
 
-const fork =
-  vi.fn<(previous: ForkState, form: FormData) => Promise<ForkState>>();
-
-function renderView(over: Partial<AssignedRepertoirePage> = {}): void {
+function renderView(
+  over: Partial<AssignedRepertoirePage> = {},
+  training: RepertoireTraining | null = null,
+): void {
   render(
     <NextIntlClientProvider
       locale="en"
       messages={MESSAGES}
       timeZone="Europe/Vilnius"
     >
-      <AssignedView data={{ ...DATA, ...over }} forkAction={fork} />
+      <AssignedView
+        data={{ ...DATA, ...over }}
+        today={TODAY}
+        training={training}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -86,10 +95,8 @@ const noteField = () =>
   screen.queryByLabelText<HTMLTextAreaElement>(MESSAGES.repertoires.note.label);
 
 beforeEach(() => {
-  server.pause.mockReset().mockResolvedValue({ paused: true });
   server.seen.mockReset().mockResolvedValue(undefined);
   server.note.mockReset().mockResolvedValue({ ok: true });
-  fork.mockReset().mockResolvedValue({});
 });
 
 describe('AssignedView (R-21, R-102)', () => {
@@ -98,7 +105,7 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
-    expect(screen.getByText('Assigned by Jonas')).toBeDefined();
+    expect(screen.getByText('Jonas')).toBeDefined();
     expect(
       screen
         .getByRole('link', { name: 'Back to Repertoires' })
@@ -122,13 +129,20 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(document.querySelectorAll('textarea')).toHaveLength(0);
   });
 
-  it('downloads the coach’s repertoire as PGN (R-202)', () => {
+  it('leads to its Repertoire screen for pause, download and the copy (R-226)', () => {
     renderView();
-    const download = screen.getByRole('link', {
-      name: MESSAGES.repertoires.header.download,
-    });
-    expect(download.getAttribute('href')).toBe(`/api/repertoires/${ID}/export`);
-    expect(download.hasAttribute('download')).toBe(true);
+    expect(
+      screen
+        .getByRole('link', { name: MESSAGES.repertoires.more })
+        .getAttribute('href'),
+    ).toBe(`/repertoires/assigned/${ID}/manage`);
+    expect(
+      screen.queryByRole('link', {
+        name: MESSAGES.repertoires.header.download,
+      }),
+    ).toBeNull();
+    for (const name of [a.pause.pause, a.fork.label])
+      expect(screen.queryByRole('button', { name })).toBeNull();
   });
 
   it('shows the coach’s comments as coach notes with the coach’s name', () => {
@@ -172,44 +186,42 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(noteField()?.value).toBe('Mano planas');
   });
 
-  it('pauses the assignment, and the header says so at once', async () => {
-    renderView();
-    const header = screen.getByRole('banner');
-    expect(within(header).queryByText(a.badge.paused)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: a.pause.pause }));
+  it('sums it up under the name: the share learned, Review and Learn today, the status strip (spec, Header)', () => {
+    renderView({ deadline: '2026-11-30' }, TRAINING);
+    const header = within(screen.getByRole('banner'));
+    expect(header.getByText('White · 2 chapters · 60% learned')).toBeDefined();
     expect(
-      await screen.findByRole('button', { name: a.pause.resume }),
-    ).toBeDefined();
-    expect(within(header).getByText(a.badge.paused)).toBeDefined();
+      header.getByRole('link', { name: 'Review 3' }).getAttribute('href'),
+    ).toBe(`/training?mode=review&r=${ID}`);
+    expect(
+      header.getByRole('link', { name: 'Learn 5 today' }).getAttribute('href'),
+    ).toBe(`/training?mode=learn&r=${ID}`);
+    expect(header.getByText('Jonas')).toBeDefined();
+    expect(header.getByText('due Nov 30 · in 4 days')).toBeDefined();
+    expect(header.queryByText(a.badge.overdue)).toBeNull();
   });
 
-  it('opens paused when the assignment is paused, a badge under who assigned it', () => {
-    renderView({ paused: true });
-    expect(screen.getByRole('button', { name: a.pause.resume })).toBeDefined();
-    expect(screen.getByText(a.pause.pausedHint)).toBeDefined();
-    const assignedBy = within(screen.getByRole('banner')).getByText(
-      'Assigned by Jonas',
-    );
-    expect(assignedBy.nextElementSibling?.textContent).toBe(a.badge.paused);
+  it('keeps the share learned and shows the Paused pill, but offers no training while paused (R-222, R-46)', () => {
+    renderView({ paused: true }, TRAINING);
+    const header = within(screen.getByRole('banner'));
+    expect(header.getByText('White · 2 chapters · 60% learned')).toBeDefined();
+    expect(header.getByText(a.badge.paused)).toBeDefined();
+    expect(screen.queryByRole('link', { name: /^Review/u })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Learn/u })).toBeNull();
   });
 
-  it('shows the deadline under who assigned it, and overdue once it passed (R-16, R-51)', () => {
+  it('shows the Overdue pill once the deadline passed (R-16, R-51)', () => {
     renderView({ deadline: '2026-10-19', overdue: true });
-    const header = screen.getByRole('banner');
-    const deadline = within(header).getByText(
-      a.deadlineOn.replace('{date}', day('2026-10-19')),
-    );
-    expect(
-      within(header).getByText('Assigned by Jonas').nextElementSibling,
-    ).toBe(deadline);
-    expect(deadline.nextElementSibling?.textContent).toBe(a.badge.overdue);
+    const header = within(screen.getByRole('banner'));
+    expect(header.getByText(a.badge.overdue)).toBeDefined();
+    expect(header.queryByText(/^due/u)).toBeNull();
   });
 
   it('shows neither a deadline nor overdue without a deadline', () => {
     renderView();
-    const header = screen.getByRole('banner');
-    expect(within(header).queryByText(/Deadline/u)).toBeNull();
-    expect(within(header).queryByText(a.badge.overdue)).toBeNull();
+    const header = within(screen.getByRole('banner'));
+    expect(header.queryByText(/due/u)).toBeNull();
+    expect(header.queryByText(a.badge.overdue)).toBeNull();
   });
 
   it('marks the version it shows seen (R-133)', async () => {
@@ -232,17 +244,9 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(screen.queryByRole('region', { name: a.changes.title })).toBeNull();
   });
 
-  it('offers "make my own copy" behind a confirm step', async () => {
+  it('says a move the chapter lacks is the coach’s to change, and leads to the copy (#320)', () => {
     renderView();
-    fireEvent.click(screen.getByRole('button', { name: a.fork.label }));
-    fireEvent.click(screen.getByRole('button', { name: a.fork.confirm }));
-    await waitFor(() => {
-      expect(fork).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  it('says a move the chapter lacks is the coach’s to change, and offers the copy (#320)', async () => {
-    renderView();
+    expect(screen.queryByRole('link', { name: a.fork.label })).toBeNull();
     const field = screen.getByLabelText<HTMLInputElement>(
       MESSAGES.board.moveInput.label,
     );
@@ -252,19 +256,10 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(
       screen.queryByText(MESSAGES.repertoires.board.notInRepertoire),
     ).toBeNull();
-    const offers = screen.getAllByRole('button', { name: a.fork.label });
-    expect(offers).toHaveLength(2);
-    fireEvent.click(offers[0] ?? field);
+    // The copy's question opens on the Repertoire screen (R-226).
     expect(
-      screen.getByText(a.fork.question.replace('{name}', 'Londono sistema')),
-    ).toBeDefined();
-    expect(document.activeElement).toBe(
-      screen.getByRole('button', { name: a.fork.cancel }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: a.fork.confirm }));
-    await waitFor(() => {
-      expect(fork).toHaveBeenCalledTimes(1);
-    });
+      screen.getByRole('link', { name: a.fork.label }).getAttribute('href'),
+    ).toBe(`/repertoires/assigned/${ID}/manage?fork=1`);
   });
 
   it('shows a repertoire without chapters as empty, with no note', () => {

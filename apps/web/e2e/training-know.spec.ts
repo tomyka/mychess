@@ -62,13 +62,25 @@ test('D-M1-3: Dovydas marks the Catalan chapters known: nothing to learn, review
   expect(counts).toHaveLength(4);
   expect(counts.reduce((a, b) => a + b, 0)).toBe(ownKeys(catalan).length);
   await page.goto(url);
-  await expect(trainLink(page, en, 'review', 0)).toBeVisible();
-  await trainLink(page, en, 'learn', 0).click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: CATALAN }),
+  ).toBeVisible();
+  // Nothing to learn or review today: the summary line offers neither
+  // Review nor Learn, with any count (R-142, R-62).
+  const s = en.repertoires.summary;
+  for (const message of [s.review, s.learnToday]) {
+    const [before = '', after = ''] = message.split('{count}');
+    await expect(
+      page.getByRole('link', { name: new RegExp(`^${before}\\d+${after}$`) }),
+    ).toHaveCount(0);
+  }
+  // The training page scoped to it says so for each mode.
+  const id = /\/repertoires\/([0-9a-f-]{36})/.exec(url)?.[1] ?? '';
+  await page.goto(`/training?mode=learn&r=${id}`);
   await expect(
     page.getByRole('heading', { name: en.training.empty.nothingLeft.title }),
   ).toBeVisible();
-  await page.goto(url);
-  await trainLink(page, en, 'review', 0).click();
+  await page.goto(`/training?mode=review&r=${id}`);
   await expect(
     page.getByRole('heading', { name: en.training.empty.nothingDue.title }),
   ).toBeVisible();

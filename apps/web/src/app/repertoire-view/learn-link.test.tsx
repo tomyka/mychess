@@ -6,7 +6,7 @@ import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/catalogue';
 import { LearnLink } from './learn-link';
 import { panelTraining } from './test-training';
-import type { PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 
 const london = graphOf(LONDON);
 const chapterId = london.chapters[0]?.id ?? '';

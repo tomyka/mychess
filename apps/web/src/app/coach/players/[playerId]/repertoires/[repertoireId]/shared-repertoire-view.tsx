@@ -9,8 +9,7 @@ import {
 } from '../../../../../../lib/routes';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import {
-  BackLink,
-  HeaderFrame,
+  RepertoireTopBar,
   RepertoireShell,
   useBrowseView,
   useNotesByMove,
@@ -19,46 +18,38 @@ import {
 import { CoachNoteForm } from './coach-note-form';
 
 /**
- * The way back to the player and the repertoire's name: on a phone one top
- * bar (back, the name, the player's name under it) so the board stays high;
- * on a desktop the back link spelled out over the name
- * (docs/design/coach-shared-repertoire.md). Then the way to the player's
- * progress on this repertoire (S7 decision 7).
+ * The repertoire's header (spec, Header) as the coach has it: the way back
+ * to the player and the name, no Edit and no More; under the name, the
+ * player's name and the way to their progress on this repertoire (S7
+ * decision 7).
  */
-function SharedHeader({
+function SharedTopBar({
   data,
 }: {
   readonly data: SharedRepertoirePage;
 }): JSX.Element {
   const t = useTranslations('coach');
-  const nav = useTranslations('nav');
   return (
-    <HeaderFrame>
-      <BackLink
-        href={coachPlayerPath(data.player.id)}
-        label={nav('back', { parent: data.player.displayName })}
-      />
-      <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
-        <h1
-          title={data.repertoire.name}
-          className="truncate text-lg font-semibold lg:whitespace-normal lg:text-3xl lg:font-bold"
-        >
-          {data.repertoire.name}
-        </h1>
-        <p
-          aria-hidden="true"
-          className="truncate text-sm text-fg-muted lg:hidden"
-        >
+    <RepertoireTopBar
+      back={{
+        href: coachPlayerPath(data.player.id),
+        parent: data.player.displayName,
+      }}
+      name={data.repertoire.name}
+    >
+      <p className="flex flex-wrap items-center gap-x-3 text-sm">
+        {/* The back link already says the player's name to a screen reader. */}
+        <span aria-hidden="true" className="text-fg-muted">
           {data.player.displayName}
-        </p>
-      </div>
-      <Link
-        href={coachProgressPath(data.player.id, data.repertoire.id)}
-        className="inline-flex min-h-touch shrink-0 items-center text-accent underline"
-      >
-        {t('progress.title')}
-      </Link>
-    </HeaderFrame>
+        </span>
+        <Link
+          href={coachProgressPath(data.player.id, data.repertoire.id)}
+          className="inline-flex min-h-touch items-center text-accent underline"
+        >
+          {t('progress.title')}
+        </Link>
+      </p>
+    </RepertoireTopBar>
   );
 }
 
@@ -125,7 +116,7 @@ export function SharedRepertoireView({
   const panel = useSharedPanel(data);
   return (
     <RepertoireShell
-      header={<SharedHeader data={data} />}
+      topBar={<SharedTopBar data={data} />}
       name={data.repertoire.name}
       names={data.names}
       view={view}

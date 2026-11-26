@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
 import { learnDayOf } from '../../lib/learn-scope';
 import { learnPath } from '../../lib/routes';
-import type { PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 
 /**
  * A secondary button made compact (UX sign-off): small text and padding,

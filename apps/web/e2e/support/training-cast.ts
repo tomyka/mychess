@@ -50,7 +50,7 @@ export const catalanA4 = bookOf(CATALAN_A4_PGN, 'white', CATALAN_A4);
 export const backlog = bookOf(BACKLOG_PGN, 'white', BACKLOG);
 export const karoKan = bookOf(KARO_KAN_PGN, 'black', KARO_KAN);
 
-/** The repertoire page's "Learn (n)" and "Review (n)" links. */
+/** The repertoire page's "Learn n today" and "Review n" links (summary line). */
 export const trainLink = (
   page: Page,
   messages: Messages,
@@ -58,9 +58,12 @@ export const trainLink = (
   count: number,
 ): Locator =>
   page.getByRole('link', {
-    name: format(messages.training.repertoire[kind], {
-      count: String(count),
-    }),
+    name: format(
+      kind === 'learn'
+        ? messages.repertoires.summary.learnToday
+        : messages.repertoires.summary.review,
+      { count: String(count) },
+    ),
     exact: true,
   });
 

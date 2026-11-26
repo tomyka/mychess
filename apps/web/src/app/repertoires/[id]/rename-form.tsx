@@ -7,7 +7,7 @@ import { FIELD } from '../../fields';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { renameRepertoireAction, type RenameState } from './actions';
-import type { Repertoire } from './repertoire-header-types';
+import type { Repertoire } from './repertoire-types';
 
 /** The rename action, telling `onDone` once a name is saved. */
 function useRename(onDone: () => void) {

@@ -67,6 +67,35 @@ export async function createRepertoire(
   ).toHaveAttribute('aria-checked', 'true');
 }
 
+/**
+ * From a repertoire's page (own or assigned) to its Repertoire screen
+ * (R-226), through the top bar's More link; it is titled with the name.
+ */
+export async function openRepertoireOptions(
+  page: Page,
+  messages: Messages,
+): Promise<void> {
+  const name = await page.getByRole('heading', { level: 1 }).textContent();
+  await page
+    .getByRole('link', { name: messages.repertoires.more, exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/manage(\?|$)/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(name ?? '');
+}
+
+/** From a Repertoire screen back to the repertoire `name`, by its back link. */
+export async function backToRepertoire(
+  page: Page,
+  messages: Messages,
+  name: string,
+): Promise<void> {
+  await page
+    .getByRole('link', { name: format(messages.nav.back, { parent: name }) })
+    .click();
+  await expect(page).toHaveURL(/\/repertoires\/(assigned\/)?[0-9a-f-]{36}$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
+}
+
 /** The move list chip whose accessible name is exactly `name` ("2. Bf4"). */
 export const chip = (page: Page, name: string): Locator =>
   page.getByRole('button', { name, exact: true }).first();

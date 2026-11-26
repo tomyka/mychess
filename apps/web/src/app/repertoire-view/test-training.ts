@@ -1,7 +1,7 @@
 // The repertoire page's training, as the component tests build it: nothing
 // due, nothing to learn and no standing, with each test overriding what it
 // is about.
-import type { PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 
 const REPERTOIRE = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 

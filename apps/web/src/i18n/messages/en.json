@@ -456,6 +456,15 @@
     },
     "failed": "That did not work. Try again.",
     "loading": "Loading",
+    "more": "Repertoire options",
+    "summary": {
+      "facts": "{side, select, white {White} other {Black}} · {chapters, plural, one {# chapter} other {# chapters}} · {percent}% learned",
+      "factsNoProgress": "{side, select, white {White} other {Black}} · {chapters, plural, one {# chapter} other {# chapters}}",
+      "review": "Review {count}",
+      "learnToday": "Learn {count} today",
+      "dueIn": "due {date} · {days, plural, one {in # day} other {in # days}}",
+      "dueToday": "due today"
+    },
     "mode": {
       "build": "Edit",
       "toBuild": "Start editing"
@@ -749,7 +758,6 @@
       "tomorrow": "tomorrow at {time}"
     },
     "repertoire": {
-      "review": "Review ({count})",
       "learn": "Learn ({count})",
       "learnIn": "{count, plural, one {Learn # new move} other {Learn # new moves}} in {subject}",
       "learnLine": "{count, plural, one {Learn # new move in this line} other {Learn # new moves in this line}}",

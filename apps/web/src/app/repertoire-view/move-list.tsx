@@ -13,6 +13,7 @@ import {
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, type JSX } from 'react';
+import { revealInScroller } from './reveal-in-scroller';
 
 export interface MoveListProps {
   readonly graph: RepertoireGraph;
@@ -173,8 +174,7 @@ function MoveChip({
   const hint = useTransposesHint(token.transposes);
   useEffect(() => {
     const chip = ref.current;
-    if (isCurrent && typeof chip?.scrollIntoView === 'function')
-      chip.scrollIntoView({ block: 'nearest' });
+    if (isCurrent && chip !== null) revealInScroller(chip);
   }, [isCurrent]);
   // White's moves always show their number; Black's only when `numbered`.
   const showNumber = token.numbered || !number.endsWith('...');

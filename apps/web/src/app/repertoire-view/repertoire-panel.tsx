@@ -8,7 +8,7 @@ import type { CommentEditor } from './comment';
 import { MoveList, type MoveListProps } from './move-list';
 import { KnowSection } from './know-section';
 import { PositionBody } from './position-body';
-import { TrainButtons, type PanelTraining } from './train-buttons';
+import type { PanelTraining } from './panel-training';
 import type { RepertoireView } from './view';
 
 /** What a view puts in the panel; the panel derives the rest from the view. */
@@ -31,13 +31,11 @@ export interface PanelContent {
   /** The moves carrying a coach note kept by a fork (R-47). */
   readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
   /**
-   * The player's training of it: the train buttons first, and "I know
-   * this" on the current move, its line and each chapter (R-58, R-142).
+   * The player's training of it: "I know this" on the current move, its
+   * line and each chapter (R-58), and the chapters' Learn links (R-206).
    * Absent where the viewer does not train it.
    */
   readonly training?: PanelTraining | undefined;
-  /** What follows the moves (the owner's actions and sharing). */
-  readonly footer?: ReactNode;
 }
 
 interface RepertoirePanelProps {
@@ -79,9 +77,9 @@ function ChapterPosition({
 }
 
 /**
- * The scrolling part of the panel: for a player who trains it the train
- * buttons, then chapters, the position (the chapter's intro, or the
- * current move's comment and notes, then "I know this"), then the moves. The DOM
+ * The scrolling part of the panel: the view's lead, the chapters, the
+ * position (the chapter's intro, or the current move's comment and notes,
+ * then "I know this"), then the moves. The DOM
  * order is the visual order at every width, so Tab follows what the eye sees (WCAG 2.4.3).
  */
 export function RepertoirePanel({
@@ -96,9 +94,6 @@ export function RepertoirePanel({
       : chapterOf(state.graph, state.chapterId);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:overflow-visible lg:px-0">
-      {content.training === undefined ? null : (
-        <TrainButtons training={content.training} />
-      )}
       {content.lead}
       <ChapterList
         chapters={state.graph.chapters}
@@ -136,7 +131,6 @@ export function RepertoirePanel({
           />
         </div>
       )}
-      {content.footer}
     </div>
   );
 }

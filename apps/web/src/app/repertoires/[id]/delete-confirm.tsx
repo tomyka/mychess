@@ -7,7 +7,7 @@ import { DANGER_BUTTON, SECONDARY_BUTTON } from '../../buttons';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { deleteRepertoireAction, type DeleteState } from './actions';
-import type { Holders, Repertoire } from './repertoire-header-types';
+import type { Holders, Repertoire } from './repertoire-types';
 
 export function DeleteConfirm({
   id,
