@@ -258,6 +258,9 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-222** (#381, 2026-11-25): "From my coach" is no longer a separate home section: an assignment is a row of Today's repertoire list, with its coach, deadline and badges (R-51, R-46, R-133) on the row. A paused assignment has no button.
 - **R-223** (#381, 2026-11-25): The training counter counts moves, not answers: "3 / 9" is the moves finished (answered with no repeat owed) of the moves the session holds, and that total is fixed when the session starts. The session size (R-62) counts moves; repeats (R-78) come on top and never push a move out. Amends R-78's "these repeats count toward the session size".
 - **R-224** (#381, 2026-11-25): A training session's header names the session ("Today's review", "Learn new moves") and, under it, the current item's repertoire, side and chapter; a session scoped to one repertoire is titled by that repertoire. Refines R-207.
+- **R-225** (#381, 2026-11-26): The repertoire screens show training progress in the R-177 meaning: learned % on every My repertoires card, learned % and due count on each chapter row of the repertoire page, and, for the coach, each assigned player's learned % on the repertoire's Repertoire screen. Move states are not shown in the move list.
+- **R-226** (#381, 2026-11-26): The repertoire page's panel is for studying. Rename, Download PGN, Add from PGN, share, assign, pause, make my own copy and delete live on a separate Repertoire screen opened from the page's header, on phone and desktop alike.
+- **R-227** (#381, 2026-11-26): "I know this" is one labelled control under the move list offering this move, this line and this chapter for the current position, each with its move count; chapter rows carry progress only. Refines R-58 and R-147 (the confirmation with the count stays).
 
 ## Open questions
 
