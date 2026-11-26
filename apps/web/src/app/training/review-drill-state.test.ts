@@ -17,10 +17,10 @@ import {
   advanced,
   afterAnswer,
   answeredMove,
-  canType,
+  canHint,
   isDone,
   isRepeat,
-  positionOf,
+  frameOf,
   sessionCounts,
   shownKey,
   startDrill,
@@ -189,12 +189,13 @@ describe('the review drill state', () => {
         uci: `${move.orig}${move.dest}`,
       },
     });
-    expect(canType(wrong)).toBe(false);
-    expect(positionOf(wrong).playable).toBe(false);
+    expect(frameOf(wrong).typeable).toBe(false);
+    expect(frameOf(wrong).playable).toBe(false);
+    expect(canHint(wrong)).toBe(false);
     const unflashed = { ...wrong, flash: null };
-    expect(canType(unflashed)).toBe(true);
-    expect(positionOf(unflashed).key).toBe(shownKey(start));
-    expect(positionOf(unflashed).arrow).toBeDefined();
+    expect(frameOf(unflashed).typeable).toBe(true);
+    expect(frameOf(unflashed).key).toBe(shownKey(start));
+    expect(frameOf(unflashed).arrow).toBeDefined();
   });
 
   it('flashes a right move without holding a position', () => {

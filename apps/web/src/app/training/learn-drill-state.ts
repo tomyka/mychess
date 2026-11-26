@@ -21,10 +21,14 @@ import {
   type RepertoireMove,
   type ReviewState,
 } from '@mychess/chess';
-import type { DrillPosition } from './drill-board';
-import { answerFlash, holdsWrong, type Flash } from './drill-input';
+import { answerMarks, startCore, type DrillCore } from './drill-core';
+import { drillFrame, type Asked, type DrillFrame } from './drill-frame';
 
-export interface LearnDrillState {
+/**
+ * The learn drill's state; its `reviews` have one started for each key
+ * learned here.
+ */
+export interface LearnDrillState extends DrillCore {
   readonly lines: readonly LearnLine[];
   /** The line being learned: an index into `lines`. */
   readonly at: number;
@@ -45,15 +49,8 @@ export interface LearnDrillState {
   readonly hold: number | null;
   /** The last move was wrong (cleared by a right one). */
   readonly wrong: boolean;
-  readonly flash: Flash | null;
-  /** Bumped to put a refused piece back (BoardView.revision). */
-  readonly revision: number;
-  /** The last typed move was not a legal one. */
-  readonly unknownTyped: boolean;
   /** The keys learned on this page, every session's, in order. */
   readonly learned: readonly string[];
-  /** The player's Reviews, with one started for each key learned here. */
-  readonly reviews: ReadonlyMap<string, ReviewState>;
 }
 
 /** A drill over `lines`, from the player's `reviews`, learned as `options` says. */
@@ -64,6 +61,7 @@ export function startLearnDrill(
 ): LearnDrillState {
   const [first] = lines;
   return {
+    ...startCore(reviews),
     lines,
     at: 0,
     session: first === undefined ? null : startLearnSession(first, options),
@@ -71,11 +69,7 @@ export function startLearnDrill(
     answered: null,
     hold: null,
     wrong: false,
-    flash: null,
-    revision: 0,
-    unknownTyped: false,
     learned: [],
-    reviews,
   };
 }
 
@@ -92,15 +86,15 @@ export const isDone = (s: LearnDrillState): boolean =>
 export const opponentMoving = (s: LearnDrillState): boolean =>
   waitingOn(s)?.kind === 'opponent';
 
-/** Does the board take a move now? */
-export function canPlay(s: LearnDrillState): boolean {
+/** Is the player asked a move, the opponent's not sliding in? */
+function asking(s: LearnDrillState): boolean {
   const step = waitingOn(s);
   return step !== undefined && step.kind !== 'opponent';
 }
 
 /** The step the player is asked, if any: for the panel's words. */
 export const askedStep = (s: LearnDrillState): LearnPlanStep | undefined =>
-  canPlay(s) ? waitingOn(s) : undefined;
+  asking(s) ? waitingOn(s) : undefined;
 
 /**
  * The move whose Coach note shows now (R-174): the one the arrow teaches,
@@ -176,9 +170,7 @@ export function afterPlay(
     session: played.state,
     hold: correct ? index + 1 : null,
     wrong: !correct,
-    flash: answerFlash(shownKey(s), move, correct),
-    revision: correct ? s.revision : s.revision + 1,
-    unknownTyped: false,
+    ...answerMarks(s, shownKey(s), move, correct),
   };
 }
 
@@ -208,13 +200,6 @@ export const advanced = (s: LearnDrillState): LearnDrillState =>
 export const answering = (s: LearnDrillState): LearnDrillState =>
   opponentMoving(s) ? advanced(s) : s;
 
-/**
- * Does the move field take a move now? Also while the opponent's move
- * slides in (#324); not while a wrong move is held on the board (#381).
- */
-export const canType = (s: LearnDrillState): boolean =>
-  !holdsWrong(s.flash) && canPlay(answering(s));
-
 /** The new moves the plan teaches, and how many of them are learned. */
 export function learnCounts(s: LearnDrillState): {
   readonly done: number;
@@ -228,26 +213,24 @@ export function learnCounts(s: LearnDrillState): {
   };
 }
 
-/** The repertoire of the line on the board. */
-export const repertoireOf = (s: LearnDrillState): string | undefined =>
-  s.session?.line.repertoireId;
-
-/** The chapter of the line on the board. */
-export const chapterOf = (s: LearnDrillState): string | undefined =>
-  s.session?.line.chapterId;
-
 /**
- * What the board shows: the arrow of the move asked, while the session
- * shows it (R-144, R-55), and the answer's flash.
+ * What the drill asks: the arrow of the move asked, while the session
+ * shows it (R-144, R-55). The board waits while the opponent's move slides
+ * in; the move field does not (#324).
  */
-export function positionOf(s: LearnDrillState): DrillPosition {
+function askedOf(s: LearnDrillState): Asked {
   const asked = askedStep(s)?.move.uci;
   return {
+    repertoireId: s.session?.line.repertoireId,
+    chapterId: s.session?.line.chapterId,
     key: shownKey(s),
     last: playedMoves(s).at(-1)?.uci,
-    playable: canPlay(s),
+    playable: asking(s),
+    typeable: asking(answering(s)),
     arrow: s.session?.arrow === true ? asked : undefined,
-    flash: s.flash,
-    revision: s.revision,
   };
 }
+
+/** What the drill shows now, a wrong move held in place of the asked position (#381). */
+export const frameOf = (s: LearnDrillState): DrillFrame =>
+  drillFrame(askedOf(s), s);

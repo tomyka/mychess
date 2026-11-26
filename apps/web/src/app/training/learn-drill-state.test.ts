@@ -10,8 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { graphOf } from '../../../test/fixtures/repertoires';
 import {
   afterPlay,
-  canType,
-  positionOf,
+  frameOf,
   shownKey,
   startLearnDrill,
   type LearnDrillState,
@@ -59,11 +58,24 @@ describe('the learn drill state', () => {
         uci: 'e2e4',
       },
     });
-    expect(canType(wrong)).toBe(false);
+    expect(frameOf(wrong).typeable).toBe(false);
     const unflashed = { ...wrong, flash: null };
-    expect(canType(unflashed)).toBe(true);
-    expect(positionOf(unflashed).key).toBe(START_KEY);
-    expect(positionOf(unflashed).arrow).toBe('d2d4');
+    expect(frameOf(unflashed).typeable).toBe(true);
+    expect(frameOf(unflashed).key).toBe(START_KEY);
+    expect(frameOf(unflashed).arrow).toBe('d2d4');
+  });
+
+  it('takes no move from the board or the field during a wrong move’s hold (#384)', () => {
+    const wrong = play(drill(), 'e4');
+    const held = frameOf(wrong);
+    expect(held.playable).toBe(false);
+    expect(held.typeable).toBe(false);
+    expect(held.key).not.toBe(START_KEY);
+    expect(held.asked).toBe(START_KEY);
+    expect(held.toMove).toBe('white');
+    const unflashed = frameOf({ ...wrong, flash: null });
+    expect(unflashed.playable).toBe(true);
+    expect(unflashed.typeable).toBe(true);
   });
 
   it('flashes a right move without holding a position', () => {
