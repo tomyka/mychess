@@ -1,14 +1,7 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { SlowStatus } from '../slow-status';
-import {
-  BOARD_CELL,
-  BOARD_SQUARE,
-  PANEL_CELL,
-  PanelCard,
-  REPERTOIRE_GRID,
-  TOP_BAR_CELL,
-} from './repertoire-layout';
+import { RepertoireFrame } from './repertoire-frame';
 
 /** A skeleton line: one line of text not there yet. */
 export const SKELETON_LINE = 'h-5 rounded-control bg-sunken';
@@ -23,7 +16,7 @@ export const EMPTY_BOARD = {
 /** The top bar's shape (RepertoireTopBar): back and the name, one row. */
 function TopBarSkeleton(): JSX.Element {
   return (
-    <div className="flex min-h-touch items-center gap-2 px-gutter py-1 lg:p-0">
+    <div className="flex min-h-touch items-center gap-2">
       <div className="size-6 rounded-control bg-sunken" />
       <div className={`${SKELETON_LINE} w-48`} />
     </div>
@@ -32,33 +25,34 @@ function TopBarSkeleton(): JSX.Element {
 
 /**
  * A repertoire screen while it loads (docs/design/repertoire-screen.md,
- * States), in the page's own layout: the top bar's skeleton, the real
- * board frame without pieces and skeleton lines for the chapter row, the
- * comment and the move list; after about a second, one "Loading" line.
- * Shared by the owner's page and the coach's read-only view.
+ * States), in the page's own frame: the top bar's skeleton, the real board
+ * frame without pieces, a skeleton line in the board row and skeleton
+ * lines for the chapter line and the move list in the scroller; after
+ * about a second, one "Loading" line in the status line. Shared by the
+ * owner's page, the assigned page and the coach's read-only view.
  */
 export function RepertoireLoadingShell(): JSX.Element {
   const t = useTranslations('repertoires');
   return (
-    <main aria-busy="true" className={REPERTOIRE_GRID}>
-      <PanelCard />
-      <div className={TOP_BAR_CELL}>
-        <TopBarSkeleton />
-      </div>
-      <div className={BOARD_CELL}>
+    <RepertoireFrame
+      busy
+      topBar={<TopBarSkeleton />}
+      board={
         <div
           aria-hidden="true"
           style={EMPTY_BOARD}
-          className={`aspect-square lg:rounded-board ${BOARD_SQUARE}`}
+          className="aspect-square lg:rounded-board"
         />
-      </div>
-      <div className={`gap-3 px-gutter py-3 ${PANEL_CELL}`}>
-        <div className={`${SKELETON_LINE} w-40`} />
-        <div className={`${SKELETON_LINE} w-full`} />
-        <div className={`${SKELETON_LINE} w-3/4`} />
-        <div className={`${SKELETON_LINE} w-full`} />
-        <SlowStatus text={t('loading')} />
-      </div>
-    </main>
+      }
+      boardRow={<div className={`${SKELETON_LINE} w-40`} />}
+      status={<SlowStatus text={t('loading')} />}
+      scroller={
+        <>
+          <div className={`${SKELETON_LINE} w-full`} />
+          <div className={`${SKELETON_LINE} w-3/4`} />
+          <div className={`${SKELETON_LINE} w-full`} />
+        </>
+      }
+    />
   );
 }

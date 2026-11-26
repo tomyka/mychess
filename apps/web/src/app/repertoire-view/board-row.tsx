@@ -28,13 +28,11 @@ export function BoardRow({
 }): JSX.Element {
   if (play.promotion !== null)
     return (
-      <div className="shrink-0 px-gutter py-2 lg:px-0">
-        <PromotionPicker
-          color={board.view.turnColor}
-          onPick={play.pick}
-          onCancel={play.cancel}
-        />
-      </div>
+      <PromotionPicker
+        color={board.view.turnColor}
+        onPick={play.pick}
+        onCancel={play.cancel}
+      />
     );
   const key = currentKey(state);
   const canForward =
@@ -42,7 +40,7 @@ export function BoardRow({
     state.chapterId !== null &&
     chapterChildren(state.graph)(state.chapterId)(key).length > 0;
   return (
-    <div className="flex shrink-0 items-center gap-2 px-gutter py-2 lg:px-0">
+    <div className="flex items-center gap-2">
       <MoveInput
         onTyped={play.onTyped}
         disabled={

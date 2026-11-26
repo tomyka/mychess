@@ -6,14 +6,7 @@ import { Board, type BoardProps } from '../board/board';
 import { BoardRow } from './board-row';
 import { Announcer, useBoardWords } from './board-words';
 import { BrowseCommentStrip } from './comment-strip';
-import {
-  BOARD_CELL,
-  BOARD_SQUARE,
-  PANEL_CELL,
-  PanelCard,
-  REPERTOIRE_GRID,
-  TOP_BAR_CELL,
-} from './repertoire-layout';
+import { RepertoireFrame } from './repertoire-frame';
 import { RepertoirePanel, type PanelContent } from './repertoire-panel';
 import type { ScreenMessage, ScreenState } from './screen-state';
 import { ScreenStatus } from './screen-status';
@@ -46,11 +39,7 @@ interface RepertoireShellProps {
 
 type StatusAction = (message: ScreenMessage) => ReactNode;
 
-/**
- * The page's status line, under the board row and the builder row and
- * outside the scrolling panel, so a refusal is seen however far the panel
- * has scrolled.
- */
+/** The page's status line, with what the view offers beside a message. */
 function PanelStatus({
   state,
   onReload,
@@ -62,14 +51,12 @@ function PanelStatus({
 }): JSX.Element {
   const { message } = state;
   return (
-    <div className="shrink-0 px-gutter lg:mb-3 lg:px-0">
-      <ScreenStatus
-        message={message}
-        stale={state.stale}
-        onReload={onReload}
-        action={message === null ? null : statusAction(message)}
-      />
-    </div>
+    <ScreenStatus
+      message={message}
+      stale={state.stale}
+      onReload={onReload}
+      action={message === null ? null : statusAction(message)}
+    />
   );
 }
 
@@ -82,7 +69,7 @@ const noAction: StatusAction = () => null;
  * A repertoire page (docs/design/repertoire-screen.md, section 2): on a
  * phone the top bar, board, board row, toolbar and comment strip stay put
  * and the panel scrolls below; on a desktop the board sits beside one card
- * that holds the top bar, then the panel (repertoire-layout.tsx). The top
+ * that holds the top bar, then the panel (repertoire-frame.tsx). The top
  * bar is rendered once, so the page has one h1 and one Edit switch.
  */
 export function RepertoireShell({
@@ -100,39 +87,39 @@ export function RepertoireShell({
   const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
   const words = useBoardWords(name, state, board.view.fen, names);
   return (
-    <main className={REPERTOIRE_GRID}>
-      <PanelCard />
-      <div className={`shrink-0 ${TOP_BAR_CELL}`}>{topBar}</div>
-      {/* On a desktop the panel scrolls with the page, not inside a box
-          (#331); the board stays in view beside it. */}
-      <div className={`lg:sticky ${BOARD_CELL}`}>
-        <div className={BOARD_SQUARE}>
-          <Board
-            view={board.view}
-            label={words.label}
-            describe={words.describe}
-            onMove={play.onMove}
-            {...handlers}
-          />
-        </div>
-      </div>
-      <div className={PANEL_CELL}>
+    <RepertoireFrame
+      topBar={topBar}
+      board={
+        <Board
+          view={board.view}
+          label={words.label}
+          describe={words.describe}
+          onMove={play.onMove}
+          {...handlers}
+        />
+      }
+      boardRow={
         <BoardRow state={state} dispatch={dispatch} board={board} play={play} />
-        {toolbar}
+      }
+      builderRow={toolbar}
+      status={
         <PanelStatus
           state={state}
           onReload={onReload}
           statusAction={statusAction}
         />
+      }
+      comment={
         <BrowseCommentStrip state={state} label={panel.comment?.label} />
-        <RepertoirePanel view={view} names={names} content={panel} />
-      </div>
+      }
+      scroller={<RepertoirePanel view={view} names={names} content={panel} />}
+    >
       <Announcer state={state} />
       {said === undefined ? null : (
         <p aria-live="polite" className="sr-only">
           {said}
         </p>
       )}
-    </main>
+    </RepertoireFrame>
   );
 }

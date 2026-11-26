@@ -61,13 +61,13 @@ function useOverflow(open: boolean): {
 }
 
 /**
- * Where the strip sits (spec, Comment strip): in its DOM place at every
- * width, under the board row and above the panel's scroller, so Tab
- * follows what is seen. Its left edge is 2px of `comment-edge`: accent in
- * the dark theme, where `accent-subtle` is close to the page (sign-off);
- * transparent in light, so the text does not shift between themes.
+ * The strip's left edge (spec, Comment strip): 2px of `comment-edge`:
+ * accent in the dark theme, where `accent-subtle` is close to the page
+ * (sign-off); transparent in light, so the text does not shift between
+ * themes. Where it sits, under the board row and above the panel's
+ * scroller at every width, is the frame's (repertoire-frame.tsx).
  */
-const STRIP_PLACE = 'shrink-0 border-l-2 border-l-comment-edge lg:mb-4';
+const STRIP_EDGE = 'border-l-2 border-l-comment-edge';
 
 /**
  * The strip itself: the view's label as a muted lead-in when it has one,
@@ -94,7 +94,7 @@ function Strip({
   return (
     <section
       aria-label={name}
-      className={`${STRIP_PLACE} flex flex-col items-start gap-1 bg-accent-subtle px-gutter py-2 text-sm lg:rounded-control lg:px-3`}
+      className={`${STRIP_EDGE} flex flex-col items-start gap-1 bg-accent-subtle px-gutter py-2 text-sm lg:rounded-control lg:px-3`}
     >
       {lead === null ? null : <p className="text-xs text-fg-muted">{lead}</p>}
       <p ref={ref} className={`break-words ${open ? '' : 'line-clamp-2'}`}>

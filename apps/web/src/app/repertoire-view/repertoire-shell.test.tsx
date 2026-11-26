@@ -166,7 +166,9 @@ describe('RepertoireShell', () => {
     const scroller = document.querySelector('[data-panel-scroller]');
     const moves = document.querySelector<HTMLElement>('[data-moves]');
     if (scroller === null || moves === null) throw new Error('no panel');
-    expect(strip.nextElementSibling).toBe(scroller);
+    // The strip is its frame cell's one child; that cell is just above the scroller.
+    expect(strip.parentElement?.childElementCount).toBe(1);
+    expect(strip.parentElement?.nextElementSibling).toBe(scroller);
     // No CSS reorders the panel: the scroller is a box at every width.
     expect(scroller.className).not.toContain('contents');
     for (const node of [strip, moves, ...scroller.querySelectorAll('*')])
@@ -210,20 +212,19 @@ describe('RepertoireShell', () => {
     expect(square?.contains(screen.getByRole('application'))).toBe(true);
   });
 
-  it('keeps the board row, the strip and the scroller in one panel cell that holds its room, so stepping never resizes the board', () => {
+  it('puts the board row, the builder row, the strip and the panel in the frame’s panel cell (its budget is the frame’s test)', () => {
     renderView();
     const scroller = document.querySelector('[data-panel-scroller]');
     const cell = scroller?.parentElement;
-    expect(cell?.className).toContain('flex-[1_1_16.5rem]');
-    expect(cell?.className).toContain('min-h-0');
+    expect(scroller?.firstElementChild).toBe(
+      screen.getByText('Baltieji · 2 skyriai'),
+    );
     const forward = screen.getByRole('button', { name: r.nav.forward });
     expect(cell?.contains(forward)).toBe(true);
     expect(
       cell?.contains(screen.getByRole('region', { name: r.panel.intro })),
     ).toBe(true);
     expect(cell?.contains(screen.getByText('Įrankiai'))).toBe(true);
-    for (const name of ['gap-3', 'pt-2', 'pb-3', 'lg:gap-4', 'lg:p-0'])
-      expect(scroller?.className).toContain(name);
   });
 
   it('opens browsing at the chapter root with its intro, and no notes there', () => {

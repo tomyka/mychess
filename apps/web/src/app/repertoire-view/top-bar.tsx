@@ -39,7 +39,7 @@ export function RepertoireTopBar({
 }: TopBarProps): JSX.Element {
   const t = useTranslations();
   return (
-    <header className="flex items-center gap-2 px-gutter py-1 lg:flex-wrap lg:gap-y-2 lg:p-0">
+    <header className="flex items-center gap-2 lg:flex-wrap lg:gap-y-2">
       <Link
         href={back.href}
         aria-label={t('nav.back', { parent: back.parent })}

@@ -87,22 +87,20 @@ function BuilderRow({
   if (state.chapterId === null) return null;
   const { move, count } = removalTarget(state);
   return (
-    <div className="shrink-0 px-gutter pb-2 lg:px-0">
-      <BuilderBar
-        move={move}
-        count={count}
-        disabled={editsBlocked(state)}
-        drawMode={state.drawMode}
-        drawColor={state.drawColor}
-        onRemove={removeMove(state, edit)}
-        onDraw={(on) => {
-          dispatch({ type: 'draw', on });
-        }}
-        onColor={(color) => {
-          dispatch({ type: 'drawColor', color });
-        }}
-      />
-    </div>
+    <BuilderBar
+      move={move}
+      count={count}
+      disabled={editsBlocked(state)}
+      drawMode={state.drawMode}
+      drawColor={state.drawColor}
+      onRemove={removeMove(state, edit)}
+      onDraw={(on) => {
+        dispatch({ type: 'draw', on });
+      }}
+      onColor={(color) => {
+        dispatch({ type: 'drawColor', color });
+      }}
+    />
   );
 }
 

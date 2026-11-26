@@ -117,13 +117,6 @@ function UnderMoves({
 }
 
 /**
- * On a phone the scroller; on a desktop a plain column that grows with its
- * content, so the panel scrolls with the page (#331).
- */
-const SCROLLER =
-  'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-gutter pt-2 pb-3 lg:flex-none lg:gap-4 lg:overflow-visible lg:p-0';
-
-/**
  * The move list's box: on a desktop it scrolls on its own, at most about
  * half a screen high, so stepping keeps the comment strip above it in
  * view; on a phone the whole panel scrolls.
@@ -131,12 +124,13 @@ const SCROLLER =
 const MOVES_BOX = 'lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto';
 
 /**
- * The scrolling part of the panel: the view's summary line and any changes
- * since the last visit, the chapter line, in builder mode the intro or the
- * comment field, the moves, then Train here, the notes' preface and the
- * move's notes. While browsing the comment strip shows the intro and the
- * comment just above this scroller, at every width. The DOM order is the
- * visual order, so Tab follows what the eye sees (WCAG 2.4.3).
+ * What scrolls in the panel (the frame's scroller): the view's summary
+ * line and any changes since the last visit, the chapter line, in builder
+ * mode the intro or the comment field, the moves, then Train here, the
+ * notes' preface and the move's notes. While browsing the comment strip
+ * shows the intro and the comment just above this scroller, at every
+ * width. The DOM order is the visual order, so Tab follows what the eye
+ * sees (WCAG 2.4.3).
  */
 export function RepertoirePanel({
   view,
@@ -149,7 +143,7 @@ export function RepertoirePanel({
       ? undefined
       : chapterOf(state.graph, state.chapterId);
   return (
-    <div data-panel-scroller="" className={SCROLLER}>
+    <>
       {content.summary.line}
       {content.summary.changes}
       <ChapterList
@@ -173,7 +167,7 @@ export function RepertoirePanel({
       ) : (
         <ChapterBody chapter={chapter} view={view} content={content} />
       )}
-    </div>
+    </>
   );
 }
 

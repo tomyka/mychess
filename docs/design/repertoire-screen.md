@@ -18,7 +18,9 @@ from `apps/web/src/app/buttons.ts` (`PRIMARY_BUTTON`, `SECONDARY_BUTTON`,
 `TONAL_BUTTON`, `COMPACT_TONAL`, `DANGER_BUTTON`), `settings/styles.ts` (`SECTION`,
 `DANGER_SECTION`, `SECTION_TITLE`) and `status-line.tsx` (`StatusLine`).
 The layout code is in `apps/web/src/app/repertoire-view/`
-(`repertoire-layout.tsx` holds the grid).
+(`repertoire-frame.tsx`, `RepertoireFrame`, owns the grid, every cell's
+place and spacing, and the phone height budget; the page and its loading
+state both render it).
 
 Sketches use English placeholders; the copy is in the message catalogue
 (English only, R-217). Labels must still not depend on their English length.
@@ -337,9 +339,9 @@ without Edit. A new repertoire with no chapters opens in builder mode.
 +------------------------------------------------------------------------------+
 ```
 
-- **Grid** (`REPERTOIRE_GRID`): the board spans both rows on the left; the
+- **Grid** (`RepertoireFrame`): the board spans both rows on the left; the
   header and the panel are the right column's two rows on one card
-  (`PanelCard`, `surface`, `shadow-card`), so the header's top is level
+  (the frame's card: `surface`, `shadow-card`), so the header's top is level
   with the board's (both at 80px at 1280 x 800). The header is back, Edit
   and More on one row, then the name on its own full-width row (`text-xl`,
   never clamped). The name is placed after Edit and More by CSS order
