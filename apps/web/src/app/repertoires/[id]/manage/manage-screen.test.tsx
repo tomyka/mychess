@@ -57,12 +57,6 @@ const PANEL: AssignPanelData = {
           playerId: 'rokas',
           displayName: 'Rokas',
           deadline: null,
-          badges: {
-            paused: false,
-            forked: false,
-            overdue: false,
-            updated: false,
-          },
           status: {
             deadline: null,
             paused: false,

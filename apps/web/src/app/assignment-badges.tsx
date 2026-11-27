@@ -7,7 +7,6 @@ import { pillClass } from './pill';
 const BADGES = [
   ['overdue', 'overdue'],
   ['paused', 'neutral'],
-  ['forked', 'neutral'],
   ['updated', 'updated'],
 ] as const;
 

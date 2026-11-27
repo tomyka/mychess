@@ -2,8 +2,8 @@
  * What the coach progress reads show, built from what they loaded: the
  * repertoires a coach may see progress on (each with its graph), their
  * player-move keys, and one mapping of each entry the domain decided
- * (entryRead): the scope it loads through, its S5 badges (coachBadges,
- * shared with coachAssignments) and full status (coachStatus), and its
+ * (entryRead): the scope it loads through, its full status (coachStatus,
+ * shared with coachAssignments), and its
  * standing only where granted (R-155: none for a forked assignment).
  * Internal to the package.
  */
@@ -19,17 +19,12 @@ import {
 import {
   ownScope,
   sharedScope,
-  type BadgeSet,
   type CoachProgressFacts,
   type ProgressRepertoire,
   type ProgressSource,
   type RepertoireScope,
 } from '@mychess/domain';
-import {
-  coachBadges,
-  coachStatus,
-  type CoachStatus,
-} from '../assignments/badges';
+import { coachStatus, type CoachStatus } from '../assignments/status';
 import type { Executor } from '../client';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
@@ -121,18 +116,12 @@ interface Reviewed {
   readonly now: Date;
 }
 
-/** What a coach sees of one player's assignment: its badges and status. */
-interface AssignmentMarks {
-  readonly badges: BadgeSet;
-  readonly status: CoachStatus;
-}
-
 /** What the reads need of one entry of the domain, as it decided it. */
 export interface EntryRead {
   readonly source: ProgressSource;
   readonly scope: RepertoireScope;
-  /** The badges and status of the entry's assignment; null for a shared one. */
-  readonly marks: (reviewed: Reviewed) => AssignmentMarks | null;
+  /** The status of the entry's assignment; null for a shared one. */
+  readonly status: (reviewed: Reviewed) => CoachStatus | null;
   /** Its standing only where the entry is granted; forked otherwise. */
   readonly view: (reviewed: Reviewed) => ProgressView;
 }
@@ -146,13 +135,8 @@ export function entryRead(
   return {
     source: entry.source,
     scope: scopeOf(entry, coachId, playerId),
-    marks: ({ graph, tracked, now }) =>
-      assignment === null
-        ? null
-        : {
-            badges: coachBadges(assignment, graph, tracked, now),
-            status: coachStatus(assignment, graph, tracked, now),
-          },
+    status: ({ graph, tracked, now }) =>
+      assignment === null ? null : coachStatus(assignment, graph, tracked, now),
     view: ({ graph, tracked, now }) =>
       entry.kind === 'granted'
         ? {

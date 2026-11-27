@@ -771,7 +771,7 @@ describe('coachAssignments', () => {
     {
       deadline = null,
       done = false,
-      ...badges
+      ...marks
     }: Partial<{
       deadline: string | null;
       done: boolean;
@@ -780,18 +780,17 @@ describe('coachAssignments', () => {
       overdue: boolean;
     }> = {},
   ) => {
-    const flags = { overdue: false, paused: false, forked: false, ...badges };
+    const flags = { overdue: false, paused: false, forked: false, ...marks };
     return {
       playerId,
       displayName: `Name ${playerId}`,
       deadline,
-      badges: { ...flags, updated: false },
-      // The domain's status (R-129): the same flags, the deadline and done.
+      // The domain's status (R-129): the flags, the deadline and done.
       status: { ...flags, deadline, done },
     };
   };
 
-  it('lists each assignment row with the players it reaches and their own deadline and badges', async () => {
+  it('lists each assignment row with the players it reaches and their own deadline and status', async () => {
     await assignTo({ groupId: g }, '2026-10-19');
     await assignTo({ playerId: 'p' }, '2026-11-01');
     await assignTo({ playerId: 'n' }, '2026-10-19');
@@ -1138,13 +1137,6 @@ describe('the coach reads over a batch', () => {
           playerId,
           displayName: `Name ${playerId}`,
           deadline: '2026-10-19',
-          badges: {
-            paused: false,
-            updated: false,
-            ...(five.forked.includes(playerId)
-              ? { forked: true, overdue: false }
-              : { forked: false, overdue: true }),
-          },
           status: {
             deadline: '2026-10-19',
             paused: false,

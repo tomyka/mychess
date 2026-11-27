@@ -837,7 +837,7 @@ describe('the coach’s comments on their own repertoire (R-102, R-47)', () => {
           {
             playerId: rokas.id,
             displayName: 'Rokas',
-            badges: { forked: true },
+            status: { forked: true },
           },
         ],
       },

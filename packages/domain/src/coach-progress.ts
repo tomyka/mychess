@@ -4,7 +4,7 @@
  * nothing without an active link. A repertoire the player shares with the
  * coach, or one this coach assigned them (reaching them now) that they have
  * not forked, is granted: its progress shows. A forked one is the player's
- * own now: only its name and badges show.
+ * own now: only its name and status show.
  */
 import type { Result } from '@mychess/chess';
 import { canUseAssignment, type AssignmentFacts } from './assignment';
@@ -44,8 +44,8 @@ export type ProgressSource = 'shared' | 'assigned';
 /**
  * A repertoire the coach sees, and how: granted (its progress shows),
  * through the share or this coach's live assignment; or forked (its name
- * and badges only). `assignment` is this coach's assignment behind it, for
- * the badges; null for a shared one. A forked one names the player's fork
+ * and status only). `assignment` is this coach's assignment behind it, for
+ * the status; null for a shared one. A forked one names the player's fork
  * of it when the player shares that fork with this coach (#328), so the
  * page can link to it; null otherwise, never an unshared fork (R-43). A
  * shared one names, in `forkOf`, this coach's repertoire it is the player's

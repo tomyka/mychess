@@ -38,7 +38,6 @@ const ITEMS: readonly RepertoireCard[] = [
 const NO_BADGES = {
   overdue: false,
   paused: false,
-  forked: false,
   updated: false,
 };
 

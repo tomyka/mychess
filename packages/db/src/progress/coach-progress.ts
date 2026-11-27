@@ -26,7 +26,6 @@ import {
   progressRepertoire,
   progressRepertoires,
   type AccountRef,
-  type BadgeSet,
   type CoachProgressFacts,
   type PlayerRepertoire,
   type ProgressSource,
@@ -35,7 +34,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assignments } from '../assignment-schema';
-import type { CoachStatus } from '../assignments/badges';
+import type { CoachStatus } from '../assignments/status';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { coachPlayer, type LinkedAccount } from '../coaching';
 import type { CoachGroup, GroupMember } from '../groups';
@@ -63,8 +62,6 @@ export interface ProgressRow {
   readonly repertoire: RepertoireRef;
   /** The entry's source: assigned for a forked assignment too. */
   readonly source: ProgressSource;
-  /** The S5 badges of an assignment; null for a shared repertoire. */
-  readonly badges: BadgeSet | null;
   /** An assignment's deadline and status (R-129); null for a shared repertoire. */
   readonly status: CoachStatus | null;
   /** The standing where the domain grants it; forked otherwise (R-155). */
@@ -134,19 +131,17 @@ export interface Shown {
   readonly read: EntryRead;
 }
 
-/** A row of the player page; badges and status only for an assignment. */
+/** A row of the player page; a status only for an assignment. */
 export function rowOf(
   { loaded, read }: Shown,
   tracked: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): ProgressRow {
   const reviewed = { graph: loaded.graph, tracked, now };
-  const marks = read.marks(reviewed);
   return {
     repertoire: loaded.repertoire,
     source: read.source,
-    badges: marks?.badges ?? null,
-    status: marks?.status ?? null,
+    status: read.status(reviewed),
     view: read.view(reviewed),
   };
 }
@@ -240,7 +235,6 @@ export interface RepertoireProgressView {
   readonly source: ProgressSource;
   /** The coach's repertoire a shared one is the player's Fork of; null otherwise. */
   readonly forkOf: string | null;
-  readonly badges: BadgeSet | null;
   /** The assignment's deadline and status (R-129); null for a shared one. */
   readonly status: CoachStatus | null;
   readonly progress: RepertoireProgress;
@@ -272,15 +266,13 @@ export function coachRepertoireProgress(
     const loaded = await loadVisible(tx, read.scope, repertoireId);
     if (loaded === undefined) return undefined;
     const tracked = await trackedReviewsOf(tx, playerId, [loaded]);
-    const marks = read.marks({ graph: loaded.graph, tracked, now });
     return {
       player: { id: player.id, displayName: player.displayName },
       repertoire: loaded.repertoire,
       graph: loaded.graph,
       source: read.source,
       forkOf,
-      badges: marks?.badges ?? null,
-      status: marks?.status ?? null,
+      status: read.status({ graph: loaded.graph, tracked, now }),
       progress: progressOf(loaded.graph, tracked, now),
     };
   }, REPEATABLE_READ);
@@ -361,7 +353,7 @@ function doneOf(
 
 /**
  * The member's cell of `column`: null unless progressRepertoire shows this
- * coach's assignment of it, live or forked; its badges and status, and its
+ * coach's assignment of it, live or forked; its status, and its
  * standing only where granted.
  */
 function cellOf(
@@ -376,10 +368,8 @@ function cellOf(
   if (entry === undefined) return null;
   const read = entryRead(entry, viewer);
   const reviewed = { graph: column.graph, tracked, now };
-  const marks = read.marks(reviewed);
-  return marks === null
-    ? null
-    : { status: marks.status, view: read.view(reviewed) };
+  const status = read.status(reviewed);
+  return status === null ? null : { status, view: read.view(reviewed) };
 }
 
 /** What the grid knows of every member, read once for the whole group. */

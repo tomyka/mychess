@@ -26,7 +26,7 @@ const CARO = {
   side: 'black',
   coachName: 'Jonas',
   deadline: null,
-  badges: { overdue: false, paused: false, forked: false, updated: true },
+  badges: { overdue: false, paused: false, updated: true },
 };
 
 const server = vi.hoisted(() => ({

@@ -37,7 +37,6 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const GROUP = '0b9e7a51-3c2d-4e6f-8a1b-2c3d4e5f6a7b';
 const p = MESSAGES.assignment.panel;
 
-const STILL = { paused: false, forked: false, overdue: false, updated: false };
 const NOT_DONE = { done: false, forked: false, overdue: false, paused: false };
 
 const TO_GROUP: CoachAssignment = {
@@ -49,7 +48,6 @@ const TO_GROUP: CoachAssignment = {
       playerId: 'egle',
       displayName: 'Eglė',
       deadline: '2026-12-05',
-      badges: { ...STILL, paused: true, overdue: true },
       status: {
         ...NOT_DONE,
         deadline: '2026-12-05',
@@ -61,7 +59,6 @@ const TO_GROUP: CoachAssignment = {
       playerId: 'marta',
       displayName: 'Marta',
       deadline: null,
-      badges: { ...STILL, forked: true },
       status: { ...NOT_DONE, deadline: null, forked: true },
     },
   ],
@@ -76,7 +73,6 @@ const TO_ROKAS: CoachAssignment = {
       playerId: 'rokas',
       displayName: 'Rokas',
       deadline: null,
-      badges: { ...STILL, paused: true },
       status: { ...NOT_DONE, deadline: null, paused: true },
     },
   ],

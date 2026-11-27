@@ -20,7 +20,6 @@ import {
   canFork,
   canSetDeadline,
   canUseAssignment,
-  coachAssignmentBadges,
   deadlineSchema,
   deadlineSources,
   effectiveDeadline,
@@ -35,7 +34,7 @@ import {
   type SeenFacts,
   type AssignmentTarget,
   type ExistingAssignment,
-  type BadgeSet,
+  type AssignmentStatus,
 } from './assignment';
 import { vilniusDay } from './calendar';
 
@@ -914,7 +913,7 @@ describe('assignmentBadges (R-46, R-51, R-128, R-133)', () => {
     (overdue, paused, updated) => {
       expect(
         assignmentBadges({ audience: 'player', overdue, paused, updated }),
-      ).toStrictEqual({ overdue, paused, forked: false, updated });
+      ).toStrictEqual({ overdue, paused, updated });
     },
   );
 
@@ -923,31 +922,9 @@ describe('assignmentBadges (R-46, R-51, R-128, R-133)', () => {
     (overdue, paused) => {
       expect(
         assignmentBadges({ audience: 'player', opened: true, overdue, paused }),
-      ).toStrictEqual({ overdue, paused, forked: false, updated: false });
+      ).toStrictEqual({ overdue, paused, updated: false });
     },
   );
-
-  it.each(combos)(
-    'the coach sees overdue, paused and forked, never updated: %s %s %s',
-    (overdue, paused, forked) => {
-      expect(
-        assignmentBadges({ audience: 'coach', overdue, paused, forked }),
-      ).toStrictEqual({ overdue, paused, forked, updated: false });
-    },
-  );
-
-  it('a forked status reaches the coach as forked alone (R-128)', () => {
-    const status = assignmentStatus(
-      { deadline: '2026-01-01', done: false, paused: true, forked: true },
-      new Date('2026-11-02T10:00:00Z'),
-    );
-    expect(assignmentBadges({ audience: 'coach', ...status })).toStrictEqual({
-      overdue: false,
-      paused: false,
-      forked: true,
-      updated: false,
-    });
-  });
 });
 
 describe('assignmentDeadline (R-16, R-134)', () => {
@@ -1011,7 +988,7 @@ describe('assignmentDeadline (R-16, R-134)', () => {
   });
 });
 
-describe('coachAssignmentBadges (R-46, R-128, R-129, R-132)', () => {
+describe('assignmentStatusOf as the coach rows show it (R-46, R-128, R-129, R-132)', () => {
   const now = new Date('2026-11-02T10:00:00Z'); // 2 Nov in Vilnius
   const record = (over: Partial<AssignmentFacts> = {}): AssignmentFacts => ({
     playerId: 'p',
@@ -1030,11 +1007,12 @@ describe('coachAssignmentBadges (R-46, R-128, R-129, R-132)', () => {
     forkedAt: null,
     ...over,
   });
-  const badges = (over: Partial<BadgeSet>): BadgeSet => ({
+  const status = (over: Partial<AssignmentStatus>) => ({
+    deadline: '2026-11-01',
     overdue: false,
     paused: false,
+    done: false,
     forked: false,
-    updated: false,
     ...over,
   });
   const PAST = new Date('2026-10-20T10:00:00Z');
@@ -1044,48 +1022,31 @@ describe('coachAssignmentBadges (R-46, R-128, R-129, R-132)', () => {
       'past its deadline and not done: overdue',
       record(),
       false,
-      badges({ overdue: true }),
+      status({ overdue: true }),
     ],
-    ['done: never overdue', record(), true, badges({})],
+    ['done: never overdue', record(), true, status({ done: true })],
     [
       'paused past its deadline: paused and still overdue',
       record({ pausedAt: PAST }),
       false,
-      badges({ paused: true, overdue: true }),
+      status({ paused: true, overdue: true }),
     ],
     [
       'paused and done: paused alone',
       record({ pausedAt: PAST }),
       true,
-      badges({ paused: true }),
+      status({ paused: true, done: true }),
     ],
     [
       'forked: forked alone',
       record({ forkedAt: PAST, pausedAt: PAST }),
       false,
-      badges({ forked: true }),
+      status({ forked: true }),
     ],
   ] as const)('%s', (_name, facts, done, expected) => {
-    expect(coachAssignmentBadges(facts, progressOf(done, now))).toStrictEqual(
+    expect(assignmentStatusOf(facts, progressOf(done, now))).toStrictEqual(
       expected,
     );
-  });
-
-  it('is assignmentStatusOf then assignmentBadges for the coach', () => {
-    const facts = record({ pausedAt: PAST });
-    const { overdue, paused, forked } = assignmentStatusOf(
-      facts,
-      progressOf(false, now),
-    );
-    expect(coachAssignmentBadges(facts, progressOf(false, now))).toStrictEqual(
-      assignmentBadges({ audience: 'coach', overdue, paused, forked }),
-    );
-  });
-
-  it('is not overdue once every player move is tracked (R-129)', () => {
-    expect(
-      coachAssignmentBadges(record(), progressOf(true, now)),
-    ).toStrictEqual(badges({}));
   });
 });
 

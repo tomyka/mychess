@@ -14,7 +14,7 @@ import {
   type TrackedReview,
 } from '@mychess/chess';
 import { scopeKey } from '@mychess/domain';
-import type { CoachStatus } from '../assignments/badges';
+import type { CoachStatus } from '../assignments/status';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { isUuid } from '../ids';
 import { trackedReviews } from '../training/reviews';
@@ -83,7 +83,7 @@ async function standingsOf(
       const reviewed = { graph, tracked: tracked.get(playerId) ?? none, now };
       const shown: AssigneeStanding = {
         standing: repertoireStanding(graph, reviewed.tracked, now),
-        status: read.marks(reviewed)?.status ?? null,
+        status: read.status(reviewed),
       };
       return [[playerId, shown] as const];
     }),

@@ -140,13 +140,13 @@ describe('coachPlayerProgress', () => {
     expect(rows.find((r) => r.repertoire.id === karoKan)).toMatchObject({
       repertoire: { id: karoKan, name: 'Londono sistema', side: 'white' },
       source: 'assigned',
-      badges: { overdue: false, paused: false, forked: false, updated: false },
+      status: { overdue: false, paused: false, forked: false },
       view: { kind: 'granted', standing: { counts: { due: own } } },
     });
     // The same moves, trained through karoKan, count here too (R-156).
     expect(rows.at(-1)).toMatchObject({
       source: 'shared',
-      badges: null,
+      status: null,
       view: {
         kind: 'granted',
         standing: { counts: { notStarted: 0, due: own } },
@@ -165,7 +165,7 @@ describe('coachPlayerProgress', () => {
     );
   });
 
-  it('shows a paused assignment with its badge and its states', async () => {
+  it('shows a paused assignment with its status and its states', async () => {
     succeeded(
       await pauseAssignment(
         db,
@@ -176,18 +176,18 @@ describe('coachPlayerProgress', () => {
     const row = (await coachPlayerProgress(db, 'c', 'p', NOW))?.rows.find(
       (r) => r.repertoire.id === karoKan,
     );
-    expect(row?.badges?.paused).toBe(true);
+    expect(row?.status?.paused).toBe(true);
     expect(row?.view.kind).toBe('granted');
   });
 
-  it('shows a forked assignment with its badge only (R-155)', async () => {
+  it('shows a forked assignment with its status only (R-155)', async () => {
     succeeded(
       await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW),
     );
     const row = (await coachPlayerProgress(db, 'c', 'p', NOW))?.rows.find(
       (r) => r.repertoire.id === karoKan,
     );
-    expect(row?.badges?.forked).toBe(true);
+    expect(row?.status?.forked).toBe(true);
     expect(row?.view).toEqual({ kind: 'forked', sharedForkId: null });
   });
 
@@ -320,20 +320,20 @@ describe('coachRepertoireProgress', () => {
     expect(view?.player).toEqual({ id: 'p', displayName: 'Name p' });
     expect(view?.repertoire.id).toBe(karoKan);
     expect(view?.graph).toEqual(await graphRows(db, karoKan, 'white'));
-    expect(view?.badges?.forked).toBe(false);
+    expect(view?.status?.forked).toBe(false);
     expect(view?.progress.counts.due).toBe(own);
     expect(view?.progress.chapters.length).toBeGreaterThan(0);
     expect(view?.progress.chapters[0]?.lines.length).toBeGreaterThan(0);
   });
 
-  it('shows a shared repertoire without badges', async () => {
+  it('shows a shared repertoire without a status', async () => {
     const view = await coachRepertoireProgress(
       db,
       { coachId: 'c', playerId: 'p', repertoireId: shared },
       NOW,
     );
     expect(view?.repertoire.id).toBe(shared);
-    expect(view?.badges).toBeNull();
+    expect(view?.status).toBeNull();
   });
 
   it('gives an assignment its source and status, and a shared one none (#381)', async () => {

@@ -37,7 +37,6 @@ const row = (id: string, kind: RepertoireKind): TodayListRow => ({
 const BADGES: BadgeSet = {
   overdue: false,
   paused: false,
-  forked: false,
   updated: true,
 };
 

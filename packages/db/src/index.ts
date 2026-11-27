@@ -178,7 +178,7 @@ export {
   setPersonalNote,
   type PersonalNoteInput,
 } from './personal-notes';
-export type { CoachStatus } from './assignments/badges';
+export type { CoachStatus } from './assignments/status';
 export {
   coachPlayerProgress,
   coachRepertoireProgress,

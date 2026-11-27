@@ -31,7 +31,6 @@ vi.mock('next/navigation', () => ({
 const JONAS = { id: 'jonas' };
 const COUNTS = { notStarted: 1, skipped: 2, due: 3, learned: 4 };
 const REF = { id: REPERTOIRE, name: 'Karo-Kan', side: 'black' } as const;
-const BADGES = { overdue: true, paused: false, forked: false, updated: false };
 const STATUS = {
   deadline: '2026-10-18',
   overdue: true,
@@ -53,7 +52,6 @@ const VIEW: RepertoireProgressView = {
   graph: { side: 'black', chapters: [ADVANCE], moves: [] },
   source: 'assigned',
   forkOf: null,
-  badges: BADGES,
   status: STATUS,
   progress: {
     counts: COUNTS,
@@ -171,7 +169,6 @@ describe('coachProgressData', () => {
     server.repertoire.mockResolvedValue({
       ...VIEW,
       source: 'shared',
-      badges: null,
       status: null,
     });
     expect(await coachProgressData(PLAYER, REPERTOIRE)).toMatchObject({
@@ -185,7 +182,6 @@ describe('coachProgressData', () => {
       ...VIEW,
       source: 'shared',
       forkOf: 'coach-repertoire',
-      badges: null,
       status: null,
     });
     expect(await coachProgressData(PLAYER, REPERTOIRE)).toMatchObject({

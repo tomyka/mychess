@@ -33,7 +33,7 @@ const row = (over: Partial<TodayPageRow> = {}): TodayPageRow => ({
 const FACTS: AssignedFacts = {
   coachName: 'Rimantas',
   deadline: '2026-12-03',
-  badges: { overdue: true, paused: true, forked: false, updated: false },
+  badges: { overdue: true, paused: true, updated: false },
 };
 
 /** A paused assignment: todayRows gives it no action (R-46, R-222). */

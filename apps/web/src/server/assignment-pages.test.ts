@@ -175,7 +175,7 @@ const MINE: PlayerAssignment = {
   deadline: '2026-11-30',
   paused: false,
   done: false,
-  badges: { overdue: false, paused: false, forked: false, updated: true },
+  badges: { overdue: false, paused: false, updated: true },
 };
 
 const OFFER: OpenForkOffer = {
@@ -222,7 +222,6 @@ describe('todayAssignments', () => {
             badges: {
               overdue: false,
               paused: false,
-              forked: false,
               updated: true,
             },
           },

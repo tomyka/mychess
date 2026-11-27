@@ -196,7 +196,6 @@ describe('playerAssignments', () => {
         badges: {
           overdue: false,
           paused: false,
-          forked: false,
           updated: false,
         },
       },

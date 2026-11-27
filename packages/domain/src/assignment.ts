@@ -234,7 +234,7 @@ export function effectiveDeadline(sources: DeadlineSources): string | null {
   return dated.toSorted()[0] ?? null;
 }
 
-/** What a player's badges on one assignment depend on. */
+/** What an assignment's status depends on. */
 export interface AssignmentStatusFacts {
   /** The effective deadline, `YYYY-MM-DD`, or null. */
   readonly deadline: string | null;
@@ -259,8 +259,8 @@ const FORKED: AssignmentStatus = {
 };
 
 /**
- * The assignment status assignmentBadges turns into badges (R-51, R-128, R-129, R-132):
- * overdue from the Vilnius day after the deadline unless done, also when
+ * An assignment's status (R-51, R-128, R-129, R-132), which the player's
+ * badges (assignmentBadges) and the coach's rows show: overdue from the Vilnius day after the deadline unless done, also when
  * paused; a forked assignment shows only "forked".
  */
 export function assignmentStatus(
@@ -277,18 +277,19 @@ export function assignmentStatus(
   };
 }
 
-/** Every badge an assignment can show (R-46, R-51, R-128, R-133). */
+/**
+ * Every badge an assignment can show the player (R-46, R-51, R-133); never
+ * forked, as a forked repertoire leaves their list (R-128).
+ */
 export interface BadgeSet {
   readonly overdue: boolean;
   readonly paused: boolean;
-  readonly forked: boolean;
   readonly updated: boolean;
 }
 
 /**
- * What one audience's badges come from: the player's "From my coach", the
- * player's page of the assignment they have opened, or the coach's list of
- * the players an assignment reaches.
+ * What the player's badges come from: their "From my coach", or their page
+ * of the assignment they have opened.
  */
 export type BadgeFacts =
   | {
@@ -307,26 +308,17 @@ export type BadgeFacts =
       readonly opened: true;
       readonly overdue: boolean;
       readonly paused: boolean;
-    }
-  | {
-      readonly audience: 'coach';
-      readonly overdue: boolean;
-      readonly paused: boolean;
-      readonly forked: boolean;
     };
 
 /**
- * The full badge set an audience sees (S5 spec). The player sees overdue,
- * paused and "Updated", the last not once they have opened it; never
- * forked, as a forked repertoire leaves their list (R-128). The coach sees
- * overdue, paused and forked; "Updated" is the player's own (R-133).
+ * The full badge set the player sees (S5 spec): overdue, paused and
+ * "Updated", the last not once they have opened it. The coach's rows show
+ * the assignment's status instead (assignmentStatusOf).
  */
 export function assignmentBadges(facts: BadgeFacts): BadgeSet {
   const { overdue, paused } = facts;
-  if (facts.audience === 'coach')
-    return { overdue, paused, forked: facts.forked, updated: false };
   const updated = 'opened' in facts ? false : facts.updated;
-  return { overdue, paused, forked: false, updated };
+  return { overdue, paused, updated };
 }
 
 /**
@@ -475,7 +467,7 @@ export interface AssignmentProgress {
 
 /**
  * The one status rule for the player's and the coach's reads: the
- * effective deadline (R-16, R-134) and the badges on it (R-128, R-132).
+ * effective deadline (R-16, R-134) and the status on it (R-128, R-132).
  * Done (R-129, R-181) when every player move of the repertoire as it is
  * now is tracked, so a coach edit that adds moves undoes it; opponent
  * moves never count, an empty repertoire is done, a forked one never is.
@@ -497,17 +489,4 @@ export function assignmentStatusOf(
       now,
     ),
   };
-}
-
-/**
- * The badges the coach sees on one player's assignment (R-46, R-128,
- * R-129, R-132): its status (assignmentStatusOf) as assignmentBadges shows
- * it to the coach.
- */
-export function coachAssignmentBadges(
-  facts: AssignmentFacts,
-  progress: AssignmentProgress,
-): BadgeSet {
-  const { overdue, paused, forked } = assignmentStatusOf(facts, progress);
-  return assignmentBadges({ audience: 'coach', overdue, paused, forked });
 }

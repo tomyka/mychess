@@ -67,7 +67,6 @@ const ROKAS = account('rokas', 'Rokas');
 const GABIJA = account('gabija', 'Gabija');
 
 const COUNTS = { notStarted: 1, skipped: 2, due: 3, learned: 4 };
-const BADGES = { overdue: true, paused: false, forked: false, updated: false };
 const STATUS = {
   deadline: '2026-10-20',
   overdue: true,
@@ -92,14 +91,12 @@ const GRANTED = {
 const ASSIGNED: ProgressRow = {
   repertoire: LONDON,
   source: 'assigned',
-  badges: BADGES,
   status: STATUS,
   view: GRANTED,
 };
 const SHARED: ProgressRow = {
   repertoire: TAIMANOV,
   source: 'shared',
-  badges: null,
   status: null,
   view: GRANTED,
 };
@@ -325,7 +322,6 @@ describe('coachPlayerData', () => {
   const forkedRow = (sharedForkId: string | null): ProgressRow => ({
     repertoire: ITALIAN,
     source: 'assigned',
-    badges: { ...BADGES, overdue: false, forked: true },
     status: FORKED_STATUS,
     view: { kind: 'forked', sharedForkId },
   });

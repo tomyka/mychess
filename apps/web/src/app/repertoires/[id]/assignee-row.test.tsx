@@ -11,7 +11,6 @@ import { MESSAGES } from '../../../i18n/catalogue';
 import { AssigneeRow } from './assignee-row';
 
 const TODAY = '2026-11-17';
-const STILL = { paused: false, forked: false, overdue: false, updated: false };
 const s = MESSAGES.coach.status;
 
 /** The deadline Dec 20, nothing on. */
@@ -27,7 +26,6 @@ const ROKAS: CoachAssignmentPlayer = {
   playerId: 'rokas',
   displayName: 'Rokas',
   deadline: '2026-12-20',
-  badges: STILL,
   status: ON_TIME,
 };
 
@@ -149,7 +147,6 @@ describe('AssigneeRow: a player’s row (R-231)', () => {
   it('shows a fork as "Own copy", with no bar, progress or deadline (R-155)', () => {
     const container = renderRow(null, {
       ...ROKAS,
-      badges: { ...STILL, forked: true },
       status: { ...ON_TIME, forked: true },
     });
     expect(

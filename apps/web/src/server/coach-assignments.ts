@@ -90,9 +90,9 @@ async function panelOf(
     groups.map(({ id, name }) => ({ id, name })),
     assignments.map(({ target, players: reached }) => ({
       target,
-      players: reached.map(({ playerId, badges }) => ({
+      players: reached.map(({ playerId, status }) => ({
         playerId,
-        forked: badges.forked,
+        forked: status.forked,
       })),
     })),
   );

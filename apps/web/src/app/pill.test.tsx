@@ -49,7 +49,7 @@ describe('the pills that use it', () => {
   it('draws the assignment badges as pills', () => {
     wrap(
       <AssignmentBadges
-        flags={{ overdue: true, paused: true, forked: false, updated: true }}
+        flags={{ overdue: true, paused: true, updated: true }}
       />,
     );
     expect(screen.getByText('Overdue').className).toBe(pillClass('overdue'));

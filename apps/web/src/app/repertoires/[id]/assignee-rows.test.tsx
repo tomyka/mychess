@@ -42,8 +42,6 @@ const badge = MESSAGES.assignment.badge;
 const s = MESSAGES.coach.status;
 const TODAY = '2026-11-17';
 
-const STILL = { paused: false, forked: false, overdue: false, updated: false };
-
 const status = (on: Partial<CoachStatus>): CoachStatus => ({
   deadline: null,
   overdue: false,
@@ -62,14 +60,12 @@ const TO_GROUP: CoachAssignment = {
       playerId: 'egle',
       displayName: 'Eglė',
       deadline: '2026-12-05',
-      badges: { ...STILL, overdue: true },
       status: status({ deadline: '2026-12-05', overdue: true }),
     },
     {
       playerId: 'marta',
       displayName: 'Marta',
       deadline: '2026-11-30',
-      badges: { ...STILL, forked: true },
       status: status({ deadline: '2026-11-30', forked: true }),
     },
   ],
@@ -84,7 +80,6 @@ const TO_ROKAS: CoachAssignment = {
       playerId: 'rokas',
       displayName: 'Rokas',
       deadline: null,
-      badges: { ...STILL, paused: true },
       status: status({ paused: true }),
     },
   ],
@@ -172,7 +167,7 @@ describe('AssigneeRows: a row per assignment (R-225, R-231)', () => {
     // Done, without a deadline: no deadline to speak of.
     expect(within(rokas).queryByText(s.noDeadline)).toBeNull();
     expect(within(rokas).getByText(badge.paused)).toBeDefined();
-    // Done comes from the read's status, which the badges never know.
+    // Done comes from the read's status.
     expect(within(rokas).getByText(s.done)).toBeDefined();
     expect(change(rokas)).toBeDefined();
   });
@@ -208,7 +203,6 @@ describe('AssigneeRows: a row per assignment (R-225, R-231)', () => {
       playerId: 'jonas',
       displayName: 'Jonas',
       deadline: '2026-12-05',
-      badges: STILL,
       status: status({ deadline: '2026-11-30', paused: true }),
     };
     renderRows([{ ...TO_GROUP, players: [jonas] }]);

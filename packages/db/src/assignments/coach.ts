@@ -1,8 +1,8 @@
 /**
  * What a coach reads of their own assignments of one repertoire (R-46,
  * R-51, R-128, R-131). The domain decides access (canViewRepertoire: the
- * coach's own repertoire), the deadline (assignmentDeadline), the badges
- * (coachAssignmentBadges, through coachBadges, shared with the progress
+ * coach's own repertoire), the deadline (assignmentDeadline), the status
+ * (assignmentStatusOf, through coachStatus, shared with the progress
  * reads) and who has it live (canUseAssignment); every statement filters
  * again on `assignments.coach_id`, and the rows on the repertoire's owner,
  * which assignments_repertoire_fk already guarantees is the coach. A player
@@ -17,7 +17,6 @@ import {
   canUseAssignment,
   canViewRepertoire,
   type AssignmentFacts,
-  type BadgeSet,
 } from '@mychess/domain';
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -28,7 +27,7 @@ import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { accounts, groups, repertoires } from '../schema';
 import { trackedReviews } from '../training/reviews';
-import { coachBadges, coachStatus, type CoachStatus } from './badges';
+import { coachStatus, type CoachStatus } from './status';
 import { namesOf } from './names';
 import { assignmentFacts } from './reach';
 
@@ -39,14 +38,9 @@ export interface CoachAssignmentPlayer {
   /** effectiveDeadline across every row reaching the player (R-16, R-134). */
   readonly deadline: string | null;
   /**
-   * What the coach sees on them (assignmentBadges), from assignmentStatus
-   * at `now`: overdue and paused, or forked alone (R-46, R-51, R-128, R-132).
-   */
-  readonly badges: BadgeSet;
-  /**
-   * Their status as the domain decides it (coachStatus, assignmentStatusOf):
-   * the deadline, overdue, paused, forked and done (R-129), from the same
-   * Reviews as the badges.
+   * Their status at `now` as the domain decides it (coachStatus,
+   * assignmentStatusOf): the deadline, overdue, paused, done (R-129), or
+   * forked alone (R-46, R-51, R-128, R-132).
    */
   readonly status: CoachStatus;
 }
@@ -117,7 +111,7 @@ interface Listed {
 }
 
 /**
- * Each reached player's name, deadline and badges at `now` (coachBadges:
+ * Each reached player's name, deadline and status at `now` (coachStatus:
  * done when every player move of `graph` is tracked, R-129). One read of
  * the Reviews of every player, of the repertoire's player moves only.
  */
@@ -141,7 +135,6 @@ async function listedOf(
         playerId: one.playerId,
         displayName,
         deadline: assignmentDeadline(one),
-        badges: coachBadges(one, graph, reviews, now),
         status: coachStatus(one, graph, reviews, now),
       },
     };
@@ -174,7 +167,7 @@ const byPlayerName = byName((one: CoachAssignmentPlayer) => ({
 
 /**
  * The coach's assignments of their own repertoire `repertoireId`, oldest
- * first, each with the linked players it reaches and their badges at
+ * first, each with the linked players it reaches and their status at
  * `now`; empty for a repertoire that is not theirs.
  */
 export function coachAssignments(

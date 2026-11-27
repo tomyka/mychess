@@ -206,11 +206,12 @@ describe('myRepertoires', () => {
           {
             playerId: 'rokas',
             displayName: 'Rokas',
-            badges: {
+            status: {
+              deadline: null,
               overdue: false,
               paused: false,
+              done: false,
               forked: true,
-              updated: false,
             },
           },
         ],
