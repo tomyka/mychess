@@ -96,7 +96,11 @@ Three to five teammates at a time; each one costs tokens.
    web), Testing, Done means.
 4. **Plan**: `docs/superpowers/plans/YYYY-MM-DD-<topic>.md`
    (`superpowers:writing-plans`), each task naming its role; security-sensitive
-   tasks are marked `- SECURITY`, visible ones `- UX`.
+   tasks are marked `- SECURITY`, visible ones `- UX`. Before any code, the
+   `ux-designer` checks every `- UX` task that changes a screen's layout
+   against a height budget at 375x667 and 390x844 (what sits above the
+   board, the board, and what stays reachable under it): in #381 part 4 the
+   phone budget surfaced only at sign-off and cost two rework rounds.
 5. **Each task goes:** developer (test first) -> `qa` (criteria, persona
    journeys) -> `architect` (`mp-code-review`) -> `security-reviewer` if marked
    -> `ux-designer` if visible -> the lead commits.

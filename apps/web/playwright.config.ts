@@ -13,8 +13,9 @@ import { MAILPIT_URL } from './e2e/support/mailpit-url';
 // E2E_BASE_URL set, the suite drives an app already running there and starts
 // no server of its own: CI's e2e job runs it against the release image
 // (infra/ci/e2e-stack.sh), with DATABASE_URL and MAILPIT_URL pointing at that
-// stack's services.
-const PORT = 3100;
+// stack's services. E2E_PORT moves the local server off 3100 (and
+// E2E_OUTPUT_DIR its traces), so two agents can run the suite at once.
+const PORT = Number(process.env['E2E_PORT'] ?? '3100');
 const EXTERNAL_URL = process.env['E2E_BASE_URL'];
 const BASE_URL = EXTERNAL_URL ?? `http://127.0.0.1:${String(PORT)}`;
 const CI = process.env['CI'] === 'true';
@@ -79,6 +80,7 @@ const WEB_SERVER = {
 
 export default defineConfig({
   testDir: 'e2e',
+  outputDir: fromEnv('E2E_OUTPUT_DIR', 'test-results'),
   forbidOnly: CI,
   retries: CI ? 1 : 0,
   // One at a time: the tests share one Mailpit inbox and one database.
