@@ -8,9 +8,11 @@ import {
   coachDashboard,
   coachGroupPage,
   coachGroups,
+  coachInvites,
   coachPlayerProgress,
   sharedRepertoireSnapshot,
   type CoachGroup,
+  type CoachInvite,
   type CoachGroupSummary,
   type DashboardPlayer,
   type GroupProgress,
@@ -106,13 +108,31 @@ export interface CoachDashboardData {
   /** By name (R-160), as the read gives them. */
   readonly players: readonly DashboardPlayerLine[];
   readonly groups: readonly CoachGroupSummary[];
+  /** The coach's open personal invites, newest first (R-232). */
+  readonly personalInvites: readonly PersonalInvite[];
   /** Today's Vilnius day, so the server and the browser write dates alike. */
   readonly today: string;
 }
 
 /**
+ * An open personal invite as the Invite a player sheet lists it (R-232):
+ * its dates, never its token or hash.
+ */
+export type PersonalInvite = Pick<
+  CoachInvite,
+  'id' | 'createdAt' | 'expiresAt'
+>;
+
+/** The personal ones of the coach's open invites; a group's are on its page. */
+const personalOnes = (invites: readonly CoachInvite[]): PersonalInvite[] =>
+  invites.flatMap(({ id, kind, createdAt, expiresAt }) =>
+    kind === 'personal' ? [{ id, createdAt, expiresAt }] : [],
+  );
+
+/**
  * The coach dashboard, `/coach` (R-229): the players and their progress in
- * one read, judged by the domain; the groups are the coach's own data.
+ * one read, judged by the domain; the groups and open personal invites are
+ * the coach's own data.
  */
 export async function coachDashboardData(): Promise<CoachDashboardData> {
   const coach = await requireCoach();
@@ -125,6 +145,7 @@ export async function coachDashboardData(): Promise<CoachDashboardData> {
     attention: attentionList(read),
     players: read.map(({ line }) => line),
     groups: await coachGroups(db, coach.id),
+    personalInvites: personalOnes(await coachInvites(db, coach.id, now)),
     today: vilniusDay(now),
   };
 }
@@ -186,6 +207,11 @@ export async function coachPlayerData(
  */
 export interface SharedRepertoirePage extends RepertoireForViewer {
   readonly player: { readonly id: string; readonly displayName: string };
+  /**
+   * Whether this is the player's Fork of one of the coach's repertoires, as
+   * the domain decides (R-155), so the page titles it their own copy.
+   */
+  readonly isFork: boolean;
 }
 
 const sharedIdsSchema = z.object({
@@ -230,6 +256,7 @@ export async function sharedRepertoireData(
       Object.fromEntries(shared.notes.map((note) => [note.moveKey, note.text])),
     ),
     player: { id: player.id, displayName: player.displayName },
+    isFork: snapshot.forkOf !== null,
   };
 }
 

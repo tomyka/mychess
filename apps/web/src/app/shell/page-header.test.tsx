@@ -48,6 +48,24 @@ describe('PageHeader', () => {
     expect(title).toContain('break-words');
   });
 
+  it('carries the page’s actions at the end of the title row', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <PageHeader
+          title="Coach"
+          actions={<button type="button">Invite a player</button>}
+        />
+      </NextIntlClientProvider>,
+    );
+    const title = screen.getByRole('heading', { level: 1, name: 'Coach' });
+    const action = screen.getByRole('button', { name: 'Invite a player' });
+    // The same row, after the title.
+    expect(action.closest('div')).toBe(title.parentElement);
+    expect(
+      title.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('titles a tab page without a way back', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>

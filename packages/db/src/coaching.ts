@@ -3,6 +3,7 @@ import {
   canStopCoaching,
   COACH_REFUSALS,
   ok,
+  progressRepertoire,
   refuse,
   type AccountRef,
   type CoachAccessFacts,
@@ -17,6 +18,7 @@ import { changeAssignments } from './assignments/change';
 import { REPEATABLE_READ, type Db, type Executor } from './client';
 import { isLinked, linkCount } from './coach-queries';
 import { revokeOpenInvites } from './invites';
+import { coachProgressFacts } from './progress/facts';
 import { accounts, coachLinks, groupMembers, groups } from './schema';
 import {
   loadShared,
@@ -244,6 +246,32 @@ export interface SharedRepertoireSnapshot {
   readonly player: LinkedAccount | undefined;
   /** The repertoire, when shared with the coach through an active link. */
   readonly shared: SharedRepertoire | undefined;
+  /**
+   * The coach's repertoire the shared one is the player's Fork of, as the
+   * domain names it (progressRepertoire, R-155, #328); null when it is not
+   * one, or when nothing is shared.
+   */
+  readonly forkOf: string | null;
+}
+
+/**
+ * The coach's repertoire that `repertoireId` is the player's shared Fork
+ * of, decided by the domain on the coach-progress facts read in `tx`.
+ */
+async function sharedForkOf(
+  tx: Executor,
+  coachId: string,
+  playerId: string,
+  repertoireId: string,
+): Promise<string | null> {
+  const facts = (await coachProgressFacts(tx, coachId, [playerId])).get(
+    playerId,
+  );
+  if (facts === undefined) return null;
+  const entry = progressRepertoire(coachId, playerId, repertoireId, facts);
+  return entry?.kind === 'granted' && entry.source === 'shared'
+    ? entry.forkOf
+    : null;
 }
 
 /**
@@ -258,12 +286,15 @@ export function sharedRepertoireSnapshot(
   playerId: string,
   repertoireId: string,
 ): Promise<SharedRepertoireSnapshot> {
-  return db.transaction(
-    async (tx) => ({
-      facts: await coachAccessFacts(tx, coachId, playerId),
-      player: await coachPlayer(tx, coachId, playerId),
-      shared: await loadShared(tx, coachId, playerId, repertoireId),
-    }),
-    REPEATABLE_READ,
-  );
+  return db.transaction(async (tx) => {
+    const facts = await coachAccessFacts(tx, coachId, playerId);
+    const player = await coachPlayer(tx, coachId, playerId);
+    const shared = await loadShared(tx, coachId, playerId, repertoireId);
+    // Only a repertoire actually shared can be a shared Fork.
+    const forkOf =
+      shared === undefined
+        ? null
+        : await sharedForkOf(tx, coachId, playerId, repertoireId);
+    return { facts, player, shared, forkOf };
+  }, REPEATABLE_READ);
 }

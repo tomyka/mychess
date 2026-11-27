@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { RepertoireFrame } from './repertoire-frame';
+import { RepertoireFrame, type PanelBasis } from './repertoire-frame';
 
 /**
  * Each cell's content is a labelled paragraph, so the test finds the cell
@@ -9,11 +9,17 @@ import { RepertoireFrame } from './repertoire-frame';
  * and the slice's own (docs/design/repertoire-screen.md, Board height).
  */
 function renderFrame(
-  optional: { builderRow?: boolean; comment?: boolean; busy?: boolean } = {},
+  optional: {
+    builderRow?: boolean;
+    comment?: boolean;
+    busy?: boolean;
+    panelBasis?: PanelBasis;
+  } = {},
 ): HTMLElement {
   render(
     <RepertoireFrame
       busy={optional.busy}
+      panelBasis={optional.panelBasis}
       topBar={<p>top bar</p>}
       board={<p>board</p>}
       boardRow={<p>board row</p>}
@@ -128,6 +134,15 @@ describe('RepertoireFrame', () => {
     expect(
       [...(panel?.children ?? [])].map((cell) => cell.textContent),
     ).toEqual(['board row', 'builder row', 'status', 'comment', 'scroller']);
+  });
+
+  it('gives the panel cell 18.5rem where a note strip sits under the comment, and only there (height budget, #381 part 5)', () => {
+    renderFrame({ comment: true, panelBasis: 'noteStrip' });
+    const panel = document.querySelector(
+      '[data-panel-scroller]',
+    )?.parentElement;
+    expect(classesOf(panel)).toContain('flex-[1_1_18.5rem]');
+    expect(classesOf(panel)).not.toContain('flex-[1_1_16.5rem]');
   });
 
   it('sizes the board row at 60px on a phone (a 44px field and 8px above and below) and keeps the rows from shrinking', () => {

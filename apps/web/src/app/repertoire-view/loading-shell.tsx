@@ -1,7 +1,7 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { SlowStatus } from '../slow-status';
-import { RepertoireFrame } from './repertoire-frame';
+import { RepertoireFrame, type PanelBasis } from './repertoire-frame';
 
 /** A skeleton line: one line of text not there yet. */
 export const SKELETON_LINE = 'h-5 rounded-control bg-sunken';
@@ -31,11 +31,17 @@ function TopBarSkeleton(): JSX.Element {
  * about a second, one "Loading" line in the status line. Shared by the
  * owner's page, the assigned page and the coach's read-only view.
  */
-export function RepertoireLoadingShell(): JSX.Element {
+export function RepertoireLoadingShell({
+  panelBasis,
+}: {
+  /** The page's panel basis (RepertoireFrame), so the board does not jump when it arrives. */
+  readonly panelBasis?: PanelBasis;
+} = {}): JSX.Element {
   const t = useTranslations('repertoires');
   return (
     <RepertoireFrame
       busy
+      panelBasis={panelBasis}
       topBar={<TopBarSkeleton />}
       board={
         <div

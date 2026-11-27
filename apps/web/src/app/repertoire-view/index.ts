@@ -36,6 +36,8 @@ export { PersonalNote, type NoteOutcome } from './personal-note';
 export { useNotes, type Notes } from './use-notes';
 export { useNotesByMove } from './notes-by-move';
 export { CoachNotes, type MoveCoachNote } from './coach-notes';
+export { PEN_GLYPH } from './move-list';
+export { moveLabel } from './move-label';
 
 // A move played on the board: the legal moves joining its two squares (one,
 // or four promotions). The training drills take moves the same way.

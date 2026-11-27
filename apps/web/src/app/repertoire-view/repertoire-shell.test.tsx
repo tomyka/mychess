@@ -1,9 +1,16 @@
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
 import { moveKey, START_KEY, type RepertoireGraph } from '@mychess/chess';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { outOfOrder } from '../../../test/dom-order';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
@@ -11,6 +18,7 @@ import { MESSAGES } from '../../i18n/catalogue';
 import { RepertoireShell, useBrowseView } from '.';
 import type { RepertoireTraining } from '../../server/training';
 import { pageTraining } from './test-training';
+import type { PanelBasis } from './repertoire-frame';
 
 const ground = vi.hoisted(() => {
   const created: Config[] = [];
@@ -43,6 +51,8 @@ interface ViewOptions {
   readonly byMove?: Readonly<Record<string, string>>;
   readonly kept?: ReadonlySet<string>;
   readonly training?: RepertoireTraining;
+  readonly underComment?: ReactNode;
+  readonly panelBasis?: PanelBasis;
 }
 
 /** A read-only view built on the module, as a third view would build it. */
@@ -53,6 +63,8 @@ function View({
   byMove = {},
   kept = new Set(),
   training,
+  underComment,
+  panelBasis,
 }: ViewOptions): JSX.Element {
   const view = useBrowseView(graph, 'white');
   return (
@@ -80,6 +92,8 @@ function View({
         },
         training,
       }}
+      underComment={underComment}
+      panelBasis={panelBasis}
       {...(said === undefined
         ? {}
         : {
@@ -254,6 +268,32 @@ describe('RepertoireShell', () => {
     forward();
     expect(screen.queryByRole('region', { name: NOTE_LABEL })).toBeNull();
     expect(screen.getByText('Kita pastaba')).toBeDefined();
+  });
+
+  it('puts what the view gives under the comment strip in the strip’s fixed slot, above the scroller (the coach note, #381 part 5)', () => {
+    renderView({ underComment: <p>Trenerio pastaba</p> });
+    forward();
+    const under = screen.getByText('Trenerio pastaba');
+    const scroller = document.querySelector('[data-panel-scroller]');
+    expect(under.parentElement?.nextElementSibling).toBe(scroller);
+    expect(
+      outOfOrder([
+        screen.getByRole('region', { name: NOTE_LABEL }),
+        under,
+        screen.getByText('Baltieji · 2 skyriai'),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('keeps the owner’s 16.5rem panel by default and takes the view’s basis when given (height budget, #381 part 5)', () => {
+    renderView();
+    const panelOf = () =>
+      document.querySelector('[data-panel-scroller]')?.parentElement
+        ?.className ?? '';
+    expect(panelOf()).toContain('flex-[1_1_16.5rem]');
+    cleanup();
+    renderView({ panelBasis: 'noteStrip' });
+    expect(panelOf()).toContain('flex-[1_1_18.5rem]');
   });
 
   it('takes no new move while browsing: a move the chapter lacks is refused', () => {

@@ -1,46 +1,106 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useId, useState, useTransition, type JSX } from 'react';
+import {
+  useId,
+  useState,
+  useTransition,
+  type JSX,
+  type ReactNode,
+} from 'react';
 import type { CoachNoteMove } from '../../../../../../server/coach-input';
-import { SECONDARY_BUTTON } from '../../../../../buttons';
+import { DANGER_OUTLINE_BUTTON, PRIMARY_BUTTON } from '../../../../../buttons';
 import { StatusLine } from '../../../../../status-line';
 import {
   deleteCoachNoteAction,
   saveCoachNoteAction,
   type CoachNoteState,
 } from '../../../../actions';
-import { PANEL_LABEL } from '../../../../../repertoire-view';
 
-export interface CoachNoteFormProps {
+export interface CoachNoteProps {
   /** The player's repertoire and the move the note is on. */
   readonly target: CoachNoteMove;
-  /** Who else sees the note: the player (R-107). */
-  readonly playerName: string;
-  /** The coach's note on the move; '' for none. */
-  readonly initial: string;
+  /** The coach's note on the move as saved; '' for none. */
+  readonly note: string;
   /** Told the note's text once saved, '' once deleted. */
   readonly onChange: (text: string) => void;
 }
 
+/** The note on a move as the card and the strip show it. */
+export interface CoachNoteOnMoveProps extends CoachNoteProps {
+  /** The move it is on, as the move list writes it ("5... Qc7"). */
+  readonly move: string;
+  /** Who else sees the note: the player (R-107). */
+  readonly playerName: string;
+}
+
+/** Whether there is no note on the move. */
+const noNote = (note: string): boolean => note === '';
+
+/**
+ * What the card and the strip say of the note: its label, "My coach note
+ * on 5... Qc7 · you and Gabija see this" (who sees it, so the coach never
+ * thinks it private, R-107), and whether there is a note yet.
+ */
+export function useNoteWords({
+  note,
+  move,
+  playerName,
+}: CoachNoteOnMoveProps): { readonly label: string; readonly empty: boolean } {
+  const t = useTranslations('coach.shared');
+  return {
+    label: t('noteOn', { move, name: playerName }),
+    empty: noNote(note),
+  };
+}
+
+/** A save or a delete that went through. */
+export type NoteDone = 'saved' | 'deleted';
+
 /** What the last save or delete came to: done, or a catalogue key. */
 type Status =
   | 'idle'
-  | 'saved'
-  | 'deleted'
+  | NoteDone
   | 'repertoires.failed'
   | NonNullable<CoachNoteState['refusal']>;
 
-/** The note's text and what saving and deleting it does. */
-function useCoachNote({ target, initial, onChange }: CoachNoteFormProps) {
-  const [text, setText] = useState(initial);
-  const [stored, setStored] = useState(initial);
+/** The coach's note on one move, as `useCoachNote` keeps it. */
+export interface CoachNote {
+  /** As saved: '' for none. */
+  readonly note: string;
+  /** The field's text. */
+  readonly text: string;
+  readonly setText: (text: string) => void;
+  readonly status: Status;
+  readonly pending: boolean;
+  /** The field afresh: the saved note, nothing said. */
+  readonly reset: () => void;
+  readonly save: () => void;
+  readonly remove: () => void;
+}
+
+/**
+ * The coach's note on one move while it is being edited: the field's text,
+ * what the last save or delete came to, and both. The saved note is the
+ * view's (`note`), so the card and the phone strip never disagree; a
+ * success tells the view, then `onDone` what it was (the card leaves the
+ * field; the sheet closes and the strip says it).
+ */
+export function useCoachNote({
+  target,
+  note,
+  onChange,
+  onDone,
+}: CoachNoteProps & {
+  readonly onDone: (done: NoteDone) => void;
+}): CoachNote {
+  const [text, setText] = useState(note);
   const [status, setStatus] = useState<Status>('idle');
   const [pending, startTransition] = useTransition();
   const run = (
     work: () => Promise<CoachNoteState>,
     next: string,
-    done: Status,
+    done: NoteDone,
   ): void => {
     startTransition(async () => {
       try {
@@ -50,20 +110,24 @@ function useCoachNote({ target, initial, onChange }: CoachNoteFormProps) {
           return;
         }
         setText(next);
-        setStored(next);
         setStatus(done);
         onChange(next);
+        onDone(done);
       } catch {
         setStatus('repertoires.failed');
       }
     });
   };
   return {
+    note,
     text,
     setText,
-    stored,
     status,
     pending,
+    reset: () => {
+      setText(note);
+      setStatus('idle');
+    },
     save: () => {
       run(() => saveCoachNoteAction({ ...target, text }), text.trim(), 'saved');
     },
@@ -73,87 +137,108 @@ function useCoachNote({ target, initial, onChange }: CoachNoteFormProps) {
   };
 }
 
+/** Whether the last save or delete was refused or failed. */
+const refused = (status: Status): boolean =>
+  status !== 'idle' && status !== 'saved' && status !== 'deleted';
+
+/** What a save or delete that went through is said as. */
+export function useDoneText(): (done: NoteDone) => string {
+  const t = useTranslations('coach.shared');
+  return (done) => (done === 'saved' ? t('noteSaved') : t('noteDeleted'));
+}
+
 /** What the status line says for `status`. */
 function useStatusText(status: Status): string | null {
   const t = useTranslations();
+  const doneText = useDoneText();
   if (status === 'idle') return null;
-  if (status === 'saved') return t('coach.shared.noteSaved');
-  if (status === 'deleted') return t('coach.shared.noteDeleted');
+  if (status === 'saved' || status === 'deleted') return doneText(status);
   return t(status);
 }
 
-/** Save, and Delete once there is a note. */
-function NoteButtons({
+/** The note's status line: saved, deleted, or why not. */
+export function CoachNoteStatus({
+  note,
+  id,
+}: {
+  readonly note: CoachNote;
+  readonly id?: string;
+}): JSX.Element {
+  const said = useStatusText(note.status);
+  return (
+    <StatusLine
+      {...(id === undefined ? {} : { id })}
+      text={said}
+      tone={refused(note.status) ? 'error' : 'success'}
+    />
+  );
+}
+
+/** Delete, in the error tone, once there is a note. */
+export function DeleteNoteButton({
   note,
 }: {
-  readonly note: ReturnType<typeof useCoachNote>;
-}): JSX.Element {
+  readonly note: CoachNote;
+}): JSX.Element | null {
   const t = useTranslations('coach.shared');
+  if (noNote(note.note)) return null;
   return (
-    <div className="flex flex-wrap gap-2">
-      <button
-        type="button"
-        disabled={note.pending}
-        onClick={note.save}
-        className={SECONDARY_BUTTON}
-      >
-        {t('saveNote')}
-      </button>
-      {note.stored === '' ? null : (
-        <button
-          type="button"
-          disabled={note.pending}
-          onClick={note.remove}
-          className={`${SECONDARY_BUTTON} text-error`}
-        >
-          {t('deleteNote')}
-        </button>
-      )}
-    </div>
+    <button
+      type="button"
+      disabled={note.pending}
+      onClick={note.remove}
+      className={DANGER_OUTLINE_BUTTON}
+    >
+      {t('deleteNote')}
+    </button>
   );
 }
 
 /**
- * The coach's own note on the current move of a shared repertoire (R-42):
- * a field, Save and, once there is a note, Delete. The player sees it too
- * (R-107); other coaches do not (R-125).
+ * The note's field, named by the view's label ("My coach note on 5... Qc7
+ * · you and Gabija see this", so the coach never thinks it private, R-107),
+ * then Save, the view's other buttons and the status line. Save does not
+ * submit on Enter: the note is multi-line text.
  */
-export function CoachNoteForm(props: CoachNoteFormProps): JSX.Element {
+export function CoachNoteFields({
+  note,
+  labelledBy,
+  children,
+}: {
+  readonly note: CoachNote;
+  /** The id of the label that names the field. */
+  readonly labelledBy: string;
+  /** Beside Save: Cancel on the card, Delete in the sheet. */
+  readonly children: ReactNode;
+}): JSX.Element {
   const t = useTranslations('coach.shared');
-  const fieldId = useId();
-  const hintId = useId();
   const statusId = useId();
-  const note = useCoachNote(props);
-  const said = useStatusText(note.status);
-  const done = note.status === 'saved' || note.status === 'deleted';
-  const refused = note.status !== 'idle' && !done;
+  const invalid = refused(note.status);
   return (
-    <div className="flex flex-col gap-2 rounded-card border border-border p-3">
-      <div className="flex flex-wrap items-center gap-x-2">
-        <label htmlFor={fieldId} className={PANEL_LABEL}>
-          {t('note')}
-        </label>
-        <span id={hintId} className="text-sm text-fg-muted">
-          {t('noteHint', { name: props.playerName })}
-        </span>
-      </div>
+    <>
       <textarea
-        id={fieldId}
         rows={3}
         value={note.text}
         onChange={(event) => {
           note.setText(event.target.value);
         }}
-        aria-describedby={refused ? `${hintId} ${statusId}` : hintId}
-        aria-invalid={refused ? true : undefined}
-        className="rounded-control border border-border-strong bg-surface p-3 text-base text-fg aria-invalid:border-error"
+        aria-labelledby={labelledBy}
+        aria-describedby={invalid ? statusId : undefined}
+        aria-invalid={invalid ? true : undefined}
+        className="block w-full rounded-control border border-border-strong bg-surface p-3 text-base text-fg aria-invalid:border-error"
       />
-      <NoteButtons note={note} />
-      <StatusLine
-        id={statusId}
-        text={said}
-        tone={refused ? 'error' : 'success'}
-      />
-    </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={note.pending}
+          onClick={note.save}
+          className={PRIMARY_BUTTON}
+        >
+          {t('saveNote')}
+        </button>
+        {children}
+      </div>
+      <CoachNoteStatus note={note} id={statusId} />
+    </>
   );
 }

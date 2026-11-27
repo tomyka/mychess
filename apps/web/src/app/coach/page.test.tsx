@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
@@ -39,6 +39,13 @@ const DATA: CoachDashboardData = {
       assignments: [],
     },
   ],
+  personalInvites: [
+    {
+      id: 'i-1',
+      createdAt: NOW,
+      expiresAt: new Date('2026-10-25T08:00:00Z'),
+    },
+  ],
   today: '2026-10-18',
 };
 
@@ -50,7 +57,11 @@ vi.mock('../../server/coach-pages', () => ({
   coachDashboardData: () => Promise.resolve(data.current),
 }));
 
-vi.mock('./actions', () => ({ createGroupAction: vi.fn() }));
+vi.mock('./actions', () => ({
+  createGroupAction: vi.fn(),
+  createInviteAction: vi.fn(),
+  revokeInviteAction: vi.fn(),
+}));
 
 const c = MESSAGES.coach;
 
@@ -106,11 +117,36 @@ describe('the coach dashboard (R-229)', () => {
     ).toEqual(['Needs attention · 1', 'Players · 1', 'Groups · 1']);
   });
 
-  it('says how to invite when no player is linked, without Needs attention', async () => {
+  it('says no player is linked yet, with Invite a player there too, and no Needs attention', async () => {
     await renderPage({ ...DATA, attention: [], players: [] });
-    expect(screen.getByText(c.players.empty)).toBeDefined();
+    const players = screen.getByRole('region', { name: /^Players/u });
+    expect(within(players).getByText(c.players.empty)).toBeDefined();
+    fireEvent.click(
+      within(players).getByRole('button', { name: c.inviteSheet.title }),
+    );
+    expect(
+      screen.getByRole('dialog', { name: c.inviteSheet.title }),
+    ).toBeDefined();
     expect(
       screen.queryByRole('heading', { name: /^Needs attention/u }),
     ).toBeNull();
+  });
+
+  it('has Invite a player in the header, opening the sheet with the open personal invites (R-232)', async () => {
+    await renderPage(DATA);
+    const header = screen.getByRole('heading', { level: 1 }).parentElement;
+    if (header === null) throw new Error('no title row');
+    // With players, the header's is the only one.
+    const [invite, ...others] = screen.getAllByRole('button', {
+      name: c.inviteSheet.title,
+    });
+    expect(others).toEqual([]);
+    expect(invite?.parentElement).toBe(header);
+    if (invite === undefined) throw new Error('no Invite a player');
+    fireEvent.click(invite);
+    const sheet = screen.getByRole('dialog', { name: c.inviteSheet.title });
+    expect(
+      within(sheet).getByText('made Oct 18 · expires Oct 25'),
+    ).toBeDefined();
   });
 });

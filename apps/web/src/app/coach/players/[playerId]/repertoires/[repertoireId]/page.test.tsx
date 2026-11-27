@@ -41,13 +41,14 @@ vi.mock('../../../../actions', () => ({
 }));
 
 describe('the coach’s page of a shared repertoire', () => {
-  it('loads the repertoire the path names and shows it read-only', async () => {
+  it('loads the repertoire the path names and tags it read-only', async () => {
     loader.shared.mockResolvedValue({
       player: { id: 'p-1', displayName: 'Gabija' },
       repertoire: { id: ID, name: 'Taimanovas', side: 'black' },
       graph: graphOf(TAIMANOV, 'black'),
       notes: {},
       names: { taxonomyNames: {}, distinctions: {} },
+      isFork: false,
     });
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
@@ -60,7 +61,7 @@ describe('the coach’s page of a shared repertoire', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Taimanovas' }),
     ).toBeDefined();
-    expect(screen.getByText(MESSAGES.coach.shared.readOnly)).toBeDefined();
+    expect(screen.getByText(MESSAGES.coach.shared.tag)).toBeDefined();
     expect(screen.getByRole('application')).toBeDefined();
   });
 });
@@ -77,6 +78,14 @@ describe('the coach’s page of a shared repertoire while it loads', () => {
     renderLoading();
     expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
     expect(screen.queryByRole('application')).toBeNull();
+  });
+
+  it('keeps the page’s panel basis, so the board does not jump when the page arrives (height budget, #381 part 5)', () => {
+    renderLoading();
+    const panel = document.querySelector(
+      '[data-panel-scroller]',
+    )?.parentElement;
+    expect(panel?.className).toContain('flex-[1_1_18.5rem]');
   });
 
   it('says it is loading only after about a second', () => {

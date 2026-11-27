@@ -2,14 +2,14 @@ import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
 import { moveKey, START_KEY } from '@mychess/chess';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { NextIntlClientProvider } from 'next-intl';
+import { createTranslator, NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { outOfOrder } from '../../../../../../../test/dom-order';
 import {
   graphOf,
   LONDON,
 } from '../../../../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../../../../i18n/catalogue';
+import { LOCALE, MESSAGES } from '../../../../../../i18n/catalogue';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import type { CoachNoteState } from '../../../../actions';
 import { SharedRepertoireView } from './shared-repertoire-view';
@@ -56,6 +56,7 @@ const DATA: SharedRepertoirePage = {
   graph: graphOf(LONDON),
   notes: { [D4]: 'Pirmiau Nf3' },
   names: { taxonomyNames: {}, distinctions: {} },
+  isFork: false,
 };
 
 function renderView(data: SharedRepertoirePage = DATA): void {
@@ -88,7 +89,39 @@ function boardMove(orig: Key, dest: Key): void {
 const current = () =>
   document.querySelector('[aria-current="true"][aria-label]')?.textContent;
 
-const noteField = () => screen.queryByLabelText<HTMLTextAreaElement>(s.note);
+const MOVES = MESSAGES.repertoires.moves;
+
+// The catalogue's words, as the page reads them.
+const t = createTranslator({ locale: LOCALE, messages: MESSAGES });
+
+/** The card's heading and the sheet field's name on `move`. */
+const noteOn = (move: string) =>
+  t('coach.shared.noteOn', { move, name: 'Rokas' });
+
+/** The strip's name on `move`, with a note or without. */
+const editOn = (move: string) => t('coach.shared.editNoteOn', { move });
+const addOn = (move: string) => t('coach.shared.addNoteOn', { move });
+
+/** A message's words before its first placeholder: what every move's shares. */
+const lead = (message: string): RegExp =>
+  new RegExp(`^${message.slice(0, message.indexOf('{'))}`, 'u');
+
+/** The desktop card of the coach's note, if any. */
+const noteCard = () => screen.queryByRole('region', { name: lead(s.noteOn) });
+
+/** The phone strip of the coach's note, if any. */
+const noteStrip = () =>
+  screen.queryAllByRole('button').find((button) => {
+    const name = button.getAttribute('aria-label') ?? '';
+    return lead(s.editNoteOn).test(name) || lead(s.addNoteOn).test(name);
+  }) ?? null;
+
+/** The move list's box. */
+function moves(): HTMLElement {
+  const box = document.querySelector<HTMLElement>('[data-moves]');
+  if (box === null) throw new Error('no move list');
+  return box;
+}
 
 beforeEach(() => {
   ground.created.length = 0;
@@ -96,69 +129,67 @@ beforeEach(() => {
 });
 
 describe('SharedRepertoireView (R-42, read-only)', () => {
-  it('names the repertoire, says it is read-only and leads back to the player', () => {
+  it('heads the page with the way back and Progress on one row, the name and the read-only tag (#381 part 5)', () => {
     renderView();
+    const banner = screen.getByRole('banner');
+    const bar = within(banner);
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
+      bar.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
-    expect(screen.getByText(s.readOnly)).toBeDefined();
+    expect(bar.getByText(s.tag)).toBeDefined();
+    const backLink = bar.getByRole('link', {
+      name: t('nav.back', { parent: 'Rokas' }),
+    });
+    expect(backLink.getAttribute('href')).toBe('/coach/players/p-1');
+    const progress = bar.getByRole('link', {
+      name: MESSAGES.coach.progress.title,
+    });
+    expect(progress.getAttribute('href')).toBe(
+      `/coach/players/p-1/progress/${ID}`,
+    );
+    // One row: both in the header's one flex row, never a column.
+    expect(backLink.parentElement).toBe(banner);
+    expect(progress.closest('header')).toBe(banner);
+    expect(banner.className).toMatch(/(^|\s)flex(\s|$)/u);
+    expect(banner.className).not.toMatch(/(^|\s)flex-col(\s|$)/u);
+    // The old sentence and the summary row are gone: nothing else says it.
+    expect(screen.queryByText(/^Read-only:/)).toBeNull();
     expect(
-      screen.getByRole('link', { name: 'Back to Rokas' }).getAttribute('href'),
-    ).toBe('/coach/players/p-1');
+      screen.getAllByRole('link', { name: MESSAGES.coach.progress.title }),
+    ).toHaveLength(1);
     expect(screen.getByRole('application')).toBeDefined();
   });
 
-  it('says read-only under the move list, by the coach note, not above the chapter line (sign-off, fix D)', () => {
-    renderView();
-    const moves = document.querySelector('[data-moves]');
-    const readOnly = screen.getByText(s.readOnly);
-    if (moves === null) throw new Error('no move list');
-    expect(outOfOrder([moves, readOnly])).toEqual([]);
-    forward();
-    expect(outOfOrder([readOnly, screen.getByLabelText(s.note)])).toEqual([]);
-  });
-
-  it('places its panel: the player’s line, the chapters, the moves, read-only, then the coach’s own note', () => {
-    renderView();
-    forward();
+  it('names a shared Fork as the player’s own copy of the repertoire (R-155)', () => {
+    renderView({ ...DATA, isFork: true });
     expect(
-      outOfOrder([
-        screen.getByRole('link', { name: MESSAGES.coach.progress.title }),
-        screen.getByRole('button', { name: /^Ch 1\/2 · / }),
-        screen.getByRole('button', {
-          name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}, ${MESSAGES.repertoires.moves.hasCoachNote}`,
+      screen.getByRole('heading', {
+        level: 1,
+        name: t('coach.progress.ownCopyTitle', {
+          name: 'Rokas',
+          repertoire: 'Londono sistema',
         }),
-        screen.getByText(s.readOnly),
-        screen.getByLabelText(s.note),
-      ]),
-    ).toEqual([]);
+      }),
+    ).toBeDefined();
+    expect(screen.getByText(s.tag)).toBeDefined();
   });
 
-  it('still says read-only, after the empty message, in a repertoire without chapters', () => {
-    renderView({ ...DATA, graph: { side: 'white', chapters: [], moves: [] } });
-    expect(
-      outOfOrder([
-        screen.getByText(MESSAGES.repertoires.panel.emptyBrowse),
-        screen.getByText(s.readOnly),
-      ]),
-    ).toEqual([]);
-  });
-
-  it('links to the player’s progress on this repertoire, first in the panel (S7 decision 7, sign-off)', () => {
+  it('starts the scroller with the chapter line: the summary row left it for the top bar', () => {
     renderView();
-    const scroller = document.querySelector<HTMLElement>(
+    const scroller = document.querySelector('[data-panel-scroller]');
+    expect(
+      scroller?.firstElementChild?.contains(
+        screen.getByRole('button', { name: /^Ch 1\/2 · / }),
+      ),
+    ).toBe(true);
+  });
+
+  it('gives the panel the note strip’s room on a phone: 18.5rem (height budget)', () => {
+    renderView();
+    const panel = document.querySelector(
       '[data-panel-scroller]',
-    );
-    if (scroller === null) throw new Error('no panel');
-    expect(
-      within(scroller)
-        .getByRole('link', { name: MESSAGES.coach.progress.title })
-        .getAttribute('href'),
-    ).toBe(`/coach/players/p-1/progress/${ID}`);
-    // One row above the board: the way back and the name.
-    expect(
-      within(screen.getByRole('banner')).getAllByRole('link'),
-    ).toHaveLength(1);
+    )?.parentElement;
+    expect(panel?.className).toContain('flex-[1_1_18.5rem]');
   });
 
   it('has none of the owner’s controls', () => {
@@ -172,67 +203,110 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
       header.importInto,
       MESSAGES.repertoires.note.label,
     ])
-      expect(screen.queryByRole('button', { name })).toBeNull();
+      // The coach's own note has a Delete of its own; nothing else does.
+      expect(
+        screen
+          .queryAllByRole('button', { name })
+          .filter((button) => noteCard()?.contains(button) !== true),
+      ).toEqual([]);
     expect(screen.queryByRole('link', { name: header.download })).toBeNull();
-    // The one text area is the coach's own note; no comment field.
-    expect(
-      [...document.querySelectorAll('textarea')].map((area) => area.id),
-    ).toEqual([noteField()?.id]);
+    // No comment field, and the note is a field only once the coach edits it.
+    expect(document.querySelectorAll('textarea')).toHaveLength(0);
   });
 
-  it('shows the chapter intro at the root, and no note field there', () => {
+  it('shows the chapter intro at the root, and no coach note there: it belongs to a move', () => {
     renderView();
     expect(screen.getByText('The London')).toBeDefined();
-    expect(noteField()).toBeNull();
+    expect(noteCard()).toBeNull();
+    expect(noteStrip()).toBeNull();
   });
 
-  it('shows the move’s comment and the coach’s own note on it (R-102)', () => {
+  it('puts the coach’s note under the move’s comment, before the move list, never after it', () => {
     renderView();
     forward();
-    expect(screen.getByText('Solid')).toBeDefined();
-    expect(noteField()?.value).toBe('Pirmiau Nf3');
-    forward();
-    expect(noteField()?.value).toBe('');
+    const comment = screen.getByRole('region', {
+      name: MESSAGES.repertoires.panel.comment,
+    });
+    const card = noteCard();
+    const strip = noteStrip();
+    if (card === null || strip === null) throw new Error('no coach note');
+    expect(within(comment).getByText('Solid')).toBeDefined();
+    expect(outOfOrder([comment, card, strip, moves()])).toEqual([]);
+    expect(moves().compareDocumentPosition(card)).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    );
+    // Nothing of it after the move list.
+    const scroller = document.querySelector('[data-panel-scroller]');
+    expect(scroller?.textContent).not.toContain('Pirmiau Nf3');
   });
 
-  it('saves a note on the current move and keeps it on the way back', async () => {
+  it('shows the coach’s own note on the move as a desktop card and a phone strip (R-125)', () => {
+    renderView();
+    forward();
+    const card = within(screen.getByRole('region', { name: noteOn('1. d4') }));
+    expect(card.getByText('Pirmiau Nf3')).toBeDefined();
+    expect(card.getByRole('button', { name: s.editNote })).toBeDefined();
+    expect(card.getByRole('button', { name: s.deleteNote })).toBeDefined();
+    expect(
+      within(screen.getByRole('button', { name: editOn('1. d4') })).getByText(
+        'Pirmiau Nf3',
+      ),
+    ).toBeDefined();
+    forward();
+    expect(
+      within(screen.getByRole('region', { name: noteOn('1... d5') })).getByRole(
+        'button',
+        { name: s.addNote },
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByRole('button', { name: addOn('1... d5') }),
+    ).toBeDefined();
+  });
+
+  it('saves a note on the current move, marks it in the move list and keeps it on the way back', async () => {
     renderView();
     forward();
     forward();
-    const field = noteField();
-    if (field === null) throw new Error('no note field');
-    fireEvent.change(field, { target: { value: 'Atsakymas į d5' } });
-    fireEvent.click(screen.getByRole('button', { name: s.saveNote }));
-    expect(await screen.findByText(s.noteSaved)).toBeDefined();
+    const card = within(
+      screen.getByRole('region', { name: noteOn('1... d5') }),
+    );
+    fireEvent.click(card.getByRole('button', { name: s.addNote }));
+    fireEvent.change(card.getByRole('textbox', { name: noteOn('1... d5') }), {
+      target: { value: 'Atsakymas į d5' },
+    });
+    fireEvent.click(card.getByRole('button', { name: s.saveNote }));
+    expect(await card.findByText(s.noteSaved)).toBeDefined();
     expect(server.save).toHaveBeenCalledWith({
       playerId: 'p-1',
       repertoireId: ID,
       moveKey: moveKey(afterD4(), 'd5'),
       text: 'Atsakymas į d5',
     });
+    expect(
+      screen.getByRole('button', { name: `1... d5, ${MOVES.hasCoachNote}` }),
+    ).toBeDefined();
     back();
     forward();
-    expect(noteField()?.value).toBe('Atsakymas į d5');
+    expect(
+      within(screen.getByRole('region', { name: noteOn('1... d5') })).getByText(
+        'Atsakymas į d5',
+      ),
+    ).toBeDefined();
+    expect(
+      within(screen.getByRole('button', { name: editOn('1... d5') })).getByText(
+        'Atsakymas į d5',
+      ),
+    ).toBeDefined();
   });
 
-  it('marks the moves carrying the coach’s own note in the move list, a saved one too', async () => {
+  it('marks the moves carrying the coach’s own note with the pen, unchanged', () => {
     renderView();
     const d4 = screen.getByRole('button', {
-      name: `1. d4, ${MESSAGES.repertoires.moves.hasComment}, ${MESSAGES.repertoires.moves.hasCoachNote}`,
+      name: `1. d4, ${MOVES.hasComment}, ${MOVES.hasCoachNote}`,
     });
     expect(d4.querySelector('[data-note="coach"]')).not.toBeNull();
     expect(document.querySelector('[data-note="personal"]')).toBeNull();
-    forward();
-    forward();
-    const field = noteField();
-    if (field === null) throw new Error('no note field');
-    fireEvent.change(field, { target: { value: 'Atsakymas į d5' } });
-    fireEvent.click(screen.getByRole('button', { name: s.saveNote }));
-    expect(
-      await screen.findByRole('button', {
-        name: `1... d5, ${MESSAGES.repertoires.moves.hasCoachNote}`,
-      }),
-    ).toBeDefined();
   });
 
   it('goes to a move the chapter has, played on the board or typed', () => {
@@ -264,7 +338,8 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     fireEvent.submit(field);
     expect(current()).toBeUndefined();
     expect(field.value).toBe('c4');
-    expect(noteField()).toBeNull();
+    expect(noteCard()).toBeNull();
+    expect(noteStrip()).toBeNull();
     expect(server.save).not.toHaveBeenCalled();
   });
 
@@ -273,7 +348,8 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     expect(
       screen.getByText(MESSAGES.repertoires.panel.emptyBrowse),
     ).toBeDefined();
-    expect(noteField()).toBeNull();
+    expect(noteCard()).toBeNull();
+    expect(noteStrip()).toBeNull();
   });
 });
 

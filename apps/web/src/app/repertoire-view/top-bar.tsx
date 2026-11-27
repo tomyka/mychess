@@ -15,10 +15,39 @@ export interface TopBarProps {
   /** Where back leads, and the page it names ("Back to Repertoires"). */
   readonly back: { readonly href: string; readonly parent: string };
   readonly name: string;
-  /** The Edit switch (the owner's page only). */
+  /** The row's own control: the owner's Edit switch, the coach's Progress link. */
   readonly edit?: ReactNode;
   /** The Repertoire screen (R-226); absent where the viewer has none. */
   readonly moreHref?: string | undefined;
+  /** A line under the name saying what the viewer may do with it (the coach's "Shared with you · read-only"). */
+  readonly tag?: string | undefined;
+}
+
+/** Where the name goes: the full desktop row, after the controls. */
+const NAME_ROW = 'min-w-0 flex-1 lg:order-last lg:basis-full';
+
+/** The name: 16px on 20px lines, two in the 44px row; larger on a desktop. */
+const NAME_TEXT = 'text-base/5 font-semibold break-words lg:text-xl';
+
+/**
+ * The name, and the tag under it in one column when there is one, so the
+ * tag never takes a row of its own.
+ */
+function Name({
+  name,
+  tag,
+}: {
+  readonly name: string;
+  readonly tag: string | undefined;
+}): JSX.Element {
+  if (tag === undefined)
+    return <h1 className={`${NAME_ROW} ${NAME_TEXT}`}>{name}</h1>;
+  return (
+    <div className={NAME_ROW}>
+      <h1 className={NAME_TEXT}>{name}</h1>
+      <p className="text-xs/4 text-fg-muted">{tag}</p>
+    </div>
+  );
 }
 
 /**
@@ -36,6 +65,7 @@ export function RepertoireTopBar({
   name,
   edit,
   moreHref,
+  tag,
 }: TopBarProps): JSX.Element {
   const t = useTranslations();
   return (
@@ -47,9 +77,7 @@ export function RepertoireTopBar({
       >
         <Icon path={BACK_ICON} className="size-6" />
       </Link>
-      <h1 className="min-w-0 flex-1 text-base/5 font-semibold break-words lg:order-last lg:basis-full lg:text-xl">
-        {name}
-      </h1>
+      <Name name={name} tag={tag} />
       <div className="flex shrink-0 items-center gap-2 lg:ml-auto">
         {edit}
         {moreHref === undefined ? null : (

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import type { CreateGroupState } from './actions';
 import { GroupsSection, type DashboardGroup } from './groups-section';
@@ -125,6 +125,16 @@ describe('GroupsSection', () => {
 
   it('scrolls the opened form, then the new link, into view above the tab bar', async () => {
     const scrolled: { text: string; options: unknown }[] = [];
+    // Patched for this test only: the original (or its absence) comes back.
+    const original = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      'scrollIntoView',
+    );
+    onTestFinished(() => {
+      if (original === undefined)
+        Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+      else Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+    });
     Object.defineProperty(Element.prototype, 'scrollIntoView', {
       configurable: true,
       value(this: Element, options: unknown) {
@@ -141,7 +151,12 @@ describe('GroupsSection', () => {
     fireEvent.change(nameField(), { target: { value: 'Grupė' } });
     fireEvent.click(create());
     await screen.findByLabelText(MESSAGES.coach.invites.link);
-    expect(scrolled.at(-1)?.text).toContain(MESSAGES.coach.invites.linkOnce);
+    // The action's state lands outside act, so React may run the scroll
+    // effect after the link is in the DOM: wait for the effect, not the DOM.
+    await waitFor(() => {
+      expect(scrolled.at(-1)?.text).toContain(MESSAGES.coach.invites.linkOnce);
+    });
+    expect(scrolled).toHaveLength(2);
     expect(scrolled.at(-1)?.options).toEqual({ block: 'nearest' });
   });
 

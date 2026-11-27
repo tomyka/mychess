@@ -9,8 +9,16 @@ import { StatusLine } from '../status-line';
 /**
  * An invite link just made, shown once with a Copy button (plan decision
  * 5): after a new invite, and after a new group with its invite (R-204).
+ * `note` says what the link does instead of the plain "shown once" line
+ * (the Invite a player sheet names who it is for and until when).
  */
-export function FreshLink({ link }: { readonly link: string }): JSX.Element {
+export function FreshLink({
+  link,
+  note,
+}: {
+  readonly link: string;
+  readonly note?: string;
+}): JSX.Element {
   const t = useTranslations('coach.invites');
   const fieldId = useId();
   const [copied, setCopied] = useState(false);
@@ -42,7 +50,7 @@ export function FreshLink({ link }: { readonly link: string }): JSX.Element {
           {t('copy')}
         </button>
       </div>
-      <p className="text-fg-muted">{t('linkOnce')}</p>
+      <p className="text-fg-muted">{note ?? t('linkOnce')}</p>
       <StatusLine text={copied ? t('copied') : null} tone="success" />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   forkAssignment,
   pauseAssignment,
   shareRepertoire,
+  sharedRepertoireSnapshot,
   removeMember,
   unlink,
   unshareRepertoire,
@@ -401,6 +402,19 @@ describe('coachRepertoireProgress', () => {
       source: 'shared',
       forkOf: null,
     });
+  });
+
+  it('says in the shared-repertoire snapshot whose own copy a shared fork is, to this coach only (R-155)', async () => {
+    await seedLink(db, 'other', 'p');
+    const forkId = await sharedForkWith('c', 'other');
+    const snapshot = (coachId: string, repertoireId: string) =>
+      sharedRepertoireSnapshot(db, coachId, 'p', repertoireId);
+    expect((await snapshot('c', forkId)).forkOf).toBe(karoKan);
+    // Not a fork of the other coach's repertoire, and a plain share is none.
+    expect((await snapshot('other', forkId)).forkOf).toBeNull();
+    expect((await snapshot('c', shared)).forkOf).toBeNull();
+    // Nothing shared, nothing named.
+    expect((await snapshot('c', privateRep)).forkOf).toBeNull();
   });
 
   it('shows nothing of a fork shared with another coach only', async () => {

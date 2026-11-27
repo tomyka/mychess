@@ -628,6 +628,8 @@ describe('sharedRepertoireSnapshot (#278: the coach page in one snapshot)', () =
       name: 'Taimanovas',
     });
     expect(snapshot.shared?.notes.map((n) => n.coachId)).toEqual(['rimantas']);
+    // A plain share is nobody's fork (R-155).
+    expect(snapshot.forkOf).toBeNull();
   });
 
   it('reads no repertoire unshared or malformed, and nothing once unlinked', async () => {
@@ -647,6 +649,7 @@ describe('sharedRepertoireSnapshot (#278: the coach page in one snapshot)', () =
       facts: { linked: false, sharedRepertoireIds: new Set() },
       player: undefined,
       shared: undefined,
+      forkOf: null,
     });
   });
 });

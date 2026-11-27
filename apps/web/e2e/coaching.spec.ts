@@ -11,8 +11,10 @@ import {
 import {
   acceptInvite,
   createGroup,
+  createGroupInvite,
   createInvite,
   expectInviteFrom,
+  openInviteSheet,
   signUpThroughInvite,
   switchOnCoachMode,
 } from './support/coaching';
@@ -53,9 +55,10 @@ async function coachInvitesGroup(
   await openTab(page, en, 'coach');
   await expect(page).toHaveURL(/\/coach$/);
   // A group invite from the invites form; the group's own one (R-204) is
-  // used by the assignment and progress journeys.
+  // used by the assignment and progress journeys. The dashboard no longer
+  // has that form (R-232): #381 Task 11 moves this to the group page.
   await createGroup(page, en, GROUP);
-  return createInvite(page, en, { kind: 'group', group: GROUP });
+  return createGroupInvite(page, en, GROUP);
 }
 
 /** U1-M1-1, G-M1-1, D-M1-1: three players accept; returns Rokas's page. */
@@ -152,16 +155,18 @@ test('a revoked invite says only that it is not valid, and offers no Accept', as
   await newOnboardedAccount(page, request, COACH);
   await switchOnCoachMode(page, en);
   await page.goto('/coach');
-  const link = await createInvite(page, en, { kind: 'personal' });
+  const link = await createInvite(page, en);
   const t = en.coach.invites;
-  await page
-    .getByRole('listitem')
-    .filter({ hasText: t.personal })
-    .getByRole('button', { name: t.revoke })
+  // The open invite is listed by its dates in the sheet (R-232); Revoke
+  // asks first.
+  const sheet = await openInviteSheet(page, en);
+  await sheet.getByRole('button', { name: t.revoke, exact: true }).click();
+  await sheet
+    .getByRole('button', { name: en.coach.inviteSheet.confirmRevoke })
     .click();
   // The list shows open invites only (#329): the revoked one leaves it.
-  await expect(page.getByText(t.empty)).toBeVisible();
-  await expect(page.getByRole('button', { name: t.revoke })).toHaveCount(0);
+  await expect(sheet.getByText(t.empty)).toBeVisible();
+  await expect(sheet.getByRole('button', { name: t.revoke })).toHaveCount(0);
 
   const other = await newDevice(browser);
   try {

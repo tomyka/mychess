@@ -182,7 +182,7 @@ test('#381, R-225:the coach changes and clears a player’s deadline, unassigns 
   const cast: Cast = { messages: en, browser, request, devices };
   try {
     await coachReady(coach, cast);
-    const personal = await createInvite(coach, en, { kind: 'personal' });
+    const personal = await createInvite(coach, en);
     const rokas = await playerAccepts(cast, { link: personal, name: ROKAS });
     const group = await createGroup(coach, en, GROUP);
     await playerAccepts(cast, { link: group, name: GABIJA, group: GROUP });

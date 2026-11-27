@@ -175,7 +175,8 @@ function InlineMove({
   );
 }
 
-const PEN = 'M11 1.5l3.5 3.5-8.5 8.5H2.5V10zM2 15h12v-1H2z';
+/** The pen: a coach's note (also the coach's note strip). */
+export const PEN_GLYPH = 'M11 1.5l3.5 3.5-8.5 8.5H2.5V10zM2 15h12v-1H2z';
 
 /**
  * The note marks: a lock for a private Personal note, a pen for a coach's
@@ -183,8 +184,8 @@ const PEN = 'M11 1.5l3.5 3.5-8.5 8.5H2.5V10zM2 15h12v-1H2z';
  */
 const NOTE_GLYPH: Readonly<Record<NoteMark, string>> = {
   personal: 'M5 7V5a3 3 0 0 1 6 0v2h1v7H4V7zm2 0h2V5a1 1 0 0 0-2 0z',
-  coach: PEN,
-  kept: PEN,
+  coach: PEN_GLYPH,
+  kept: PEN_GLYPH,
 };
 
 /** The small comment and note marks after a SAN; their meaning is in the chip's name. */

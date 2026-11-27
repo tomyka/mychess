@@ -6,7 +6,7 @@ import { useId, useState, type JSX, type RefObject } from 'react';
 import { importIntoRoute, repertoireRoute } from '../../../../lib/routes';
 import type { AssignPanelData } from '../../../../server/coach-assignments';
 import type { RepertoireSharing } from '../../../../server/repertoires';
-import { SECONDARY_BUTTON } from '../../../buttons';
+import { DANGER_OUTLINE_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
 import {
   DANGER_SECTION,
   SECTION,
@@ -139,7 +139,7 @@ function DangerSection({
           onClick={() => {
             set('deleting');
           }}
-          className={`${SECONDARY_BUTTON} self-start border-error text-error`}
+          className={`${DANGER_OUTLINE_BUTTON} self-start`}
         >
           {t('delete')}
         </button>

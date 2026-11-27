@@ -403,7 +403,7 @@ test(`a coach edit shows as Updated once; pause, resume, then make my own copy`,
   const cast: Cast = { messages, browser, request, devices };
   try {
     await coachReady(coach, cast);
-    const link = await createInvite(coach, messages, { kind: 'personal' });
+    const link = await createInvite(coach, messages);
     const rokas = await playerAccepts(cast, { link, name: ROKAS });
     await importRepertoire(coach, messages, {
       file: ITALIAN_PGN,

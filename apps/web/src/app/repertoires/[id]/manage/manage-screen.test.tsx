@@ -8,6 +8,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/catalogue';
+import { DANGER_OUTLINE_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
 import type { AssignPanelData } from '../../../../server/coach-assignments';
 import type { RepertoireSharing } from '../../../../server/repertoires';
 import type { RenameState } from '../actions';
@@ -202,6 +203,14 @@ describe('the Repertoire screen (R-226)', () => {
     await waitFor(() => {
       expect(server.remove).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('draws Delete as the outlined danger button, never the secondary one recoloured', () => {
+    renderScreen();
+    const danger = screen.getByRole('region', { name: m.deleteTitle });
+    const remove = within(danger).getByRole('button', { name: m.delete });
+    expect(remove.className).toContain(DANGER_OUTLINE_BUTTON);
+    expect(remove.className).not.toContain(SECONDARY_BUTTON);
   });
 
   it('cancels a delete back to the Delete button', () => {

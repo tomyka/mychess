@@ -300,6 +300,8 @@ describe('sharedRepertoireData (the coach’s read-only view)', () => {
     // How often the player edits it is not the coach's to watch.
     expect(Object.keys(data.repertoire)).not.toContain('version');
     expect(data.notes).toEqual({});
+    // Her own repertoire, not a Fork of his (R-155).
+    expect(data.isFork).toBe(false);
     expect(data.graph.moves.map((move) => move.comment)).toContain(
       'The main line',
     );

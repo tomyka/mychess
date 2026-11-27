@@ -1,6 +1,11 @@
 // Coaching steps for the E2E journeys (S4 Task A18): Coach mode, groups,
 // invites, and accepting an invite.
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import {
+  expect,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { en, format, freshEmail, requestLink, type Messages } from './journey';
 import { linkIn } from './mailpit';
 import { fromAccountMenu } from './nav';
@@ -47,22 +52,60 @@ export async function createGroup(
 }
 
 /**
- * On the coach dashboard: a new invite from the invites section; returns
- * its link, shown once. Scoped to that section: a new group shows its own
- * link field in the groups section (R-204).
+ * On the coach dashboard: Invite a player opens the sheet, Create link
+ * makes a personal invite (R-232); returns its link, shown once, and
+ * closes the sheet. The header's button comes first (with no player yet,
+ * the Players section has one too).
  */
 export async function createInvite(
   page: Page,
   messages: Messages,
-  { kind, group }: { kind: 'personal' | 'group'; group?: string },
 ): Promise<string> {
+  const sheet = await openInviteSheet(page, messages);
+  const t = messages.coach.inviteSheet;
+  await sheet.getByRole('button', { name: t.create, exact: true }).click();
+  const field = sheet.getByLabel(messages.coach.invites.link, {
+    exact: true,
+  });
+  await expect(field).toHaveValue(INVITE_LINK);
+  const link = await field.inputValue();
+  await sheet.getByRole('button', { name: t.close, exact: true }).click();
+  await expect(sheet).toBeHidden();
+  return link;
+}
+
+/** On the coach dashboard: opens the Invite a player sheet and returns it. */
+export async function openInviteSheet(
+  page: Page,
+  messages: Messages,
+): Promise<Locator> {
+  const t = messages.coach.inviteSheet;
+  await page
+    .getByRole('button', { name: t.title, exact: true })
+    .first()
+    .click();
+  const sheet = page.getByRole('dialog', { name: t.title });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/**
+ * A group invite from the old invites section, which the dashboard no
+ * longer shows (R-232): coaching.spec's group journey still calls it until
+ * #381 Task 11 moves group invites to the group page and this goes.
+ */
+export async function createGroupInvite(
+  page: Page,
+  messages: Messages,
+  group: string,
+): Promise<string> {
+  const kind = 'group';
   const t = messages.coach.invites;
   const section = page.getByRole('region', { name: t.title });
   await section.getByRole('radio', { name: t[kind] }).check();
-  if (group !== undefined)
-    await section
-      .getByLabel(t.groupLabel, { exact: true })
-      .selectOption({ label: group });
+  await section
+    .getByLabel(t.groupLabel, { exact: true })
+    .selectOption({ label: group });
   await section.getByRole('button', { name: t.create }).click();
   const field = section.getByLabel(t.link, { exact: true });
   await expect(field).toHaveValue(INVITE_LINK);

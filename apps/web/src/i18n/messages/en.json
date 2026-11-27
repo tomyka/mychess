@@ -197,6 +197,18 @@
       "revoke": "Revoke",
       "revokeInvalid": "This invite can no longer be revoked: it has been used, has expired or was already revoked."
     },
+    "inviteSheet": {
+      "title": "Invite a player",
+      "intro": "A player who accepts is linked to you as their coach: they get the repertoires you assign and your notes on them.",
+      "close": "Close",
+      "create": "Create link",
+      "linkOnceUntil": "This link is shown once and works for one player until {date}.",
+      "openTitle": "Open invites",
+      "dates": "made {made} · expires {expires}",
+      "revokeConfirm": "Revoke this invite? Its link stops working at once.",
+      "confirmRevoke": "Yes, revoke",
+      "cancel": "Cancel"
+    },
     "notFound": "This page does not exist or is not open to you.",
     "player": {
       "linkedSince": "Linked since {date}",
@@ -222,12 +234,18 @@
     "shared": {
       "title": "Shared repertoires",
       "empty": "{name} has not shared a repertoire with you yet.",
-      "readOnly": "Read-only: you can write coach notes, but not change the repertoire.",
+      "tag": "Shared with you · read-only",
       "notInChapter": "This repertoire is your player's. You can read it and write coach notes, but you cannot change it.",
-      "note": "My coach note",
-      "noteHint": "You and {name} see this",
-      "saveNote": "Save note",
-      "deleteNote": "Delete note",
+      "noteOn": "My coach note on {move} · you and {name} see this",
+      "noteTitle": "Coach note",
+      "editNote": "Edit",
+      "addNote": "Add a note",
+      "editNoteOn": "Edit my coach note on {move}",
+      "addNoteOn": "Add a coach note on {move}",
+      "cancel": "Cancel",
+      "close": "Close",
+      "saveNote": "Save",
+      "deleteNote": "Delete",
       "noteSaved": "Saved",
       "noteDeleted": "Note deleted"
     },

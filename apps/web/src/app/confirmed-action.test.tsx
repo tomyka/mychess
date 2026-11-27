@@ -96,6 +96,21 @@ describe('ConfirmedAction', () => {
     expect(button(LABELS.confirm).className).not.toContain('bg-error');
   });
 
+  it('can ask in the error tone, for an action that takes away (Revoke)', () => {
+    render(
+      <ConfirmedAction
+        action={vi.fn(() => Promise.resolve())}
+        fields={{}}
+        look="danger"
+        {...LABELS}
+      />,
+    );
+    expect(button(LABELS.label).className).toContain('text-error');
+    cleanup();
+    renderStep(vi.fn(() => Promise.resolve()));
+    expect(button(LABELS.label).className).not.toContain('text-error');
+  });
+
   it('asks when the page opens it, and tells the page when cancelled', () => {
     const set = vi.fn();
     const action = vi.fn(() => Promise.resolve());

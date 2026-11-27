@@ -20,7 +20,7 @@ interface PanelSummary {
    * The summary line (SummaryLine) with Review, Learn and an assignment's
    * status strip, or the coach's line with the player's name.
    */
-  readonly line: ReactNode;
+  readonly line?: ReactNode;
   /** Under it, over the chapters: an assignment's changes since the last visit. */
   readonly changes?: ReactNode;
 }
@@ -36,8 +36,11 @@ interface PanelNotes {
   readonly kind?: MoveListProps['noteKind'];
   /** The moves carrying a coach note kept by a fork (R-47), marked too. */
   readonly kept?: MoveListProps['keptNoteMoves'];
-  /** What shows under a move's comment, given the move's key. */
-  readonly render: (moveKey: string) => ReactNode;
+  /**
+   * What shows under the move list for the current move, given its key;
+   * nothing when absent (the coach's note sits under the comment strip).
+   */
+  readonly render?: (moveKey: string) => ReactNode;
   /**
    * A line under the move list before them (the coach's "read-only"), at
    * every move; after the empty state in a repertoire without chapters.
@@ -58,7 +61,8 @@ interface PanelComment {
  * from the view.
  */
 export interface PanelContent {
-  readonly summary: PanelSummary;
+  /** None where the top bar says it all (the coach's shared view). */
+  readonly summary?: PanelSummary;
   readonly notes: PanelNotes;
   readonly comment?: PanelComment | undefined;
   /** Builder mode: add, rename and delete chapters. */
@@ -144,8 +148,8 @@ export function RepertoirePanel({
       : chapterOf(state.graph, state.chapterId);
   return (
     <>
-      {content.summary.line}
-      {content.summary.changes}
+      {content.summary?.line}
+      {content.summary?.changes}
       <ChapterList
         chapters={state.graph.chapters}
         chapterId={state.chapterId}

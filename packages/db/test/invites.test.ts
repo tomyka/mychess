@@ -92,7 +92,9 @@ describe('createInvite', () => {
       now: NOW,
     });
     if (!made.ok) throw new Error('refused');
-    const { token, inviteId } = made.value;
+    const { token, inviteId, expiresAt } = made.value;
+    // The expiry it was stored with, for "works until" beside the link.
+    expect(expiresAt).toEqual(at(WEEK));
     expect(await query('select id, token_hash from invites')).toEqual([
       { id: inviteId, token_hash: inviteTokenHash(token) },
     ]);

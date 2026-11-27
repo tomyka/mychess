@@ -41,6 +41,13 @@ export const SECONDARY_BUTTON = `${FADING_BUTTON} ${UNAVAILABLE} border border-b
 export const DANGER_BUTTON = `${FADING_BUTTON} bg-error text-on-state`;
 
 /**
+ * The first step of an action that takes away (Revoke): outlined in the
+ * error tone, so it reads as destructive without the solid fill the
+ * confirm step keeps.
+ */
+export const DANGER_OUTLINE_BUTTON = `${FADING_BUTTON} ${UNAVAILABLE} border border-error bg-surface text-error`;
+
+/**
  * An action that belongs to the content (Today's rows, the drill's Hint and
  * Type): tinted with the accent, not outlined. Unavailable, it fades to
  * half and says so to the pointer (aria-disabled).

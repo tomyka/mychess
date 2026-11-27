@@ -12,6 +12,7 @@ const NAME = 'Sicilian Najdorf: the English Attack and the Poisoned Pawn';
 function renderBar(extra: {
   readonly edit?: ReactNode;
   readonly moreHref?: string;
+  readonly tag?: string;
 }): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
@@ -84,6 +85,19 @@ describe('RepertoireTopBar (spec, Header)', () => {
     expect(bar?.className).toContain('lg:flex-wrap');
     expect(name.className).toContain('lg:order-last');
     expect(name.className).toContain('lg:basis-full');
+  });
+
+  it('says under the name what the viewer may do with it, when the view gives a tag (a coach’s shared view, #381 part 5)', () => {
+    renderBar({ tag: 'Shared with you · read-only' });
+    const name = screen.getByRole('heading', { level: 1, name: NAME });
+    const tag = screen.getByText('Shared with you · read-only');
+    // Under the name, in one column that takes the desktop's full row.
+    expect(name.nextElementSibling).toBe(tag);
+    expect(tag.className).toContain('text-xs/4');
+    const column = name.parentElement;
+    expect(column?.className).toContain('lg:order-last');
+    expect(column?.className).toContain('lg:basis-full');
+    expect(column?.parentElement?.tagName).toBe('HEADER');
   });
 
   it('has only the way back and the name where the viewer has no Repertoire screen', () => {

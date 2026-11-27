@@ -1,4 +1,5 @@
 import type {
+  CoachInvite,
   CoachStatus,
   DashboardPlayer,
   GroupPage,
@@ -12,6 +13,7 @@ import {
   coachDashboardData,
   coachGroupData,
   coachPlayerData,
+  sharedRepertoireData,
 } from './coach-pages';
 
 // The loaders' reads against a real database, and their access checks,
@@ -29,17 +31,25 @@ const server = vi.hoisted(() => ({
   coach: vi.fn<() => Promise<unknown>>(),
   home: vi.fn<(...args: unknown[]) => Promise<DashboardPlayer[]>>(),
   groups: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(),
+  invites: vi.fn<(...args: unknown[]) => Promise<CoachInvite[]>>(),
   player: vi.fn<(...args: unknown[]) => Promise<PlayerProgress | undefined>>(),
   group: vi.fn<(...args: unknown[]) => Promise<GroupPage | undefined>>(),
+  snapshot: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  assertSees: vi.fn<(...args: unknown[]) => void>(),
 }));
 
 vi.mock('@mychess/db', () => ({
   coachDashboard: server.home,
   coachGroups: server.groups,
+  coachInvites: server.invites,
   coachPlayerProgress: server.player,
   coachGroupPage: server.group,
+  sharedRepertoireSnapshot: server.snapshot,
 }));
-vi.mock('./coaching', () => ({ requireCoach: server.coach }));
+vi.mock('./coaching', () => ({
+  requireCoach: server.coach,
+  assertCoachMaySeeBy: server.assertSees,
+}));
 vi.mock('./db', () => ({ getDb: () => DB }));
 vi.mock('next/navigation', () => ({
   notFound: () => {
@@ -99,6 +109,7 @@ beforeEach(() => {
   server.coach.mockReset().mockResolvedValue(JONAS);
   server.home.mockReset();
   server.groups.mockReset().mockResolvedValue([]);
+  server.invites.mockReset().mockResolvedValue([]);
   server.player.mockReset();
   server.group.mockReset();
   return () => {
@@ -265,6 +276,35 @@ describe('coachDashboardData', () => {
       },
     ]);
   });
+
+  it('lists the open personal invites with their dates, leaving group invites to their groups (R-232)', async () => {
+    const MADE = new Date('2026-10-13T07:00:00Z');
+    const EXPIRES = new Date('2026-10-27T07:00:00Z');
+    const invite = (
+      id: string,
+      kind: CoachInvite['kind'],
+      groupId: string | null,
+    ): CoachInvite => ({
+      id,
+      kind,
+      groupId,
+      groupName: groupId === null ? null : 'Šeštadienio grupė',
+      createdAt: MADE,
+      expiresAt: EXPIRES,
+    });
+    server.home.mockResolvedValue([]);
+    server.invites.mockResolvedValue([
+      invite('i-1', 'personal', null),
+      invite('i-2', 'group', GROUP),
+      invite('i-3', 'personal', null),
+    ]);
+    expect((await coachDashboardData()).personalInvites).toEqual([
+      { id: 'i-1', createdAt: MADE, expiresAt: EXPIRES },
+      { id: 'i-3', createdAt: MADE, expiresAt: EXPIRES },
+    ]);
+    // Open at the clock: none used, expired or revoked (#329).
+    expect(server.invites).toHaveBeenCalledExactlyOnceWith(DB, 'jonas', NOW);
+  });
 });
 
 describe('coachPlayerData', () => {
@@ -389,5 +429,71 @@ describe('coachGroupData', () => {
   it('is 404 for any group but the coach’s own', async () => {
     server.group.mockResolvedValue(undefined);
     await expect(coachGroupData(GROUP)).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+});
+
+describe('sharedRepertoireData', () => {
+  const FACTS = { linked: true, sharedRepertoireIds: new Set([TAIMANOV.id]) };
+  /** Rokas's Taimanov as the snapshot reads it, a Fork of `forkOf` or none. */
+  const snapshotOf = (forkOf: string | null) => ({
+    facts: FACTS,
+    player: ROKAS,
+    shared: {
+      repertoire: TAIMANOV,
+      graph: { side: 'black', chapters: [], moves: [] },
+      notes: [{ moveKey: 'k|e4', text: 'Pirmiau Nf3' }],
+    },
+    forkOf,
+  });
+
+  beforeEach(() => {
+    server.snapshot.mockReset();
+    server.assertSees.mockReset();
+  });
+
+  it('reads one snapshot, lets the domain decide on its facts, and gives the coach’s own notes', async () => {
+    server.snapshot.mockResolvedValue(snapshotOf(null));
+    const page = await sharedRepertoireData('rokas', TAIMANOV.id);
+    expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
+      DB,
+      'jonas',
+      'rokas',
+      TAIMANOV.id,
+    );
+    expect(server.assertSees).toHaveBeenCalledExactlyOnceWith(
+      JONAS,
+      'rokas',
+      { kind: 'repertoire', repertoireId: TAIMANOV.id },
+      FACTS,
+    );
+    expect(page).toMatchObject({
+      player: { id: 'rokas', displayName: 'Rokas' },
+      repertoire: TAIMANOV,
+      notes: { 'k|e4': 'Pirmiau Nf3' },
+      isFork: false,
+    });
+    expect(page).not.toHaveProperty('forkOf');
+  });
+
+  it('says a shared Fork is the player’s own copy, as the snapshot names it, without the coach’s id (R-155)', async () => {
+    server.snapshot.mockResolvedValue(snapshotOf(LONDON.id));
+    const page = await sharedRepertoireData('rokas', TAIMANOV.id);
+    expect(page.isFork).toBe(true);
+    expect(JSON.stringify(page)).not.toContain(LONDON.id);
+  });
+
+  it('is 404 when nothing is shared, and for a malformed id without reading', async () => {
+    server.snapshot.mockResolvedValue({
+      ...snapshotOf(null),
+      shared: undefined,
+    });
+    await expect(sharedRepertoireData('rokas', TAIMANOV.id)).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
+    server.snapshot.mockClear();
+    await expect(sharedRepertoireData('rokas', 'nope')).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
+    expect(server.snapshot).not.toHaveBeenCalled();
   });
 });

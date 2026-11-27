@@ -15,21 +15,42 @@ these screens extend and do not repeat.
 
 A move can carry up to three texts, and nobody may mistake one for another:
 
-| Text | Who writes it | Who reads it | Panel | Move-list mark |
-| --- | --- | --- | --- | --- |
-| Comment | the repertoire's owner | owner, coaches it is shared with | plain text under "Comment" | speech bubble |
-| Personal note | the viewer | the viewer only (R-21) | `bg-sunken` well, lock, "My note" / "Only you see this" | lock (owner's page only) |
-| Coach note | a coach it is shared with | that coach and the owner (R-107); not other coaches (R-125) | bordered card titled with the coach's name | pen (coach's view only) |
+| Text          | Who writes it             | Who reads it                                                | Panel                                                   | Move-list mark           |
+| ------------- | ------------------------- | ----------------------------------------------------------- | ------------------------------------------------------- | ------------------------ |
+| Comment       | the repertoire's owner    | owner, coaches it is shared with                            | plain text under "Comment"                              | speech bubble            |
+| Personal note | the viewer                | the viewer only (R-21)                                      | `bg-sunken` well, lock, "My note" / "Only you see this" | lock (owner's page only) |
+| Coach note    | a coach it is shared with | that coach and the owner (R-107); not other coaches (R-125) | bordered card titled with the coach's name              | pen (coach's view only)  |
 
-- **Owner's page:** coach notes are read-only cards (`rounded-card border
-  border-border p-3`), one per coach, each headed "Coach note from {name}"
-  in the panel-label style, above the owner's own Personal note. The owner
-  cannot edit or delete them.
-- **Coach's view:** the coach's own note is a bordered form card: the label
-  "My coach note", the hint "You and {name} see this" (whom it is shared
-  with, so the coach never thinks it is private), a 3-row textarea, Save
-  and, once there is a note, Delete in the error tone. Its status line sits
-  under the buttons.
+- **Owner's page:** coach notes are read-only cards
+  (`rounded-card border border-border p-3`), one per coach, each headed
+  "Coach note from {name}" in the panel-label style, above the owner's own
+  Personal note. The owner cannot edit or delete them.
+- **Coach's view (#381 part 5):** the coach's own note on the current move
+  sits with the comment strip, directly under it in the fixed slot between
+  the board row and the scroller, never after the move list. None at a
+  chapter root: a coach note belongs to a move.
+  The switch is at `lg`, where `RepertoireFrame` turns two-column, so the
+  one-column layout (phone and tablet) always has the strip and its height
+  budget.
+  - **Desktop (`lg` and up):** a bordered card
+    (`rounded-card border border-border p-3`) headed in the panel-label
+    style "My coach note on 5... Qc7 · you and {name} see this" (whom it is
+    shared with, so the coach never thinks it is private), then the note,
+    **Edit** and **Delete** (`DANGER_OUTLINE_BUTTON`, no confirmation);
+    without a note, **Add a note** alone. Edit (or Add a note) turns the
+    card into a 3-row textarea named by the heading, with **Save**
+    (primary) and **Cancel**, in place; a save returns to the note. Its
+    status line sits under the buttons.
+  - **Below `lg`:** a one-line strip, one 44px row that is one button: the
+    pen, the note cut to one line (`line-clamp-1`), and "Edit" (or "Add a
+    note") at its end; named "Edit my coach note on 5... Qc7" / "Add a
+    coach note on 5... Qc7". It opens the app's bottom sheet (`Sheet`, a
+    modal `<dialog>`) named "Coach note", which overlays the page and moves
+    nothing: the "My coach note on ... · you and {name} see this" line
+    naming the textarea, **Save**, **Delete** (once there is a note) and
+    **Close**. A save or delete closes it; closing (Close, Escape, a save)
+    returns focus to the strip, and a polite line by the strip then says
+    "Saved" or "Note deleted". Each opening starts from the saved note.
 
 ### The coach's move-list mark (decided at B7, ux-designer)
 
@@ -78,43 +99,39 @@ yet." in `fg-muted`.
 The repertoire page's layout (board first on a phone, board and side panel
 at 1280px), with:
 
-- **Header, phone:** one top bar like the owner's page, so the board starts
-  as high: a 44px back chevron (its name "Back to {name}", visually hidden),
-  then the repertoire name on one line (`truncate`, `title`) with the
-  player's name under it in `text-sm fg-muted` (`aria-hidden`: the back
-  link already says it). About 56px; the board starts under it.
-- **Header, desktop:** the chevron and "Back to {name}" as an underlined
-  link over the name in `text-3xl`, as on the owner's page.
+- **Header (#381 part 5):** the repertoire's top bar (`RepertoireTopBar`)
+  with back to the player (its name "Back to {name}") and **Progress** on
+  one row; the name with the tag "Shared with you · read-only" under it
+  (`text-xs/4 fg-muted`). On a desktop the name and tag take the card's
+  full row under back and Progress. The old "Read-only: ..." sentence and
+  the summary row (the player's name and Progress) are gone. Sizes are in
+  "Height budget" below.
 - No mode switch, no rename, delete, import or download anywhere.
 - **Panel:** board row (navigation, typed move), the screen status line,
-  then in the scrolling body: the read-only line (`text-sm fg-muted`;
-  "Read-only: you can write coach notes, but not change the repertoire."),
-  chapters, the position (intro at the root; on a move its comment, marks
-  as text, and the coach-note form), the move list. No Personal note: the
-  coach has none here, and the owner's are never shown (R-42). The
-  read-only line sits in the panel, not the header, because it runs to two
-  lines on a phone in both languages and would push the board down by
-  about 50px.
+  the comment strip with the coach note under it (above), then in the
+  scroller: chapters, the move list, and the position's marks as text. No
+  Personal note: the coach has none here, and the owner's are never shown
+  (R-42).
 - A move the chapter lacks, played or typed, is refused in the status line
   as on the owner's page and changes nothing.
 
 ### States
 
-| State | What shows |
-| --- | --- |
-| Loading | `loading.tsx`: skeletons of the header (way back, name and, on a phone, the player's name; same height as the real header) over the repertoire page's loading shell (`repertuarai/[id]/loading-shell.tsx`): the board frame without pieces, panel lines, and "Loading" after about a second (CSS-revealed, `animate-reveal-late`) |
-| Empty | a repertoire without chapters: "This repertoire has no moves yet." in the panel; no note form |
-| Not shared / unlinked / bad id | 404 (plan decision 4) |
-| Note saved / deleted | the form's status line ("Saved" / "Note deleted") in the success tone; the pen mark appears / disappears |
-| Note refused (blank, too long, move gone, share ended) | the form's status line in the error tone; the field is `aria-invalid` and described by it |
+| State                                                  | What shows                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Loading                                                | `loading.tsx`: the repertoire page's loading shell (`RepertoireLoadingShell`) with this page's panel basis (`noteStrip`, 18.5rem), so the board does not jump: a top-bar skeleton (way back and the name; the real bar adds the tag line under the name and Progress), the board frame without pieces, panel lines, and "Loading" after about a second (CSS-revealed, `animate-reveal-late`) |
+| Empty                                                  | a repertoire without chapters: "This repertoire has no moves yet." in the panel; no coach note                                                                                                                                                                                                                                    |
+| Not shared / unlinked / bad id                         | 404 (plan decision 4)                                                                                                                                                                                                                                                                                                             |
+| Note saved / deleted                                   | from `lg`: the card's status line ("Saved" / "Note deleted") in the success tone; below `lg`: the sheet closes, the strip shows the note (or "Add a note") and its polite line says "Saved" / "Note deleted"; the pen mark appears / disappears |
+| Note refused (blank, too long, move gone, share ended) | the card's or the sheet's status line in the error tone; the field stays open, `aria-invalid` and described by it                                                                                                                                                                                                                 |
 
 ## Keyboard and screen readers
 
-As on the repertoire page. The note form is a labelled textarea (label plus
-the hint by `aria-describedby`) and two buttons; Save does not submit on
-Enter (multi-line text). Move chips with the coach's note say so in their
-name ("9... Ne5, has a comment, My coach note"; a dedicated catalogue key
-"has my coach note" is requested from i18n-content).
+As on the repertoire page. The note's textarea is named by the card's
+heading (or the sheet's "My coach note on ..." line), so the name says the
+move and who sees it; Save does not submit on Enter (multi-line text).
+Move chips with the coach's note say so in their name ("9... Ne5, has a
+comment, has my coach note").
 
 ## Height budget (#381 part 5)
 
@@ -125,15 +142,15 @@ sizes were measured on the current build (production, persona coach,
 
 ### Measured parts (current shell, both widths)
 
-| Part | px |
-| --- | --- |
-| Tab bar | 56 |
-| Top bar, one-line name (4 + 44 row + 4) | 52 |
-| Board row (`py-2` + 44) | 60 |
+| Part                                       | px          |
+| ------------------------------------------ | ----------- |
+| Tab bar                                    | 56          |
+| Top bar, one-line name (4 + 44 row + 4)    | 52          |
+| Board row (`py-2` + 44)                    | 60          |
 | Comment strip, one line / two lines / none | 36 / 56 / 0 |
-| Scroller top padding (`pt-2`) | 8 |
-| Chapter line (closed) + gap | 44 + 12 |
-| Move row (pitch) | 44 |
+| Scroller top padding (`pt-2`)              | 8           |
+| Chapter line (closed) + gap                | 44 + 12     |
+| Move row (pitch)                           | 44          |
 
 ### Shared repertoire page, phone
 
@@ -152,7 +169,7 @@ sizes were measured on the current build (production, persona coach,
   move rows.
 - **Coach note strip:** one 44px row (`min-h-touch`, no extra padding),
   directly under the comment strip in the fixed region. The whole strip is
-  one button: pen glyph, the note cut to one line (`truncate`), then "Edit"
+  one button: pen glyph, the note cut to one line (`line-clamp-1`), then "Edit"
   (or "Add a note") as its visible end; accessible name "Edit my coach note
   on 5... Qc7" / "Add a coach note on 5... Qc7". It opens the bottom sheet,
   which overlays and moves nothing. At the chapter root (no move) there is
@@ -168,12 +185,12 @@ sizes were measured on the current build (production, persona coach,
 
 Results (scroller rows = whole move rows visible above the tab bar):
 
-| Viewport | Name lines | Top bar | Board | Panel | Scroller: no comment / 1-line / 2-line comment (with the note strip) |
-| --- | --- | --- | --- | --- | --- |
-| 375 x 667 | 1 | 52 | 264 | 295 | 191 (2.9 rows) / 155 (**2 rows**) / 135 (1.6 rows) |
-| 375 x 667 | 2 | 64 | 252 | 295 | same as above |
-| 390 x 844 | 1 | 52 | 390 | 346 | 242 (4 rows) / 206 (3.2 rows) / 186 (2.8 rows) |
-| 390 x 844 | 2 | 64 | 390 | 334 | 230 (3.8 rows) / 194 (2.95 rows) / 174 (2.5 rows) |
+| Viewport  | Name lines | Top bar | Board | Panel | Scroller: no comment / 1-line / 2-line comment (with the note strip) |
+| --------- | ---------- | ------- | ----- | ----- | -------------------------------------------------------------------- |
+| 375 x 667 | 1          | 52      | 264   | 295   | 191 (2.9 rows) / 155 (**2 rows**) / 135 (1.6 rows)                   |
+| 375 x 667 | 2          | 64      | 252   | 295   | same as above                                                        |
+| 390 x 844 | 1          | 52      | 390   | 346   | 242 (4 rows) / 206 (3.2 rows) / 186 (2.8 rows)                       |
+| 390 x 844 | 2          | 64      | 390   | 334   | 230 (3.8 rows) / 194 (2.95 rows) / 174 (2.5 rows)                    |
 
 - At the chapter root (no note strip, a two-line intro) at 375 x 667: 179px,
   2.6 rows.
@@ -197,19 +214,20 @@ Results (scroller rows = whole move rows visible above the tab bar):
   inline form.
 - **Spacing:** the header and Progress share one block with `gap-6` (24);
   the Progress section has no top border or padding (it follows the
-  header). The sections after it keep the page's `gap-8` and `border-t
-  pt-6`.
+  header). The sections after it keep the page's `gap-8` and
+  `border-t pt-6`.
 - **Progress heading y** = 24 (main `pt-6`) + 44 + 4 + row 2 + 24:
 
-| Case | Row 2 | Progress at |
-| --- | --- | --- |
-| One-line name, meta of 1 to 2 lines (the seed group, both widths) | 44 | **140** |
-| Meta of 3 lines (two assignments) | 60 | 156 |
-| Two-line name (over about 19 characters at 375), meta 2 lines | 44 | 160 |
-| Meta of 4 lines (three assignments or more) | 80 | 176 |
+| Case                                                              | Row 2 | Progress at |
+| ----------------------------------------------------------------- | ----- | ----------- |
+| One-line name, meta of 1 to 2 lines (the seed group, both widths) | 44    | **140**     |
+| Meta of 3 lines (two assignments)                                 | 60    | 156         |
+| Two-line name (over about 19 characters at 375), meta 2 lines     | 44    | 160         |
+| Meta of 4 lines (three assignments or more)                       | 80    | 176         |
 
-  The same at 375 x 667 and 390 x 844 (the seed name fits one line at
-  both; the meta takes two lines at both). Today it is 273.
+The same at 375 x 667 and 390 x 844 (the seed name fits one line at
+both; the meta takes two lines at both). Today it is 273.
+
 - Three or more assignments would miss the 160px target by 20px per extra
   meta line. Lead decision: the meta line names at most one assignment, the
   one with the nearest deadline ("6 players · Slav Defence due 30 Nov ·

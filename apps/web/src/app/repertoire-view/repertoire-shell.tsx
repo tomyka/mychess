@@ -6,7 +6,7 @@ import { Board, type BoardProps } from '../board/board';
 import { BoardRow } from './board-row';
 import { Announcer, useBoardWords } from './board-words';
 import { BrowseCommentStrip } from './comment-strip';
-import { RepertoireFrame } from './repertoire-frame';
+import { RepertoireFrame, type PanelBasis } from './repertoire-frame';
 import { RepertoirePanel, type PanelContent } from './repertoire-panel';
 import type { ScreenMessage, ScreenState } from './screen-state';
 import { ScreenStatus } from './screen-status';
@@ -33,6 +33,13 @@ interface RepertoireShellProps {
   readonly toolbar?: ReactNode;
   /** Reloads the page once the repertoire changed elsewhere (a view that edits). */
   readonly onReload?: () => void;
+  /**
+   * What sits under the comment strip, in its slot between the board row
+   * and the scroller (the coach's own note on the move); none by default.
+   */
+  readonly underComment?: ReactNode;
+  /** The panel cell's basis on a phone (RepertoireFrame); `standard` by default. */
+  readonly panelBasis?: PanelBasis | undefined;
   /** What the view offers beside a status message (null: nothing). */
   readonly statusAction?: StatusAction;
 }
@@ -82,6 +89,8 @@ export function RepertoireShell({
   toolbar,
   onReload = noReload,
   statusAction = noAction,
+  underComment = null,
+  panelBasis,
 }: RepertoireShellProps): JSX.Element {
   const { state, dispatch, board, play } = view;
   const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
@@ -110,8 +119,12 @@ export function RepertoireShell({
         />
       }
       comment={
-        <BrowseCommentStrip state={state} label={panel.comment?.label} />
+        <>
+          <BrowseCommentStrip state={state} label={panel.comment?.label} />
+          {underComment}
+        </>
       }
+      panelBasis={panelBasis}
       scroller={<RepertoirePanel view={view} names={names} content={panel} />}
     >
       <Announcer state={state} />

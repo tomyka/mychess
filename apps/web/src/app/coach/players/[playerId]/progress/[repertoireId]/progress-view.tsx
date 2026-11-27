@@ -21,6 +21,7 @@ import { MasteredBadge } from '../../../../../mastered-badge';
 import { Pill } from '../../../../../pill';
 import { SECTION, SECTION_TITLE } from '../../../../../settings/styles';
 import { AssignmentStatusLine } from '../../../../assignment-status-line';
+import { useOwnCopyTitle } from '../../../../own-copy-title';
 import { ProgressCounts } from '../../../../progress-counts';
 import { StateBar } from '../../../../state-bar';
 import { COACH_PAGE, SubpageHeader } from '../../../../subpage-header';
@@ -135,13 +136,11 @@ function Chapter({ chapter }: { readonly chapter: ChapterRow }): JSX.Element {
 
 /** The page's title: the repertoire, or whose own copy of it (R-155). */
 function useTitle(page: ProgressPage): string {
-  const t = useTranslations('coach.progress');
-  return page.tag === 'fork'
-    ? t('ownCopyTitle', {
-        name: page.player.displayName,
-        repertoire: page.repertoire.name,
-      })
-    : page.repertoire.name;
+  return useOwnCopyTitle({
+    isFork: page.tag === 'fork',
+    playerName: page.player.displayName,
+    repertoireName: page.repertoire.name,
+  });
 }
 
 /**

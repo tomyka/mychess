@@ -45,13 +45,26 @@ const BOARD_SQUARE = 'w-[min(100cqw,100cqh)] lg:w-full';
 
 /**
  * The panel's cell: the rows under the board and the scroller. Below `lg`
- * it starts at 16.5rem (the board row 60px, a one-line comment 36px, the
- * scroller 168px) and keeps it while the board shrinks; the strip and the
- * rows live here, so stepping through moves never resizes the board. On a
- * desktop the card's second row.
+ * it starts at its basis and keeps it while the board shrinks; the strip
+ * and the rows live here, so stepping through moves never resizes the
+ * board. On a desktop the card's second row.
  */
 const PANEL_CELL =
-  'flex min-h-0 flex-[1_1_16.5rem] flex-col lg:col-start-2 lg:row-start-2 lg:px-4 lg:pb-4';
+  'flex min-h-0 flex-col lg:col-start-2 lg:row-start-2 lg:px-4 lg:pb-4';
+
+/**
+ * The panel cell's basis below `lg`, which sets the phone board's cap:
+ * `standard` 16.5rem (the board row 60px, a one-line comment 36px, the
+ * scroller 168px); `noteStrip` 18.5rem where a 44px note strip sits under
+ * the comment, the coach's shared view (docs/design/coach-shared-repertoire.md,
+ * Height budget).
+ */
+export type PanelBasis = 'standard' | 'noteStrip';
+
+const PANEL_BASIS: Readonly<Record<PanelBasis, string>> = {
+  standard: 'flex-[1_1_16.5rem]',
+  noteStrip: 'flex-[1_1_18.5rem]',
+};
 
 /** A row under the board: the page's gutter on a phone, the card's on a desktop. */
 const ROW = 'shrink-0 px-gutter lg:px-0';
@@ -92,6 +105,8 @@ export interface RepertoireFrameProps {
   readonly scroller: ReactNode;
   /** The page is still loading (aria-busy). */
   readonly busy?: boolean | undefined;
+  /** The panel cell's basis on a phone; `standard` unless the view pins a note strip. */
+  readonly panelBasis?: PanelBasis | undefined;
   /** What is outside the cells, after them: the page's live regions. */
   readonly children?: ReactNode;
 }
@@ -110,6 +125,7 @@ export function RepertoireFrame({
   comment = null,
   scroller,
   busy = false,
+  panelBasis = 'standard',
   children,
 }: RepertoireFrameProps): JSX.Element {
   return (
@@ -119,7 +135,7 @@ export function RepertoireFrame({
       <div className={BOARD_CELL}>
         <div className={BOARD_SQUARE}>{board}</div>
       </div>
-      <div className={PANEL_CELL}>
+      <div className={`${PANEL_CELL} ${PANEL_BASIS[panelBasis]}`}>
         <div className={BOARD_ROW}>{boardRow}</div>
         <div className={BUILDER_ROW}>{builderRow}</div>
         <div className={STATUS_ROW}>{status}</div>

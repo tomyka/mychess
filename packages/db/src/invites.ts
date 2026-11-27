@@ -71,6 +71,8 @@ export interface CreatedInvite {
   /** The raw token, for the link; shown once and never stored. */
   readonly token: string;
   readonly inviteId: string;
+  /** When it stops being valid (R-99), as stored. */
+  readonly expiresAt: Date;
 }
 
 /**
@@ -142,6 +144,7 @@ export async function writeInvite(
   request: InviteRequest,
 ): Promise<CreatedInvite> {
   const token = newInviteToken();
+  const expiresAt = inviteExpiry(request.now);
   const [row] = await tx
     .insert(invites)
     .values({
@@ -149,11 +152,11 @@ export async function writeInvite(
       kind: request.kind,
       groupId: request.groupId,
       tokenHash: inviteTokenHash(token),
-      expiresAt: inviteExpiry(request.now),
+      expiresAt,
       createdAt: request.now,
     })
     .returning({ id: invites.id });
-  return { token, inviteId: z.uuid().parse(row?.id) };
+  return { token, inviteId: z.uuid().parse(row?.id), expiresAt };
 }
 
 /** Makes an invite; the raw token is returned here once and never stored. */

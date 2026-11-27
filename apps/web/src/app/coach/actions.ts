@@ -209,6 +209,8 @@ export async function unlinkPlayerAction(
 export interface CreateInviteState {
   /** The invite link, shown once (plan decision 5). */
   readonly link?: string;
+  /** Until when the new link works (R-99), shown beside it. */
+  readonly expiresAt?: Date;
   readonly refusal?: InviteIssue | CoachRefusal['reason'];
 }
 
@@ -227,7 +229,8 @@ export async function createInviteAction(
   });
   if (!made.ok) return { refusal: made.refusal.reason };
   refresh();
-  return { link: inviteLink(made.value.token) };
+  const { token, expiresAt } = made.value;
+  return { link: inviteLink(token), expiresAt };
 }
 
 const INVALID_INVITE: Result<undefined, InviteRefusal> = {

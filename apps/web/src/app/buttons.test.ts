@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   COMPACT_TONAL,
+  DANGER_OUTLINE_BUTTON,
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
   TONAL_BUTTON,
@@ -41,6 +42,23 @@ describe('button classes', () => {
     expect(compact).not.toContain('px-4');
     expect(compact).not.toContain('text-base');
     expect(COMPACT_TONAL).not.toContain('!');
+  });
+
+  it('outlines a button that takes away in the error tone, with no overrides', () => {
+    const danger = classes(DANGER_OUTLINE_BUTTON);
+    expect(danger).toEqual(
+      expect.arrayContaining([
+        'min-h-touch',
+        'border',
+        'border-error',
+        'bg-surface',
+        'text-error',
+        'disabled:opacity-85',
+      ]),
+    );
+    // One border colour and one text colour: nothing for the cascade.
+    expect(danger).not.toContain('border-border-strong');
+    expect(danger).not.toContain('text-fg');
   });
 
   it('fades an unavailable (aria-disabled) secondary or tonal button to half', () => {

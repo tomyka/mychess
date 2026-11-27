@@ -91,6 +91,21 @@ describe('createInviteAction (R-98, R-99, R-110)', () => {
     expect(request.refreshed).toBe(1);
   });
 
+  it('says until when the new link works: the expiry it was stored with (R-99)', async () => {
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    const state = z
+      .object({ expiresAt: z.date() })
+      .parse(
+        await outcomeOf(
+          createInviteAction({}, formOf({ kind: 'personal', groupId: '' })),
+        ),
+      );
+    const [stored] = z
+      .array(z.object({ expiresAt: z.date() }))
+      .parse(await sql.rows('select expires_at as "expiresAt" from invites'));
+    expect(state.expiresAt).toEqual(stored?.expiresAt);
+  });
+
   it('makes a group invite for the coach’s own group', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');

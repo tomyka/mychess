@@ -495,6 +495,37 @@ describe('a coach who is not linked (checklist 1)', () => {
     expect(rimantasDashboard).toHaveProperty('groups.length', 1);
     expect(JSON.stringify(rimantasDashboard)).not.toContain(ids.gabija.id);
   });
+
+  it('lists only the own open personal invites on the dashboard, by their dates alone (R-232)', async () => {
+    const ids = await setUp();
+    actAs(ids.dovydas);
+    // Dovydas's only invite is his group's (R-204), which is on its page.
+    expect(await outcomeOf(coachDashboardData())).toHaveProperty(
+      'personalInvites',
+      [],
+    );
+    actAs(ids.rimantas);
+    const dashboard = await outcomeOf(coachDashboardData());
+    // The field allowlist: an id to revoke by and two dates; a strict
+    // object refuses any other field, a token or its hash among them.
+    const invites = z
+      .object({
+        personalInvites: z.array(
+          z.strictObject({
+            id: z.string(),
+            createdAt: z.date(),
+            expiresAt: z.date(),
+          }),
+        ),
+      })
+      .parse(dashboard).personalInvites;
+    expect(invites.map(({ id }) => id)).toEqual([ids.invite]);
+    const hashes = z
+      .array(z.object({ tokenHash: z.string() }))
+      .parse(await sql.rows('select token_hash as "tokenHash" from invites'));
+    const shown = JSON.stringify(dashboard);
+    for (const { tokenHash } of hashes) expect(shown).not.toContain(tokenHash);
+  });
 });
 
 describe('access ends with the link (checklist 3)', () => {

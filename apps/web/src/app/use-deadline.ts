@@ -23,11 +23,22 @@ export function useDeadline(
 }
 
 /**
- * Writes a deadline with the month short ("Nov 30"), its year only when it
- * is not the year of `today` (`YYYY-MM-DD`, read on the server so the
- * server and the browser agree).
+ * Writes an instant (an invite's expiry) as its day with the month short
+ * ("Dec 4"), in the display time zone, its year only when it is not the
+ * year of `today` (`YYYY-MM-DD`, read on the server so the server and the
+ * browser agree).
+ */
+export function useShortInstant(today: string): (when: Date) => string {
+  const format = useFormatter();
+  const now = noonOf(today);
+  return (when) => format.dateTime(when, shortDateFormat(when, now));
+}
+
+/**
+ * Writes a deadline with the month short ("Nov 30") by the same rule as
+ * `useShortInstant`.
  */
 export function useShortDeadline(today: string): (day: string) => string {
-  const now = noonOf(today);
-  return useDeadline((day) => shortDateFormat(day, now));
+  const instant = useShortInstant(today);
+  return (day) => instant(noonOf(day));
 }

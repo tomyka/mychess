@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type JSX, type RefObject } from 'react';
 import {
   DANGER_BUTTON,
+  DANGER_OUTLINE_BUTTON,
   PRIMARY_BUTTON,
   QUIET_BUTTON,
   SECONDARY_BUTTON,
@@ -31,7 +32,8 @@ export interface ConfirmedActionProps {
   /**
    * The first button's look: `secondary` (the default); `quiet` text, for
    * an action kept out of the way; `tonal`, for one that belongs to the
-   * content (Train here's Mark known).
+   * content (Train here's Mark known); `danger`, outlined in the error
+   * tone, for one that takes away (Revoke).
    */
   readonly look?: keyof typeof FIRST_BUTTON;
   /**
@@ -53,6 +55,7 @@ const FIRST_BUTTON = {
   secondary: SECONDARY_BUTTON,
   quiet: QUIET_BUTTON,
   tonal: TONAL_BUTTON,
+  danger: DANGER_OUTLINE_BUTTON,
 };
 
 /**

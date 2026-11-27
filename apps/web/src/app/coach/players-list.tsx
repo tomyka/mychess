@@ -2,7 +2,7 @@ import { percentLearned, type ProgressCounts } from '@mychess/chess';
 import type { PlayerSummary } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useId, type JSX } from 'react';
+import { useId, type JSX, type ReactNode } from 'react';
 import { coachPlayerPath } from '../../lib/routes';
 import type { DashboardPlayerLine } from '../../server/coach-pages';
 import { Pill } from '../pill';
@@ -197,14 +197,18 @@ function PlayersTable({
 
 /**
  * Every linked player, by name (R-160), one compact row each (R-231): a
- * list on a phone, a table from md. Unlink is on the player's page.
+ * list on a phone, a table from md. Unlink is on the player's page. With
+ * no player yet, `invite` (the Invite a player button) follows the line
+ * that says so.
  */
 export function PlayersList({
   players,
   today,
+  invite,
 }: {
   readonly players: readonly DashboardPlayerLine[];
   readonly today: string;
+  readonly invite?: ReactNode;
 }): JSX.Element {
   const t = useTranslations('coach');
   const titleId = useId();
@@ -217,7 +221,10 @@ export function PlayersList({
         })}
       </h2>
       {players.length === 0 ? (
-        <p className="text-fg-muted">{t('players.empty')}</p>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-fg-muted">{t('players.empty')}</p>
+          {invite}
+        </div>
       ) : (
         <>
           <div className={`${CARD} px-4 md:py-2`}>

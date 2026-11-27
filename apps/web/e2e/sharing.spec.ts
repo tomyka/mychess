@@ -57,6 +57,12 @@ const PERSONAL_NOTE = 'Asmeninis: čia dažnai suklystu.';
 /** Rimantas's coach note on the same move. */
 const COACH_NOTE = 'Po 10.Nb3 žaisk b5 iš karto.';
 
+/** The coach's own note on 9...Ne5: the desktop card, headed by the move and who sees it. */
+const noteCard = (coach: Page): Locator =>
+  coach.getByRole('region', {
+    name: format(en.coach.shared.noteOn, { move: '9... Ne5', name: PLAYER }),
+  });
+
 /** 9...Ne5's chip: the comment, and then the marks `extra` names. */
 const ne5 = (page: Page, messages: Messages, ...extra: string[]): Locator =>
   chip(
@@ -72,7 +78,7 @@ const shareSection = (page: Page, messages: Messages): Locator =>
 async function coachInvites(page: Page): Promise<string> {
   await switchOnCoachMode(page, en);
   await page.goto('/coach');
-  return createInvite(page, en, { kind: 'personal' });
+  return createInvite(page, en);
 }
 
 /** Gabija accepts the invite, imports the Taimanov and notes 9...Ne5. */
@@ -145,7 +151,7 @@ async function coachOpensShared(coach: Page): Promise<void> {
     .click();
   await expect(coach).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(REPERTOIRE);
-  await expect(coach.getByText(t.readOnly)).toBeVisible();
+  await expect(coach.getByText(t.tag)).toBeVisible();
   await chooseChapter(coach, TAIMANOV_B48);
   await ne5(coach, en).click();
   await expect(coach.getByText(COMMENT)).toBeVisible();
@@ -165,20 +171,23 @@ async function coachOpensShared(coach: Page): Promise<void> {
   expect(await coach.content()).not.toContain(PERSONAL_NOTE);
 }
 
-/** On 9...Ne5 he saves a coach note; the move gets the pen mark. */
+/**
+ * On 9...Ne5 he adds a coach note in the card under the comment; the move
+ * gets the pen mark.
+ */
 async function coachWritesNote(coach: Page): Promise<void> {
   const t = en.coach.shared;
-  await coach.getByLabel(t.note, { exact: true }).fill(COACH_NOTE);
-  await coach.getByRole('button', { name: t.saveNote }).click();
-  await expect(coach.getByText(t.noteSaved, { exact: true })).toBeVisible();
+  const card = noteCard(coach);
+  await card.getByRole('button', { name: t.addNote }).click();
+  await card.getByRole('textbox').fill(COACH_NOTE);
+  await card.getByRole('button', { name: t.saveNote }).click();
+  await expect(card.getByText(t.noteSaved, { exact: true })).toBeVisible();
   const marked = ne5(coach, en, en.repertoires.moves.hasCoachNote);
   await expect(marked.locator('svg[data-note="coach"]')).toBeAttached();
   await coach.reload();
   await chooseChapter(coach, TAIMANOV_B48);
   await marked.click();
-  await expect(coach.getByLabel(t.note, { exact: true })).toHaveValue(
-    COACH_NOTE,
-  );
+  await expect(noteCard(coach).getByText(COACH_NOTE)).toBeVisible();
 }
 
 /** On her 9...Ne5, Rimantas's note under his name, or none. */
@@ -266,8 +275,9 @@ test(`G-M1-3: a shared repertoire, its coach note, and how unshare and unlink en
     await chooseChapter(coach, TAIMANOV_B48);
     await ne5(coach, en).click();
     await expect(
-      coach.getByLabel(en.coach.shared.note, { exact: true }),
-    ).toHaveValue('');
+      noteCard(coach).getByRole('button', { name: en.coach.shared.addNote }),
+    ).toBeVisible();
+    await expect(noteCard(coach).getByText(COACH_NOTE)).toHaveCount(0);
 
     // Unlinked: access ends on his next request.
     await playerUnlinks(gabija, messages);

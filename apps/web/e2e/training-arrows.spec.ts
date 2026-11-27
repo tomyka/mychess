@@ -90,7 +90,7 @@ test('D-M1 arrows off (R-205): Dovydas learns blind: no arrow, a right move lear
  */
 async function rokasLearnsAssigned(coach: Page, cast: Cast): Promise<Page> {
   await coachReady(coach, cast);
-  const link = await createInvite(coach, en, { kind: 'personal' });
+  const link = await createInvite(coach, en);
   const { page: rokas } = await linkedPlayer(cast, { link, name: ROKAS });
   await importRepertoire(coach, en, {
     file: ITALIAN_PGN,

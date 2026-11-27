@@ -26,6 +26,10 @@
   /* A card edge: none in light (the shadow lifts it), a hairline in dark
      where shadows do not read (R-219). */
   --color-card-edge: light-dark(transparent, #2c3240);
+  /* The scrim behind a modal sheet or dialog: the page dimmed, not hidden.
+     Darker in dark, where a light veil would lift the page instead. Not
+     for text. */
+  --color-scrim: light-dark(rgb(20 26 38 / 0.4), rgb(0 0 0 / 0.6));
 
   /* ---- Brand / interactive (Ocean, R-220) ---- */
   --color-accent: light-dark(#0b63c5, #6aaeff); /* primary buttons, links */

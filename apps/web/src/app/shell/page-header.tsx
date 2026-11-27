@@ -22,12 +22,15 @@ export function PageHeader({
   back,
   title,
   titleId,
+  actions,
   children,
 }: {
   readonly back?: BackTarget;
   readonly title: string;
   /** Lets a button name what it acts on (aria-describedby). */
   readonly titleId?: string;
+  /** The page's own actions, at the end of the title row (Invite a player). */
+  readonly actions?: ReactNode;
   /** A line under the title (an intro), if any. */
   readonly children?: ReactNode;
 }): JSX.Element {
@@ -50,6 +53,7 @@ export function PageHeader({
         >
           {title}
         </h1>
+        {actions}
         {back === undefined ? null : <PhoneAccountMenu />}
       </div>
       {children}
