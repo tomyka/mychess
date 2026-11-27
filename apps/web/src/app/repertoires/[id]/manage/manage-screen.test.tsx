@@ -63,6 +63,13 @@ const PANEL: AssignPanelData = {
             overdue: false,
             updated: false,
           },
+          status: {
+            deadline: null,
+            paused: false,
+            forked: false,
+            overdue: false,
+            done: false,
+          },
         },
       ],
     },
@@ -72,8 +79,11 @@ const PANEL: AssignPanelData = {
     [
       'rokas',
       {
-        counts: { notStarted: 3, skipped: 0, due: 0, learned: 1 },
-        mastered: false,
+        standing: {
+          counts: { notStarted: 3, skipped: 0, due: 0, learned: 1 },
+          mastered: false,
+        },
+        status: null,
       },
     ],
   ]),

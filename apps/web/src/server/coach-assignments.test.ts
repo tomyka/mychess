@@ -162,7 +162,7 @@ describe('coachAssignData', () => {
     ]);
   });
 
-  it('reads each assigned player’s standing in one access-checked read (R-225)', async () => {
+  it('reads each assigned player’s standing and status in one access-checked read (R-225, R-231)', async () => {
     const counts = { notStarted: 4, skipped: 0, due: 1, learned: 5 };
     server.assignments.mockResolvedValue([
       {
@@ -196,8 +196,15 @@ describe('coachAssignData', () => {
         ],
       },
     ]);
+    const status = {
+      deadline: '2026-10-30',
+      overdue: false,
+      paused: false,
+      done: false,
+      forked: false,
+    };
     const read = new Map([
-      ['rokas', { counts, mastered: false }],
+      ['rokas', { standing: { counts, mastered: false }, status }],
       // Marta made her own copy: no standing for the coach (R-155).
       ['marta', null],
     ]);

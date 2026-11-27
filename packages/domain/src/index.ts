@@ -191,6 +191,7 @@ export {
   type CoachRowStatus,
   type PlayerSummary,
 } from './coach-attention';
+export { byRepertoireUrgency, ownCopyEntries } from './coach-player-page';
 export {
   FORK_OFFER_DAYS,
   FORK_OFFER_REASONS,

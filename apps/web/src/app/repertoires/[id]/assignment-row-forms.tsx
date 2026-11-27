@@ -3,9 +3,8 @@
 import type { CoachAssignment } from '@mychess/db';
 import { FORK_OFFER_DAYS } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, type JSX } from 'react';
-import { SECONDARY_BUTTON } from '../../buttons';
-import { FIELD } from '../../fields';
+import { startTransition, useActionState, type JSX } from 'react';
+import { PRIMARY_BUTTON, QUIET_BUTTON } from '../../buttons';
 import { ConfirmedAction } from '../../confirmed-action';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
@@ -17,38 +16,13 @@ import {
   unassignAction,
 } from './assign-actions';
 import { INITIAL, useOutcome } from './assign-outcome';
+import { DeadlineField } from './deadline-field';
 
 /**
- * The new deadline's date, starting at the current one. Today is its
- * earliest day as a hint only: the server refuses a past one (R-203).
+ * The row's deadline (R-51): the date field, starting at the current one,
+ * with Save deadline, and Clear deadline as a text button while there is
+ * one.
  */
-function NewDeadlineField({
-  deadline,
-  today,
-}: {
-  readonly deadline: string | null;
-  readonly today: string;
-}): JSX.Element {
-  const t = useTranslations('assignment.panel');
-  const dateId = useId();
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={dateId} className="text-sm font-medium">
-        {t('newDeadline')}
-      </label>
-      <input
-        id={dateId}
-        type="date"
-        name="deadline"
-        defaultValue={deadline ?? ''}
-        min={today}
-        className={FIELD}
-      />
-    </div>
-  );
-}
-
-/** Change the row's deadline, or clear it while there is one (R-51). */
 export function DeadlineForms({
   assignment,
   describedBy,
@@ -62,44 +36,61 @@ export function DeadlineForms({
   const t = useTranslations('assignment.panel');
   const { state, pending, using } = useLatestAction(INITIAL);
   const outcome = useOutcome(state, t('deadlineSaved'));
+  const clear = (): void => {
+    const form = new FormData();
+    form.set('assignmentId', assignment.id);
+    startTransition(() => {
+      using(clearDeadlineAction)(form);
+    });
+  };
   return (
     <div className="flex flex-col gap-2">
       <form
         key={assignment.deadline ?? ''}
         noValidate
         onSubmit={submitByHand(using(setDeadlineAction))}
-        className="flex flex-wrap items-end gap-2"
+        className="flex flex-col gap-3"
       >
         <input type="hidden" name="assignmentId" value={assignment.id} />
-        <NewDeadlineField deadline={assignment.deadline} today={today} />
-        <button
-          type="submit"
-          disabled={pending}
-          aria-describedby={describedBy}
-          className={SECONDARY_BUTTON}
-        >
-          {t('changeDeadline')}
-        </button>
-      </form>
-      {assignment.deadline === null ? null : (
-        <form onSubmit={submitByHand(using(clearDeadlineAction))}>
-          <input type="hidden" name="assignmentId" value={assignment.id} />
+        <DeadlineField
+          label={t('deadlineLabel')}
+          defaultValue={assignment.deadline ?? ''}
+          today={today}
+        />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <button
             type="submit"
             disabled={pending}
             aria-describedby={describedBy}
-            className={SECONDARY_BUTTON}
+            className={PRIMARY_BUTTON}
           >
-            {t('clearDeadline')}
+            {t('saveDeadline')}
           </button>
-        </form>
-      )}
+          {assignment.deadline === null ? null : (
+            <button
+              type="button"
+              disabled={pending}
+              aria-describedby={describedBy}
+              onClick={clear}
+              className={QUIET_BUTTON}
+            >
+              {t('clearDeadline')}
+            </button>
+          )}
+        </div>
+      </form>
       <StatusLine text={outcome.text} tone={outcome.tone} />
     </div>
   );
 }
 
-/** Unassign behind a confirm that says what the players keep (R-130). */
+/**
+ * Unassign, in the error tone, behind a confirm that says what happens
+ * (R-130): the repertoire leaves the list, their progress on it goes
+ * dormant until it comes back, and the players have the fork offer's days
+ * to keep their own copy; whoever also has it another way keeps it (R-16),
+ * a player through a group on the group's deadline (R-134).
+ */
 export function Unassign({
   assignment,
   describedBy,
@@ -123,6 +114,7 @@ export function Unassign({
         confirm={t('unassignConfirm')}
         cancel={t('unassignCancel')}
         describedBy={describedBy}
+        look="danger"
       />
       <RefusalLine state={state} />
     </div>

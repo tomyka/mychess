@@ -1,21 +1,39 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { targetField } from '../../../lib/assign-target';
 import type { AssignPanelData } from '../../../server/coach-assignments';
-import { SECONDARY_BUTTON } from '../../buttons';
+import { PRIMARY_BUTTON } from '../../buttons';
 import { FIELD } from '../../fields';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { assignAction } from './assign-actions';
 import { INITIAL, useOutcome } from './assign-outcome';
+import { DeadlineField } from './deadline-field';
 
 /**
  * Whom the picker offers: those it is not yet assigned to (the loader's);
  * and today, the date field's earliest day.
  */
 type Offer = Pick<AssignPanelData, 'players' | 'groups' | 'today'>;
+
+/**
+ * A player as the picker names them: who has it through a group stays
+ * offered (R-134), saying so, as an assignment of their own sets their own
+ * deadline.
+ */
+function usePlayerLabel(): (player: Offer['players'][number]) => string {
+  const t = useTranslations('assignment.panel');
+  const format = useFormatter();
+  return ({ displayName, viaGroups }) =>
+    viaGroups.length === 0
+      ? displayName
+      : t('viaGroups', {
+          name: displayName,
+          groups: format.list(viaGroups, { type: 'conjunction' }),
+        });
+}
 
 /** The picker: the players, then the groups, each under its label. */
 function TargetSelect({
@@ -28,6 +46,7 @@ function TargetSelect({
   readonly invalid: boolean;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
+  const label = usePlayerLabel();
   return (
     <select
       id={id}
@@ -41,7 +60,7 @@ function TargetSelect({
         <optgroup label={t('players')}>
           {players.map((player) => (
             <option key={player.id} value={targetField('player', player.id)}>
-              {player.displayName}
+              {label(player)}
             </option>
           ))}
         </optgroup>
@@ -71,7 +90,6 @@ function AssignForm({
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const targetId = useId();
-  const dateId = useId();
   const [state, action, pending] = assigning;
   return (
     <>
@@ -91,21 +109,15 @@ function AssignForm({
           {...offer}
           invalid={state.refusal !== undefined}
         />
-        <label htmlFor={dateId} className="font-medium">
-          {t('deadline')}
-        </label>
-        {/* Today is the earliest day as a hint; the server refuses a past one (R-203). */}
-        <input
-          id={dateId}
-          type="date"
-          name="deadline"
-          min={offer.today}
-          className={FIELD}
+        <DeadlineField
+          label={t('deadline')}
+          defaultValue=""
+          today={offer.today}
         />
         <button
           type="submit"
           disabled={pending}
-          className={`${SECONDARY_BUTTON} self-start`}
+          className={`${PRIMARY_BUTTON} self-start`}
         >
           {t('assign')}
         </button>

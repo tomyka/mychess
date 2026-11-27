@@ -178,8 +178,9 @@ header:
   each a link.
 - **Repertoires · N:** one card per repertoire the coach may see (assigned
   or shared, R-42), replacing the separate Progress, Shared repertoires and
-  Groups sections. Order: overdue first, then by deadline soonest, then
-  shared ones by name. Each card:
+  Groups sections. Order: overdue first, then unfinished ones by deadline soonest, then
+  done ones, then those without a deadline (an own copy counts as none),
+  then shared ones by name (lead decision). Each card:
   - the name and a tag: **Assigned**, **Shared with you**, or **<name>'s own
     copy**;
   - assignments: `AssignmentStatus`;

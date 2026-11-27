@@ -11,9 +11,9 @@ import {
 import {
   acceptInvite,
   createGroup,
-  createGroupInvite,
   createInvite,
   expectInviteFrom,
+  newGroupLink,
   openInviteSheet,
   signUpThroughInvite,
   switchOnCoachMode,
@@ -54,11 +54,10 @@ async function coachInvitesGroup(
   await switchOnCoachMode(page, en);
   await openTab(page, en, 'coach');
   await expect(page).toHaveURL(/\/coach$/);
-  // A group invite from the invites form; the group's own one (R-204) is
-  // used by the assignment and progress journeys. The dashboard no longer
-  // has that form (R-232): #381 Task 11 moves this to the group page.
+  // A new link from the group's page (R-232); the group's first one
+  // (R-204) is used by the assignment and progress journeys.
   await createGroup(page, en, GROUP);
-  return createGroupInvite(page, en, GROUP);
+  return newGroupLink(page, en, GROUP);
 }
 
 /** U1-M1-1, G-M1-1, D-M1-1: three players accept; returns Rokas's page. */
@@ -125,7 +124,7 @@ test(
       const link = await coachInvitesGroup(page, request);
       const rokas = await threePlayersAccept(browser, devices, request, link);
 
-      await page.reload();
+      await page.goto('/coach');
       await page.getByRole('link', { name: GROUP, exact: true }).click();
       await expect(page).toHaveURL(/\/coach\/groups\//);
       for (const name of PLAYERS)

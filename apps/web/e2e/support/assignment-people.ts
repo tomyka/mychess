@@ -109,8 +109,8 @@ export async function expectPastDeadlineRefused(
   // The group's one row: its Change changes the group's deadline.
   const row = assignmentRow(coach, messages, GROUP);
   await openChange(row, messages);
-  await row.getByLabel(t.newDeadline, { exact: true }).fill(day);
-  await row.getByRole('button', { name: t.changeDeadline }).click();
+  await row.getByLabel(t.deadlineLabel, { exact: true }).fill(day);
+  await row.getByRole('button', { name: t.saveDeadline }).click();
   await expect(
     row.getByText(messages.assignment.deadlinePast, { exact: true }),
   ).toBeVisible();
@@ -126,12 +126,21 @@ export async function setInGroup(
   await coach.goto('/coach');
   await coach.getByRole('link', { name: GROUP, exact: true }).click();
   await expect(coach).toHaveURL(/\/coach\/groups\//);
-  const members = coach.getByRole('region', { name: t.membersTitle });
+  // "Players · N": its name carries its count, so it is matched from its
+  // start; its list holds the members (the picker's options are not in it).
+  const section = coach.getByRole('region', {
+    name: new RegExp(`^${messages.coach.players.title} · `, 'u'),
+  });
+  const members = section.getByRole('list');
   if (member) {
-    await coach
+    // Add a player opens the picker inline (#381).
+    await section
+      .getByRole('button', { name: t.addTitle, exact: true })
+      .click();
+    await section
       .getByLabel(t.addLabel, { exact: true })
       .selectOption({ label: name });
-    await coach.getByRole('button', { name: t.add, exact: true }).click();
+    await section.getByRole('button', { name: t.add, exact: true }).click();
     await expect(members.getByText(name, { exact: true })).toBeVisible();
   } else {
     // Remove asks first (#329): the member's row holds both steps.

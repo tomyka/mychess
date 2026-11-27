@@ -35,8 +35,22 @@ describe('the coach dashboard’s player page', () => {
       displayName: 'Rokas',
       linkedAt: new Date('2026-10-18T08:00:00Z'),
       groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
-      repertoires: [{ id: 'r-1', name: 'Taimanovas', side: 'black' }],
-      progress: { rows: [], lastTrainedDays: null },
+      lastTrainedDays: null,
+      today: '2026-11-20',
+      cards: [
+        {
+          repertoire: { id: 'r-1', name: 'Taimanovas', side: 'black' },
+          tag: 'shared',
+          status: null,
+          granted: {
+            id: 'r-1',
+            standing: {
+              counts: { notStarted: 2, skipped: 0, due: 0, learned: 0 },
+              mastered: false,
+            },
+          },
+        },
+      ],
     });
     renderIn(
       await CoachPlayerPage({ params: Promise.resolve({ playerId: 'p-1' }) }),
@@ -49,12 +63,11 @@ describe('the coach dashboard’s player page', () => {
       screen.getByRole('link', { name: 'Šeštadienio grupė' }),
     ).toBeDefined();
     expect(
-      screen.getByRole('link', { name: /^Taimanovas/ }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: c.progress.openShared })
+        .getAttribute('href'),
     ).toBe('/coach/players/p-1/repertoires/r-1');
-    expect(
-      screen.getByText(c.progress.empty.replace('{name}', 'Rokas')),
-    ).toBeDefined();
-    expect(screen.getByText(c.progress.neverTrained)).toBeDefined();
+    expect(screen.getByText(c.player.neverTrained)).toBeDefined();
   });
 
   it('reads the same for anything the coach may not see (plan decision 4)', () => {

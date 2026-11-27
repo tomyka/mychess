@@ -1,44 +1,40 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 
-type Messages = ReturnType<typeof useTranslations<'coach.progress'>>;
+/**
+ * Days since the player last trained in words: "today", "yesterday",
+ * "5 days ago" (R-154). For a line that says "trained …" itself.
+ */
+export function useTrainedWhen(): (days: number) => string {
+  const t = useTranslations('coach.progress.trained');
+  return (days) => {
+    if (days === 0) return t('today');
+    if (days === 1) return t('yesterday');
+    return t('daysAgo', { days });
+  };
+}
 
 /**
- * "Last trained today / yesterday / N days ago", or "not trained yet"
- * (R-154). The short form, for rows, says only "today", "5 days ago" or
- * "never", with LastTrainedNote once under the list.
+ * When the player last trained, for rows (R-154, R-231): "today",
+ * "yesterday", "5 days ago" or "never", with LastTrainedNote once under
+ * the list saying it counts only what the coach can see.
  */
 export function LastTrained({
   days,
-  form = 'long',
 }: {
   readonly days: number | null;
-  readonly form?: 'long' | 'short';
 }): JSX.Element {
-  const t = useTranslations('coach.progress');
-  return form === 'short' ? (
-    <span className="text-sm text-fg-muted">{short(t, days)}</span>
-  ) : (
-    <p className="text-sm text-fg-muted">{long(t, days)}</p>
+  const t = useTranslations('coach.progress.trained');
+  const when = useTrainedWhen();
+  return (
+    <span className="text-sm text-fg-muted">
+      {days === null ? t('never') : when(days)}
+    </span>
   );
 }
 
-/** What the short form counts: only what the coach may see (R-154). */
+/** What LastTrained counts: only what the coach may see (R-154). */
 export function LastTrainedNote(): JSX.Element {
   const t = useTranslations('coach.progress');
   return <p className="text-sm text-fg-muted">{t('lastTrainedNote')}</p>;
-}
-
-function short(t: Messages, days: number | null): string {
-  if (days === null) return t('trained.never');
-  if (days === 0) return t('trained.today');
-  if (days === 1) return t('trained.yesterday');
-  return t('trained.daysAgo', { days });
-}
-
-function long(t: Messages, days: number | null): string {
-  if (days === null) return t('neverTrained');
-  if (days === 0) return t('today');
-  if (days === 1) return t('yesterday');
-  return t('daysAgo', { days });
 }

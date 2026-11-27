@@ -6,8 +6,8 @@ import type { GroupGrid } from '../../../../server/coach-pages';
 import { ProgressGrid } from './progress-grid';
 
 const p = MESSAGES.coach.progress;
+const badge = MESSAGES.assignment.badge;
 
-const NONE = { overdue: false, paused: false, forked: false, updated: false };
 const STATUS = {
   deadline: null,
   overdue: false,
@@ -16,26 +16,24 @@ const STATUS = {
   forked: false,
 };
 
+const granted = (
+  counts: { notStarted: number; skipped: number; due: number; learned: number },
+  mastered = false,
+) => ({ kind: 'granted', standing: { counts, mastered } }) as const;
+
+const column = (id: string, name: string) =>
+  ({ id, name, side: 'white', deadline: null, done: 0, count: 0 }) as const;
+
 const GRID: GroupGrid = {
-  columns: [
-    { id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' },
-    { id: 'r-2', name: 'Italų partija', side: 'white' },
-  ],
+  columns: [column('r-1', 'Karo-Kan gynyba'), column('r-2', 'Italų partija')],
   rows: [
     {
       player: { id: 'p-1', displayName: 'Gabija' },
       lastTrainedDays: 0,
       cells: [
         {
-          badges: NONE,
           status: STATUS,
-          view: {
-            kind: 'granted',
-            standing: {
-              counts: { notStarted: 1, skipped: 0, due: 5, learned: 2 },
-              mastered: false,
-            },
-          },
+          view: granted({ notStarted: 1, skipped: 0, due: 5, learned: 2 }),
         },
         null,
       ],
@@ -45,20 +43,29 @@ const GRID: GroupGrid = {
       lastTrainedDays: null,
       cells: [
         {
-          badges: { ...NONE, forked: true },
           status: { ...STATUS, forked: true },
           view: { kind: 'forked', sharedForkId: null },
         },
         {
-          badges: { ...NONE, overdue: true },
-          status: { ...STATUS, overdue: true },
-          view: {
-            kind: 'granted',
-            standing: {
-              counts: { notStarted: 0, skipped: 0, due: 0, learned: 4 },
-              mastered: true,
-            },
-          },
+          status: { ...STATUS, done: true },
+          view: granted(
+            { notStarted: 0, skipped: 0, due: 0, learned: 4 },
+            true,
+          ),
+        },
+      ],
+    },
+    {
+      player: { id: 'p-3', displayName: 'Dovydas' },
+      lastTrainedDays: 5,
+      cells: [
+        {
+          status: STATUS,
+          view: granted({ notStarted: 7, skipped: 0, due: 0, learned: 0 }),
+        },
+        {
+          status: { ...STATUS, overdue: true, paused: true },
+          view: granted({ notStarted: 1, skipped: 0, due: 2, learned: 1 }),
         },
       ],
     },
@@ -73,132 +80,158 @@ function show(grid: GroupGrid = GRID): void {
   );
 }
 
-const rowOf = (name: RegExp) =>
-  screen.getByRole('rowheader', { name }).closest('tr');
+const section = () => within(screen.getByRole('region', { name: p.gridTitle }));
+/** The desktop grid. */
+const table = () => within(section().getByRole('table'));
+/** The phone list: one card per member. */
+const cards = () => section().getByRole('list', { name: p.gridTitle });
+const cardOf = (name: string) =>
+  within(
+    within(cards())
+      .getAllByRole('listitem')
+      .find((item) => item.querySelector('a')?.textContent === name) ??
+      document.body,
+  );
+const rowOf = (name: string) =>
+  within(
+    table()
+      .getByRole('rowheader', { name: new RegExp(name) })
+      .closest('tr') ?? document.body,
+  );
+/** A member's cell link of `repertoire` in the desktop grid. */
+const cellOf = (name: string, repertoire: RegExp) =>
+  rowOf(name).getByRole('link', { name: repertoire });
 
-describe('the group grid (R-153)', () => {
-  it('is a titled table: a column per repertoire, a row per player', () => {
+describe('the group’s progress (R-153, spec A group)', () => {
+  it('is the Progress section', () => {
     show();
-    const section = screen.getByRole('region', { name: p.gridTitle });
-    const table = within(section).getByRole('table');
-    const headers = within(table)
-      .getAllByRole('columnheader')
-      .map((header) => header.textContent);
-    expect(headers).toEqual([p.player, 'Karo-Kan gynyba', 'Italų partija']);
-    expect(within(table).getAllByRole('rowheader')).toHaveLength(2);
+    expect(
+      screen.getByRole('heading', { level: 2, name: p.gridTitle }),
+    ).toBeDefined();
   });
 
-  it('names each player with a link to their page and when they last trained', () => {
+  it('on a phone, gives each member a card with their name, last trained and a line per repertoire', () => {
     show();
-    const gabija = screen.getByRole('rowheader', { name: /Gabija/ });
+    const gabija = cardOf('Gabija');
     expect(
-      within(gabija).getByRole('link', { name: 'Gabija' }).getAttribute('href'),
+      gabija.getByRole('link', { name: 'Gabija' }).getAttribute('href'),
     ).toBe('/coach/players/p-1');
-    expect(within(gabija).getByText(p.today)).toBeTruthy();
-    const rokas = screen.getByRole('rowheader', { name: /Rokas/ });
-    expect(within(rokas).getByText(p.neverTrained)).toBeTruthy();
+    expect(gabija.getByText(p.trained.today)).toBeDefined();
+    expect(gabija.getByText('Karo-Kan gynyba')).toBeDefined();
+    expect(gabija.getByText('Italų partija')).toBeDefined();
+    const line = gabija.getByRole('link', { name: /Karo-Kan gynyba/ });
+    expect(line.getAttribute('href')).toBe('/coach/players/p-1/progress/r-1');
+    expect(within(line).getByText('25% learned')).toBeDefined();
+    expect(within(line).getByText('5 due').className).toContain('text-due');
+    expect(cardOf('Rokas').getByText(p.trained.never)).toBeDefined();
   });
 
-  it('shows % learned and due in a cell that opens the player’s progress', () => {
-    show();
-    const cell = screen.getByRole('link', { name: /25%/ });
-    expect(cell.getAttribute('href')).toBe('/coach/players/p-1/progress/r-1');
-    expect(within(cell).getByText('5 due')).toBeTruthy();
-    expect(within(cell).getByText('25% learned')).toBeTruthy();
-  });
-
-  it('names the player and the repertoire in each cell link, around its visible text', () => {
+  it('on desktop, is a table: Player, a column per repertoire, Last trained last', () => {
     show();
     expect(
-      screen
-        .getAllByRole('link', { name: /learned/ })
-        .map((link) => link.getAttribute('aria-label')),
+      table()
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent),
     ).toEqual([
-      'Gabija, Karo-Kan gynyba: 25% learned, 5 due',
-      'Rokas, Italų partija: 100% learned, 0 due',
+      p.player,
+      'Karo-Kan gynyba',
+      'Italų partija',
+      MESSAGES.coach.players.column.lastTrained,
     ]);
+    const gabija = rowOf('Gabija');
+    expect(
+      gabija.getByRole('link', { name: 'Gabija' }).getAttribute('href'),
+    ).toBe('/coach/players/p-1');
+    expect(gabija.getAllByRole('cell').at(-1)?.textContent).toBe(
+      p.trained.today,
+    );
   });
 
-  it('draws Mastered as the state bar’s pill', () => {
+  it('links each cell to the member’s progress, named by player and repertoire (WCAG 2.5.3)', () => {
     show();
-    expect(screen.getByText(p.mastered).className).toContain('rounded-pill');
+    const cell = cellOf('Gabija', /Karo-Kan/);
+    expect(cell.getAttribute('href')).toBe('/coach/players/p-1/progress/r-1');
+    expect(cell.getAttribute('aria-label')).toBe(
+      'Gabija, Karo-Kan gynyba: 25% learned, 5 due',
+    );
   });
 
-  it('says where a player has no assignment of a repertoire', () => {
+  it('shows Done in place of % and due, with Mastered beside it', () => {
     show();
-    const gabija = rowOf(/Gabija/);
-    expect(gabija).not.toBeNull();
-    const cells = gabija === null ? [] : within(gabija).getAllByRole('cell');
-    expect(cells[1]?.textContent).toBe(p.noAssignment);
+    const done = cellOf('Rokas', /Italų/);
+    expect(done.textContent).toBe(MESSAGES.coach.status.done);
+    expect(done.getAttribute('aria-label')).toBe(
+      `Rokas, Italų partija: ${MESSAGES.coach.status.done}`,
+    );
+    expect(rowOf('Rokas').getByText(p.mastered)).toBeDefined();
+  });
+
+  it('shows one status pill in place of % and due, Overdue before Paused', () => {
+    show();
+    const late = cellOf('Dovydas', /Italų/);
+    expect(late.textContent).toBe(badge.overdue);
+    expect(within(late).queryByText(badge.paused)).toBeNull();
+    expect(within(late).queryByText('2 due')).toBeNull();
+    expect(within(late).queryByText('25% learned')).toBeNull();
+  });
+
+  it('shows Not started as a neutral pill for a repertoire not begun', () => {
+    show();
+    const fresh = cellOf('Dovydas', /Karo-Kan/);
+    const pill = within(fresh).getByText(p.cellNotStarted);
+    expect(pill.className).toContain('rounded-pill');
+    expect(fresh.getAttribute('aria-label')).toBe(
+      `Dovydas, Karo-Kan gynyba: ${p.cellNotStarted}`,
+    );
   });
 
   it('shows a forked cell with its badge only, and no way into its progress', () => {
     show();
-    const rokas = rowOf(/Rokas/);
-    const cells = rokas === null ? [] : within(rokas).getAllByRole('cell');
-    const forked = cells[0];
-    expect(forked?.textContent).toBe(MESSAGES.assignment.badge.forked);
+    const forked = rowOf('Rokas').getAllByRole('cell')[0];
+    expect(forked?.textContent).toBe(badge.forked);
     expect(forked?.querySelector('a')).toBeNull();
   });
 
-  it('shows the badges and Mastered beside a cell’s progress', () => {
+  it('says where a member has no assignment of a repertoire', () => {
     show();
-    const rokas = rowOf(/Rokas/);
-    const cells = rokas === null ? [] : within(rokas).getAllByRole('cell');
-    const cell = cells[1];
-    expect(cell).toBeDefined();
-    if (cell === undefined) return;
-    expect(
-      within(cell).getByRole('link', { name: /100%/ }).getAttribute('href'),
-    ).toBe('/coach/players/p-2/progress/r-2');
-    expect(within(cell).getByText('0 due')).toBeTruthy();
-    expect(
-      within(cell).getByText(MESSAGES.assignment.badge.overdue),
-    ).toBeTruthy();
-    expect(within(cell).getByText(p.mastered)).toBeTruthy();
+    expect(rowOf('Gabija').getAllByRole('cell')[1]?.textContent).toBe(
+      p.noAssignment,
+    );
   });
 
   it('says there is nothing to learn when a repertoire has no own move', () => {
     show({
-      columns: [{ id: 'r-1', name: 'Tuščias', side: 'white' }],
+      columns: [column('r-1', 'Tuščias')],
       rows: [
         {
           player: { id: 'p-1', displayName: 'Gabija' },
           lastTrainedDays: 3,
           cells: [
             {
-              badges: NONE,
               status: STATUS,
-              view: {
-                kind: 'granted',
-                standing: {
-                  counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 },
-                  mastered: false,
-                },
-              },
+              view: granted({ notStarted: 0, skipped: 0, due: 0, learned: 0 }),
             },
           ],
         },
       ],
     });
-    const cell = screen.getByRole('link', { name: new RegExp(p.nothing) });
+    const cell = cellOf('Gabija', /Tuščias/);
     expect(cell.textContent).toBe(p.nothing);
     expect(cell.getAttribute('aria-label')).toBe(
       `Gabija, Tuščias: ${p.nothing}`,
     );
   });
 
-  it('says so when nothing is assigned to the group', () => {
-    show({ columns: [], rows: [] });
-    expect(screen.getByText(p.gridEmpty)).toBeTruthy();
-    expect(screen.queryByRole('table')).toBeNull();
+  it('says once, under the grid, that last trained counts only what the coach can see (R-154)', () => {
+    show();
+    expect(section().getAllByText(p.lastTrainedNote)).toHaveLength(1);
+    expect(section().queryByText(/on the repertoires you can see/)).toBeNull();
   });
 
-  it('scrolls only the table sideways, with the player column fixed', () => {
-    show();
-    const table = screen.getByRole('table');
-    expect(table.parentElement?.className).toContain('overflow-x-auto');
-    const header = screen.getByRole('rowheader', { name: /Gabija/ });
-    expect(header.className).toContain('sticky');
+  it('says so when nothing is assigned to the group', () => {
+    show({ columns: [], rows: [] });
+    expect(section().getByText(p.gridEmpty)).toBeDefined();
+    expect(section().queryByRole('table')).toBeNull();
+    expect(section().queryByText(p.lastTrainedNote)).toBeNull();
   });
 });

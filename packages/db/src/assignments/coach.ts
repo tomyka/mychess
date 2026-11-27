@@ -28,7 +28,7 @@ import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { accounts, groups, repertoires } from '../schema';
 import { trackedReviews } from '../training/reviews';
-import { coachBadges } from './badges';
+import { coachBadges, coachStatus, type CoachStatus } from './badges';
 import { namesOf } from './names';
 import { assignmentFacts } from './reach';
 
@@ -43,6 +43,12 @@ export interface CoachAssignmentPlayer {
    * at `now`: overdue and paused, or forked alone (R-46, R-51, R-128, R-132).
    */
   readonly badges: BadgeSet;
+  /**
+   * Their status as the domain decides it (coachStatus, assignmentStatusOf):
+   * the deadline, overdue, paused, forked and done (R-129), from the same
+   * Reviews as the badges.
+   */
+  readonly status: CoachStatus;
 }
 
 /** One assignment row of the coach's repertoire. */
@@ -128,18 +134,15 @@ async function listedOf(
     const displayName = names.get(one.playerId);
     if (displayName === undefined)
       throw new Error('coachAssignments: the player is gone');
+    const reviews = tracked.get(one.playerId) ?? new Map();
     return {
       facts: one,
       player: {
         playerId: one.playerId,
         displayName,
         deadline: assignmentDeadline(one),
-        badges: coachBadges(
-          one,
-          graph,
-          tracked.get(one.playerId) ?? new Map(),
-          now,
-        ),
+        badges: coachBadges(one, graph, reviews, now),
+        status: coachStatus(one, graph, reviews, now),
       },
     };
   });

@@ -1,6 +1,5 @@
 'use client';
 
-import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, useRef, useState, type JSX } from 'react';
 import type { PersonalInvite } from '../../server/coach-pages';
@@ -17,7 +16,7 @@ import {
   type RevokeInviteState,
 } from './actions';
 import { FreshLink } from './fresh-link';
-import { RefusalLine } from './refusal-line';
+import { InviteRefusalLine } from './refusal-line';
 
 const NOT_CREATED: CreateInviteState = {};
 
@@ -53,13 +52,7 @@ function CreateLink({ today }: { readonly today: string }): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <p>{t('intro')}</p>
-      <RefusalLine
-        state={
-          state.refusal === undefined
-            ? {}
-            : { refusal: state.refusal, limit: OPEN_INVITE_LIMIT }
-        }
-      />
+      <InviteRefusalLine refusal={state.refusal} />
       <form action={action} className="flex flex-col">
         <input type="hidden" name="kind" value="personal" />
         <PendingButton className={PRIMARY_BUTTON}>{t('create')}</PendingButton>

@@ -2,8 +2,8 @@
  * The S5 badges and the full status a coach sees on one player's
  * assignment, from that player's Reviews of the repertoire's moves. The one
  * place a coach read composes them (the domain's assignmentStatusOf decides
- * done, R-129): coachBadges is shared by coachAssignments and the progress
- * reads, coachStatus serves the progress reads. Internal to the package.
+ * done, R-129): coachBadges and coachStatus are shared by coachAssignments
+ * and the progress reads. Internal to the package.
  */
 import type { RepertoireGraph, TrackedReview } from '@mychess/chess';
 import {

@@ -308,6 +308,30 @@ describe('coachDashboardData', () => {
 });
 
 describe('coachPlayerData', () => {
+  const ITALIAN = {
+    id: '2c9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c6',
+    name: 'Italų partija',
+    side: 'white',
+  } as const;
+  // Rokas's Fork of the Italian: his own repertoire, shared with the coach.
+  const FORK = { ...ITALIAN, id: '3c9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c7' };
+  const FORKED_STATUS = {
+    deadline: '2026-10-01',
+    overdue: false,
+    paused: false,
+    done: false,
+    forked: true,
+  };
+  const forkedRow = (sharedForkId: string | null): ProgressRow => ({
+    repertoire: ITALIAN,
+    source: 'assigned',
+    badges: { ...BADGES, overdue: false, forked: true },
+    status: FORKED_STATUS,
+    view: { kind: 'forked', sharedForkId },
+  });
+  const FORK_SHARED: ProgressRow = { ...SHARED, repertoire: FORK };
+  const standing = GRANTED.standing;
+
   it('makes one read, as the session coach, of the parsed id at the clock', async () => {
     server.player.mockResolvedValue({
       player: ROKAS,
@@ -316,8 +340,22 @@ describe('coachPlayerData', () => {
     });
     expect(await coachPlayerData('rokas')).toEqual({
       ...ROKAS,
-      repertoires: [TAIMANOV],
-      progress: { rows: [ASSIGNED, SHARED], lastTrainedDays: 2 },
+      lastTrainedDays: 2,
+      today: '2026-10-20',
+      cards: [
+        {
+          repertoire: LONDON,
+          tag: 'assigned',
+          status: STATUS,
+          granted: { id: LONDON.id, standing },
+        },
+        {
+          repertoire: TAIMANOV,
+          tag: 'shared',
+          status: null,
+          granted: { id: TAIMANOV.id, standing },
+        },
+      ],
     });
     expect(server.coach).toHaveBeenCalledOnce();
     expect(server.player).toHaveBeenCalledExactlyOnceWith(
@@ -328,16 +366,65 @@ describe('coachPlayerData', () => {
     );
   });
 
-  it('lists as shared only the rows the player shares, and keeps never trained as null', async () => {
+  it('makes a forked assignment and its shared fork one own-copy card with the fork’s standing (R-155)', async () => {
     server.player.mockResolvedValue({
       player: ROKAS,
-      rows: [ASSIGNED],
+      // As the read gives them: assignments by name, then shares by name.
+      rows: [forkedRow(FORK.id), ASSIGNED, FORK_SHARED, SHARED],
       lastTrained: null,
     });
     expect(await coachPlayerData('rokas')).toMatchObject({
-      repertoires: [],
-      progress: { rows: [ASSIGNED], lastTrainedDays: null },
+      lastTrainedDays: null,
+      cards: [
+        {
+          repertoire: LONDON,
+          tag: 'assigned',
+          status: STATUS,
+          granted: { id: LONDON.id, standing },
+        },
+        {
+          repertoire: ITALIAN,
+          tag: 'fork',
+          status: FORKED_STATUS,
+          granted: { id: FORK.id, standing },
+        },
+        {
+          repertoire: TAIMANOV,
+          tag: 'shared',
+          status: null,
+          granted: { id: TAIMANOV.id, standing },
+        },
+      ],
     });
+  });
+
+  it('shows an own copy not shared without progress, and orders the cards by urgency', async () => {
+    const dated = { ...ASSIGNED, status: { ...STATUS, overdue: false } };
+    server.player.mockResolvedValue({
+      player: ROKAS,
+      rows: [forkedRow(null), dated, SHARED],
+      lastTrained: null,
+    });
+    expect((await coachPlayerData('rokas')).cards).toEqual([
+      {
+        repertoire: LONDON,
+        tag: 'assigned',
+        status: dated.status,
+        granted: { id: LONDON.id, standing },
+      },
+      {
+        repertoire: ITALIAN,
+        tag: 'fork',
+        status: FORKED_STATUS,
+        granted: null,
+      },
+      {
+        repertoire: TAIMANOV,
+        tag: 'shared',
+        status: null,
+        granted: { id: TAIMANOV.id, standing },
+      },
+    ]);
   });
 
   it('is 404 when the read refuses (not linked, or the link went)', async () => {
@@ -353,10 +440,40 @@ describe('coachPlayerData', () => {
 
 describe('coachGroupData', () => {
   const cell: GroupProgressCell = {
-    badges: BADGES,
     status: STATUS,
     view: { kind: 'forked', sharedForkId: null },
   };
+  const LONDON_COLUMN = { ...LONDON, deadline: null, done: 0, count: 1 };
+
+  const LONDON_TO_GROUP = {
+    repertoireId: LONDON.id,
+    repertoireName: LONDON.name,
+    deadline: '2026-10-30',
+  };
+  const OPEN = {
+    id: '2d9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c6',
+    expiresAt: new Date('2026-10-27T07:00:00Z'),
+  };
+  it('gives the group’s assignments and open invite from its one read, and today', async () => {
+    server.group.mockResolvedValue({
+      group: {
+        id: GROUP,
+        name: 'Šeštadienio grupė',
+        createdAt: NOW,
+        members: [],
+      },
+      addable: [],
+      grid: { columns: [], rows: [] },
+      invite: OPEN,
+      assignments: [LONDON_TO_GROUP],
+    });
+    expect(await coachGroupData(GROUP)).toMatchObject({
+      invite: OPEN,
+      assignments: [LONDON_TO_GROUP],
+      today: '2026-10-20',
+    });
+    expect(server.groups).not.toHaveBeenCalled();
+  });
 
   it('reads the session coach’s group once and turns last trained into Vilnius days ago', async () => {
     server.group.mockResolvedValue({
@@ -371,7 +488,7 @@ describe('coachGroupData', () => {
       },
       addable: [{ id: 'ruta', displayName: 'Rūta' }],
       grid: {
-        columns: [LONDON],
+        columns: [LONDON_COLUMN],
         rows: [
           {
             player: { id: 'rokas', displayName: 'Rokas' },
@@ -386,6 +503,7 @@ describe('coachGroupData', () => {
         ],
       },
       invite: null,
+      assignments: [],
     });
     expect(await coachGroupData(GROUP)).toEqual({
       id: GROUP,
@@ -397,7 +515,7 @@ describe('coachGroupData', () => {
       ],
       addable: [{ id: 'ruta', displayName: 'Rūta' }],
       grid: {
-        columns: [LONDON],
+        columns: [LONDON_COLUMN],
         rows: [
           {
             player: { id: 'rokas', displayName: 'Rokas' },
@@ -411,6 +529,9 @@ describe('coachGroupData', () => {
           },
         ],
       },
+      invite: null,
+      assignments: [],
+      today: '2026-10-20',
     });
     expect(server.coach).toHaveBeenCalledOnce();
     expect(server.group).toHaveBeenCalledExactlyOnceWith(

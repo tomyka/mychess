@@ -4,6 +4,7 @@ import {
   coachAssigneeStandings,
   coachRepertoireProgress,
   forkAssignment,
+  pauseAssignment,
   shareRepertoire,
   unlink,
 } from '../src';
@@ -94,7 +95,10 @@ const batched = (
   coachId = 'c',
 ) => coachAssigneeStandings(db, { coachId, repertoireId, playerIds }, NOW);
 
-/** What the progress page's read shows of one player, as a standing or null. */
+/**
+ * What the progress page's read shows of one player, as a standing and
+ * status, or null.
+ */
 async function perPlayer(
   repertoireId: string,
   playerId: string,
@@ -105,7 +109,9 @@ async function perPlayer(
     { coachId, playerId, repertoireId },
     NOW,
   );
-  return view === undefined ? null : standingOf(view.progress);
+  return view === undefined
+    ? null
+    : { standing: standingOf(view.progress), status: view.status };
 }
 
 /** The per-player read of each of `playerIds`, as the batched read's map. */
@@ -114,7 +120,7 @@ async function perPlayerOf(
   playerIds: readonly string[],
   coachId = 'c',
 ) {
-  const out = new Map<string, ReturnType<typeof standingOf> | null>();
+  const out = new Map<string, Awaited<ReturnType<typeof perPlayer>>>();
   for (const id of playerIds)
     out.set(id, await perPlayer(repertoireId, id, coachId));
   return out;
@@ -125,9 +131,53 @@ describe('coachAssigneeStandings', () => {
     const own = await learnAll('p', karoKan);
     const read = await batched(karoKan, ['p']);
     expect(read).toEqual(await perPlayerOf(karoKan, ['p']));
-    expect(read.get('p')).toEqual({
+    expect(read.get('p')?.standing).toEqual({
       counts: { notStarted: 0, skipped: 0, due: own, learned: 0 },
       mastered: false,
+    });
+  });
+
+  it('gives each player their assignment’s status, done once every move is tracked (R-129)', async () => {
+    await learnAll('p', karoKan);
+    const read = await batched(karoKan, ['p']);
+    expect(read).toEqual(await perPlayerOf(karoKan, ['p']));
+    expect(read.get('p')?.status).toEqual({
+      deadline: null,
+      overdue: false,
+      paused: false,
+      done: true,
+      forked: false,
+    });
+  });
+
+  it('says overdue past the deadline and paused while paused', async () => {
+    const late = await seedRepertoire(db, 'c', NOW);
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: late,
+      target: { groupId: group },
+      now: NOW,
+      deadline: '2026-10-20',
+    });
+    succeeded(
+      await pauseAssignment(
+        db,
+        { playerId: 'q', repertoireId: late, paused: true },
+        NOW,
+      ),
+    );
+    const read = await batched(late, ['p', 'q']);
+    expect(read).toEqual(await perPlayerOf(late, ['p', 'q']));
+    const still = { done: false, forked: false, deadline: '2026-10-20' };
+    expect(read.get('p')?.status).toEqual({
+      ...still,
+      overdue: true,
+      paused: false,
+    });
+    expect(read.get('q')?.status).toEqual({
+      ...still,
+      overdue: true,
+      paused: true,
     });
   });
 
@@ -135,8 +185,14 @@ describe('coachAssigneeStandings', () => {
     const own = await learnAll('q', groupRep);
     const read = await batched(groupRep, ['p', 'q']);
     expect(read).toEqual(await perPlayerOf(groupRep, ['p', 'q']));
-    expect(read.get('p')?.counts).toMatchObject({ notStarted: own, due: 0 });
-    expect(read.get('q')?.counts).toMatchObject({ notStarted: 0, due: own });
+    expect(read.get('p')?.standing.counts).toMatchObject({
+      notStarted: own,
+      due: 0,
+    });
+    expect(read.get('q')?.standing.counts).toMatchObject({
+      notStarted: 0,
+      due: own,
+    });
   });
 
   it('gives a player once unlinked no standing', async () => {
@@ -182,7 +238,9 @@ describe('coachAssigneeStandings', () => {
     const own = await learnAll('p', shared);
     const read = await batched(shared, ['p', 'q']);
     expect(read).toEqual(await perPlayerOf(shared, ['p', 'q']));
-    expect(read.get('p')?.counts.due).toBe(own);
+    expect(read.get('p')?.standing.counts.due).toBe(own);
+    // A shared repertoire is no assignment: no status.
+    expect(read.get('p')?.status).toBeNull();
     expect(read.get('q')).toBeNull();
     expect(await batched(privateRep, ['p'])).toEqual(new Map([['p', null]]));
   });

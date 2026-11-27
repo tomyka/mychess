@@ -266,6 +266,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-230** (#381, 2026-11-27): A coach's own repertoire assigned to at least one player or group is teaching material: it is not on the coach's Today nor in its counts or badge, and its My repertoires card shows its assignees, not the coach's own progress. The coach can still open it and use Train here; unassigned from everyone, it returns to Today.
 - **R-231** (#381, 2026-11-27): The coach's compact progress rows (dashboard, group, player page, Repertoire screen assignees) show the four-state bar beside "% learned", the due count when above zero, a Done pill when the assignment is done (R-129), and "Not started" only when nothing is started.
 - **R-232** (#381, 2026-11-27): Invites are split by kind: a group's invite lives on the group page (its open link's expiry and New link); a personal invite is made from "Invite a player" on the dashboard. A link is shown once, when made; open personal invites list their dates with Revoke.
+- **R-233** (#381, 2026-11-27): A group has at most one live invite link. New link on the group page revokes the group's earlier open links in the same step, and a Revoke button (error tone, confirmed) closes the current link without making a new one. Keeps R-98's "revocable" for group invites under R-232.
 
 ## Open questions
 

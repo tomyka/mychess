@@ -770,25 +770,26 @@ describe('coachAssignments', () => {
     playerId: string,
     {
       deadline = null,
+      done = false,
       ...badges
     }: Partial<{
       deadline: string | null;
+      done: boolean;
       paused: boolean;
       forked: boolean;
       overdue: boolean;
     }> = {},
-  ) => ({
-    playerId,
-    displayName: `Name ${playerId}`,
-    deadline,
-    badges: {
-      overdue: false,
-      paused: false,
-      forked: false,
-      updated: false,
-      ...badges,
-    },
-  });
+  ) => {
+    const flags = { overdue: false, paused: false, forked: false, ...badges };
+    return {
+      playerId,
+      displayName: `Name ${playerId}`,
+      deadline,
+      badges: { ...flags, updated: false },
+      // The domain's status (R-129): the same flags, the deadline and done.
+      status: { ...flags, deadline, done },
+    };
+  };
 
   it('lists each assignment row with the players it reaches and their own deadline and badges', async () => {
     await assignTo({ groupId: g }, '2026-10-19');
@@ -834,7 +835,7 @@ describe('coachAssignments', () => {
         target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
         deadline: '2026-10-19',
         players: [
-          player('p', { deadline: '2026-10-19' }),
+          player('p', { deadline: '2026-10-19', done: true }),
           player('q', { deadline: '2026-10-19', overdue: true }),
         ],
       },
@@ -1140,6 +1141,14 @@ describe('the coach reads over a batch', () => {
           badges: {
             paused: false,
             updated: false,
+            ...(five.forked.includes(playerId)
+              ? { forked: true, overdue: false }
+              : { forked: false, overdue: true }),
+          },
+          status: {
+            deadline: '2026-10-19',
+            paused: false,
+            done: false,
             ...(five.forked.includes(playerId)
               ? { forked: true, overdue: false }
               : { forked: false, overdue: true }),

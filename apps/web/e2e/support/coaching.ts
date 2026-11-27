@@ -90,25 +90,31 @@ export async function openInviteSheet(
 }
 
 /**
- * A group invite from the old invites section, which the dashboard no
- * longer shows (R-232): coaching.spec's group journey still calls it until
- * #381 Task 11 moves group invites to the group page and this goes.
+ * From the coach dashboard to the group's page, then New link in its
+ * Invite link section (R-232); returns the new group invite link, shown
+ * once there. The section then says when the open link expires.
  */
-export async function createGroupInvite(
+export async function newGroupLink(
   page: Page,
   messages: Messages,
   group: string,
 ): Promise<string> {
-  const kind = 'group';
-  const t = messages.coach.invites;
-  const section = page.getByRole('region', { name: t.title });
-  await section.getByRole('radio', { name: t[kind] }).check();
-  await section
-    .getByLabel(t.groupLabel, { exact: true })
-    .selectOption({ label: group });
-  await section.getByRole('button', { name: t.create }).click();
-  const field = section.getByLabel(t.link, { exact: true });
+  const t = messages.coach.group;
+  await page.getByRole('link', { name: group, exact: true }).click();
+  await expect(page).toHaveURL(/\/coach\/groups\//);
+  const section = page.getByRole('region', { name: t.inviteTitle });
+  await section.getByRole('button', { name: t.newLink, exact: true }).click();
+  const field = section.getByLabel(messages.coach.invites.link, {
+    exact: true,
+  });
   await expect(field).toHaveValue(INVITE_LINK);
+  // The whole sentence, its date as written ("Dec 4", or "Jan 2, 2027").
+  const [before = '', after = ''] = t.openLink.split('{date}');
+  await expect(
+    section.getByText(
+      new RegExp(`^${before}[A-Z][a-z]{2} \\d{1,2}(, \\d{4})?${after}$`, 'u'),
+    ),
+  ).toBeVisible();
   return field.inputValue();
 }
 

@@ -439,6 +439,34 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     ]);
   });
 
+  it('refuses a group link revoked from the group page, and one New link replaced (R-233)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    actAs(jonas);
+    const newLink = async (): Promise<string> =>
+      tokenOf(
+        await outcomeOf(
+          createInviteAction({}, formOf({ kind: 'group', groupId })),
+        ),
+      );
+    const replaced = await newLink();
+    const revoked = await newLink();
+    // The page's one open link is the newest (R-233); Revoke closes it.
+    const { invite } = z
+      .object({ invite: z.object({ id: z.string() }) })
+      .parse(await outcomeOf(coachGroupData(groupId)));
+    expect(
+      await outcomeOf(revokeInviteAction({}, formOf({ inviteId: invite.id }))),
+    ).toEqual({});
+    expect(await outcomeOf(coachGroupData(groupId))).toMatchObject({
+      invite: null,
+    });
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    for (const token of [replaced, revoked])
+      expect(await accept({ token })).toEqual({ refusal: 'invite.invalid' });
+    expect(await links()).toEqual([]);
+  });
+
   it('refuses a malformed, unknown, expired, revoked or used token alike, and links nobody', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const expired = await inviteOf(jonas.id, 'personal');

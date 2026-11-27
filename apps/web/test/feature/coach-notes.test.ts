@@ -341,13 +341,14 @@ describe('the coach’s player page', () => {
   it('lists the player’s repertoires shared with the coach, and no others', async () => {
     const { rimantas, gabija, taimanov } = await cast();
     actAs(rimantas);
-    expect(await outcomeOf(coachPlayerData(gabija.id))).toMatchObject({
-      displayName: 'Gabija',
-      repertoires: [{ id: taimanov, name: 'Taimanovas', side: 'black' }],
-    });
-    expect(await outcomeOf(coachPlayerData(gabija.id))).toHaveProperty(
-      'repertoires.length',
-      1,
-    );
+    const page = await coachPlayerData(gabija.id);
+    expect(page.displayName).toBe('Gabija');
+    expect(
+      page.cards
+        .filter((card) => card.tag === 'shared')
+        .map((card) => [card.repertoire, card.granted?.id]),
+    ).toEqual([
+      [{ id: taimanov, name: 'Taimanovas', side: 'black' }, taimanov],
+    ]);
   });
 });

@@ -140,14 +140,21 @@ async function openPlayer(coach: Page): Promise<string> {
 }
 
 /**
- * Under "Bendrinami repertuarai" he opens the Taimanov: read-only, the
+ * From the Taimanov's card on her page he opens it: read-only, the
  * comment shows, no edit control and never Gabija's personal note.
  */
 async function coachOpensShared(coach: Page): Promise<void> {
   const t = en.coach.shared;
   await coach
-    .getByRole('region', { name: t.title })
-    .getByRole('link', { name: new RegExp(`^${REPERTOIRE}`) })
+    .getByRole('listitem')
+    .filter({
+      has: coach.getByRole('heading', {
+        level: 3,
+        name: REPERTOIRE,
+        exact: true,
+      }),
+    })
+    .getByRole('link', { name: en.coach.progress.openShared, exact: true })
     .click();
   await expect(coach).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(REPERTOIRE);
@@ -248,7 +255,7 @@ test(`G-M1-3: a shared repertoire, its coach note, and how unshare and unlink en
     // Not shared yet: her page lists nothing for him (checklist 2).
     const player = await openPlayer(coach);
     const noneShared = coach.getByText(
-      format(en.coach.shared.empty, { name: PLAYER }),
+      format(en.coach.progress.empty, { name: PLAYER }),
     );
     await expect(noneShared).toBeVisible();
 

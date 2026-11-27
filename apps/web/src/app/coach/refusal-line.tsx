@@ -1,5 +1,6 @@
 'use client';
 
+import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import type { MessageKey } from '../../i18n/message-key';
@@ -18,6 +19,22 @@ export function useRefusalText(): (state: RefusalShown) => string | null {
     refusal === undefined
       ? null
       : t(refusal, limit === undefined ? {} : { limit });
+}
+
+/**
+ * A refused invite, which names the open-invite limit when it is the
+ * reason (R-114): the Invite a player sheet and a group's New link.
+ */
+export function InviteRefusalLine({
+  refusal,
+}: {
+  readonly refusal: MessageKey | undefined;
+}): JSX.Element {
+  return (
+    <RefusalLine
+      state={refusal === undefined ? {} : { refusal, limit: OPEN_INVITE_LIMIT }}
+    />
+  );
 }
 
 /** A refused action, in the section it was asked in. */

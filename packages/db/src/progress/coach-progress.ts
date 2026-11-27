@@ -288,11 +288,22 @@ export function coachRepertoireProgress(
 
 /** One cell of the group grid; null where the member has no assignment. */
 export interface GroupProgressCell {
-  readonly badges: BadgeSet;
   /** The assignment's deadline and status, as on the player page. */
   readonly status: CoachStatus;
   /** The standing where the domain grants it; forked otherwise (R-155). */
   readonly view: ProgressView;
+}
+
+/**
+ * One column of the group grid: a repertoire assigned to the group, its
+ * deadline, and how many members hold it live and how many of them are
+ * done. A member with their own copy does not hold it live (R-155).
+ */
+export interface GroupColumn extends RepertoireRef {
+  /** A calendar date (YYYY-MM-DD); null for none. */
+  readonly deadline: string | null;
+  readonly done: number;
+  readonly count: number;
 }
 
 export interface GroupProgressRow {
@@ -303,27 +314,49 @@ export interface GroupProgressRow {
 }
 
 export interface GroupProgress {
-  readonly columns: readonly RepertoireRef[];
+  readonly columns: readonly GroupColumn[];
   readonly rows: readonly GroupProgressRow[];
 }
 
-const idRowsSchema = z.array(z.object({ id: z.uuid() }));
+const groupAssignmentRowsSchema = z.array(
+  z.object({ id: z.uuid(), deadline: z.iso.date().nullable() }),
+);
 
-/** The repertoires this coach assigned to the group, each once. */
-async function groupRepertoireIds(
+/**
+ * The repertoires this coach assigned to the group, each once (one
+ * assignment per repertoire and group), with the assignment's deadline.
+ */
+async function groupRepertoireDeadlines(
   tx: Executor,
   coachId: string,
   groupId: string,
-): Promise<string[]> {
-  const rows = idRowsSchema.parse(
+): Promise<Map<string, string | null>> {
+  const rows = groupAssignmentRowsSchema.parse(
     await tx
-      .selectDistinct({ id: assignments.repertoireId })
+      .select({ id: assignments.repertoireId, deadline: assignments.deadline })
       .from(assignments)
       .where(
         and(eq(assignments.coachId, coachId), eq(assignments.groupId, groupId)),
       ),
   );
-  return rows.map((row) => row.id);
+  return new Map(rows.map((row) => [row.id, row.deadline]));
+}
+
+/** How many of a column's cells hold it live, and how many of those are done. */
+function doneOf(
+  rows: readonly GroupProgressRow[],
+  index: number,
+): Pick<GroupColumn, 'done' | 'count'> {
+  const live = rows.flatMap(({ cells }) => {
+    const cell = cells[index];
+    return cell === undefined || cell === null || cell.view.kind === 'forked'
+      ? []
+      : [cell];
+  });
+  return {
+    done: live.filter(({ status }) => status.done).length,
+    count: live.length,
+  };
 }
 
 /**
@@ -344,7 +377,9 @@ function cellOf(
   const read = entryRead(entry, viewer);
   const reviewed = { graph: column.graph, tracked, now };
   const marks = read.marks(reviewed);
-  return marks === null ? null : { ...marks, view: read.view(reviewed) };
+  return marks === null
+    ? null
+    : { status: marks.status, view: read.view(reviewed) };
 }
 
 /** What the grid knows of every member, read once for the whole group. */
@@ -413,19 +448,23 @@ export async function groupGrid(
   group: CoachGroup,
   now: Date,
 ): Promise<GroupProgress> {
-  const columns = await loadAllVisible(
-    tx,
-    ownScope(coachId),
-    await groupRepertoireIds(tx, coachId, group.id),
-  );
+  const deadlines = await groupRepertoireDeadlines(tx, coachId, group.id);
+  const columns = await loadAllVisible(tx, ownScope(coachId), [
+    ...deadlines.keys(),
+  ]);
   const reads = await groupReads(
     tx,
     coachId,
     columns,
     group.members.map((m) => m.id),
   );
+  const rows = group.members.map((member) => memberRow(reads, member, now));
   return {
-    columns: columns.map((c) => c.repertoire),
-    rows: group.members.map((member) => memberRow(reads, member, now)),
+    columns: columns.map(({ repertoire }, index) => ({
+      ...repertoire,
+      deadline: deadlines.get(repertoire.id) ?? null,
+      ...doneOf(rows, index),
+    })),
+    rows,
   };
 }

@@ -103,8 +103,10 @@ describe('the coach dashboard (R-229)', () => {
 
   it('has no invites section and no Unlink', async () => {
     await renderPage(DATA);
-    expect(screen.queryByRole('region', { name: c.invites.title })).toBeNull();
-    expect(screen.queryByRole('button', { name: c.players.unlink })).toBeNull();
+    // The old invites section's title: invites live in the sheet and on
+    // each group's page now (R-232).
+    expect(screen.queryByRole('region', { name: 'Invites' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Unlink/u })).toBeNull();
   });
 
   it('has the three regions in reading order', async () => {

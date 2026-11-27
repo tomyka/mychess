@@ -8,8 +8,9 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/catalogue';
+import type { CoachPlayerPage } from '../../../../server/coach-pages';
 import type { CoachActionState } from '../../actions';
-import { PlayerView, type CoachPlayerPageData } from './player-view';
+import { PlayerView } from './player-view';
 
 const server = vi.hoisted(() => ({
   unlink:
@@ -22,7 +23,7 @@ vi.mock('../../actions', () => ({ unlinkPlayerAction: server.unlink }));
 
 const c = MESSAGES.coach;
 
-const ROKAS: CoachPlayerPageData = {
+const ROKAS: CoachPlayerPage = {
   id: 'p-1',
   displayName: 'Rokas',
   // 23:30 UTC is already the next day in Vilnius.
@@ -31,37 +32,33 @@ const ROKAS: CoachPlayerPageData = {
     { id: 'g-1', name: 'Sekmadienio grupė' },
     { id: 'g-2', name: 'Šeštadienio grupė' },
   ],
-  repertoires: [
-    { id: 'r-1', name: 'Londono sistema', side: 'white' },
-    { id: 'r-2', name: 'Taimanovas', side: 'black' },
-  ],
-  progress: {
-    lastTrainedDays: 0,
-    rows: [
-      {
-        repertoire: { id: 'r-9', name: 'Karo-Kan gynyba', side: 'black' },
-        source: 'assigned',
-        badges: { overdue: false, paused: true, forked: false, updated: false },
-        status: {
-          deadline: null,
-          overdue: false,
-          paused: true,
-          done: false,
-          forked: false,
-        },
-        view: {
-          kind: 'granted',
-          standing: {
-            counts: { notStarted: 1, skipped: 0, due: 0, learned: 1 },
-            mastered: false,
-          },
+  lastTrainedDays: 0,
+  today: '2026-11-20',
+  cards: [
+    {
+      repertoire: { id: 'r-9', name: 'Karo-Kan gynyba', side: 'black' },
+      tag: 'assigned',
+      status: {
+        deadline: null,
+        overdue: false,
+        paused: true,
+        done: false,
+        forked: false,
+      },
+      granted: {
+        id: 'r-9',
+        standing: {
+          counts: { notStarted: 1, skipped: 0, due: 0, learned: 1 },
+          mastered: false,
         },
       },
-    ],
-  },
+    },
+  ],
 };
 
-function renderView(player: CoachPlayerPageData): void {
+const UNLINK = 'Unlink Rokas';
+
+function renderView(player: CoachPlayerPage): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <PlayerView player={player} />
@@ -69,103 +66,83 @@ function renderView(player: CoachPlayerPageData): void {
   );
 }
 
+/** The line under the player's name. */
+const metaLine = (): HTMLElement => {
+  const line = screen.getByText(/linked since/u).closest('p');
+  if (line === null) throw new Error('no meta line');
+  return line;
+};
+
 beforeEach(() => {
   server.unlink.mockReset().mockResolvedValue({});
 });
 
 describe('PlayerView', () => {
-  it('names the player, when they linked, and a way back to the dashboard', () => {
+  it('names the player with a way back to the dashboard', () => {
     renderView(ROKAS);
     expect(
       screen.getByRole('heading', { level: 1, name: 'Rokas' }),
     ).toBeDefined();
-    expect(screen.getByText('Linked since Oct 18, 2026')).toBeDefined();
     expect(
       screen.getByRole('link', { name: 'Back to Coach' }).getAttribute('href'),
     ).toBe('/coach');
   });
 
-  it('links each of the coach’s groups the player is in to its page', () => {
+  it('says in one line when they last trained, since when they are linked, and the coach’s groups they are in', () => {
     renderView(ROKAS);
+    const line = metaLine();
+    expect(line.textContent).toBe(
+      'trained today · linked since Oct 18 · Sekmadienio grupė · Šeštadienio grupė',
+    );
     expect(
-      screen.getByRole('heading', { level: 2, name: c.player.groupsTitle }),
-    ).toBeDefined();
-    expect(
-      within(screen.getByRole('region', { name: c.player.groupsTitle }))
-        .getAllByRole('listitem')
-        .map((item) => [
-          item.textContent,
-          item.querySelector('a')?.getAttribute('href'),
-        ]),
+      within(line)
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')]),
     ).toEqual([
       ['Sekmadienio grupė', '/coach/groups/g-1'],
       ['Šeštadienio grupė', '/coach/groups/g-2'],
     ]);
   });
 
-  it('shows the player’s progress first, then shares, then groups (S7)', () => {
+  it('leaves the groups out of the line when the player is in none, and says never trained', () => {
+    renderView({ ...ROKAS, groups: [], lastTrainedDays: null });
+    expect(metaLine().textContent).toBe('never trained · linked since Oct 18');
+    expect(within(metaLine()).queryAllByRole('link')).toEqual([]);
+  });
+
+  it('shows one card per repertoire, then once what last trained counts (R-154)', () => {
     renderView(ROKAS);
     expect(
       screen
         .getAllByRole('heading', { level: 2 })
         .map((heading) => heading.textContent),
-    ).toEqual([c.progress.title, c.shared.title, c.player.groupsTitle]);
-    const progress = within(
-      screen.getByRole('region', { name: c.progress.title }),
-    );
-    expect(progress.getByText(c.progress.today)).toBeDefined();
+    ).toEqual(['Repertoires · 1']);
     expect(
-      progress
-        .getByRole('link', { name: 'Karo-Kan gynyba' })
-        .getAttribute('href'),
-    ).toBe('/coach/players/p-1/progress/r-9');
-    expect(progress.getByText(MESSAGES.assignment.badge.paused)).toBeDefined();
-  });
-
-  it('links each repertoire the player shares with the coach to its page (R-42)', () => {
-    renderView(ROKAS);
-    const section = within(
-      screen.getByRole('region', { name: c.shared.title }),
-    );
-    expect(
-      section
-        .getAllByRole('link')
-        .map((link) => [
-          link.getAttribute('aria-label') ?? link.textContent,
-          link.getAttribute('href'),
-        ]),
-    ).toEqual([
-      [
-        `Londono sistema${MESSAGES.repertoires.list.white}`,
-        '/coach/players/p-1/repertoires/r-1',
-      ],
-      [
-        `Taimanovas${MESSAGES.repertoires.list.black}`,
-        '/coach/players/p-1/repertoires/r-2',
-      ],
-    ]);
-  });
-
-  it('says when the player shares no repertoire with the coach', () => {
-    renderView({ ...ROKAS, repertoires: [] });
-    expect(
-      screen.getByText(c.shared.empty.replace('{name}', 'Rokas')),
+      screen.getByRole('heading', { level: 3, name: 'Karo-Kan gynyba' }),
     ).toBeDefined();
+    expect(screen.getAllByText(c.progress.lastTrainedNote)).toHaveLength(1);
+    expect(screen.queryByText(/on the repertoires you can see/u)).toBeNull();
   });
 
-  it('says when the player is in none of the coach’s groups', () => {
-    renderView({ ...ROKAS, groups: [] });
-    expect(screen.getByText(c.players.noGroups)).toBeDefined();
-    expect(
-      within(
-        screen.getByRole('region', { name: c.player.groupsTitle }),
-      ).queryAllByRole('listitem'),
-    ).toEqual([]);
+  it('has exactly one Unlink, in the error tone, after the last card and the footnote in reading and focus order', () => {
+    renderView(ROKAS);
+    const buttons = screen.getAllByRole('button', { name: UNLINK });
+    expect(buttons).toHaveLength(1);
+    const [unlink] = buttons;
+    if (unlink === undefined) throw new Error('no Unlink');
+    expect(unlink.className).toContain('text-error');
+    const lastCard = screen.getAllByRole('listitem').at(-1);
+    const note = screen.getByText(c.progress.lastTrainedNote);
+    for (const before of [lastCard, note]) {
+      expect(before?.compareDocumentPosition(unlink)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    }
   });
 
   it('unlinks the player only after the confirm step', async () => {
     renderView(ROKAS);
-    fireEvent.click(screen.getByRole('button', { name: c.players.unlink }));
+    fireEvent.click(screen.getByRole('button', { name: UNLINK }));
     expect(
       await screen.findByText(
         c.players.unlinkConfirm.replace('{name}', 'Rokas'),
@@ -187,7 +164,7 @@ describe('PlayerView', () => {
     server.unlink.mockResolvedValue({ refusal: 'coach.notLinked' });
     renderView(ROKAS);
     expect(screen.getByRole('status').textContent).toBe('');
-    fireEvent.click(screen.getByRole('button', { name: c.players.unlink }));
+    fireEvent.click(screen.getByRole('button', { name: UNLINK }));
     fireEvent.click(
       await screen.findByRole('button', { name: c.players.confirmUnlink }),
     );

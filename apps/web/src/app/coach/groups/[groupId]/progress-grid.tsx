@@ -1,138 +1,140 @@
-import type { Standing } from '@mychess/chess';
-import type { GroupProgressCell } from '@mychess/db';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { coachPlayerPath, coachProgressPath } from '../../../../lib/routes';
 import type { GroupGrid } from '../../../../server/coach-pages';
-import { AssignmentBadges } from '../../../assignment-badges';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../settings/styles';
-import { LastTrained } from '../../last-trained';
-import { MasteredBadge } from '../../../mastered-badge';
-import { usePercentLearned } from '../../state-bar';
+import { SECTION_TITLE } from '../../../settings/styles';
+import { CARD } from '../../../surfaces';
+import { LastTrained, LastTrainedNote } from '../../last-trained';
+import { GroupCell } from './group-cell';
 
-/**
- * The sticky player column. Its background is the section's: the page
- * colour on a phone, the card's from `sm` (SECTION), so cells scrolling
- * under it are hidden in both themes.
- */
-const STICKY =
-  'sticky left-0 z-10 bg-bg p-2 shadow-[inset_-1px_0_0_var(--color-border)] sm:bg-surface';
+/** One member's row of the grid. */
+type MemberRow = GroupGrid['rows'][number];
 
-/** Which player and repertoire a cell is about, to name its link. */
-interface CellTarget {
-  readonly href: string;
-  readonly name: string;
-  readonly repertoire: string;
-}
-
-/**
- * % learned and the due count (none when there is nothing to learn): a link
- * to the player's progress page, named with the player and the repertoire
- * around its visible text (WCAG 2.5.3).
- */
-function CellLink({
-  standing,
-  target,
-}: {
-  readonly standing: Standing;
-  readonly target: CellTarget;
-}): JSX.Element {
-  const t = useTranslations('coach.progress');
-  const percent = usePercentLearned(standing.counts);
-  const due = percent.empty ? null : t('cellDue', { due: standing.counts.due });
-  const who = { name: target.name, repertoire: target.repertoire };
-  const label =
-    due === null
-      ? t('cellLabelNothing', { ...who, nothing: percent.text })
-      : t('cellLabel', { ...who, percent: percent.text, due });
+/** The member's name, linked to their page. */
+function MemberLink({ row }: { readonly row: MemberRow }): JSX.Element {
   return (
     <Link
-      href={target.href}
-      aria-label={label}
-      className="flex min-h-touch flex-col justify-center text-accent underline"
+      href={coachPlayerPath(row.player.id)}
+      className="font-semibold break-words text-accent hover:underline"
     >
-      <span>{percent.text}</span>
-      {due === null ? null : <span className="text-sm">{due}</span>}
+      {row.player.displayName}
     </Link>
   );
 }
 
-/**
- * One member's cell: "not assigned", or the badges with % learned, due and
- * Mastered. A forked assignment shows its badge only (R-155).
- */
-function Cell({
-  cell,
-  target,
+/** The member's standing on the grid's column `index`, linked to its progress. */
+function MemberCell({
+  row,
+  grid,
+  index,
 }: {
-  readonly cell: GroupProgressCell | null;
-  readonly target: CellTarget;
-}): JSX.Element {
-  const t = useTranslations('coach.progress');
-  if (cell === null) {
-    return <span className="text-fg-muted">{t('noAssignment')}</span>;
-  }
-  const { view } = cell;
+  readonly row: MemberRow;
+  readonly grid: GroupGrid;
+  readonly index: number;
+}): JSX.Element | null {
+  const column = grid.columns[index];
+  if (column === undefined) return null;
   return (
-    <div className="flex flex-col gap-1">
-      {view.kind === 'forked' ? null : (
-        <CellLink standing={view.standing} target={target} />
-      )}
-      <AssignmentBadges flags={cell.badges} />
-      {view.kind === 'granted' && view.standing.mastered ? (
-        <MasteredBadge />
-      ) : null}
-    </div>
+    <GroupCell
+      cell={row.cells[index] ?? null}
+      target={{
+        href: coachProgressPath(row.player.id, column.id),
+        name: row.player.displayName,
+        repertoire: column.name,
+      }}
+    />
   );
 }
 
-/** The table itself: a column per repertoire, a row per member. */
-function GridTable({ grid }: { readonly grid: GroupGrid }): JSX.Element {
-  const t = useTranslations('coach.progress');
+/** One member on a phone: name and last trained, then a line per repertoire. */
+function MemberCard({
+  row,
+  grid,
+}: {
+  readonly row: MemberRow;
+  readonly grid: GroupGrid;
+}): JSX.Element {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left">
+    <li className={`${CARD} flex flex-col gap-1 p-4`}>
+      <span className="flex items-baseline justify-between gap-3">
+        <MemberLink row={row} />
+        <LastTrained days={row.lastTrainedDays} />
+      </span>
+      <ul className="flex flex-col">
+        {grid.columns.map((column, index) => (
+          <li
+            key={column.id}
+            className="flex flex-wrap items-center justify-between gap-x-3 border-t border-border"
+          >
+            <span className="min-w-0 text-sm break-words">{column.name}</span>
+            <MemberCell row={row} grid={grid} index={index} />
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+const CELL = 'p-2 align-top';
+
+/**
+ * The sticky player column, about 170px, its names held to two lines.
+ * Its background is the card's, so cells scrolling under it are hidden.
+ */
+const PLAYER_CELL = `${CELL} sticky left-0 z-10 w-[170px] min-w-[170px] bg-surface shadow-[inset_-1px_0_0_var(--color-border)]`;
+
+/** One member's row of the desktop grid, Last trained last. */
+function GridTableRow({
+  row,
+  grid,
+}: {
+  readonly row: MemberRow;
+  readonly grid: GroupGrid;
+}): JSX.Element {
+  return (
+    <tr className="border-t border-border">
+      <th scope="row" className={`${PLAYER_CELL} font-normal`}>
+        <span className="line-clamp-2">
+          <MemberLink row={row} />
+        </span>
+      </th>
+      {grid.columns.map((column, index) => (
+        <td key={column.id} className={CELL}>
+          <MemberCell row={row} grid={grid} index={index} />
+        </td>
+      ))}
+      <td className={`${CELL} whitespace-nowrap`}>
+        <LastTrained days={row.lastTrainedDays} />
+      </td>
+    </tr>
+  );
+}
+
+/** The grid from md: players down, the group's repertoires across. */
+function GridTable({ grid }: { readonly grid: GroupGrid }): JSX.Element {
+  const t = useTranslations('coach');
+  return (
+    <div className={`${CARD} hidden overflow-x-auto px-2 py-1 md:block`}>
+      <table className="w-full border-collapse text-left text-sm">
         <thead>
-          <tr>
-            <th scope="col" className={STICKY}>
-              {t('player')}
+          <tr className="text-fg-muted">
+            <th scope="col" className={`${PLAYER_CELL} font-medium`}>
+              {t('progress.player')}
             </th>
             {grid.columns.map((column) => (
-              <th key={column.id} scope="col" className="min-w-36 p-2">
+              <th key={column.id} scope="col" className={`${CELL} font-medium`}>
                 {column.name}
               </th>
             ))}
+            <th scope="col" className={`${CELL} font-medium whitespace-nowrap`}>
+              {t('players.column.lastTrained')}
+            </th>
           </tr>
         </thead>
         <tbody>
           {grid.rows.map((row) => (
-            <tr
-              key={row.player.id}
-              className="border-t border-border align-top"
-            >
-              <th scope="row" className={`${STICKY} min-w-32 font-normal`}>
-                <Link
-                  href={coachPlayerPath(row.player.id)}
-                  className={`${TEXT_LINK} break-words`}
-                >
-                  {row.player.displayName}
-                </Link>
-                <LastTrained days={row.lastTrainedDays} />
-              </th>
-              {grid.columns.map((column, i) => (
-                <td key={column.id} className="p-2">
-                  <Cell
-                    cell={row.cells[i] ?? null}
-                    target={{
-                      href: coachProgressPath(row.player.id, column.id),
-                      name: row.player.displayName,
-                      repertoire: column.name,
-                    }}
-                  />
-                </td>
-              ))}
-            </tr>
+            <GridTableRow key={row.player.id} row={row} grid={grid} />
           ))}
         </tbody>
       </table>
@@ -141,11 +143,11 @@ function GridTable({ grid }: { readonly grid: GroupGrid }): JSX.Element {
 }
 
 /**
- * Players x the group's repertoires (R-153). On a phone the table scrolls
- * sideways with the player column fixed; the page itself never scrolls
- * sideways. Group members see none of this (R-50): it is the coach's page.
- * Translations and useId only, so the client GroupView can render it; the
- * loader module is imported for its type only.
+ * The group's progress, first on its page (spec, A group; R-153): a card
+ * per member on a phone, a grid from md; each line or cell opens that
+ * member's progress on that repertoire. Last trained counts only what the
+ * coach can see, said once under it (R-154). Group members see none of
+ * this (R-50).
  */
 export function ProgressGrid({
   grid,
@@ -155,14 +157,25 @@ export function ProgressGrid({
   const t = useTranslations('coach.progress');
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
+    <section aria-labelledby={titleId} className="flex flex-col gap-3">
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('gridTitle')}
       </h2>
       {grid.columns.length === 0 ? (
         <p className="text-fg-muted">{t('gridEmpty')}</p>
       ) : (
-        <GridTable grid={grid} />
+        <>
+          <ul
+            aria-labelledby={titleId}
+            className="flex flex-col gap-3 md:hidden"
+          >
+            {grid.rows.map((row) => (
+              <MemberCard key={row.player.id} row={row} grid={grid} />
+            ))}
+          </ul>
+          <GridTable grid={grid} />
+          <LastTrainedNote />
+        </>
       )}
     </section>
   );

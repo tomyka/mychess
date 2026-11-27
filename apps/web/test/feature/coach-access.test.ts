@@ -526,6 +526,44 @@ describe('a coach who is not linked (checklist 1)', () => {
     const shown = JSON.stringify(dashboard);
     for (const { tokenHash } of hashes) expect(shown).not.toContain(tokenHash);
   });
+
+  it('gives the group page its newest open invite by id and expiry alone, and its own assignments (R-232)', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    // The field allowlist: a strict object refuses any other field, a
+    // token or its hash among them.
+    const groupPage = z.object({
+      invite: z.strictObject({ id: z.string(), expiresAt: z.date() }),
+      assignments: z.array(
+        z.strictObject({
+          repertoireId: z.string(),
+          repertoireName: z.string(),
+          deadline: z.string().nullable(),
+        }),
+      ),
+    });
+    // The group was made with its invite (R-204); the personal one is not it.
+    const first = groupPage.parse(await outcomeOf(coachGroupData(ids.group)));
+    expect(first.invite.id).not.toBe(ids.invite);
+    expect(first.assignments).toEqual([
+      {
+        repertoireId: ids.assigned,
+        repertoireName: 'Rimanto Londonas',
+        deadline: null,
+      },
+    ]);
+    await outcomeOf(
+      createInviteAction({}, formOf({ kind: 'group', groupId: ids.group })),
+    );
+    const page = await outcomeOf(coachGroupData(ids.group));
+    const { invite } = groupPage.parse(page);
+    expect([first.invite.id, ids.invite]).not.toContain(invite.id);
+    const hashes = z
+      .array(z.object({ tokenHash: z.string() }))
+      .parse(await sql.rows('select token_hash as "tokenHash" from invites'));
+    const shown = JSON.stringify(page);
+    for (const { tokenHash } of hashes) expect(shown).not.toContain(tokenHash);
+  });
 });
 
 describe('access ends with the link (checklist 3)', () => {
@@ -744,11 +782,29 @@ describe('a shared repertoire (checklist 2-3)', () => {
     const ids = await setUp();
     actAs(ids.rimantas);
     const page = await coachPlayerData(ids.rokas.id);
-    expect(page.repertoires.map((one) => one.id)).toEqual([ids.london]);
-    expect(page.progress.rows.map((row) => row.repertoire.id)).toEqual([
-      ids.assigned,
-      ids.london,
+    expect(
+      page.cards.map((card) => [
+        card.repertoire.id,
+        card.tag,
+        card.granted?.id,
+      ]),
+    ).toEqual([
+      [ids.assigned, 'assigned', ids.assigned],
+      [ids.london, 'shared', ids.london],
     ]);
+    // The field allowlist of a card and of what it shows of the standing.
+    for (const card of page.cards) {
+      expect(Object.keys(card).sort()).toEqual([
+        'granted',
+        'repertoire',
+        'status',
+        'tag',
+      ]);
+      expect(Object.keys(card.granted ?? {}).sort()).toEqual([
+        'id',
+        'standing',
+      ]);
+    }
   });
 
   it('is 404 on the next request after the player unshares, and the notes go (R-124)', async () => {
@@ -778,7 +834,7 @@ describe('a shared repertoire (checklist 2-3)', () => {
       await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.london)),
     ).toEqual({ notFound: true });
     expect(await outcomeOf(coachPlayerData(ids.rokas.id))).toMatchObject({
-      repertoires: [],
+      cards: [{ tag: 'assigned' }],
     });
     expect(await notes()).toEqual([]);
   });

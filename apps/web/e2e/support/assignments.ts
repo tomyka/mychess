@@ -118,9 +118,12 @@ export async function assignTo(
   if (!new URL(page.url()).pathname.endsWith('/manage'))
     await openRepertoireOptions(page, messages);
   const panel = assignPanel(page, messages);
-  await panel
-    .getByLabel(t.target, { exact: true })
-    .selectOption({ label: target });
+  const select = panel.getByLabel(t.target, { exact: true });
+  // A player who has it through a group is offered with that said after
+  // the name: "Rokas (has it via …)" (R-134).
+  const labels = await select.locator('option').allTextContents();
+  const label = labels.find((text) => text.startsWith(`${target} (`)) ?? target;
+  await select.selectOption({ label });
   if (deadline !== undefined)
     await panel.getByLabel(t.deadline, { exact: true }).fill(deadline);
   await panel.getByRole('button', { name: t.assign, exact: true }).click();

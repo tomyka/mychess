@@ -22,13 +22,14 @@ vi.mock('../../actions', () => ({
   removeMemberAction: vi.fn(),
   addMemberAction: vi.fn(),
   deleteGroupAction: vi.fn(),
+  createInviteAction: vi.fn(),
+  revokeInviteAction: vi.fn(),
 }));
 
-const g = MESSAGES.coach.group;
-const p = MESSAGES.coach.progress;
+const c = MESSAGES.coach;
 
 describe('the coach dashboard’s group page', () => {
-  it('loads the group the path names once and shows its grid, members and who to add', async () => {
+  it('loads the group the path names once and shows its progress, assignments, invite link and players', async () => {
     loader.group.mockResolvedValue({
       id: 'g-1',
       name: 'Šeštadienio grupė',
@@ -36,7 +37,16 @@ describe('the coach dashboard’s group page', () => {
       members: [{ id: 'p-1', displayName: 'Rokas', joinedAt: NOW }],
       addable: [{ id: 'p-2', displayName: 'Gabija' }],
       grid: {
-        columns: [{ id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' }],
+        columns: [
+          {
+            id: 'r-1',
+            name: 'Karo-Kan gynyba',
+            side: 'black',
+            deadline: '2026-10-30',
+            done: 0,
+            count: 1,
+          },
+        ],
         rows: [
           {
             player: { id: 'p-1', displayName: 'Rokas' },
@@ -45,9 +55,22 @@ describe('the coach dashboard’s group page', () => {
           },
         ],
       },
+      assignments: [
+        {
+          repertoireId: 'r-1',
+          repertoireName: 'Karo-Kan gynyba',
+          deadline: '2026-10-30',
+        },
+      ],
+      invite: { id: 'i-1', expiresAt: new Date('2026-10-25T08:00:00Z') },
+      today: '2026-10-18',
     });
     render(
-      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+      <NextIntlClientProvider
+        locale="en"
+        messages={MESSAGES}
+        timeZone="Europe/Vilnius"
+      >
         {await CoachGroupPageView({
           params: Promise.resolve({ groupId: 'g-1' }),
         })}
@@ -55,17 +78,23 @@ describe('the coach dashboard’s group page', () => {
     );
     expect(loader.group).toHaveBeenCalledExactlyOnceWith('g-1');
     expect(
-      screen.getByRole('region', { name: p.gridTitle }).textContent,
-    ).toContain('Karo-Kan gynyba');
-    expect(
       screen.getByRole('heading', { level: 1, name: 'Šeštadienio grupė' }),
     ).toBeDefined();
     expect(
+      screen.getByRole('region', { name: c.progress.gridTitle }).textContent,
+    ).toContain('Karo-Kan gynyba');
+    expect(
+      screen.getByRole('region', { name: c.group.assignedTitle }).textContent,
+    ).toContain('due Oct 30');
+    expect(screen.getByText('An open link expires Oct 25')).toBeDefined();
+    expect(
       screen.getByRole('button', {
-        name: g.remove,
+        name: c.group.remove,
         description: 'Rokas',
       }),
     ).toBeDefined();
-    expect(screen.getByRole('option', { name: 'Gabija' })).toBeDefined();
+    expect(
+      screen.getByRole('button', { name: c.group.addTitle }),
+    ).toBeDefined();
   });
 });

@@ -430,17 +430,19 @@ describe('coachPlayerData (the player page)', () => {
       id: rokas.id,
       displayName: 'Rokas',
       groups: [{ id: mine, name: 'Šeštadienio grupė' }],
-      repertoires: [],
+      lastTrainedDays: null,
+      cards: [],
     });
     expect(
       Object.keys(z.record(z.string(), z.unknown()).parse(data)).sort(),
     ).toEqual([
+      'cards',
       'displayName',
       'groups',
       'id',
+      'lastTrainedDays',
       'linkedAt',
-      'progress',
-      'repertoires',
+      'today',
     ]);
     expect(JSON.stringify(data)).not.toContain('rokas@example.lt');
   });
@@ -467,6 +469,13 @@ describe('coachDashboardData', () => {
     await groupOf(ona.id, 'Onos grupė');
     await link(jonas.id, rokas.id, groupId);
     await link(ona.id, gabija.id);
+    const invite = await createInvite(testDb(), {
+      coachId: jonas.id,
+      kind: 'personal',
+      groupId: null,
+      now: new Date(),
+    });
+    if (!invite.ok) throw new Error(invite.refusal.reason);
     actAs(jonas);
     const dashboard = await outcomeOf(coachDashboardData());
     expect(dashboard).toMatchObject({
@@ -488,17 +497,23 @@ describe('coachDashboardData', () => {
         },
       ],
     });
-    // Only these fields reach the page; invites leave the dashboard (the
-    // Invite a player sheet reads them).
+    // Only these fields reach the page. The open personal invites are for
+    // the Invite a player sheet (R-232): their dates and the id to revoke
+    // by, never a token or hash.
     const fields = z.object({
       players: z.array(z.record(z.string(), z.unknown())),
+      personalInvites: z.array(z.record(z.string(), z.unknown())),
     });
     expect(
       Object.keys(z.record(z.string(), z.unknown()).parse(dashboard)).sort(),
-    ).toEqual(['attention', 'groups', 'players', 'today']);
-    expect(
-      fields.parse(dashboard).players.map((one) => Object.keys(one).sort()),
-    ).toEqual([['displayName', 'id', 'lastTrainedDays', 'summary']]);
+    ).toEqual(['attention', 'groups', 'personalInvites', 'players', 'today']);
+    const read = fields.parse(dashboard);
+    expect(read.players.map((one) => Object.keys(one).sort())).toEqual([
+      ['displayName', 'id', 'lastTrainedDays', 'summary'],
+    ]);
+    expect(read.personalInvites.map((one) => Object.keys(one).sort())).toEqual([
+      ['createdAt', 'expiresAt', 'id'],
+    ]);
     expect(JSON.stringify(dashboard)).not.toContain('rokas@example.lt');
   });
 });

@@ -1,137 +1,121 @@
 'use client';
 
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useActionState, useId, type JSX } from 'react';
-import type { RepertoireRef } from '@mychess/db';
-import type { AccountRef } from '@mychess/domain';
-import {
-  coachGroupPath,
-  coachSharedRepertoirePath,
-} from '../../../../lib/routes';
-import { MEDIUM_DATE } from '../../../../lib/date-format';
-import type { PlayerProgressSection } from '../../../../server/coach-pages';
+import { Fragment, useActionState, useId, type JSX } from 'react';
+import { coachGroupPath } from '../../../../lib/routes';
+import type { CoachPlayerPage } from '../../../../server/coach-pages';
 import { ConfirmedAction } from '../../../confirmed-action';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../settings/styles';
+import { TEXT_LINK } from '../../../settings/styles';
+import { useShortInstant } from '../../../use-deadline';
 import { unlinkPlayerAction, type CoachActionState } from '../../actions';
+import { LastTrainedNote, useTrainedWhen } from '../../last-trained';
 import { RefusalLine } from '../../refusal-line';
 import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
-import { ProgressSection } from './progress-section';
+import { RepertoireCards } from './repertoire-cards';
+
+/** "trained 5 days ago", or "never trained" (R-154; the footnote says what it counts). */
+function useTrained(days: number | null): string {
+  const t = useTranslations('coach.player');
+  const when = useTrainedWhen();
+  return days === null ? t('neverTrained') : t('trained', { when: when(days) });
+}
 
 /**
- * What the coach sees of a linked player (subject `profile`): the display
- * name, when they linked and the coach's own groups; never the email.
+ * The line under the name: when the player last trained, since when they
+ * are linked, and the coach's own groups they are in, each to its page.
  */
-export interface CoachPlayerPageData extends AccountRef {
-  readonly linkedAt: Date;
-  readonly groups: readonly { readonly id: string; readonly name: string }[];
-  /** The player's repertoires shared with this coach (R-42). */
-  readonly repertoires: readonly RepertoireRef[];
-  /** Where the player stands on each repertoire the coach may see (S7). */
-  readonly progress: PlayerProgressSection;
-}
-
-/** The coach's groups the player is in, each to its page. */
-function PlayerGroups({
-  groups,
-}: {
-  readonly groups: CoachPlayerPageData['groups'];
-}): JSX.Element {
-  const t = useTranslations('coach');
-  const titleId = useId();
-  return (
-    <section aria-labelledby={titleId} className={SECTION}>
-      <h2 id={titleId} className={SECTION_TITLE}>
-        {t('player.groupsTitle')}
-      </h2>
-      {groups.length === 0 ? (
-        <p className="text-fg-muted">{t('players.noGroups')}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {groups.map((group) => (
-            <li key={group.id}>
-              <Link href={coachGroupPath(group.id)} className={TEXT_LINK}>
-                {group.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-/** The player's repertoires shared with the coach, each to its read-only page. */
-function SharedRepertoires({
+function MetaLine({
   player,
 }: {
-  readonly player: CoachPlayerPageData;
+  readonly player: CoachPlayerPage;
 }): JSX.Element {
-  const t = useTranslations();
-  const titleId = useId();
+  const t = useTranslations('coach');
+  const date = useShortInstant(player.today);
+  const parts = [
+    <span key="trained">{useTrained(player.lastTrainedDays)}</span>,
+    <span key="linked">
+      {t('player.linkedSince', { date: date(player.linkedAt) })}
+    </span>,
+    ...player.groups.map((group) => (
+      <Link
+        key={group.id}
+        href={coachGroupPath(group.id)}
+        className={TEXT_LINK}
+      >
+        {group.name}
+      </Link>
+    )),
+  ];
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
-      <h2 id={titleId} className={SECTION_TITLE}>
-        {t('coach.shared.title')}
-      </h2>
-      {player.repertoires.length === 0 ? (
-        <p className="text-fg-muted">
-          {t('coach.shared.empty', { name: player.displayName })}
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {player.repertoires.map((repertoire) => (
-            <li key={repertoire.id}>
-              <Link
-                href={coachSharedRepertoirePath(player.id, repertoire.id)}
-                className="flex min-h-touch flex-col justify-center"
-              >
-                <span className="text-accent underline">{repertoire.name}</span>
-                <span className="text-sm text-fg-muted">
-                  {repertoire.side === 'white'
-                    ? t('repertoires.list.white')
-                    : t('repertoires.list.black')}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <p className="text-sm text-fg-muted">
+      {parts.map((part, index) => (
+        <Fragment key={part.key}>
+          {index === 0 ? null : t('progress.separator')}
+          {part}
+        </Fragment>
+      ))}
+    </p>
   );
 }
 
 const INITIAL: CoachActionState = {};
 
-/** One linked player's page in the coach dashboard (plan decision 11). */
-export function PlayerView({
+/**
+ * Unlink, in the error tone with its confirmation (R-44). It is rendered
+ * once, last in the page, so it comes last in reading and focus order; on
+ * a phone that is the bottom, and from md the page's grid places it at the
+ * right of the title.
+ */
+function Unlink({
   player,
+  nameId,
 }: {
-  readonly player: CoachPlayerPageData;
+  readonly player: CoachPlayerPage;
+  readonly nameId: string;
 }): JSX.Element {
   const t = useTranslations('coach');
-  const format = useFormatter();
-  const nameId = useId();
   const [state, unlink] = useActionState(unlinkPlayerAction, INITIAL);
-  const date = format.dateTime(player.linkedAt, MEDIUM_DATE);
   return (
-    <main className={COACH_PAGE}>
-      <SubpageHeader title={player.displayName} titleId={nameId}>
-        <p className="text-fg-muted">{t('player.linkedSince', { date })}</p>
-      </SubpageHeader>
-      <ProgressSection player={player} progress={player.progress} />
-      <SharedRepertoires player={player} />
-      <PlayerGroups groups={player.groups} />
-      <RefusalLine state={state} />
+    <div className="flex flex-col gap-3 md:col-start-2 md:row-start-1 md:max-w-xs md:items-end">
       <ConfirmedAction
         action={unlink}
         fields={{ playerId: player.id }}
         describedBy={nameId}
-        label={t('players.unlink')}
+        look="danger"
+        label={t('player.unlink', { name: player.displayName })}
         question={t('players.unlinkConfirm', { name: player.displayName })}
         confirm={t('players.confirmUnlink')}
         cancel={t('players.cancel')}
       />
+      <RefusalLine state={state} />
+    </div>
+  );
+}
+
+/**
+ * One linked player's page (spec, A player): the name and one meta line,
+ * a card per repertoire the coach may see, the last-trained footnote, and
+ * Unlink.
+ */
+export function PlayerView({
+  player,
+}: {
+  readonly player: CoachPlayerPage;
+}): JSX.Element {
+  const nameId = useId();
+  return (
+    <main
+      className={`${COACH_PAGE} md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-start`}
+    >
+      <SubpageHeader title={player.displayName} titleId={nameId}>
+        <MetaLine player={player} />
+      </SubpageHeader>
+      <div className="flex flex-col gap-3 md:col-span-2">
+        <RepertoireCards player={player} />
+        <LastTrainedNote />
+      </div>
+      <Unlink player={player} nameId={nameId} />
     </main>
   );
 }

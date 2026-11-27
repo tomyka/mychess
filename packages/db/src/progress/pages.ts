@@ -8,7 +8,12 @@
 import type { AccountRef } from '@mychess/domain';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { coachPlayers } from '../coaching';
-import { coachGroup, type CoachGroup } from '../groups';
+import {
+  assignmentsToGroup,
+  coachGroup,
+  type CoachGroup,
+  type GroupAssignment,
+} from '../groups';
 import { openGroupInvite, type OpenGroupInvite } from '../invites';
 import { groupGrid, type GroupProgress } from './coach-progress';
 
@@ -33,13 +38,15 @@ export interface GroupPage {
   readonly grid: GroupProgress;
   /** The group's newest open invite (R-232); null for none. */
   readonly invite: OpenGroupInvite | null;
+  /** This coach's assignments to the group, by repertoire name (R-232). */
+  readonly assignments: readonly GroupAssignment[];
 }
 
 /**
  * The group page, its one read: the coach's own group with its members,
  * the coach's linked players not in it, the grid (R-153): one column
  * per repertoire assigned to it (by name), one row per member (by name),
- * and its open invite (R-232).
+ * its open invite and its assignments with their deadlines (R-232).
  * Undefined for any other group.
  */
 export function coachGroupPage(
@@ -56,6 +63,7 @@ export function coachGroupPage(
       addable: await addableTo(tx, coachId, group),
       grid: await groupGrid(tx, coachId, group, now),
       invite: (await openGroupInvite(tx, coachId, groupId, now)) ?? null,
+      assignments: await assignmentsToGroup(tx, coachId, groupId),
     };
   }, REPEATABLE_READ);
 }

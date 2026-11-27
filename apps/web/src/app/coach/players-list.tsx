@@ -97,7 +97,7 @@ function PlayerRow({
         <Link href={coachPlayerPath(player.id)} className={ROW_LINK}>
           {player.displayName}
         </Link>
-        <LastTrained days={player.lastTrainedDays} form="short" />
+        <LastTrained days={player.lastTrainedDays} />
       </span>
       {counts === null ? (
         <span className="text-sm text-fg-muted">{t('players.nothing')}</span>
@@ -148,7 +148,7 @@ function PlayerTableRow({
         <Deadline summary={player.summary} today={today} form="cell" />
       </td>
       <td className={FIXED_CELL}>
-        <LastTrained days={player.lastTrainedDays} form="short" />
+        <LastTrained days={player.lastTrainedDays} />
       </td>
     </tr>
   );

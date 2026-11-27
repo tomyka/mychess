@@ -88,6 +88,17 @@ const openInvitesOf = (coachId: string, now: Date) =>
   and(eq(invites.coachId, coachId), openAt(now));
 
 /**
+ * The group's open links at `now`: group invites only, as a personal
+ * invite may name the group too (R-110) and is not its link.
+ */
+const openLinksOf = (coachId: string, groupId: string, now: Date) =>
+  and(
+    openInvitesOf(coachId, now),
+    eq(invites.kind, 'group'),
+    eq(invites.groupId, groupId),
+  );
+
+/**
  * How many open invites `coachId` has at `now` (R-114). Exported for the
  * test that ties openInvitesOf to the domain's inviteState.
  */
@@ -159,7 +170,26 @@ export async function writeInvite(
   return { token, inviteId: z.uuid().parse(row?.id), expiresAt };
 }
 
-/** Makes an invite; the raw token is returned here once and never stored. */
+/**
+ * Closes the group's open invites at `now`, as a Revoke would: a group has
+ * one live link (R-233). The caller holds the coach row and the group.
+ */
+async function closeGroupLinks(
+  tx: Tx,
+  { coachId, groupId, now }: InviteRequest,
+): Promise<void> {
+  if (groupId === null) return;
+  await tx
+    .update(invites)
+    .set({ revokedAt: now })
+    .where(openLinksOf(coachId, groupId, now));
+}
+
+/**
+ * Makes an invite; the raw token is returned here once and never stored.
+ * A group invite replaces the group's open one (R-233), in the same
+ * transaction and only once the new one is allowed (R-114).
+ */
 export function createInvite(
   db: Db,
   request: InviteRequest,
@@ -167,6 +197,7 @@ export function createInvite(
   return db.transaction(async (tx) => {
     const allowed = await mayInvite(tx, request);
     if (!allowed.ok) return allowed;
+    if (request.kind === 'group') await closeGroupLinks(tx, request);
     return ok(await writeInvite(tx, request));
   });
 }
@@ -520,7 +551,7 @@ export async function openGroupInvite(
   const [row] = await db
     .select({ id: invites.id, expiresAt: invites.expiresAt })
     .from(invites)
-    .where(and(openInvitesOf(coachId, now), eq(invites.groupId, groupId)))
+    .where(openLinksOf(coachId, groupId, now))
     .orderBy(desc(invites.createdAt), desc(invites.id))
     .limit(1);
   return row === undefined ? undefined : openGroupInviteSchema.parse(row);

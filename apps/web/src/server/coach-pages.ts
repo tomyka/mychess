@@ -14,17 +14,23 @@ import {
   type CoachGroup,
   type CoachInvite,
   type CoachGroupSummary,
+  type CoachStatus,
   type DashboardPlayer,
+  type GroupAssignment,
+  type GroupColumn,
   type GroupProgress,
   type GroupProgressCell,
   type LinkedAccount,
-  type PlayerProgress,
+  type OpenGroupInvite,
   type ProgressRow,
   type RepertoireRef,
 } from '@mychess/db';
+import type { Standing } from '@mychess/chess';
 import {
   attentionOf,
   byAttention,
+  byRepertoireUrgency,
+  ownCopyEntries,
   playerSummary,
   vilniusDay,
   type AccountRef,
@@ -150,36 +156,87 @@ export async function coachDashboardData(): Promise<CoachDashboardData> {
   };
 }
 
-/** The player page's progress section. */
-export interface PlayerProgressSection {
-  readonly rows: readonly ProgressRow[];
-  /** Whole Vilnius days since the player last trained; null for never. */
-  readonly lastTrainedDays: number | null;
+/**
+ * How the coach has a repertoire on the player page: their assignment,
+ * shared with them (R-42), or the player's own copy of an assignment
+ * (R-155).
+ */
+type RepertoireCardTag = 'assigned' | 'shared' | 'fork';
+
+/** The standing the domain grants on a repertoire, and its id, where its links go. */
+export interface GrantedView {
+  readonly id: string;
+  readonly standing: Standing;
+}
+
+/** One repertoire on the player page (R-231). */
+export interface RepertoireCard {
+  /** The repertoire it is named by: an own copy's is the assignment's. */
+  readonly repertoire: RepertoireRef;
+  readonly tag: RepertoireCardTag;
+  /** The assignment's deadline and status; null for a shared repertoire. */
+  readonly status: CoachStatus | null;
+  /**
+   * What the domain grants, and where Progress and Open go; for an own
+   * copy, its shared fork's; null for an own copy not shared (R-155).
+   */
+  readonly granted: GrantedView | null;
 }
 
 /** One linked player's page. */
 export interface CoachPlayerPage extends LinkedAccount {
-  /** The player's repertoires shared with this coach, by name (R-42). */
-  readonly repertoires: readonly RepertoireRef[];
-  /** Where the player stands on each repertoire the coach may see (S7). */
-  readonly progress: PlayerProgressSection;
+  /** Whole Vilnius days since the player last trained; null for never. */
+  readonly lastTrainedDays: number | null;
+  /** Today in Vilnius, so the server and the browser word deadlines alike. */
+  readonly today: string;
+  /** One per repertoire the coach may see, most urgent first. */
+  readonly cards: readonly RepertoireCard[];
 }
 
-/** The progress section of the player page, days counted from `now`. */
-const progressSection = (
-  read: PlayerProgress,
-  now: Date,
-): PlayerProgressSection => ({
-  rows: read.rows,
-  lastTrainedDays: daysSince(read.lastTrained, now),
-});
+const grantedOf = (row: ProgressRow): GrantedView | null =>
+  row.view.kind === 'granted'
+    ? { id: row.repertoire.id, standing: row.view.standing }
+    : null;
+
+/**
+ * The read's rows as cards, merged by the domain: an own copy takes its
+ * shared fork's standing and links (the read names the fork, #328), and
+ * that fork has no card of its own.
+ */
+const cardsOf = (rows: readonly ProgressRow[]): RepertoireCard[] =>
+  ownCopyEntries(rows, (row) => ({
+    id: row.repertoire.id,
+    shared: row.source === 'shared',
+    forked:
+      row.view.kind === 'forked'
+        ? { sharedForkId: row.view.sharedForkId }
+        : null,
+  })).map((entry): RepertoireCard => {
+    if (entry.kind === 'ownCopy') {
+      const { repertoire, status } = entry.assignment;
+      const fork = entry.sharedFork;
+      const granted = fork === null ? null : grantedOf(fork);
+      return { repertoire, tag: 'fork', status, granted };
+    }
+    const { row } = entry;
+    const { repertoire, status, source } = row;
+    return { repertoire, tag: source, status, granted: grantedOf(row) };
+  });
+
+/** The cards in the domain's order for the player page. */
+const repertoireCardOrder = byRepertoireUrgency(
+  ({ repertoire, status }: RepertoireCard) => ({
+    name: repertoire.name,
+    id: repertoire.id,
+    status,
+  }),
+);
 
 /**
  * One linked player's page, from one read (coachPlayerProgress): the
- * display name, the coach's own groups, the repertoires the player shares
- * with the coach and the progress section. The read decides access
- * (isCoachLinked) in its own snapshot; anything else, an unlinked player
- * included, is 404.
+ * display name, the coach's own groups, and one card per repertoire the
+ * coach may see. The read decides access (isCoachLinked) in its own
+ * snapshot; anything else, an unlinked player included, is 404.
  */
 export async function coachPlayerData(
   rawPlayerId: unknown,
@@ -193,10 +250,9 @@ export async function coachPlayerData(
     notFound();
   return {
     ...read.player,
-    repertoires: read.rows
-      .filter((row) => row.source === 'shared')
-      .map((row) => row.repertoire),
-    progress: progressSection(read, now),
+    lastTrainedDays: daysSince(read.lastTrained, now),
+    today: vilniusDay(now),
+    cards: cardsOf(read.rows).toSorted(repertoireCardOrder),
   };
 }
 
@@ -270,16 +326,26 @@ interface GridRow {
 
 /** The group grid (R-153). */
 export interface GroupGrid {
-  readonly columns: readonly RepertoireRef[];
+  /** Each with its deadline and done count over its live holders. */
+  readonly columns: readonly GroupColumn[];
   readonly rows: readonly GridRow[];
 }
 
-/** A group's page: the group, who else could join it, and its grid. */
+/**
+ * A group's page: the group, who else could join it, its grid, what is
+ * assigned to it and its open invite.
+ */
 export interface CoachGroupPage extends CoachGroup {
   /** The coach's linked players not yet in the group, by display name. */
   readonly addable: readonly AccountRef[];
   /** Where each member stands on each group repertoire (R-153). */
   readonly grid: GroupGrid;
+  /** The group's newest open invite: its id and expiry, never its link (R-232). */
+  readonly invite: OpenGroupInvite | null;
+  /** This coach's assignments to the group, by repertoire name. */
+  readonly assignments: readonly GroupAssignment[];
+  /** Today's Vilnius day, so the server and the browser write dates alike. */
+  readonly today: string;
 }
 
 /** The grid with last trained as whole Vilnius days before `now`. */
@@ -297,7 +363,7 @@ const gridOf = (grid: GroupProgress, now: Date): GroupGrid => ({
  * group is the coach's own data, not a player's, so the query filtering on
  * the coach is the check; any other group is 404. The players to add are
  * the coach's own linked players; the grid shows only what the domain
- * grants per member.
+ * grants per member; the assignments and open invite are the coach's own.
  */
 export async function coachGroupData(
   rawGroupId: unknown,
@@ -312,5 +378,8 @@ export async function coachGroupData(
     ...read.group,
     addable: read.addable,
     grid: gridOf(read.grid, now),
+    invite: read.invite,
+    assignments: read.assignments,
+    today: vilniusDay(now),
   };
 }

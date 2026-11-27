@@ -2,6 +2,7 @@ import {
   COACH_REFUSALS,
   INVITE_REFUSALS,
   inviteState,
+  OPEN_INVITE_LIMIT,
   type InviteKind,
 } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
@@ -129,6 +130,50 @@ describe('createInvite', () => {
     expect(await query('select kind, group_id from invites')).toEqual([
       { kind: 'group', group_id: groupId },
     ]);
+  });
+
+  it('keeps one live link per group: a new group invite revokes the group’s earlier open ones (R-233)', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p', 'p@example.lt');
+    const saturday = await seedGroup(db, 'c', 'Šeštadienio grupė');
+    const sunday = await seedGroup(db, 'c', 'Sekmadienio grupė');
+    const old = await invite('group', saturday);
+    await invite('group', sunday);
+    await invite();
+    expect(await openInviteCount(db, 'c', at(1000))).toBe(3);
+    const fresh = await invite('group', saturday, 'c', at(1000));
+    // The earlier link alone is closed, as a Revoke would close it; the
+    // other group's and the personal one stay open.
+    expect(
+      await query(
+        'select id, revoked_at from invites where revoked_at is not null',
+      ),
+    ).toEqual([{ id: old.inviteId, revoked_at: at(1000) }]);
+    expect(await openInviteCount(db, 'c', at(1000))).toBe(3);
+    expect(await accept(old.token, 'p', at(2000))).toEqual(
+      refused(INVITE_REFUSALS.invalid),
+    );
+    expect((await accept(fresh.token, 'p', at(2000))).ok).toBe(true);
+  });
+
+  it('leaves the group’s open link when a new one is refused at the limit (R-114, R-233)', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Šeštadienio grupė');
+    const old = await invite('group', groupId);
+    for (let n = 1; n < OPEN_INVITE_LIMIT; n += 1) await invite();
+    expect(
+      await createInvite(db, {
+        coachId: 'c',
+        kind: 'group',
+        groupId,
+        now: NOW,
+      }),
+    ).toEqual(refused(COACH_REFUSALS.inviteLimit));
+    expect(
+      await query('select revoked_at from invites where id = $1', [
+        old.inviteId,
+      ]),
+    ).toEqual([{ revoked_at: null }]);
   });
 
   it('refuses an account without Coach mode', async () => {
@@ -930,17 +975,34 @@ describe('openGroupInvite and the group page (R-232) - SECURITY', () => {
     }
   });
 
-  it('falls back to the older open invite once the newest is revoked, and to none once both are', async () => {
+  it('gives the group link, never a newer personal invite naming the group; revoking it leaves the personal one open', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     const groupId = await seedGroup(db, 'c', 'Mano');
-    const older = await invite('group', groupId, 'c', at(1000));
-    const newest = await invite('group', groupId, 'c', at(2000));
-    await revokeInvite(db, 'c', newest.inviteId, at(3000));
+    const link = await invite('group', groupId, 'c', at(1000));
+    const personal = await invite('personal', groupId, 'c', at(2000));
     expect(await openGroupInvite(db, 'c', groupId, at(3000))).toEqual({
-      id: older.inviteId,
+      id: link.inviteId,
       expiresAt: at(1000 + WEEK),
     });
-    await revokeInvite(db, 'c', older.inviteId, at(3000));
+    await revokeInvite(db, 'c', link.inviteId, at(3000));
+    expect(await openGroupInvite(db, 'c', groupId, at(3000))).toBeUndefined();
+    expect(
+      await query('select revoked_at from invites where id = $1', [
+        personal.inviteId,
+      ]),
+    ).toEqual([{ revoked_at: null }]);
+  });
+
+  it('has no older link to fall back to once the newest is revoked: it replaced the older one (R-233)', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    await invite('group', groupId, 'c', at(1000));
+    const newest = await invite('group', groupId, 'c', at(2000));
+    expect(await openGroupInvite(db, 'c', groupId, at(3000))).toEqual({
+      id: newest.inviteId,
+      expiresAt: at(2000 + WEEK),
+    });
+    await revokeInvite(db, 'c', newest.inviteId, at(3000));
     expect(await openGroupInvite(db, 'c', groupId, at(3000))).toBeUndefined();
   });
 

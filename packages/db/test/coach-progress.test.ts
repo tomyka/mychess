@@ -14,6 +14,7 @@ import {
 } from '../src';
 import { eq } from 'drizzle-orm';
 import { assignments } from '../src/assignment-schema';
+import { repertoires } from '../src/schema/repertoires';
 import { graphRows } from '../src/repertoires/repository';
 import { reviewResults } from '../src/training-schema';
 import { useTestDatabase } from '../src/testing';
@@ -481,7 +482,15 @@ describe('coachGroupPage (R-153)', () => {
     await result('q', groupRep, WEEK_AGO);
     const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
     expect(grid.columns).toEqual([
-      { id: groupRep, name: 'Londono sistema', side: 'white' },
+      {
+        id: groupRep,
+        name: 'Londono sistema',
+        side: 'white',
+        deadline: null,
+        // q learned every move: done; p has not started.
+        done: 1,
+        count: 2,
+      },
     ]);
     expect(grid.rows).toMatchObject([
       {
@@ -511,7 +520,7 @@ describe('coachGroupPage (R-153)', () => {
     ]);
   });
 
-  it('shows a member’s forked cell with its badge only, Reviews or not (R-155)', async () => {
+  it('shows a member’s forked cell as forked only, Reviews or not, and leaves it out of the column’s holders (R-155)', async () => {
     const own = await learnAll('q', groupRep);
     succeeded(
       await forkAssignment(db, { playerId: 'q', repertoireId: groupRep }, NOW),
@@ -522,7 +531,6 @@ describe('coachGroupPage (R-153)', () => {
         player: { id: 'p' },
         cells: [
           {
-            badges: { forked: false },
             view: {
               kind: 'granted',
               standing: { counts: { notStarted: own } },
@@ -532,13 +540,18 @@ describe('coachGroupPage (R-153)', () => {
       },
       {
         player: { id: 'q' },
-        cells: [
-          {
-            badges: { forked: true },
-            view: { kind: 'forked', sharedForkId: null },
-          },
-        ],
+        cells: [{ view: { kind: 'forked', sharedForkId: null } }],
       },
+    ]);
+    expect(grid.columns).toMatchObject([{ done: 0, count: 1 }]);
+  });
+
+  it('gives each column its deadline and how many of its live holders are done', async () => {
+    await setDeadline(groupRep, '2026-10-20');
+    await learnAll('q', groupRep);
+    const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
+    expect(grid.columns).toMatchObject([
+      { id: groupRep, deadline: '2026-10-20', done: 1, count: 2 },
     ]);
   });
 
@@ -564,12 +577,6 @@ describe('coachGroupPage (R-153)', () => {
     );
     expect(joined.cells).toEqual(
       notStarted.map((n) => ({
-        badges: {
-          overdue: false,
-          paused: false,
-          forked: false,
-          updated: false,
-        },
         status: {
           deadline: null,
           overdue: false,
@@ -612,6 +619,62 @@ describe('coachGroupPage (R-153)', () => {
       ],
     });
     expect(page.addable).toEqual([{ id: 'r', displayName: 'Name r' }]);
+  });
+
+  it('gives the coach’s assignments to this group alone, with their deadlines (R-232)', async () => {
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: karoKan,
+      target: { groupId: group },
+      now: NOW,
+      deadline: '2026-11-30',
+    });
+    const otherGroup = await seedGroup(db, 'c', 'Kita grupė');
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: karoKan,
+      target: { groupId: otherGroup },
+      now: NOW,
+    });
+    // Distinct names, so the order by name is the order asserted.
+    await db
+      .update(repertoires)
+      .set({ name: 'Karo-Kan gynyba' })
+      .where(eq(repertoires.id, karoKan));
+    await db
+      .update(repertoires)
+      .set({ name: 'Slavų gynyba' })
+      .where(eq(repertoires.id, groupRep));
+    expect(
+      present(await coachGroupPage(db, 'c', group, NOW)).assignments,
+    ).toEqual([
+      {
+        repertoireId: karoKan,
+        repertoireName: 'Karo-Kan gynyba',
+        deadline: '2026-11-30',
+      },
+      {
+        repertoireId: groupRep,
+        repertoireName: 'Slavų gynyba',
+        deadline: null,
+      },
+    ]);
+    expect(
+      present(await coachGroupPage(db, 'c', otherGroup, NOW)).assignments,
+    ).toEqual([
+      {
+        repertoireId: karoKan,
+        repertoireName: 'Karo-Kan gynyba',
+        deadline: null,
+      },
+    ]);
+  });
+
+  it('gives a group with nothing assigned no assignments', async () => {
+    const empty = await seedGroup(db, 'c', 'Tuščia grupė');
+    expect(
+      present(await coachGroupPage(db, 'c', empty, NOW)).assignments,
+    ).toEqual([]);
   });
 
   it('offers no one to add once every linked player is a member', async () => {

@@ -10,7 +10,7 @@ import {
   type CoachRefusal,
   type Result,
 } from '@mychess/domain';
-import { and, count, eq, isNotNull } from 'drizzle-orm';
+import { and, count, eq, isNotNull, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
 import { assignments } from './assignment-schema';
@@ -339,12 +339,14 @@ const byRepertoireName = byName((one: GroupAssignment) => ({
 }));
 
 /**
- * The coach's assignments to its groups, each group's by repertoire name:
- * one statement, whatever the number of groups.
+ * The coach's assignments to the groups `scope` picks (every group, or
+ * one), each group's by repertoire name: one statement, whatever the
+ * number of groups.
  */
 async function groupAssignments(
   db: Executor,
   coachId: string,
+  scope: SQL,
 ): Promise<Map<string, GroupAssignment[]>> {
   const rows = groupAssignmentRowsSchema.parse(
     await db
@@ -358,18 +360,29 @@ async function groupAssignments(
       .innerJoin(repertoires, eq(repertoires.id, assignments.repertoireId))
       // assignments_repertoire_fk and assignments_group_fk tie the repertoire
       // and the group to this coach, so coachId alone scopes the rows.
-      .where(
-        and(eq(assignments.coachId, coachId), isNotNull(assignments.groupId)),
-      ),
+      .where(and(eq(assignments.coachId, coachId), scope)),
   );
   const byGroup = new Map<string, GroupAssignment[]>();
-  for (const { groupId, ...assignment } of rows) {
-    const list = byGroup.get(groupId) ?? [];
+  for (const { groupId: rowGroupId, ...assignment } of rows) {
+    const list = byGroup.get(rowGroupId) ?? [];
     list.push(assignment);
-    byGroup.set(groupId, list);
+    byGroup.set(rowGroupId, list);
   }
   for (const list of byGroup.values()) list.sort(byRepertoireName);
   return byGroup;
+}
+
+/**
+ * This coach's assignments to one of its groups, by repertoire name (R-232);
+ * none for another coach's group. One statement.
+ */
+export async function assignmentsToGroup(
+  db: Executor,
+  coachId: string,
+  groupId: string,
+): Promise<GroupAssignment[]> {
+  const one = eq(assignments.groupId, groupId);
+  return (await groupAssignments(db, coachId, one)).get(groupId) ?? [];
 }
 
 /**
@@ -395,7 +408,11 @@ export async function coachGroups(
         .groupBy(groups.id),
     )
     .sort(byNameAndId);
-  const assigned = await groupAssignments(db, coachId);
+  const assigned = await groupAssignments(
+    db,
+    coachId,
+    isNotNull(assignments.groupId),
+  );
   return summaries.map((group) => ({
     ...group,
     assignments: assigned.get(group.id) ?? [],

@@ -1,9 +1,10 @@
 import type { CoachStatus } from '@mychess/db';
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
+import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { AssignmentStatusLine } from './assignment-status-line';
+import { AssignmentStatusLine, DeadlineLine } from './assignment-status-line';
 
 const TODAY = '2026-11-27';
 
@@ -136,5 +137,57 @@ describe('AssignmentStatusLine (R-231)', () => {
   it('shows nothing for an own copy: the card says so itself (R-155)', () => {
     const container = show({ deadline: '2026-11-30', forked: true });
     expect(container.textContent).toBe('');
+  });
+});
+
+function renderIn(children: ReactNode): HTMLElement {
+  const { container } = render(
+    <NextIntlClientProvider
+      locale="en"
+      messages={MESSAGES}
+      timeZone="Europe/Vilnius"
+    >
+      {children}
+    </NextIntlClientProvider>,
+  );
+  return container;
+}
+
+describe('AssignmentStatusLine with only its pills', () => {
+  it('leaves the deadline to whoever says it, keeping the pills', () => {
+    const container = renderIn(
+      <AssignmentStatusLine
+        status={{ ...LIVE, deadline: '2026-11-30', paused: true }}
+        today={TODAY}
+        wording="deadline"
+        parts="pills"
+      />,
+    );
+    expect(container.textContent).toBe('Paused');
+    pill('Paused');
+  });
+
+  it('shows nothing with no pill on', () => {
+    const container = renderIn(
+      <AssignmentStatusLine
+        status={{ ...LIVE, deadline: '2026-11-30' }}
+        today={TODAY}
+        wording="deadline"
+        parts="pills"
+      />,
+    );
+    expect(container.innerHTML).toBe('');
+  });
+});
+
+describe('DeadlineLine: a deadline with no player’s status, as a group’s', () => {
+  it('says "deadline Nov 30", in the due tone when near', () => {
+    renderIn(<DeadlineLine deadline="2026-11-30" today={TODAY} />);
+    expect(screen.getByText('deadline Nov 30').className).toContain('text-due');
+  });
+
+  it('says when there is none', () => {
+    const container = renderIn(<DeadlineLine deadline={null} today={TODAY} />);
+    expect(container.textContent).toBe('No deadline');
   });
 });

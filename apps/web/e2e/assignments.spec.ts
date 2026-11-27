@@ -297,7 +297,7 @@ async function pauseAndResume(
  * chapter" (#320) or on the assigned Repertoire screen, asks, then opens
  * the copy, where the coach's comment
  * is a read-only note under his name; on Today the row is his copy, and the
- * coach sees "forked".
+ * coach sees "Own copy".
  */
 async function makeOwnCopy(
   rokas: Page,
@@ -360,8 +360,11 @@ async function makeOwnCopy(
   expect(opened?.status()).toBe(404);
   await expectNotAssigned(rokas, cast);
   await coach.reload();
+  // His row says "Own copy", with no progress (R-155).
   const row = assignmentRow(coach, messages, ROKAS);
-  await expect(badge(row, messages, 'forked')).toBeVisible();
+  await expect(
+    row.getByText(messages.coach.progress.tag.fork, { exact: true }),
+  ).toBeVisible();
 }
 
 test(`C-M1-3, C-M1-4, C-M1-6: group and individual assignments, a later member's deadline, leaving and rejoining the group`, async ({

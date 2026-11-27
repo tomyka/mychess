@@ -1,112 +1,103 @@
 'use client';
 
-import type { Standing } from '@mychess/chess';
-import type { CoachAssignment, CoachAssignmentPlayer } from '@mychess/db';
+import type {
+  AssigneeStanding,
+  CoachAssignment,
+  CoachAssignmentPlayer,
+} from '@mychess/db';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX } from 'react';
-import { AssignmentBadges } from '../../assignment-badges';
 import { SECONDARY_BUTTON } from '../../buttons';
-import { StandingLine } from '../../standing-line';
-import { useShortDeadline } from '../../use-deadline';
+import { DeadlineLine } from '../../coach/assignment-status-line';
+import { AssigneeRow, RowHeader } from './assignee-row';
 import { DeadlineForms, Unassign } from './assignment-row-forms';
 
-/** Each player's standing, null where the coach sees none (R-155). */
-type Standings = ReadonlyMap<string, Standing | null>;
+/** Each player's standing and status, null where the coach sees none (R-155). */
+type Standings = ReadonlyMap<string, AssigneeStanding | null>;
 
-const ROW = 'flex flex-col gap-1 border-t border-border py-3';
-const NAME_LINE = 'flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4';
-const FACTS =
-  'flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-fg-muted';
+/** Whether a row's Change is open, and the id of what it opens. */
+interface Disclosure {
+  readonly open: boolean;
+  readonly toggle: () => void;
+  readonly panelId: string;
+}
 
-/** A deadline, short ("due Nov 30"), or that there is none. */
-function useDeadlineText(today: string): (deadline: string | null) => string {
-  const t = useTranslations('assignment');
-  const date = useShortDeadline(today);
-  return (deadline) =>
-    deadline === null
-      ? t('noDeadline')
-      : t('panel.due', { date: date(deadline) });
+function useDisclosure(): Disclosure {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  return {
+    open,
+    toggle: () => {
+      setOpen(!open);
+    },
+    panelId,
+  };
+}
+
+/** Change, beside the row's name; `describedBy` names whom it acts for. */
+function ChangeButton({
+  change,
+  describedBy,
+}: {
+  readonly change: Disclosure;
+  readonly describedBy: string;
+}): JSX.Element {
+  const t = useTranslations('assignment.panel');
+  return (
+    <button
+      type="button"
+      aria-expanded={change.open}
+      aria-controls={change.panelId}
+      aria-describedby={describedBy}
+      onClick={change.toggle}
+      className={SECONDARY_BUTTON}
+    >
+      {t('change')}
+    </button>
+  );
 }
 
 /**
- * Change: opens the assignment's deadline and Unassign in its row, under
- * the row's line. `describedBy` names whom they act for: the player, or
- * the group.
+ * What Change opens in its row: the deadline, then, set apart, Unassign
+ * (spec, Assignments on the Repertoire screen).
  */
-function RowChange({
+function ChangePanel({
+  change,
   assignment,
   describedBy,
   today,
 }: {
+  readonly change: Disclosure;
   readonly assignment: CoachAssignment;
   readonly describedBy: string;
   readonly today: string;
 }): JSX.Element {
-  const t = useTranslations('assignment.panel');
-  const [open, setOpen] = useState(false);
-  const formsId = useId();
   return (
-    <>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={formsId}
-        aria-describedby={describedBy}
-        onClick={() => {
-          setOpen(!open);
-        }}
-        className={`${SECONDARY_BUTTON} self-start sm:ml-auto`}
-      >
-        {t('change')}
-      </button>
-      <div
-        id={formsId}
-        hidden={!open}
-        className="flex basis-full flex-col gap-3"
-      >
-        {open ? (
-          <>
-            <DeadlineForms
-              assignment={assignment}
-              describedBy={describedBy}
-              today={today}
-            />
+    <div
+      id={change.panelId}
+      hidden={!change.open}
+      className="flex flex-col gap-4 rounded-control bg-sunken p-3"
+    >
+      {change.open ? (
+        <>
+          <DeadlineForms
+            assignment={assignment}
+            describedBy={describedBy}
+            today={today}
+          />
+          <div className="border-t border-border pt-3">
             <Unassign assignment={assignment} describedBy={describedBy} />
-          </>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-/** The name, and the player's progress beside it (R-225; none on their own copy, R-155). */
-function NameLine({
-  id,
-  name,
-  standing,
-}: {
-  readonly id: string;
-  readonly name: string;
-  readonly standing: Standing | null;
-}): JSX.Element {
-  return (
-    <div className={NAME_LINE}>
-      <span id={id} className="font-semibold sm:flex-1">
-        {name}
-      </span>
-      {standing === null ? null : (
-        <span className="sm:w-56">
-          {/* The learned share only (R-225): no due count for the coach. */}
-          <StandingLine standing={standing} due={0} />
-        </span>
-      )}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
 
 /**
- * A player's own assignment: the name and progress, then the deadline,
- * badges and Change.
+ * A player's own assignment: their row, with Change. Its row exists only
+ * while the coach is linked to them (assignments_link_fk), so it always
+ * reaches them; were it not to, the row is the name and Change alone.
  */
 function PlayerRow({
   assignment,
@@ -118,63 +109,50 @@ function PlayerRow({
   readonly today: string;
 }): JSX.Element {
   const nameId = useId();
-  const deadline = useDeadlineText(today);
-  const player = assignment.players[0];
+  const change = useDisclosure();
+  const [player] = assignment.players;
+  const action = <ChangeButton change={change} describedBy={nameId} />;
+  const panel = (
+    <ChangePanel
+      change={change}
+      assignment={assignment}
+      describedBy={nameId}
+      today={today}
+    />
+  );
+  if (player === undefined)
+    return (
+      <li
+        aria-labelledby={nameId}
+        className="flex flex-col gap-2 border-t border-border py-3"
+      >
+        <RowHeader
+          nameId={nameId}
+          name={assignment.target.name}
+          action={action}
+        />
+        {panel}
+      </li>
+    );
   return (
-    <li aria-labelledby={nameId} className={ROW}>
-      <NameLine
-        id={nameId}
-        name={player?.displayName ?? assignment.target.name}
-        standing={
-          player === undefined ? null : (standings.get(player.playerId) ?? null)
-        }
-      />
-      <div className={FACTS}>
-        <span>{deadline(player?.deadline ?? assignment.deadline)}</span>
-        {player === undefined ? null : (
-          <AssignmentBadges flags={player.badges} />
-        )}
-        <RowChange assignment={assignment} describedBy={nameId} today={today} />
-      </div>
-    </li>
+    <AssigneeRow
+      nameId={nameId}
+      name={player.displayName}
+      player={player}
+      shown={standings.get(player.playerId) ?? null}
+      today={today}
+      divided
+      action={action}
+    >
+      {panel}
+    </AssigneeRow>
   );
 }
 
 /**
- * A member under a group's row: the name and progress, the badges, and the
- * member's own deadline where it is not the group's (R-16: a later join
- * moves it). The group's Change acts for them.
- */
-function MemberRow({
-  player,
-  groupDeadline,
-  standing,
-  today,
-}: {
-  readonly player: CoachAssignmentPlayer;
-  readonly groupDeadline: string | null;
-  readonly standing: Standing | null;
-  readonly today: string;
-}): JSX.Element {
-  const nameId = useId();
-  const deadline = useDeadlineText(today);
-  return (
-    <li aria-labelledby={nameId} className="flex flex-col gap-1 py-2">
-      <NameLine id={nameId} name={player.displayName} standing={standing} />
-      <div className={FACTS}>
-        {player.deadline === groupDeadline ? null : (
-          <span>{deadline(player.deadline)}</span>
-        )}
-        <AssignmentBadges flags={player.badges} />
-      </div>
-    </li>
-  );
-}
-
-/**
- * A group's assignment as one row (sign-off #381 part 4): its name, "3
- * players · due Dec 20" and the one Change for the group, then its members'
- * progress rows under it.
+ * A group's assignment as one row: its name and deadline, the one Change
+ * for the group, then its members' rows under it, each with the member's
+ * own deadline where it is not the group's (R-16: a later join moves it).
  */
 function GroupRow({
   assignment,
@@ -187,22 +165,25 @@ function GroupRow({
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const nameId = useId();
-  const deadline = useDeadlineText(today);
+  const change = useDisclosure();
   const { players } = assignment;
   return (
-    <li aria-labelledby={nameId} className={ROW}>
-      <span id={nameId} className="font-semibold">
-        {assignment.target.name}
-      </span>
-      <div className={FACTS}>
-        <span>
-          {t('groupFacts', {
-            count: players.length,
-            deadline: deadline(assignment.deadline),
-          })}
-        </span>
-        <RowChange assignment={assignment} describedBy={nameId} today={today} />
-      </div>
+    <li
+      aria-labelledby={nameId}
+      className="flex flex-col gap-2 border-t border-border py-3"
+    >
+      <RowHeader
+        nameId={nameId}
+        name={assignment.target.name}
+        action={<ChangeButton change={change} describedBy={nameId} />}
+      />
+      <DeadlineLine deadline={assignment.deadline} today={today} />
+      <ChangePanel
+        change={change}
+        assignment={assignment}
+        describedBy={nameId}
+        today={today}
+      />
       {players.length === 0 ? null : (
         <ul
           aria-label={t('groupMembers', { name: assignment.target.name })}
@@ -213,7 +194,7 @@ function GroupRow({
               key={player.playerId}
               player={player}
               groupDeadline={assignment.deadline}
-              standing={standings.get(player.playerId) ?? null}
+              shown={standings.get(player.playerId) ?? null}
               today={today}
             />
           ))}
@@ -223,10 +204,35 @@ function GroupRow({
   );
 }
 
+/** A member under a group's row; the group's Change acts for them. */
+function MemberRow({
+  player,
+  groupDeadline,
+  shown,
+  today,
+}: {
+  readonly player: CoachAssignmentPlayer;
+  readonly groupDeadline: string | null;
+  readonly shown: AssigneeStanding | null;
+  readonly today: string;
+}): JSX.Element {
+  const nameId = useId();
+  return (
+    <AssigneeRow
+      nameId={nameId}
+      name={player.displayName}
+      player={player}
+      shown={shown}
+      today={today}
+      groupDeadline={groupDeadline}
+    />
+  );
+}
+
 /**
- * Whom the coach's repertoire is assigned to (R-225, R-226): a row per
- * assignment. A player's own has its own row and Change; a group's is one
- * row with one Change and its members' progress under it. A player who has
+ * Whom the coach's repertoire is assigned to (R-225, R-226, R-231): a row
+ * per assignment. A player's own has its own row and Change; a group's is
+ * one row with one Change and its members' rows under it. A player who has
  * it both ways shows in both.
  */
 export function AssigneeRows({
@@ -235,9 +241,9 @@ export function AssigneeRows({
   today,
 }: {
   readonly assignments: readonly CoachAssignment[];
-  /** Each player's standing, null where the coach sees none (R-155). */
+  /** Each player's standing and status, null where the coach sees none (R-155). */
   readonly standings: Standings;
-  /** The earliest deadline the date field offers (R-203). */
+  /** Today in Vilnius: the date fields' earliest day (R-203). */
   readonly today: string;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');

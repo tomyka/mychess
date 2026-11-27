@@ -6,8 +6,8 @@
 // trained (R-154); the grid opens Rokas's progress page, whose chapters
 // open to their lines (R-152). Rokas's private London is named nowhere and
 // its progress URL is not found (R-39); Dovydas's own copy of the Italian
-// shows its badge only (R-155); Gabija's shared Taimanov links from its own
-// page to her progress on it.
+// says only that the progress view ended (R-155); Gabija's shared Taimanov
+// links from its own page to her progress on it.
 import {
   expect,
   type BrowserContext,
@@ -24,12 +24,7 @@ import {
   type Cast,
   type Player,
 } from './support/assignment-people';
-import {
-  assignTo,
-  badge,
-  fixture,
-  importRepertoire,
-} from './support/assignments';
+import { assignTo, fixture, importRepertoire } from './support/assignments';
 import { createGroup } from './support/coaching';
 import { en, format, test } from './support/journey';
 import {
@@ -98,10 +93,13 @@ const SEEDED = {
 
 type Seeded = keyof typeof SEEDED;
 
-/** "Last trained today" for Gabija and Rokas; Dovydas has not (R-154). */
+/**
+ * Last trained in the short form of the group grid's column: "today" for
+ * Gabija and Rokas, "never" for Dovydas (R-154).
+ */
 function lastTrained(cast: Cast, name: Seeded): string {
-  const t = cast.messages.coach.progress;
-  return name === DOVYDAS ? t.neverTrained : t.today;
+  const t = cast.messages.coach.progress.trained;
+  return name === DOVYDAS ? t.never : t.today;
 }
 
 /** The private repertoire's name is not on the page nor in what it was sent. */
@@ -141,10 +139,27 @@ async function playersList(coach: Page, cast: Cast): Promise<void> {
   await expectNoPrivateName(coach);
 }
 
-/** A grid cell's link name: the player, the repertoire, % and due (WCAG 2.5.3). */
+/**
+ * A grid cell's link name: the player, the repertoire, % and due, or "Not
+ * started" for Dovydas, who has not begun (WCAG 2.5.3).
+ */
 function cellName(cast: Cast, name: Seeded): string {
   const t = cast.messages.coach.progress;
   const counts = SEEDED[name];
+  // A word replaces % and due: Done for Gabija, who tracked every move
+  // (R-129), Not started for Dovydas.
+  const word =
+    name === GABIJA
+      ? cast.messages.coach.status.done
+      : name === DOVYDAS
+        ? t.cellNotStarted
+        : null;
+  if (word !== null)
+    return format(t.cellLabelNothing, {
+      name,
+      repertoire: KARO_KAN,
+      nothing: word,
+    });
   return format(t.cellLabel, {
     name,
     repertoire: KARO_KAN,
@@ -154,9 +169,10 @@ function cellName(cast: Cast, name: Seeded): string {
 }
 
 /**
- * The group page's grid (R-153): a row per player with "last trained", the
- * Caro-Kann column, each cell % learned and the due count as seeded, and
- * Gabija's Mastered. Opens Rokas's cell.
+ * The group page's grid (R-153), desktop: a row per player with "last
+ * trained", the Caro-Kann column, each cell % learned and the due count as
+ * seeded (Gabija's "Done", Dovydas's "Not started"), and Gabija's
+ * Mastered. Opens Rokas's cell.
  */
 async function groupGrid(coach: Page, cast: Cast): Promise<void> {
   const t = cast.messages.coach.progress;
@@ -238,16 +254,26 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
   await expect(coach).toHaveURL(/\/coach\/players\/[^/]+$/);
 }
 
-/** The player page's progress section (R-151 to R-155). */
-const progressSection = (coach: Page, cast: Cast): Locator =>
+/**
+ * The player page's Repertoires section (R-151 to R-155, R-231). Its name
+ * carries its count ("Repertoires · 1"), so it is matched from its start.
+ */
+const repertoiresSection = (coach: Page, cast: Cast): Locator =>
   coach.getByRole('region', {
-    name: cast.messages.coach.progress.title,
-    exact: true,
+    name: new RegExp(`^${cast.messages.coach.player.repertoires} · `, 'u'),
   });
 
-/** One row of the progress section, by its repertoire's name. */
-const progressRow = (coach: Page, cast: Cast, name: string): Locator =>
-  progressSection(coach, cast).getByRole('listitem').filter({ hasText: name });
+/** One card of the Repertoires section, by its title. */
+const repertoireCard = (coach: Page, cast: Cast, title: string): Locator =>
+  repertoiresSection(coach, cast)
+    .getByRole('listitem')
+    .filter({
+      has: coach.getByRole('heading', { level: 3, name: title, exact: true }),
+    });
+
+/** The player page's header, where the meta line says when they last trained. */
+const playerHeader = (coach: Page): Locator =>
+  coach.getByRole('main').locator('header').first();
 
 /**
  * Rokas's player page: the Caro-Kann as assigned with his counts, and his
@@ -259,15 +285,24 @@ async function rokasPage(
   londonId: string,
 ): Promise<void> {
   const t = cast.messages.coach.progress;
-  const section = progressSection(coach, cast);
-  await expect(section.getByText(t.today, { exact: true })).toBeVisible();
-  const row = progressRow(coach, cast, KARO_KAN);
-  await expect(row.getByRole('link', { name: KARO_KAN })).toBeVisible();
-  await expect(row.getByText(t.assigned, { exact: true })).toBeVisible();
   await expect(
-    row.getByText(countsText(SEEDED[ROKAS]), { exact: true }),
+    playerHeader(coach).getByText(
+      format(cast.messages.coach.player.trained, { when: t.trained.today }),
+      { exact: true },
+    ),
   ).toBeVisible();
-  await expect(section.getByRole('listitem')).toHaveCount(1);
+  await expect(coach.getByText(t.lastTrainedNote, { exact: true })).toHaveCount(
+    1,
+  );
+  const card = repertoireCard(coach, cast, KARO_KAN);
+  await expect(card.getByRole('link', { name: t.title })).toBeVisible();
+  await expect(card.getByText(t.tag.assigned, { exact: true })).toBeVisible();
+  await expect(
+    card.getByText(countsText(SEEDED[ROKAS]), { exact: true }),
+  ).toBeVisible();
+  await expect(
+    repertoiresSection(coach, cast).getByRole('listitem'),
+  ).toHaveCount(1);
   await expectNoPrivateName(coach);
 
   const response = await coach.goto(progressPath(idIn(coach.url()), londonId));
@@ -276,9 +311,10 @@ async function rokasPage(
 }
 
 /**
- * Dovydas's player page: the Italian he made his own copy of shows its
- * badge and no progress or link (R-155); its progress URL is not found.
- * His training on the copy does not count as trained (R-154).
+ * Dovydas's player page: the Italian he made his own copy of is titled as
+ * his, says the progress view ended, and has no progress or link (R-155);
+ * its progress URL is not found. His training on the copy does not count
+ * as trained (R-154).
  */
 async function dovydasPage(
   coach: Page,
@@ -291,15 +327,23 @@ async function dovydasPage(
   await playersRegion(coach, cast)
     .getByRole('link', { name: DOVYDAS, exact: true })
     .click();
-  const section = progressSection(coach, cast);
   await expect(
-    section.getByText(t.neverTrained, { exact: true }),
+    playerHeader(coach).getByText(messages.coach.player.neverTrained, {
+      exact: true,
+    }),
   ).toBeVisible();
-  const row = progressRow(coach, cast, ITALIAN);
-  await expect(badge(row, messages, 'forked')).toBeVisible();
-  await expect(row.getByText(t.forkedNote, { exact: true })).toBeVisible();
-  await expect(row.getByRole('link')).toHaveCount(0);
-  await expect(row.getByText(t.assigned, { exact: true })).toBeVisible();
+  const card = repertoireCard(
+    coach,
+    cast,
+    format(t.ownCopyTitle, { name: DOVYDAS, repertoire: ITALIAN }),
+  );
+  await expect(card.getByText(t.tag.fork, { exact: true })).toBeVisible();
+  await expect(
+    card.getByText(format(messages.coach.player.forkEnded, { name: DOVYDAS }), {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(card.getByRole('link')).toHaveCount(0);
 
   const response = await coach.goto(progressPath(idIn(coach.url()), italianId));
   expect(response?.status()).toBe(404);
@@ -311,27 +355,27 @@ async function dovydasPage(
  * her progress on it.
  */
 async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
-  const { messages } = cast;
-  const t = messages.coach.progress;
+  const t = cast.messages.coach.progress;
   await coach.goto('/coach');
   await playersRegion(coach, cast)
     .getByRole('link', { name: GABIJA, exact: true })
     .click();
-  const caroKann = progressRow(coach, cast, KARO_KAN);
+  const caroKann = repertoireCard(coach, cast, KARO_KAN);
   await expect(
     caroKann.getByText(countsText(SEEDED[GABIJA]), { exact: true }),
   ).toBeVisible();
   await expect(caroKann.getByText(t.mastered, { exact: true })).toBeVisible();
   const taimanov = notStarted(TAIMANOV_KEYS.length);
-  const taimanovRow = progressRow(coach, cast, TAIMANOV);
-  await expect(taimanovRow.getByText(t.shared, { exact: true })).toBeVisible();
+  const taimanovCard = repertoireCard(coach, cast, TAIMANOV);
   await expect(
-    taimanovRow.getByText(countsText(taimanov), { exact: true }),
+    taimanovCard.getByText(t.tag.shared, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    taimanovCard.getByText(countsText(taimanov), { exact: true }),
   ).toBeVisible();
 
-  await coach
-    .getByRole('region', { name: messages.coach.shared.title, exact: true })
-    .getByRole('link', { name: new RegExp(`^${TAIMANOV}`) })
+  await taimanovCard
+    .getByRole('link', { name: t.openShared, exact: true })
     .click();
   await expect(coach).toHaveURL(/\/repertoires\/[0-9a-f-]{36}$/);
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(TAIMANOV);

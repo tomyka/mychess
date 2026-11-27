@@ -3,35 +3,36 @@
 import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
-import type { GroupGrid } from '../../../../server/coach-pages';
-import { PRIMARY_BUTTON } from '../../../buttons';
+import type { CoachGroupPage } from '../../../../server/coach-pages';
 import { ConfirmedAction } from '../../../confirmed-action';
-import { SECTION, SECTION_TITLE } from '../../../settings/styles';
-import { PendingButton } from '../../../pending-button';
+import { SECTION_TITLE } from '../../../settings/styles';
+import { CONTENT } from '../../../surfaces';
 import {
-  addMemberAction,
   deleteGroupAction,
   removeMemberAction,
   type CoachActionState,
 } from '../../actions';
 import { RefusalLine } from '../../refusal-line';
-import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
+import { AddMember } from './add-member';
+import { AssignedSection } from './assigned-section';
+import { GroupHeader } from './group-header';
+import { GroupInviteLink } from './group-invite-link';
 import { ProgressGrid } from './progress-grid';
-import { RenameGroupForm } from './rename-group-form';
 
-/** One of the coach's groups, its members, and the linked players to add. */
-export interface CoachGroupPageData {
-  readonly id: string;
-  readonly name: string;
-  readonly members: readonly AccountRef[];
-  /** The coach's linked players not yet in the group. */
-  readonly addable: readonly AccountRef[];
-}
+/** What the group page shows: the loader's read, its members by id and name. */
+export type GroupPageData = Pick<
+  CoachGroupPage,
+  'id' | 'name' | 'addable' | 'grid' | 'invite' | 'assignments' | 'today'
+> & { readonly members: readonly AccountRef[] };
 
-const INITIAL: CoachActionState = {};
+const NOT_REMOVED: CoachActionState = {};
 
-/** A form's dispatch, as useActionState hands it over. */
-type Dispatch = (form: FormData) => void;
+/**
+ * A section after Progress: a rule above it (design, group page height
+ * budget), none at the top of the side column from lg.
+ */
+const SIDE_SECTION =
+  'flex flex-col gap-3 border-t border-border pt-6 lg:first:border-t-0 lg:first:pt-0';
 
 /** One member, with Remove (the link stays). */
 function MemberRow({
@@ -41,16 +42,16 @@ function MemberRow({
 }: {
   readonly groupId: string;
   readonly member: AccountRef;
-  readonly remove: Dispatch;
+  readonly remove: (form: FormData) => void;
 }): JSX.Element {
   const t = useTranslations('coach.group');
   const nameId = useId();
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
+    <li className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-2 first:border-t-0">
       <span id={nameId} className="min-w-0 break-words">
         {member.displayName}
       </span>
-      {/* Asks first, as "Atsieti" does (#329). */}
+      {/* Asks first, as Unlink does (#329). */}
       <ConfirmedAction
         action={remove}
         fields={{ groupId, playerId: member.id }}
@@ -59,147 +60,102 @@ function MemberRow({
         question={t('removeConfirm', { name: member.displayName })}
         confirm={t('confirmRemove')}
         cancel={t('cancel')}
+        look="danger"
       />
     </li>
   );
 }
 
-/** The group's members, each with Remove, and a refused Remove. */
-function Members({
-  group,
-}: {
-  readonly group: CoachGroupPageData;
-}): JSX.Element {
-  const t = useTranslations('coach.group');
+/** Players · N: the members, each with Remove, and Add a player. */
+function Players({ page }: { readonly page: GroupPageData }): JSX.Element {
+  const t = useTranslations('coach');
   const titleId = useId();
-  const [state, remove] = useActionState(removeMemberAction, INITIAL);
+  const [state, remove] = useActionState(removeMemberAction, NOT_REMOVED);
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
+    <section aria-labelledby={titleId} className={SIDE_SECTION}>
       <h2 id={titleId} className={SECTION_TITLE}>
-        {t('membersTitle')}
+        {t('sectionCount', {
+          title: t('players.title'),
+          count: page.members.length,
+        })}
       </h2>
       <RefusalLine state={state} />
-      {group.members.length === 0 ? (
-        <p className="text-fg-muted">{t('noMembers')}</p>
+      {page.members.length === 0 ? (
+        <p className="text-fg-muted">{t('group.noMembers')}</p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {group.members.map((member) => (
+        <ul className="flex flex-col">
+          {page.members.map((member) => (
             <MemberRow
               key={member.id}
-              groupId={group.id}
+              groupId={page.id}
               member={member}
               remove={remove}
             />
           ))}
         </ul>
       )}
+      <AddMember page={page} />
     </section>
   );
 }
 
-/** The picker of linked players not yet in the group (R-12). */
-function AddPicker({
-  group,
-  add,
-}: {
-  readonly group: CoachGroupPageData;
-  readonly add: Dispatch;
-}): JSX.Element {
+/** Delete group, in the error tone, confirmed. */
+function DeleteGroup({ page }: { readonly page: GroupPageData }): JSX.Element {
   const t = useTranslations('coach.group');
-  const fieldId = useId();
   return (
-    <form action={add} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-      <input type="hidden" name="groupId" value={group.id} />
-      <div className="flex grow flex-col gap-2">
-        <label htmlFor={fieldId} className="font-medium">
-          {t('addLabel')}
-        </label>
-        <select
-          id={fieldId}
-          name="playerId"
-          className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg"
-        >
-          {group.addable.map((player) => (
-            <option key={player.id} value={player.id}>
-              {player.displayName}
-            </option>
-          ))}
-        </select>
-      </div>
-      <PendingButton className={PRIMARY_BUTTON}>{t('add')}</PendingButton>
-    </form>
-  );
-}
-
-/** Why there is no one to add: everyone linked is in, or nobody is linked. */
-function NobodyToAdd({
-  group,
-}: {
-  readonly group: CoachGroupPageData;
-}): JSX.Element {
-  const t = useTranslations('coach');
-  return (
-    <p className="text-fg-muted">
-      {group.members.length === 0 ? t('players.empty') : t('group.allIn')}
-    </p>
-  );
-}
-
-/** "Add a player": the picker, or why there is no one to add; a refused Add. */
-function AddMember({
-  group,
-}: {
-  readonly group: CoachGroupPageData;
-}): JSX.Element {
-  const t = useTranslations('coach.group');
-  const titleId = useId();
-  const [state, add] = useActionState(addMemberAction, INITIAL);
-  return (
-    <section aria-labelledby={titleId} className={SECTION}>
-      <h2 id={titleId} className={SECTION_TITLE}>
-        {t('addTitle')}
-      </h2>
-      <RefusalLine state={state} />
-      {group.addable.length === 0 ? (
-        <NobodyToAdd group={group} />
-      ) : (
-        <AddPicker group={group} add={add} />
-      )}
-    </section>
+    <ConfirmedAction
+      action={deleteGroupAction}
+      fields={{ groupId: page.id }}
+      label={t('delete')}
+      question={t('deleteConfirm', { name: page.name })}
+      confirm={t('confirmDelete')}
+      cancel={t('cancel')}
+      look="danger"
+    />
   );
 }
 
 /**
- * One group's page in the coach dashboard (plan decision 11), with the
- * group's progress grid above the members (R-153).
+ * One of the coach's groups (spec, A group): its progress first, then
+ * what is assigned to it, its invite link and its players; from lg the
+ * progress on the left and the rest in a side column. Delete group is
+ * rendered once, last: at the bottom on a phone, and placed by the page's
+ * grid at the right of the header from md.
  */
 export function GroupView({
-  group,
-  grid,
+  page,
 }: {
-  readonly group: CoachGroupPageData;
-  readonly grid: GroupGrid;
+  readonly page: GroupPageData;
 }): JSX.Element {
-  const t = useTranslations('coach.group');
-  const nameId = useId();
   return (
-    <main className={COACH_PAGE}>
-      <div className="flex flex-col gap-4">
-        <SubpageHeader title={group.name} titleId={nameId} />
-        <RenameGroupForm groupId={group.id} name={group.name} />
-      </div>
-      <ProgressGrid grid={grid} />
-      <Members group={group} />
-      <AddMember group={group} />
-      <ConfirmedAction
-        action={deleteGroupAction}
-        fields={{ groupId: group.id }}
-        describedBy={nameId}
-        label={t('delete')}
-        question={t('deleteConfirm', { name: group.name })}
-        confirm={t('confirmDelete')}
-        cancel={t('cancel')}
+    <main
+      className={`${CONTENT} gap-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-start`}
+    >
+      <GroupHeader
+        group={{ ...page, memberCount: page.members.length }}
+        today={page.today}
+        className="md:col-start-1 md:row-start-1"
       />
+      <div className="flex flex-col gap-8 md:col-span-2 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        <ProgressGrid grid={page.grid} />
+        <div className="flex min-w-0 flex-col gap-8">
+          <AssignedSection
+            columns={page.grid.columns}
+            today={page.today}
+            className={SIDE_SECTION}
+          />
+          <GroupInviteLink
+            groupId={page.id}
+            invite={page.invite}
+            today={page.today}
+            className={SIDE_SECTION}
+          />
+          <Players page={page} />
+        </div>
+      </div>
+      <div className="mt-2 flex flex-col border-t border-border pt-6 md:col-start-2 md:row-start-1 md:mt-0 md:items-end md:border-t-0 md:pt-0">
+        <DeleteGroup page={page} />
+      </div>
     </main>
   );
 }

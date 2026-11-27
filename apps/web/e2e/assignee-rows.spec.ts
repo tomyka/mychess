@@ -3,8 +3,10 @@
 // Italian to Rokas on his own and to the Saturday group (Gabija); in
 // Rokas's row, Change sets a deadline and clears it (R-51; the date field
 // starts today, R-203) and Unassign asks first (R-130); the group is one
-// row, "1 player · due <date>", with Gabija under it and one Change that
-// clears the group's deadline (R-16, sign-off #381 part 4).
+// row, "deadline <date>", with Gabija under it and one Change that clears
+// the group's deadline (R-16, sign-off #381 part 4). Rokas, put in the
+// group, is still offered on his own, labelled as having it via the group
+// (R-134).
 import {
   expect,
   type BrowserContext,
@@ -32,7 +34,6 @@ import {
 } from './support/assignments';
 import { createGroup, createInvite } from './support/coaching';
 import { en, format, LOCALE, test } from './support/journey';
-import { plural } from './support/repertoires';
 import { todayRow } from './support/today';
 import { ITALIAN, ITALIAN_PGN } from './support/training-cast';
 
@@ -52,12 +53,15 @@ function shortDay(day: string): string {
   }).format(new Date(`${day}T12:00:00Z`));
 }
 
-/** The row's deadline: "due Dec 6", or that there is none. */
+/**
+ * The row's deadline: "deadline Dec 6", or that there is none. A group's
+ * member whose deadline is the group's leaves it to the group's row.
+ */
 const rowDeadline = (row: Locator, day: string | null): Locator =>
   row.getByText(
     day === null
-      ? en.assignment.noDeadline
-      : format(t.due, { date: shortDay(day) }),
+      ? en.coach.status.noDeadline
+      : format(en.coach.status.deadline, { date: shortDay(day) }),
     { exact: true },
   );
 
@@ -74,12 +78,10 @@ async function changeAndClear(
   await expect(
     row.getByRole('button', { name: t.clearDeadline, exact: true }),
   ).toHaveCount(0);
-  const field = row.getByLabel(t.newDeadline, { exact: true });
+  const field = row.getByLabel(t.deadlineLabel, { exact: true });
   await expect(field).toHaveAttribute('min', vilniusDay(0));
   await field.fill(day);
-  await row
-    .getByRole('button', { name: t.changeDeadline, exact: true })
-    .click();
+  await row.getByRole('button', { name: t.saveDeadline, exact: true }).click();
   await expect(row.getByText(t.deadlineSaved, { exact: true })).toBeVisible();
   await expect(rowDeadline(row, day)).toBeVisible();
   await rokas.reload();
@@ -114,27 +116,14 @@ async function unassign(row: Locator, rokas: Page): Promise<void> {
   });
 }
 
-/** The group row's facts: "1 player · due Dec 6", or "· No deadline". */
-const groupFacts = (row: Locator, day: string | null): Locator =>
-  row.getByText(
-    plural(t.groupFacts, {
-      count: 1,
-      deadline:
-        day === null
-          ? en.assignment.noDeadline
-          : format(t.due, { date: shortDay(day) }),
-    }),
-    { exact: true },
-  );
-
 /**
- * The group's one row (sign-off #381 part 4): "1 player · due <date>",
- * Gabija listed under it with no Change of her own, and the group's one
- * Change, whose Clear deadline leaves "1 player · No deadline".
+ * The group's one row (sign-off #381 part 4): "deadline <date>", Gabija
+ * listed under it with no Change of her own, and the group's one Change,
+ * whose Clear deadline leaves "No deadline".
  */
 async function groupDeadline(coach: Page, day: string): Promise<void> {
   const row = assignmentRow(coach, en, GROUP);
-  await expect(groupFacts(row, day)).toBeVisible();
+  await expect(rowDeadline(row, day)).toBeVisible();
   const members = groupMembers(coach, en, GROUP);
   const gabija = members.getByRole('listitem', { name: GABIJA, exact: true });
   await expect(gabija).toBeVisible();
@@ -144,7 +133,7 @@ async function groupDeadline(coach: Page, day: string): Promise<void> {
   await expect(change).toHaveAccessibleDescription(GROUP);
   await openChange(row, en);
   await row.getByRole('button', { name: t.clearDeadline, exact: true }).click();
-  await expect(groupFacts(row, null)).toBeVisible();
+  await expect(rowDeadline(row, null)).toBeVisible();
   await expect(
     row.getByRole('button', { name: t.clearDeadline, exact: true }),
   ).toHaveCount(0);
@@ -158,6 +147,13 @@ async function groupDeadline(coach: Page, day: string): Promise<void> {
 async function bothWays(coach: Page, manage: string): Promise<void> {
   await setInGroup(coach, en, { name: ROKAS, member: true });
   await coach.goto(manage);
+  // Still offered, as an assignment of his own sets his own deadline (R-134).
+  await expect(
+    coach.getByRole('option', {
+      name: format(t.viaGroups, { name: ROKAS, groups: GROUP }),
+      exact: true,
+    }),
+  ).toHaveCount(1);
   await assignTo(coach, en, { target: ROKAS });
   const own = assignmentRow(coach, en, ROKAS);
   await expect(own).toHaveCount(1);

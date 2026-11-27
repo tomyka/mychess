@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/catalogue';
 import type { CoachAssignment } from '@mychess/db';
 import type { AssignPanelData } from '../../../server/coach-assignments';
+import { PRIMARY_BUTTON } from '../../buttons';
 import type { AssignmentActionState } from './assign-actions';
 import { AssignPanel } from './assign-panel';
 
@@ -37,6 +38,7 @@ const GROUP = '0b9e7a51-3c2d-4e6f-8a1b-2c3d4e5f6a7b';
 const p = MESSAGES.assignment.panel;
 
 const STILL = { paused: false, forked: false, overdue: false, updated: false };
+const NOT_DONE = { done: false, forked: false, overdue: false, paused: false };
 
 const TO_GROUP: CoachAssignment = {
   id: 'a-group',
@@ -48,12 +50,19 @@ const TO_GROUP: CoachAssignment = {
       displayName: 'Eglė',
       deadline: '2026-12-05',
       badges: { ...STILL, paused: true, overdue: true },
+      status: {
+        ...NOT_DONE,
+        deadline: '2026-12-05',
+        paused: true,
+        overdue: true,
+      },
     },
     {
       playerId: 'marta',
       displayName: 'Marta',
       deadline: null,
       badges: { ...STILL, forked: true },
+      status: { ...NOT_DONE, deadline: null, forked: true },
     },
   ],
 };
@@ -68,6 +77,7 @@ const TO_ROKAS: CoachAssignment = {
       displayName: 'Rokas',
       deadline: null,
       badges: { ...STILL, paused: true },
+      status: { ...NOT_DONE, deadline: null, paused: true },
     },
   ],
 };
@@ -215,6 +225,38 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
       await screen.findByText(MESSAGES.assignment.alreadyAssigned),
     ).toBeDefined();
     expect(screen.queryByText(p.assigned)).toBeNull();
+  });
+
+  it('still offers a player who has it through a group, saying so (R-134)', () => {
+    renderPanel({
+      ...PEOPLE,
+      players: [
+        { id: 'rokas', displayName: 'Rokas', viaGroups: ['U1600'] },
+        { id: 'egle', displayName: 'Eglė', viaGroups: ['Juniors', 'U1600'] },
+      ],
+      assignments: [],
+    });
+    expect(options()).toEqual([
+      p.choose,
+      'Rokas (has it via U1600 · assigning sets their own deadline)',
+      'Eglė (has it via Juniors and U1600 · assigning sets their own deadline)',
+      'Šeštadienio grupė',
+    ]);
+  });
+
+  it('makes Assign the primary button', () => {
+    renderPanel();
+    expect(screen.getByRole('button', { name: p.assign }).className).toContain(
+      PRIMARY_BUTTON,
+    );
+  });
+
+  it('shows the picked deadline beside the field as day, month and year', () => {
+    renderPanel();
+    fireEvent.change(screen.getByLabelText(p.deadline), {
+      target: { value: '2026-12-20' },
+    });
+    expect(screen.getByText('Dec 20, 2026')).toBeDefined();
   });
 
   it('offers what the loader left assignable, leaving out an empty kind', () => {

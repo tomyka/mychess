@@ -183,6 +183,7 @@ export {
   coachPlayerProgress,
   coachRepertoireProgress,
   type GroupProgress,
+  type GroupColumn,
   type GroupProgressCell,
   type GroupProgressRow,
   type PlayerProgress,
@@ -192,6 +193,7 @@ export {
 } from './progress/coach-progress';
 export {
   coachAssigneeStandings,
+  type AssigneeStanding,
   type AssigneeStandingsRequest,
 } from './progress/assignee-standings';
 export { coachDashboard, type DashboardPlayer } from './progress/dashboard';

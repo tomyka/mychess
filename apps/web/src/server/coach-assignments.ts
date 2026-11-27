@@ -8,10 +8,10 @@ import {
   coachAssignments,
   coachGroups,
   coachPlayers,
+  type AssigneeStanding,
   type CoachAssignment,
   type Db,
 } from '@mychess/db';
-import type { Standing } from '@mychess/chess';
 import {
   assignableTargets,
   isCoach,
@@ -44,10 +44,11 @@ export interface AssignPanelData {
    */
   readonly today: string;
   /**
-   * Each assigned player's standing on it (R-225), by player id; null
-   * where the coach is shown none, as for a player's own copy (R-155).
+   * Each assigned player's standing on it and their assignment's status
+   * (R-225, R-231: the Done pill), by player id; null where the coach is
+   * shown none, as for a player's own copy (R-155).
    */
-  readonly standings: ReadonlyMap<string, Standing | null>;
+  readonly standings: ReadonlyMap<string, AssigneeStanding | null>;
 }
 
 /**
@@ -60,7 +61,7 @@ function assigneeStandings(
   of: { readonly coachId: string; readonly repertoireId: string },
   assignments: readonly CoachAssignment[],
   now: Date,
-): Promise<ReadonlyMap<string, Standing | null>> {
+): Promise<ReadonlyMap<string, AssigneeStanding | null>> {
   const playerIds = [
     ...new Set(assignments.flatMap((a) => a.players.map((p) => p.playerId))),
   ];
