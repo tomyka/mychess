@@ -13,17 +13,6 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
 const loader = vi.hoisted(() => ({
   data: vi.fn<(id: unknown) => Promise<RepertoirePageData>>(),
-  training: vi.fn<(account: unknown, id: string) => Promise<unknown>>(),
-}));
-
-// The session account; requireOnboarded's redirects are session.ts's own.
-vi.mock('../../../server/session', () => ({
-  requireOnboarded: () => Promise.resolve({ id: 'rokas' }),
-}));
-
-// Which counts it reads, and for whom, is the loader's own test.
-vi.mock('../../../server/training', () => ({
-  repertoireTraining: loader.training,
 }));
 
 vi.mock('../know-actions', () => ({
@@ -33,7 +22,8 @@ vi.mock('../know-actions', () => ({
 }));
 
 // The loader's access check (404 for anything not the viewer's) and its
-// sign-in redirect are covered by the feature suite.
+// sign-in redirect are covered by the feature suite; which training it
+// reads, and for whom, by its own test.
 vi.mock('../../../server/repertoires', () => ({
   repertoirePageData: loader.data,
 }));
@@ -66,6 +56,13 @@ const LONDON_DATA: RepertoirePageData = {
   names: { taxonomyNames: {}, distinctions: {} },
   coachNotes: [],
   forkNotes: [],
+  training: pageTraining(
+    { repertoireId: ID, counts: { due: 4, toLearn: 6 } },
+    {
+      counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
+      mastered: false,
+    },
+  ),
 };
 
 const NO_QUERY = Promise.resolve({});
@@ -79,20 +76,11 @@ function renderIn(element: React.ReactNode): void {
 }
 
 beforeEach(() => {
-  loader.training.mockReset().mockResolvedValue(
-    pageTraining(
-      { repertoireId: ID, counts: { due: 4, toLearn: 6 } },
-      {
-        counts: { notStarted: 10, skipped: 0, due: 0, learned: 0 },
-        mastered: false,
-      },
-    ),
-  );
+  loader.data.mockReset().mockResolvedValue(LONDON_DATA);
 });
 
 describe('the repertoire page', () => {
   it('opens on the chapter the query names, else on the first (screen note)', async () => {
-    loader.data.mockResolvedValue(LONDON_DATA);
     const open = async (chapter?: string | string[]) => {
       const { unmount } = render(
         <NextIntlClientProvider locale="en" messages={MESSAGES}>
@@ -113,7 +101,6 @@ describe('the repertoire page', () => {
   });
 
   it('loads the repertoire of the id and shows it', async () => {
-    loader.data.mockResolvedValue(LONDON_DATA);
     renderIn(
       await RepertoirePage({
         params: Promise.resolve({ id: ID }),
@@ -128,14 +115,12 @@ describe('the repertoire page', () => {
   });
 
   it('trains the repertoire from its page, with its counts (R-142)', async () => {
-    loader.data.mockResolvedValue(LONDON_DATA);
     renderIn(
       await RepertoirePage({
         params: Promise.resolve({ id: ID }),
         searchParams: NO_QUERY,
       }),
     );
-    expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
     expect(
       screen.getByRole('link', { name: 'Review 4' }).getAttribute('href'),
     ).toBe(`/training?mode=review&r=${ID}`);
@@ -145,7 +130,6 @@ describe('the repertoire page', () => {
   });
 
   it('leaves assigning and sharing to its Repertoire screen (R-226)', async () => {
-    loader.data.mockResolvedValue(LONDON_DATA);
     renderIn(
       await RepertoirePage({
         params: Promise.resolve({ id: ID }),

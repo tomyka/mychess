@@ -2,8 +2,6 @@ import type { JSX } from 'react';
 import { CHAPTER_PARAM } from '../../../lib/routes';
 import { chapterIdSchema } from '../../../server/repertoire-edit';
 import { repertoirePageData } from '../../../server/repertoires';
-import { requireOnboarded } from '../../../server/session';
-import { repertoireTraining } from '../../../server/training';
 import { RepertoireScreen } from './repertoire-screen';
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -27,12 +25,8 @@ export default async function RepertoirePage({
   const chapter = chapterIdSchema.safeParse(
     (await searchParams)[CHAPTER_PARAM],
   );
-  const { repertoire, graph, notes, names, coachNotes, forkNotes } =
+  const { repertoire, graph, notes, names, coachNotes, forkNotes, training } =
     await repertoirePageData(id);
-  const training = await repertoireTraining(
-    await requireOnboarded(),
-    repertoire.id,
-  );
   return (
     <RepertoireScreen
       key={repertoire.version}

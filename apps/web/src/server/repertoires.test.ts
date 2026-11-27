@@ -5,6 +5,7 @@ import {
   importTargets,
   myRepertoires,
   repertoireManageData,
+  repertoirePageData,
 } from './repertoires';
 
 const LONDON = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -34,6 +35,13 @@ const server = vi.hoisted(() => ({
   shared:
     vi.fn<(db: unknown, ownerId: string, id: string) => Promise<string[]>>(),
   assignedByMe: vi.fn<(db: unknown, coachId: string) => Promise<Set<string>>>(),
+  personalNotes:
+    vi.fn<(db: unknown, ownerId: string, id: string) => Promise<unknown>>(),
+  coachNotes:
+    vi.fn<(db: unknown, ownerId: string, id: string) => Promise<unknown>>(),
+  forkNotes:
+    vi.fn<(db: unknown, ownerId: string, id: string) => Promise<unknown>>(),
+  training: vi.fn<(account: unknown, id: string) => Promise<unknown>>(),
 }));
 
 // The owner-filtered read: the db returns nothing for a repertoire the
@@ -45,7 +53,12 @@ vi.mock('@mychess/db', () => ({
   playerCoaches: server.coaches,
   sharedCoachIds: server.shared,
   assignedByMe: server.assignedByMe,
+  listPersonalNotes: server.personalNotes,
+  coachNotesOn: server.coachNotes,
+  forkCoachNotesOn: server.forkNotes,
 }));
+// Which counts it reads, and for whom, is the training loader's own test.
+vi.mock('./training', () => ({ repertoireTraining: server.training }));
 vi.mock('./db', () => ({ getDb: () => DB }));
 // The session account; requireOnboarded's redirects are session.ts's own.
 vi.mock('./session', () => ({ requireOnboarded: server.account }));
@@ -236,20 +249,21 @@ describe('importTargets', () => {
   });
 });
 
-describe('repertoireManageData', () => {
-  const OWN: LoadedRepertoire = {
-    repertoire: {
-      id: LONDON,
-      ownerId: 'rokas',
-      side: 'white',
-      name: 'Londono sistema',
-      version: 2,
-      createdAt: NOW,
-      updatedAt: NOW,
-    },
-    graph: graphOf(LONDON_PGN),
-  };
+/** Rokas's own London as the owner-filtered read gives it. */
+const OWN: LoadedRepertoire = {
+  repertoire: {
+    id: LONDON,
+    ownerId: 'rokas',
+    side: 'white',
+    name: 'Londono sistema',
+    version: 2,
+    createdAt: NOW,
+    updatedAt: NOW,
+  },
+  graph: graphOf(LONDON_PGN),
+};
 
+describe('repertoireManageData', () => {
   beforeEach(() => {
     server.account.mockResolvedValue({ id: 'rokas', coachSince: null });
     server.load.mockReset().mockResolvedValue(OWN);
@@ -293,5 +307,43 @@ describe('repertoireManageData', () => {
     });
     await expect(repertoireManageData(LONDON)).rejects.toBeInstanceOf(NotFound);
     expect(server.shared).not.toHaveBeenCalled();
+  });
+});
+
+describe('repertoirePageData', () => {
+  const ROKAS = { id: 'rokas', coachSince: null };
+  const TRAINING = { standing: { kind: 'notStarted' }, trainable: null };
+  const NOTE = {
+    coachId: 'c-1',
+    coachName: 'Dovydas',
+    moveKey: 'k',
+    text: 'Hi',
+  };
+
+  beforeEach(() => {
+    server.account.mockReset().mockResolvedValue(ROKAS);
+    server.load.mockReset().mockResolvedValue(OWN);
+    server.personalNotes.mockReset().mockResolvedValue([]);
+    server.coachNotes
+      .mockReset()
+      .mockResolvedValue([{ ...NOTE, updatedAt: NOW }]);
+    server.forkNotes.mockReset().mockResolvedValue([]);
+    server.training.mockReset().mockResolvedValue(TRAINING);
+  });
+
+  it('gives the page all it shows, the session account’s training of it included, authenticating once (R-142)', async () => {
+    const data = await repertoirePageData(LONDON);
+    expect(data.repertoire).toMatchObject({ id: LONDON, version: 2 });
+    expect(data.coachNotes).toEqual([NOTE]);
+    expect(data.forkNotes).toEqual([]);
+    expect(data.training).toBe(TRAINING);
+    expect(server.training).toHaveBeenCalledExactlyOnceWith(ROKAS, LONDON);
+    expect(server.account).toHaveBeenCalledOnce();
+  });
+
+  it('is 404 for a repertoire the account may not view, reading no training', async () => {
+    server.load.mockResolvedValue(undefined);
+    await expect(repertoirePageData(LONDON)).rejects.toBeInstanceOf(NotFound);
+    expect(server.training).not.toHaveBeenCalled();
   });
 });

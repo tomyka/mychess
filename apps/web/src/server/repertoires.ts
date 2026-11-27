@@ -41,6 +41,7 @@ import {
   type VersionedRepertoireForViewer,
 } from './repertoire-for-viewer';
 import { requireOnboarded } from './session';
+import { repertoireTraining, type RepertoireTraining } from './training';
 
 type Own = Result<LoadedRepertoire, RepertoireAccessRefusal>;
 
@@ -199,7 +200,8 @@ export type ForkNote = ForkCoachNote;
 
 /**
  * What the repertoire page shows: the repertoire as its owner sees it,
- * their Personal notes as its notes (R-21), and the coaches' notes.
+ * their Personal notes as its notes (R-21), the coaches' notes, and the
+ * owner's training of it.
  */
 export interface RepertoirePageData extends VersionedRepertoireForViewer {
   /** Every coach's notes on it, read-only (R-107, R-125). */
@@ -209,6 +211,8 @@ export interface RepertoirePageData extends VersionedRepertoireForViewer {
    * read-only (R-43, R-49); none on any other repertoire.
    */
   readonly forkNotes: readonly ForkNote[];
+  /** Its standing and what the owner may train now (R-142); null untrained. */
+  readonly training: RepertoireTraining | null;
 }
 
 /** The owner's coaches and shares of repertoire `id`. */
@@ -277,7 +281,10 @@ export async function repertoireManageData(
   return { repertoire: { id, name }, sharing: await sharingOf(account.id, id) };
 }
 
-/** One repertoire's page; anything the account may not view is 404. */
+/**
+ * One repertoire's page, everything it shows read for the session account
+ * authenticated once; anything the account may not view is 404.
+ */
 export async function repertoirePageData(
   rawId: unknown,
 ): Promise<RepertoirePageData> {
@@ -291,5 +298,6 @@ export async function repertoirePageData(
     ),
     coachNotes: await ownerCoachNotes(account.id, id),
     forkNotes: await forkCoachNotesOn(db, account.id, id),
+    training: await repertoireTraining(account, id),
   };
 }
