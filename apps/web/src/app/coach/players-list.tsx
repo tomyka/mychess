@@ -1,4 +1,4 @@
-import { percentLearned, type ProgressCounts } from '@mychess/chess';
+import type { ProgressCounts } from '@mychess/chess';
 import type { PlayerSummary } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -9,11 +9,27 @@ import { Pill } from '../pill';
 import { SECTION_TITLE } from '../settings/styles';
 import { CARD } from '../surfaces';
 import { useShortDeadline } from '../use-deadline';
+import { useStatusPills } from './assignment-status-line';
 import { LastTrained, LastTrainedNote } from './last-trained';
 import { ROW_LINK } from './row-link';
+import { standingHeadline } from './standing-headline';
 import { StateBar } from './state-bar';
 
-/** The bar beside "N% learned" (R-231); the bar alone says an empty one. */
+/**
+ * The share learned of a standing's headline: none for an empty one, 0
+ * for one not started.
+ */
+const percentOf = (counts: ProgressCounts): number | null => {
+  const headline = standingHeadline(counts, null);
+  if (headline.kind === 'counts') return headline.percent;
+  return headline.kind === 'notStarted' ? 0 : null;
+};
+
+/**
+ * The bar beside "N% learned" (R-231); the bar alone says an empty one. A
+ * player's line has no one status: its Overdue or Done is in the deadline
+ * column.
+ */
 function Learned({
   counts,
   barWidth,
@@ -22,7 +38,7 @@ function Learned({
   readonly barWidth: string;
 }): JSX.Element {
   const t = useTranslations('coach.progress');
-  const percent = percentLearned(counts);
+  const percent = percentOf(counts);
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span className={`${barWidth} shrink-0`}>
@@ -68,10 +84,13 @@ function Deadline({
   readonly form: 'row' | 'cell';
 }): JSX.Element | null {
   const t = useTranslations('coach');
-  const badge = useTranslations('assignment.badge');
   const date = useShortDeadline(today);
-  if (summary.overdue) return <Pill tone="overdue">{badge('overdue')}</Pill>;
-  if (summary.allDone) return <Pill tone="done">{t('status.done')}</Pill>;
+  const [pill] = useStatusPills()({
+    overdue: summary.overdue,
+    paused: false,
+    done: summary.allDone,
+  });
+  if (pill !== undefined) return <Pill tone={pill.tone}>{pill.word}</Pill>;
   if (summary.nextDeadline === null) return null;
   const on = date(summary.nextDeadline);
   return (

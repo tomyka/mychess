@@ -1,19 +1,28 @@
 import type { CoachStatus } from '@mychess/db';
 import { deadlineNearness } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { Pill, type PillTone } from '../pill';
 import { useShortDeadline } from '../use-deadline';
+import {
+  STATUS_FLAGS,
+  type StatusFlag,
+  type StatusFlags,
+} from './standing-headline';
 
-/** "Due …" in a list; "deadline …" where "due" would read as training. */
-type Wording = 'due' | 'deadline';
+/**
+ * "Due …" with the days to it in a list; "deadline …" where "due" would
+ * read as training; "due …" alone before other parts, as a group's
+ * assignment before its done count.
+ */
+type Wording = 'due' | 'deadline' | 'dueShort';
 
-/** The pills in the order they show, with their tones. */
-const PILLS = [
-  ['overdue', 'overdue'],
-  ['paused', 'neutral'],
-  ['done', 'done'],
-] as const satisfies readonly (readonly [string, PillTone])[];
+/** Each status pill's tone. */
+const TONES = {
+  overdue: 'overdue',
+  paused: 'neutral',
+  done: 'done',
+} as const satisfies Record<StatusFlag, PillTone>;
 
 /** What the deadline text says, and whether to draw it in the due tone. */
 interface DeadlineText {
@@ -23,10 +32,10 @@ interface DeadlineText {
 
 /**
  * The deadline in words: none when done or overdue without one. Otherwise
- * the date, in "deadline" wording alone, in "due" wording with the days to
- * it ("Due today" on the day), the date alone once done or overdue (the
- * Overdue pill follows it). The domain decides what is near; done and
- * overdue are never near.
+ * the date, in "deadline" or short "due" wording alone, in "due" wording
+ * with the days to it ("Due today" on the day), the date alone once done
+ * or overdue (the Overdue pill follows it). The domain decides what is
+ * near; done and overdue are never near.
  */
 function useDeadlineText(
   status: Pick<CoachStatus, 'deadline' | 'overdue' | 'done'>,
@@ -41,16 +50,12 @@ function useDeadlineText(
   const on = date(deadline);
   const { days, near } = deadlineNearness(deadline, today);
   const tone = near && !done && !overdue;
-  if (wording === 'deadline')
-    return { text: t('deadline', { date: on }), near: tone };
+  if (wording !== 'due') return { text: t(wording, { date: on }), near: tone };
   if (done || overdue) return { text: t('dueOn', { date: on }), near: false };
   return days === 0
     ? { text: t('dueToday'), near: tone }
     : { text: t('due', { date: on, days }), near: tone };
 }
-
-/** The status flags a pill says. */
-type PillFlags = Pick<CoachStatus, 'overdue' | 'paused' | 'done'>;
 
 /** A status pill: its word and its tone. */
 export interface StatusPill {
@@ -58,22 +63,31 @@ export interface StatusPill {
   readonly tone: PillTone;
 }
 
-/**
- * The pills an assignment's status has on, in the order they show
- * (Overdue, Paused, Done), with their words: the same everywhere.
- */
-export function useStatusPills(): (status: PillFlags) => StatusPill[] {
+/** A status flag's pill, its word and its tone: the same everywhere. */
+export function useStatusPill(): (flag: StatusFlag) => StatusPill {
   const badge = useTranslations('assignment.badge');
   const t = useTranslations('coach.status');
-  return (status) =>
-    PILLS.filter(([flag]) => status[flag]).map(([flag, tone]) => ({
-      word: flag === 'done' ? t('done') : badge(flag),
-      tone,
-    }));
+  return (flag) => ({
+    word: flag === 'done' ? t('done') : badge(flag),
+    tone: TONES[flag],
+  });
+}
+
+/**
+ * The pills an assignment's status has on, in the order they show
+ * (Overdue, Paused, Done).
+ */
+export function useStatusPills(): (status: StatusFlags) => StatusPill[] {
+  const pill = useStatusPill();
+  return (status) => STATUS_FLAGS.filter((flag) => status[flag]).map(pill);
 }
 
 /** The Overdue, Paused and Done pills an assignment's status has on. */
-function StatusPills({ status }: { readonly status: PillFlags }): JSX.Element {
+function StatusPills({
+  status,
+}: {
+  readonly status: StatusFlags;
+}): JSX.Element {
   const pills = useStatusPills();
   return (
     <>
@@ -104,7 +118,7 @@ export function AssignmentStatusLine({
 }: {
   readonly status: CoachStatus;
   readonly today: string;
-  readonly wording: Wording;
+  readonly wording: Exclude<Wording, 'dueShort'>;
   readonly parts?: 'all' | 'pills';
 }): JSX.Element | null {
   const deadline = useDeadlineText(status, today, wording);
@@ -130,24 +144,30 @@ function DeadlineSpan({ text }: { readonly text: DeadlineText }): JSX.Element {
 
 /**
  * A deadline that is no one player's, as a group assignment's: "deadline
- * Nov 30" (in the due tone when near), or "No deadline". A group's row has
- * no overdue or done of its own: those are each member's.
+ * Nov 30" (in the due tone when near), or "No deadline", then whatever
+ * follows it on the line (`children`). A group's assignment has no overdue
+ * or done of its own: those are each member's.
  */
 export function DeadlineLine({
   deadline,
   today,
+  wording = 'deadline',
+  children,
 }: {
   readonly deadline: string | null;
   readonly today: string;
-}): JSX.Element | null {
+  readonly wording?: Exclude<Wording, 'due'>;
+  readonly children?: ReactNode;
+}): JSX.Element {
   const text = useDeadlineText(
     { deadline, overdue: false, done: false },
     today,
-    'deadline',
+    wording,
   );
-  return text === null ? null : (
+  return (
     <p className="text-sm">
-      <DeadlineSpan text={text} />
+      {text === null ? null : <DeadlineSpan text={text} />}
+      {children}
     </p>
   );
 }

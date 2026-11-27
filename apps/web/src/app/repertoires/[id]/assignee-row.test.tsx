@@ -51,9 +51,15 @@ function wrap(children: ReactNode): HTMLElement {
   return container;
 }
 
+/**
+ * Renders Rokas's row; a shown standing's status is the player's, as the
+ * read gives them (one object).
+ */
 function renderRow(
   shown: AssigneeStanding | null,
-  player: CoachAssignmentPlayer = ROKAS,
+  player: CoachAssignmentPlayer = shown === null
+    ? ROKAS
+    : { ...ROKAS, status: shown.status },
   groupDeadline?: string | null,
 ): HTMLElement {
   return wrap(
@@ -121,7 +127,7 @@ describe('AssigneeRow: a player’s row (R-231)', () => {
     expect(within(row()).getByText(s.done)).toBeDefined();
   });
 
-  it('takes the assignment read’s status where it is shown no progress', () => {
+  it('says the player’s status where it is shown no progress', () => {
     renderRow(null, {
       ...ROKAS,
       status: { ...ON_TIME, deadline: '2026-11-10', overdue: true },
@@ -131,17 +137,6 @@ describe('AssigneeRow: a player’s row (R-231)', () => {
     ).toBeDefined();
     expect(within(row()).getByText('deadline Nov 10')).toBeDefined();
     expect(within(row()).queryByText(/learned/)).toBeNull();
-  });
-
-  it('prefers the progress read’s status, from the same snapshot as the bar', () => {
-    renderRow(withStatus({ done: true }), {
-      ...ROKAS,
-      status: { ...ON_TIME, paused: true },
-    });
-    expect(within(row()).getByText(s.done)).toBeDefined();
-    expect(
-      within(row()).queryByText(MESSAGES.assignment.badge.paused),
-    ).toBeNull();
   });
 
   it('shows a fork as "Own copy", with no bar, progress or deadline (R-155)', () => {
@@ -158,7 +153,7 @@ describe('AssigneeRow: a player’s row (R-231)', () => {
   });
 
   it('leaves out the deadline the group row says, keeping the pills', () => {
-    renderRow(withStatus({ paused: true }), ROKAS, '2026-12-20');
+    renderRow(withStatus({ paused: true }), undefined, '2026-12-20');
     expect(within(row()).queryByText(/deadline/)).toBeNull();
     expect(
       within(row()).getByText(MESSAGES.assignment.badge.paused),

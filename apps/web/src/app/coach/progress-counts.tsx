@@ -1,11 +1,8 @@
-import {
-  isUnstarted,
-  percentLearned,
-  type ProgressCounts as Counts,
-} from '@mychess/chess';
+import type { ProgressCounts as Counts } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { Fragment, type JSX } from 'react';
 import { MasteredBadge } from '../mastered-badge';
+import { standingHeadline } from './standing-headline';
 
 /** The counts said after the share learned, the due one in its tone. */
 const PARTS = [
@@ -54,14 +51,14 @@ export function ProgressCounts({
   readonly mastered: boolean;
 }): JSX.Element | null {
   const t = useTranslations('coach.progress');
-  const percent = percentLearned(counts);
-  if (percent === null) return null;
+  const headline = standingHeadline(counts, null);
+  if (headline.kind !== 'notStarted' && headline.kind !== 'counts') return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
-      {isUnstarted(counts) ? (
-        <span>{t('notStarted', { count: counts.notStarted })}</span>
+      {headline.kind === 'notStarted' ? (
+        <span>{t('notStarted', { count: headline.moves })}</span>
       ) : (
-        <Parts counts={counts} percent={percent} />
+        <Parts counts={headline.counts} percent={headline.percent} />
       )}
       {mastered ? <MasteredBadge /> : null}
     </p>

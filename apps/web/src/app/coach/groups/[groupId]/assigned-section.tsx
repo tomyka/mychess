@@ -5,10 +5,13 @@ import { useId, type JSX } from 'react';
 import { repertoireManageRoute } from '../../../../lib/routes';
 import { SECTION_TITLE } from '../../../settings/styles';
 import { CARD } from '../../../surfaces';
-import { useShortDeadline } from '../../../use-deadline';
+import { DeadlineLine } from '../../assignment-status-line';
 import { ROW_LINK } from '../../row-link';
 
-/** One assignment: its name to its Repertoire screen, its deadline and done count. */
+/**
+ * One assignment: its name to its Repertoire screen, its deadline (in the
+ * due tone when near, as on the Repertoire screen) and done count.
+ */
 function AssignedRow({
   column,
   today,
@@ -17,22 +20,17 @@ function AssignedRow({
   readonly today: string;
 }): JSX.Element {
   const t = useTranslations('coach');
-  const date = useShortDeadline(today);
-  const deadline =
-    column.deadline === null
-      ? t('status.noDeadline')
-      : t('group.assignedDue', { date: date(column.deadline) });
   return (
     <li className="relative flex flex-col gap-1 border-t border-border py-2 first:border-t-0">
       <Link href={repertoireManageRoute(column.id)} className={ROW_LINK}>
         {column.name}
       </Link>
-      <span className="text-sm text-fg-muted">
-        {[
-          deadline,
-          t('group.doneOf', { done: column.done, count: column.count }),
-        ].join(t('progress.separator'))}
-      </span>
+      <DeadlineLine deadline={column.deadline} today={today} wording="dueShort">
+        <span className="text-fg-muted">
+          {t('progress.separator')}
+          {t('group.doneOf', { done: column.done, count: column.count })}
+        </span>
+      </DeadlineLine>
     </li>
   );
 }

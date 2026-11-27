@@ -1,16 +1,12 @@
-import {
-  isUnstarted,
-  percentLearned,
-  totalMoves,
-  type Standing,
-} from '@mychess/chess';
+import { totalMoves, type Standing } from '@mychess/chess';
 import type { CoachStatus, GroupProgressCell } from '@mychess/db';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
 import { MasteredBadge } from '../../../mastered-badge';
 import { Pill, type PillTone } from '../../../pill';
-import { useStatusPills } from '../../assignment-status-line';
+import { useStatusPill } from '../../assignment-status-line';
+import { standingHeadline } from '../../standing-headline';
 import { StateBar } from '../../state-bar';
 
 /** Which member and repertoire a cell is about, to name its link. */
@@ -33,25 +29,29 @@ type CellWords =
   | { readonly kind: 'counts'; readonly percent: string; readonly due: number };
 
 /**
- * The cell's words (spec, A group; #381 sign-off): the first status pill
- * (Overdue, Paused, Done), else "Nothing to learn" for an empty
- * repertoire, "Not started" as a neutral pill, else % learned and due.
+ * The cell's words (spec, A group): the standing's headline, a status in
+ * its pill, "Not started" as a neutral pill, or % learned and due.
  */
 function useCellWords(standing: Standing, status: CoachStatus): CellWords {
   const t = useTranslations('coach.progress');
-  const [pill] = useStatusPills()(status);
-  const { counts } = standing;
-  const percent = percentLearned(counts);
-  if (pill !== undefined)
-    return { kind: 'word', text: pill.word, tone: pill.tone };
-  if (percent === null) return { kind: 'word', text: t('nothing'), tone: null };
-  if (isUnstarted(counts))
-    return { kind: 'word', text: t('cellNotStarted'), tone: 'neutral' };
-  return {
-    kind: 'counts',
-    percent: t('percent', { percent }),
-    due: counts.due,
-  };
+  const pill = useStatusPill();
+  const headline = standingHeadline(standing.counts, status);
+  switch (headline.kind) {
+    case 'status': {
+      const { word, tone } = pill(headline.flag);
+      return { kind: 'word', text: word, tone };
+    }
+    case 'nothing':
+      return { kind: 'word', text: t('nothing'), tone: null };
+    case 'notStarted':
+      return { kind: 'word', text: t('cellNotStarted'), tone: 'neutral' };
+    case 'counts':
+      return {
+        kind: 'counts',
+        percent: t('percent', { percent: headline.percent }),
+        due: headline.counts.due,
+      };
+  }
 }
 
 /** The link's name: the member and the repertoire around its visible text. */

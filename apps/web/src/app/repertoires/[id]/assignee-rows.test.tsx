@@ -71,6 +71,9 @@ const TO_GROUP: CoachAssignment = {
   ],
 };
 
+/** Rokas's status: the player's and his standing's, one object as the read gives it. */
+const ROKAS_STATUS = status({ paused: true, done: true });
+
 const TO_ROKAS: CoachAssignment = {
   id: 'a-rokas',
   target: { kind: 'player', id: 'rokas', name: 'Rokas' },
@@ -80,7 +83,7 @@ const TO_ROKAS: CoachAssignment = {
       playerId: 'rokas',
       displayName: 'Rokas',
       deadline: null,
-      status: status({ paused: true }),
+      status: ROKAS_STATUS,
     },
   ],
 };
@@ -103,7 +106,7 @@ const STANDINGS = new Map<string, AssigneeStanding | null>([
     'rokas',
     {
       standing: { ...HALF, counts: { ...HALF.counts, notStarted: 5, due: 0 } },
-      status: status({ paused: true, done: true }),
+      status: ROKAS_STATUS,
     },
   ],
   // Marta made her own copy: the coach sees no progress (R-155).
@@ -167,7 +170,6 @@ describe('AssigneeRows: a row per assignment (R-225, R-231)', () => {
     // Done, without a deadline: no deadline to speak of.
     expect(within(rokas).queryByText(s.noDeadline)).toBeNull();
     expect(within(rokas).getByText(badge.paused)).toBeDefined();
-    // Done comes from the read's status.
     expect(within(rokas).getByText(s.done)).toBeDefined();
     expect(change(rokas)).toBeDefined();
   });

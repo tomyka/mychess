@@ -8,8 +8,9 @@ import { ProgressCounts } from '../../coach/progress-counts';
 import { StateBar } from '../../coach/state-bar';
 
 /**
- * The player's progress (R-231): the 6px bar and "% learned" with the due
- * count; "Own copy" for a fork, which shows the coach no progress (R-155);
+ * The player's progress (R-231): the 6px bar and the standing's headline
+ * in words (ProgressCounts), its status left to the status line below;
+ * "Own copy" for a fork, which shows the coach no progress (R-155);
  * nothing where the coach is shown none.
  */
 function RowProgress({
@@ -56,10 +57,9 @@ export function RowHeader({
 /**
  * A player's row under "Assigned to" (R-225, R-231): the name with the
  * row's action (Change) beside it, the progress, the deadline and status
- * pills, then whatever the action opens. The status is the progress read's
- * where the coach is shown one, else the assignment read's: both are the
- * domain's (R-129). A group's member has no action, and leaves out a
- * deadline that is the group's.
+ * pills, then whatever the action opens. The status is the player's, the
+ * domain's (R-129), the same one a shown standing carries. A group's
+ * member has no action, and leaves out a deadline that is the group's.
  */
 export function AssigneeRow({
   nameId,
@@ -86,7 +86,7 @@ export function AssigneeRow({
   readonly action?: ReactNode;
   readonly children?: ReactNode;
 }): JSX.Element {
-  const status = shown?.status ?? player.status;
+  const { status } = player;
   const groupSaysIt =
     groupDeadline !== undefined && status.deadline === groupDeadline;
   return (

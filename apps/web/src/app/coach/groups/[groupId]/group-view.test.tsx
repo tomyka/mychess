@@ -133,6 +133,10 @@ const players = () =>
 const assigned = () =>
   within(screen.getByRole('region', { name: g.assignedTitle }));
 
+/** The whole line of an assignment whose deadline says `deadline`. */
+const assignedLine = (deadline: string): string | null =>
+  assigned().getByText(deadline).closest('p')?.textContent ?? null;
+
 /** The member row of `name`. */
 const memberItem = (name: string) =>
   within(
@@ -263,7 +267,24 @@ describe('GroupView: the sections', () => {
     renderView();
     const link = assigned().getByRole('link', { name: 'Karo-Kan gynyba' });
     expect(link.getAttribute('href')).toBe('/repertoires/r-1/manage');
-    expect(assigned().getByText('due Nov 30 · 1 done of 2')).toBeDefined();
+    expect(assignedLine('due Nov 30')).toBe('due Nov 30 · 1 done of 2');
+  });
+
+  it('draws a near deadline in the due tone, as the Repertoire screen does', () => {
+    renderView();
+    expect(assigned().getByText('due Nov 30').className).toContain('text-due');
+  });
+
+  it('draws a far deadline muted', () => {
+    const [column] = PAGE.grid.columns;
+    if (column === undefined) throw new Error('fixture');
+    renderView({
+      ...PAGE,
+      grid: { ...PAGE.grid, columns: [{ ...column, deadline: '2026-12-30' }] },
+    });
+    const deadline = assigned().getByText('due Dec 30');
+    expect(deadline.className).not.toContain('text-due');
+    expect(deadline.className).toContain('text-fg-muted');
   });
 
   it('says the done count the read gives, over the live holders only (R-155)', () => {
@@ -273,7 +294,7 @@ describe('GroupView: the sections', () => {
       ...PAGE,
       grid: { ...PAGE.grid, columns: [{ ...column, done: 3, count: 5 }] },
     });
-    expect(assigned().getByText('due Nov 30 · 3 done of 5')).toBeDefined();
+    expect(assignedLine('due Nov 30')).toBe('due Nov 30 · 3 done of 5');
   });
 
   it('says No deadline for an assignment without one', () => {
@@ -283,9 +304,9 @@ describe('GroupView: the sections', () => {
       ...PAGE,
       grid: { ...PAGE.grid, columns: [{ ...column, deadline: null }] },
     });
-    expect(
-      assigned().getByText(`${c.status.noDeadline} · 1 done of 2`),
-    ).toBeDefined();
+    expect(assignedLine(c.status.noDeadline)).toBe(
+      `${c.status.noDeadline} · 1 done of 2`,
+    );
   });
 
   it('has no assignments section when nothing is assigned', () => {

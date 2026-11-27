@@ -211,7 +211,6 @@
       "save": "Save",
       "saved": "Saved.",
       "assignedTitle": "Assigned to this group",
-      "assignedDue": "due {date}",
       "doneOf": "{done} done of {count}",
       "inviteTitle": "Invite link",
       "openLink": "An open link expires {date}",
@@ -293,6 +292,7 @@
       "dueToday": "Due today",
       "dueOn": "Due {date}",
       "deadline": "deadline {date}",
+      "dueShort": "due {date}",
       "noDeadline": "No deadline",
       "done": "Done"
     }
