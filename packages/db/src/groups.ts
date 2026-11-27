@@ -1,4 +1,4 @@
-import { byNameAndId } from '@mychess/domain';
+import { byName, byNameAndId } from '@mychess/domain';
 import {
   canAddMember,
   canChangeGroups,
@@ -10,9 +10,10 @@ import {
   type CoachRefusal,
   type Result,
 } from '@mychess/domain';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, isNotNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
+import { assignments } from './assignment-schema';
 import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
 import {
@@ -24,7 +25,7 @@ import {
 } from './coach-queries';
 import { isUuid } from './ids';
 import { inviteAllowed, writeInvite, type CreatedInvite } from './invites';
-import { accounts, groupMembers, groups } from './schema';
+import { accounts, groupMembers, groups, repertoires } from './schema';
 import { byDisplayName } from './sort';
 
 type GroupResult = Result<undefined, CoachRefusal>;
@@ -296,12 +297,22 @@ export function leaveGroup(
   });
 }
 
+/** A repertoire the coach assigned to a group, as the group list names it. */
+export interface GroupAssignment {
+  readonly repertoireId: string;
+  readonly name: string;
+  /** A calendar date (YYYY-MM-DD); null for none. */
+  readonly deadline: string | null;
+}
+
 /** One row of the coach's group list. */
 export interface CoachGroupSummary {
   readonly id: string;
   readonly name: string;
   readonly memberCount: number;
   readonly createdAt: Date;
+  /** This coach's assignments to the group, by repertoire name (R-232). */
+  readonly assignments: readonly GroupAssignment[];
 }
 
 const summaryRowsSchema = z.array(
@@ -313,12 +324,61 @@ const summaryRowsSchema = z.array(
   }),
 );
 
-/** The coach's groups by name, with how many players each holds. */
+const groupAssignmentRowsSchema = z.array(
+  z.object({
+    groupId: z.uuid(),
+    repertoireId: z.uuid(),
+    name: z.string(),
+    deadline: z.iso.date().nullable(),
+  }),
+);
+
+const byRepertoireName = byName((one: GroupAssignment) => ({
+  name: one.name,
+  id: one.repertoireId,
+}));
+
+/**
+ * The coach's assignments to its groups, each group's by repertoire name:
+ * one statement, whatever the number of groups.
+ */
+async function groupAssignments(
+  db: Executor,
+  coachId: string,
+): Promise<Map<string, GroupAssignment[]>> {
+  const rows = groupAssignmentRowsSchema.parse(
+    await db
+      .select({
+        groupId: assignments.groupId,
+        repertoireId: assignments.repertoireId,
+        name: repertoires.name,
+        deadline: assignments.deadline,
+      })
+      .from(assignments)
+      .innerJoin(repertoires, eq(repertoires.id, assignments.repertoireId))
+      .where(
+        and(eq(assignments.coachId, coachId), isNotNull(assignments.groupId)),
+      ),
+  );
+  const byGroup = new Map<string, GroupAssignment[]>();
+  for (const { groupId, ...assignment } of rows) {
+    const list = byGroup.get(groupId) ?? [];
+    list.push(assignment);
+    byGroup.set(groupId, list);
+  }
+  for (const list of byGroup.values()) list.sort(byRepertoireName);
+  return byGroup;
+}
+
+/**
+ * The coach's groups by name, with how many players each holds and the
+ * coach's assignments to each (R-232): two statements.
+ */
 export async function coachGroups(
   db: Executor,
   coachId: string,
 ): Promise<CoachGroupSummary[]> {
-  return summaryRowsSchema
+  const summaries = summaryRowsSchema
     .parse(
       await db
         .select({
@@ -333,6 +393,11 @@ export async function coachGroups(
         .groupBy(groups.id),
     )
     .sort(byNameAndId);
+  const assigned = await groupAssignments(db, coachId);
+  return summaries.map((group) => ({
+    ...group,
+    assignments: assigned.get(group.id) ?? [],
+  }));
 }
 
 /** A member of a group, as its coach sees them. */

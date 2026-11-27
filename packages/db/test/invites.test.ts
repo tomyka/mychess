@@ -8,9 +8,11 @@ import { describe, expect, it } from 'vitest';
 import { allCoachInvites, openInviteCount } from '../src/invites';
 import {
   acceptInvite,
+  coachGroupPage,
   coachInvites,
   createInvite,
   leaveGroup,
+  openGroupInvite,
   previewInvite,
   revokeInvite,
   unlink,
@@ -860,6 +862,7 @@ describe('coachInvites (#329) - SECURITY', () => {
       {
         id: open.inviteId,
         kind: 'group',
+        groupId,
         groupName: 'Mano',
         expiresAt: at(3000 + WEEK),
         createdAt: at(3000),
@@ -867,6 +870,7 @@ describe('coachInvites (#329) - SECURITY', () => {
       {
         id: older.inviteId,
         kind: 'personal',
+        groupId: null,
         groupName: null,
         expiresAt: at(2800 + WEEK),
         createdAt: at(2800),
@@ -903,6 +907,73 @@ describe('coachInvites (#329) - SECURITY', () => {
     const list = await coachInvites(db, 'c', NOW);
     expect(list).toHaveLength(30);
     expect(list.every((i) => i.expiresAt > NOW)).toBe(true);
+  });
+});
+
+describe('openGroupInvite and the group page (R-232) - SECURITY', () => {
+  it("gives the newest open invite of the coach's group: its id and expiry only", async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    const otherGroup = await seedGroup(db, 'c', 'Kita');
+    const older = await invite('group', groupId, 'c', at(1000));
+    const newest = await invite('group', groupId, 'c', at(2000));
+    const personal = await invite('personal', null, 'c', at(3000));
+    const elsewhere = await invite('group', otherGroup, 'c', at(4000));
+    const open = await openGroupInvite(db, 'c', groupId, at(5000));
+    expect(open).toEqual({ id: newest.inviteId, expiresAt: at(2000 + WEEK) });
+    const text = JSON.stringify(open);
+    for (const made of [older, newest, personal, elsewhere]) {
+      expect(text).not.toContain(made.token);
+      expect(text).not.toContain(made.hash);
+    }
+  });
+
+  it('falls back to the older open invite once the newest is revoked, and to none once both are', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    const older = await invite('group', groupId, 'c', at(1000));
+    const newest = await invite('group', groupId, 'c', at(2000));
+    await revokeInvite(db, 'c', newest.inviteId, at(3000));
+    expect(await openGroupInvite(db, 'c', groupId, at(3000))).toEqual({
+      id: older.inviteId,
+      expiresAt: at(1000 + WEEK),
+    });
+    await revokeInvite(db, 'c', older.inviteId, at(3000));
+    expect(await openGroupInvite(db, 'c', groupId, at(3000))).toBeUndefined();
+  });
+
+  it('gives none from the moment the invite expires', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    const made = await invite('group', groupId, 'c', NOW);
+    expect((await openGroupInvite(db, 'c', groupId, at(WEEK - 1)))?.id).toBe(
+      made.inviteId,
+    );
+    expect(await openGroupInvite(db, 'c', groupId, at(WEEK))).toBeUndefined();
+  });
+
+  it("gives none for another coach's group or a malformed id", async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedCoach(db, 'c2', 'coach2@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    await invite('group', groupId, 'c', NOW);
+    expect(await openGroupInvite(db, 'c2', groupId, NOW)).toBeUndefined();
+    expect(await openGroupInvite(db, 'c', 'not-a-uuid', NOW)).toBeUndefined();
+  });
+
+  it("carries the group's open invite on the group page, or null", async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    const page = async () =>
+      must(await coachGroupPage(db, 'c', groupId, at(2000))).invite;
+    expect(await page()).toBeNull();
+    const made = await invite('group', groupId, 'c', at(1000));
+    expect(await page()).toEqual({
+      id: made.inviteId,
+      expiresAt: at(1000 + WEEK),
+    });
+    await revokeInvite(db, 'c', made.inviteId, at(1500));
+    expect(await page()).toBeNull();
   });
 });
 

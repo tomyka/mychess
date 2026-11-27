@@ -153,6 +153,7 @@ export {
   type CoachGroup,
   type CoachGroupSummary,
   type CreatedGroup,
+  type GroupAssignment,
   type GroupMember,
   type Membership,
 } from './groups';
@@ -160,6 +161,7 @@ export {
   acceptInvite,
   coachInvites,
   createInvite,
+  openGroupInvite,
   previewInvite,
   revokeInvite,
   type AcceptedInvite,
@@ -167,6 +169,7 @@ export {
   type CreatedInvite,
   type InvitePreview,
   type InviteRequest,
+  type OpenGroupInvite,
 } from './invites';
 
 export {
@@ -175,10 +178,10 @@ export {
   setPersonalNote,
   type PersonalNoteInput,
 } from './personal-notes';
+export type { CoachStatus } from './assignments/badges';
 export {
   coachPlayerProgress,
   coachRepertoireProgress,
-export type { CoachStatus } from './assignments/badges';
   type GroupProgress,
   type GroupProgressCell,
   type GroupProgressRow,

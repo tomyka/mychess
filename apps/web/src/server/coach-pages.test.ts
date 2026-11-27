@@ -202,6 +202,7 @@ describe('coachGroupData', () => {
           },
         ],
       },
+      invite: null,
     });
     expect(await coachGroupData(GROUP)).toEqual({
       id: GROUP,

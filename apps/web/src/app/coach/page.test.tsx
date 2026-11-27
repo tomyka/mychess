@@ -22,12 +22,19 @@ const DATA: CoachHomeData = {
     },
   ],
   groups: [
-    { id: 'g-1', name: 'Šeštadienio grupė', memberCount: 1, createdAt: NOW },
+    {
+      id: 'g-1',
+      name: 'Šeštadienio grupė',
+      memberCount: 1,
+      createdAt: NOW,
+      assignments: [],
+    },
   ],
   invites: [
     {
       id: 'i-1',
       kind: 'group',
+      groupId: 'g-1',
       groupName: 'Šeštadienio grupė',
       expiresAt: NOW,
       createdAt: NOW,

@@ -24,6 +24,7 @@ import {
   seedAssignment,
   seedRepertoire,
 } from './support/assignments';
+import { graphOf, newRepertoire } from './support/repertoires';
 import {
   NAME_ORDER,
   openTransaction,
@@ -553,10 +554,73 @@ describe('coachGroups and coachGroup', () => {
   it("lists the coach's groups by name with their member counts", async () => {
     const { saturday, empty } = await seedTwoGroups();
     expect(await coachGroups(db, 'c')).toEqual([
-      { id: empty, name: 'Pradedantieji', memberCount: 0, createdAt: T0 },
-      { id: saturday, name: 'Šeštadienis', memberCount: 2, createdAt: T0 },
+      {
+        id: empty,
+        name: 'Pradedantieji',
+        memberCount: 0,
+        createdAt: T0,
+        assignments: [],
+      },
+      {
+        id: saturday,
+        name: 'Šeštadienis',
+        memberCount: 2,
+        createdAt: T0,
+        assignments: [],
+      },
     ]);
     expect(await coachGroups(db, 'ruta')).toEqual([]);
+  });
+
+  it("gives each group only this coach's assignments to it, by repertoire name (R-232)", async () => {
+    const { saturday, empty, foreign } = await seedTwoGroups();
+    const named = (ownerId: string, name: string) =>
+      newRepertoire(db, {
+        ownerId,
+        side: 'white',
+        name,
+        graph: graphOf('1. d4 d5 *'),
+        now: T0,
+      });
+    const zuikis = await named('c', 'Zuikis');
+    const yra = await named('c', 'Yra');
+    const zalias = await named('c', 'Žalias');
+    const personal = await named('c', 'Asmeninis');
+    const theirs = await named('d', 'Kitas');
+    const toGroup = (coachId: string, repertoireId: string, groupId: string) =>
+      seedAssignment(db, {
+        coachId,
+        repertoireId,
+        target: { groupId },
+        now: T0,
+      });
+    for (const id of [zuikis, yra, zalias]) await toGroup('c', id, saturday);
+    await toGroup('d', theirs, foreign);
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: personal,
+      target: { playerId: 'ruta' },
+      now: T0,
+    });
+    await client.query(
+      'update assignments set deadline = $1 where repertoire_id = $2',
+      ['2026-12-01', yra],
+    );
+    const listed = await coachGroups(db, 'c');
+    expect(listed.map((g) => [g.id, g.assignments])).toEqual([
+      [empty, []],
+      [
+        saturday,
+        [
+          { repertoireId: yra, name: 'Yra', deadline: '2026-12-01' },
+          { repertoireId: zalias, name: 'Žalias', deadline: null },
+          { repertoireId: zuikis, name: 'Zuikis', deadline: null },
+        ],
+      ],
+    ]);
+    expect((await coachGroups(db, 'd'))[0]?.assignments).toEqual([
+      { repertoireId: theirs, name: 'Kitas', deadline: null },
+    ]);
   });
 
   it('returns one group of the coach with its members by name', async () => {

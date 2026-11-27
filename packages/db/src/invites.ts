@@ -458,6 +458,8 @@ export async function allCoachInvites(
 export interface CoachInvite {
   readonly id: string;
   readonly kind: InviteKind;
+  /** The group a group invite joins; null for a personal invite. */
+  readonly groupId: string | null;
   readonly groupName: string | null;
   readonly expiresAt: Date;
   readonly createdAt: Date;
@@ -484,8 +486,39 @@ export async function coachInvites(
   return open.map((row) => ({
     id: row.id,
     kind: row.kind,
+    groupId: row.groupId,
     groupName: row.groupName,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
   }));
+}
+
+/** A group's open invite as its page shows it; never a token or its hash. */
+export interface OpenGroupInvite {
+  readonly id: string;
+  readonly expiresAt: Date;
+}
+
+const openGroupInviteSchema = z.object({ id: z.uuid(), expiresAt: z.date() });
+
+/**
+ * The newest open invite at `now` of the coach's group (R-232), or
+ * undefined: none open, another coach's group, or a malformed id. Reads
+ * only the id and expiry; the token is never stored and its hash never
+ * selected.
+ */
+export async function openGroupInvite(
+  db: Executor,
+  coachId: string,
+  groupId: string,
+  now: Date,
+): Promise<OpenGroupInvite | undefined> {
+  if (!isUuid(groupId)) return undefined;
+  const [row] = await db
+    .select({ id: invites.id, expiresAt: invites.expiresAt })
+    .from(invites)
+    .where(and(openInvitesOf(coachId, now), eq(invites.groupId, groupId)))
+    .orderBy(desc(invites.createdAt), desc(invites.id))
+    .limit(1);
+  return row === undefined ? undefined : openGroupInviteSchema.parse(row);
 }

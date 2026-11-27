@@ -21,6 +21,7 @@ import { trackedReviews } from '../training/reviews';
 import { keysOf, loadAllVisible } from './view';
 import { coachPlayers, type LinkedAccount } from '../coaching';
 import { coachGroup, type CoachGroup } from '../groups';
+import { openGroupInvite, type OpenGroupInvite } from '../invites';
 import { groupGrid, type GroupProgress } from './coach-progress';
 import { coachProgressFacts, lastTrained } from './facts';
 
@@ -43,12 +44,15 @@ export interface GroupPage {
   /** The coach's linked players not yet in the group, by display name. */
   readonly addable: readonly AccountRef[];
   readonly grid: GroupProgress;
+  /** The group's newest open invite (R-232); null for none. */
+  readonly invite: OpenGroupInvite | null;
 }
 
 /**
  * The group page, its one read: the coach's own group with its members,
- * the coach's linked players not in it, and the grid (R-153): one column
- * per repertoire assigned to it (by name), one row per member (by name).
+ * the coach's linked players not in it, the grid (R-153): one column
+ * per repertoire assigned to it (by name), one row per member (by name),
+ * and its open invite (R-232).
  * Undefined for any other group.
  */
 export function coachGroupPage(
@@ -64,6 +68,7 @@ export function coachGroupPage(
       group,
       addable: await addableTo(tx, coachId, group),
       grid: await groupGrid(tx, coachId, group, now),
+      invite: (await openGroupInvite(tx, coachId, groupId, now)) ?? null,
     };
   }, REPEATABLE_READ);
 }
