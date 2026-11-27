@@ -105,6 +105,9 @@ _Avoid_: Copy, share, subscription
 A Coach's own Repertoire assigned to at least one Player or Group. It is not the Coach's own training: it leaves the Coach's Today and its counts, though the Coach can still open it and train it from its page (R-230).
 _Avoid_: Library, course
 
+**Assignee** (of a Coach's Repertoire):
+A Player an Assignment reaches, individually or through a Group, including one who made a Fork of it. "Assigned to N" counts assignees (R-225, R-230). The **live players** are the assignees who still train it, Forks left out (paused ones count); the delete warning counts those (R-131).
+
 **Fork**:
 A Player's personal, editable copy of an assigned Repertoire, cut off from the Coach's later edits. The only way for a Player to change or add Moves to something they were assigned.
 Its **Fork origin** records the source Repertoire and the assigning Coach's display name at fork time; the source becomes unknown when that Repertoire is deleted, and the name stays (R-49), so the Player's list can say whose Assignment it was. A Coach learns that a Repertoire shared with them is the Fork of their own Assignment, and links to it, only while it is shared through an active link (R-43, R-155); the newest such Fork is named.

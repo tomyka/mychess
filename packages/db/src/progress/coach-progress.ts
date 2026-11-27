@@ -9,7 +9,7 @@
  * plus 4 per repertoire shown (its row and the 3 of its graph). The player
  * page reads through coachPlayerProgress, the progress page through
  * coachRepertoireProgress, whose one-repertoire access step (grantedReads,
- * granted.ts) it shares with coachAssigneeStandings. The dashboard
+ * granted.ts) it shares with repertoireAssignees. The dashboard
  * (dashboard.ts) builds each player's rows as the player page does
  * (playerRepertoires, rowOf); the group page is composed in pages.ts, the
  * group grid from groupGrid here.

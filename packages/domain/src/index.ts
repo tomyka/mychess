@@ -74,9 +74,9 @@ export {
   type BadgeSet,
   type ChangeStamp,
   type DeadlineSources,
-  type GroupDeadline,
   type SeenFacts,
 } from './assignment';
+export { assigneeCount, livePlayerCount } from './assignees';
 export {
   settleAssignmentChange,
   type PlayerRepertoire,

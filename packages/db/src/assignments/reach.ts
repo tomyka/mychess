@@ -280,6 +280,33 @@ export async function assignmentFacts(
   return factsOf(rows, await statesOf(db, rows));
 }
 
+const pairRowsSchema = z.array(
+  z.object({ playerId: z.string().min(1), repertoireId: z.uuid() }),
+);
+
+/**
+ * Every distinct (player, repertoire) pair a row reaches in `scope`, forked
+ * or not, with no state: one statement (a union), unlocked.
+ */
+export async function reachedPairs(
+  db: Executor,
+  scope: ReachScope,
+): Promise<PlayerRepertoire[]> {
+  if (namesNothing(scope)) return [];
+  const filter = inScope(scope);
+  const own = ownReach(
+    db,
+    { playerId: assignments.playerId, repertoireId: assignments.repertoireId },
+    filter,
+  );
+  const viaGroups = groupReach(
+    db,
+    { playerId: groupMembers.playerId, repertoireId: assignments.repertoireId },
+    filter,
+  );
+  return pairRowsSchema.parse(await own.union(viaGroups));
+}
+
 /**
  * The facts of one pair, with the rows reaching the player (FOR KEY SHARE)
  * and their state on it (FOR UPDATE, whether or not anything reaches them)

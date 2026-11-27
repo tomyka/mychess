@@ -5,9 +5,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addMember,
   assign,
-  assignedPlayerCount,
-  coachAssignments,
   loadRepertoire,
+  repertoireAssignees,
   setDeadline,
   unassign,
   unlink,
@@ -37,6 +36,18 @@ const { db, client } = useTestDatabase();
 
 const NOW = new Date('2026-10-20T09:00:00Z');
 const LATER = new Date('2026-10-21T09:00:00Z');
+
+/** The rows the Repertoire screen lists of `repertoireId` (repertoireAssignees). */
+const assignmentRows = async (
+  coachId: string,
+  repertoireId: string,
+  now: Date,
+) =>
+  (await repertoireAssignees(db, { coachId, repertoireId }, now)).assignments;
+
+/** How many players have `repertoireId` live, for the delete dialog (R-131). */
+const livePlayers = async (coachId: string, repertoireId: string) =>
+  (await repertoireAssignees(db, { coachId, repertoireId }, NOW)).livePlayers;
 /** R, with a coach comment on 1. d4. */
 const PGN = '1. d4 { Treneris: tvirtas centras } d5 2. Bf4 Nf6 *';
 const NOTE_KEY = moveKey(
@@ -765,7 +776,7 @@ describe('setDeadline', () => {
   });
 });
 
-describe('coachAssignments', () => {
+describe('repertoireAssignees: the rows', () => {
   const player = (
     playerId: string,
     {
@@ -797,7 +808,7 @@ describe('coachAssignments', () => {
     await setState('p', { pausedAt: NOW });
     await setState('q', { forkedAt: NOW });
     const p = player('p', { deadline: '2026-11-01', paused: true });
-    const listed = await coachAssignments(db, 'c', rep, NOW);
+    const listed = await assignmentRows('c', rep, NOW);
     expect(
       listed.toSorted((a, b) => a.target.name.localeCompare(b.target.name)),
     ).toEqual([
@@ -828,7 +839,7 @@ describe('coachAssignments', () => {
     await writeReview(db, 'p', startReview(d4, NOW), { learnedAt: NOW });
     await writeReview(db, 'p', startReview(bf4, NOW), { skippedAt: NOW });
     await writeReview(db, 'q', startReview(d4, NOW), { learnedAt: NOW });
-    expect(await coachAssignments(db, 'c', rep, NOW)).toEqual([
+    expect(await assignmentRows('c', rep, NOW)).toEqual([
       {
         id: await assignmentId({ groupId: g }),
         target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
@@ -851,17 +862,17 @@ describe('coachAssignments', () => {
       graph: graphOf(PGN),
       now: NOW,
     });
-    expect(await coachAssignments(db, 'd', rep, NOW)).toEqual([]);
-    expect(await coachAssignments(db, 'c', own, NOW)).toEqual([]);
-    expect(await coachAssignments(db, 'c', 'not-a-uuid', NOW)).toEqual([]);
-    expect(await coachAssignments(db, 'p', rep, NOW)).toEqual([]);
+    expect(await assignmentRows('d', rep, NOW)).toEqual([]);
+    expect(await assignmentRows('c', own, NOW)).toEqual([]);
+    expect(await assignmentRows('c', 'not-a-uuid', NOW)).toEqual([]);
+    expect(await assignmentRows('p', rep, NOW)).toEqual([]);
   });
 
   it('lists only the players linked now', async () => {
     await assignTo({ groupId: g });
     await assignTo({ playerId: 'p' });
     expect(await unlink(db, 'c', 'p', NOW)).toEqual(OK);
-    expect(await coachAssignments(db, 'c', rep, NOW)).toEqual([
+    expect(await assignmentRows('c', rep, NOW)).toEqual([
       {
         id: await assignmentId({ groupId: g }),
         target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
@@ -874,33 +885,33 @@ describe('coachAssignments', () => {
   it('lists a group with no members with no players', async () => {
     const empty = await seedGroup(db, 'c', 'Tuščia');
     await assignTo({ groupId: empty });
-    expect(await coachAssignments(db, 'c', rep, NOW)).toMatchObject([
+    expect(await assignmentRows('c', rep, NOW)).toMatchObject([
       { target: { kind: 'group', id: empty, name: 'Tuščia' }, players: [] },
     ]);
   });
 });
 
-describe('assignedPlayerCount', () => {
+describe('repertoireAssignees: the live players', () => {
   it('counts the distinct players any row of the repertoire reaches (R-131)', async () => {
-    expect(await assignedPlayerCount(db, 'c', rep)).toBe(0);
+    expect(await livePlayers('c', rep)).toBe(0);
     await assignTo({ groupId: g });
     await assignTo({ playerId: 'p' });
-    expect(await assignedPlayerCount(db, 'c', rep)).toBe(2);
+    expect(await livePlayers('c', rep)).toBe(2);
     await assignTo({ playerId: 'n' });
-    expect(await assignedPlayerCount(db, 'c', rep)).toBe(3);
+    expect(await livePlayers('c', rep)).toBe(3);
   });
 
   it('leaves out a player who forked it: they get no offer when it is deleted', async () => {
     await assignTo({ groupId: g });
     await setState('q', { forkedAt: NOW });
-    expect(await assignedPlayerCount(db, 'c', rep)).toBe(1);
+    expect(await livePlayers('c', rep)).toBe(1);
   });
 
   it("is 0 for another coach's or a malformed repertoire id", async () => {
     await seedCoach(db, 'd', 'd@example.lt');
     await assignTo({ groupId: g });
-    expect(await assignedPlayerCount(db, 'd', rep)).toBe(0);
-    expect(await assignedPlayerCount(db, 'c', 'not-a-uuid')).toBe(0);
+    expect(await livePlayers('d', rep)).toBe(0);
+    expect(await livePlayers('c', 'not-a-uuid')).toBe(0);
   });
 });
 
@@ -1121,13 +1132,13 @@ describe('the coach reads over a batch', () => {
     const one = await assignedGroup('a', 1);
     const five = await assignedGroup('b', 5);
     const forOne = await countStatements(() =>
-      coachAssignments(db, 'c', one.repertoireId, NOW),
+      assignmentRows('c', one.repertoireId, NOW),
     );
     const forFive = await countStatements(() =>
-      coachAssignments(db, 'c', five.repertoireId, NOW),
+      assignmentRows('c', five.repertoireId, NOW),
     );
     expect(forFive).toBe(forOne);
-    const listed = await coachAssignments(db, 'c', five.repertoireId, NOW);
+    const listed = await assignmentRows('c', five.repertoireId, NOW);
     expect(listed).toEqual([
       {
         id: await assignmentId({ groupId: five.groupId }),
@@ -1155,13 +1166,10 @@ describe('the coach reads over a batch', () => {
     const five = await assignedGroup('b', 5);
     let counts: number[] = [];
     const forOne = await countStatements(async () => {
-      counts = [await assignedPlayerCount(db, 'c', one.repertoireId)];
+      counts = [await livePlayers('c', one.repertoireId)];
     });
     const forFive = await countStatements(async () => {
-      counts = [
-        ...counts,
-        await assignedPlayerCount(db, 'c', five.repertoireId),
-      ];
+      counts = [...counts, await livePlayers('c', five.repertoireId)];
     });
     expect(forFive).toBe(forOne);
     expect(counts).toEqual([1, 5 - five.forked.length]);

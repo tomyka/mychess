@@ -3,14 +3,12 @@ import 'server-only';
 // Everything is read for the session account: an id from the path names
 // only the repertoire, and every query filters by the coach again.
 import {
-  assignedPlayerCount,
-  coachAssigneeStandings,
-  coachAssignments,
   coachGroups,
   coachPlayers,
+  repertoireAssignees,
   type AssigneeStanding,
   type CoachAssignment,
-  type Db,
+  type RepertoireAssignees,
 } from '@mychess/db';
 import {
   assignableTargets,
@@ -51,23 +49,6 @@ export interface AssignPanelData {
   readonly standings: ReadonlyMap<string, AssigneeStanding | null>;
 }
 
-/**
- * The standing of each player `assignments` reach, in one snapshot with
- * the coach progress page's access rules (Q26, R-155, R-156; #385):
- * whatever that page withholds is null here.
- */
-function assigneeStandings(
-  db: Db,
-  of: { readonly coachId: string; readonly repertoireId: string },
-  assignments: readonly CoachAssignment[],
-  now: Date,
-): Promise<ReadonlyMap<string, AssigneeStanding | null>> {
-  const playerIds = [
-    ...new Set(assignments.flatMap((a) => a.players.map((p) => p.playerId))),
-  ];
-  return coachAssigneeStandings(db, { ...of, playerIds }, now);
-}
-
 export interface CoachAssignData {
   /** How many players have it live, for the delete dialog (R-131). */
   readonly assignedPlayers: number;
@@ -75,16 +56,15 @@ export interface CoachAssignData {
   readonly panel: AssignPanelData | null;
 }
 
-/** The session coach's assign panel for their repertoire `repertoireId`. */
+/** The session coach's assign panel, from who has their repertoire. */
 async function panelOf(
   coachId: string,
-  repertoireId: string,
+  { assignments, standings }: RepertoireAssignees,
+  now: Date,
 ): Promise<AssignPanelData> {
   const db = getDb();
-  const now = new Date();
   const players = await coachPlayers(db, coachId);
   const groups = await coachGroups(db, coachId);
-  const assignments = await coachAssignments(db, coachId, repertoireId, now);
   const offer = assignableTargets(
     players.map(({ id, displayName }) => ({ id, displayName })),
     groups.map(({ id, name }) => ({ id, name })),
@@ -96,31 +76,27 @@ async function panelOf(
       })),
     })),
   );
-  const standings = await assigneeStandings(
-    db,
-    { coachId, repertoireId },
-    assignments,
-    now,
-  );
   return { ...offer, assignments, today: vilniusDay(now), standings };
 }
 
 /**
  * The assignments of the session account's own repertoire `repertoireId`,
- * already known to be theirs (repertoirePageData). The panel shows only in
- * Coach mode; the count is read either way, so a delete always says who
- * loses it.
+ * already known to be theirs (repertoirePageData), in one snapshot
+ * (repertoireAssignees, #395). The panel shows only in Coach mode; the
+ * count is read either way, so a delete always says who loses it.
  */
 export async function coachAssignData(
   repertoireId: string,
 ): Promise<CoachAssignData> {
   const account = await requireOnboarded();
+  const now = new Date();
+  const assignees = await repertoireAssignees(
+    getDb(),
+    { coachId: account.id, repertoireId },
+    now,
+  );
   return {
-    assignedPlayers: await assignedPlayerCount(
-      getDb(),
-      account.id,
-      repertoireId,
-    ),
-    panel: isCoach(account) ? await panelOf(account.id, repertoireId) : null,
+    assignedPlayers: assignees.livePlayers,
+    panel: isCoach(account) ? await panelOf(account.id, assignees, now) : null,
   };
 }

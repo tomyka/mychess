@@ -6,7 +6,7 @@ import 'server-only';
 import {
   assignedByMe,
   assignedRepertoireForPlayer,
-  coachAssignments,
+  coachAssigneeCounts,
   coachNotesOn,
   forkCoachNotesOn,
   listPersonalNotes,
@@ -128,19 +128,17 @@ function assignedByAccount(account: Account): Promise<ReadonlySet<string>> {
 }
 
 /**
- * How many distinct players the coach's assignments of repertoire `id`
- * reach, those who forked it included (#381), so the count agrees with
- * the teaching fact; filtered by the session coach in the query.
+ * How many players each repertoire the account assigned reaches, those who
+ * forked it included (assigneeCount, #381, #395), so the count agrees with
+ * the teaching fact: one read for all of them, filtered by the session
+ * coach in the query; none read when the account assigned nothing.
  */
-async function assigneeCount(
+function assigneeCounts(
   account: Account,
-  id: string,
-  now: Date,
-): Promise<number> {
-  const rows = await coachAssignments(getDb(), account.id, id, now);
-  return new Set(
-    rows.flatMap((row) => row.players.map((player) => player.playerId)),
-  ).size;
+  assigned: ReadonlySet<string>,
+): Promise<ReadonlyMap<string, number>> {
+  if (assigned.size === 0) return Promise.resolve(new Map());
+  return coachAssigneeCounts(getDb(), account.id);
 }
 
 /** One of the account's own repertoires a PGN import can add to. */
@@ -165,22 +163,20 @@ export async function myRepertoires(): Promise<MyRepertoire[]> {
   const account = await requireOnboarded();
   const items = await listRepertoires(getDb(), account.id);
   const assigned = await assignedByAccount(account);
-  const now = new Date();
-  return Promise.all(
-    items.map(async ({ forkedFrom, ...item }) => {
-      const teaching = isTeachingMaterial(
-        { kind: 'own', repertoire: { id: item.id } },
-        assigned,
-      );
-      return {
-        ...item,
-        forkCoachName: forkedFrom?.coachName ?? null,
-        // Read only for teaching material: no other has an assignee.
-        assignedTo: teaching ? await assigneeCount(account, item.id, now) : 0,
-        teaching,
-      };
-    }),
-  );
+  const counts = await assigneeCounts(account, assigned);
+  return items.map(({ forkedFrom, ...item }) => {
+    const teaching = isTeachingMaterial(
+      { kind: 'own', repertoire: { id: item.id } },
+      assigned,
+    );
+    return {
+      ...item,
+      forkCoachName: forkedFrom?.coachName ?? null,
+      // Only teaching material has an assignee.
+      assignedTo: teaching ? (counts.get(item.id) ?? 0) : 0,
+      teaching,
+    };
+  });
 }
 
 /**

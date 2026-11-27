@@ -34,10 +34,12 @@ export {
   type DeadlineChange,
 } from './assignments/assign';
 export {
-  assignedPlayerCount,
-  coachAssignments,
+  coachAssigneeCounts,
+  repertoireAssignees,
+  type AssigneesRequest,
   type CoachAssignment,
   type CoachAssignmentPlayer,
+  type RepertoireAssignees,
 } from './assignments/coach';
 export {
   forkAssignment,
@@ -190,11 +192,7 @@ export {
   type RepertoireProgressRequest,
   type RepertoireProgressView,
 } from './progress/coach-progress';
-export {
-  coachAssigneeStandings,
-  type AssigneeStanding,
-  type AssigneeStandingsRequest,
-} from './progress/assignee-standings';
+export type { AssigneeStanding } from './progress/assignee-standings';
 export { coachDashboard, type DashboardPlayer } from './progress/dashboard';
 export { coachGroupPage, type GroupPage } from './progress/pages';
 export type { RepertoireRef } from './progress/view';

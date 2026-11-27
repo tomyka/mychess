@@ -19,15 +19,8 @@ class NotFound extends Error {}
 const server = vi.hoisted(() => ({
   account: vi.fn<() => Promise<unknown>>(),
   list: vi.fn<(db: unknown, ownerId: string) => Promise<unknown>>(),
-  assignments:
-    vi.fn<
-      (
-        db: unknown,
-        coachId: string,
-        repertoireId: string,
-        now: Date,
-      ) => Promise<unknown>
-    >(),
+  counts:
+    vi.fn<(db: unknown, coachId: string) => Promise<Map<string, number>>>(),
   load: vi.fn<
     (db: unknown, id: string, viewerId: string) => Promise<unknown>
   >(),
@@ -48,7 +41,7 @@ const server = vi.hoisted(() => ({
 // account does not own, one only assigned to it included.
 vi.mock('@mychess/db', () => ({
   listRepertoires: server.list,
-  coachAssignments: server.assignments,
+  coachAssigneeCounts: server.counts,
   loadRepertoire: server.load,
   playerCoaches: server.coaches,
   sharedCoachIds: server.shared,
@@ -89,29 +82,10 @@ const ITEMS: RepertoireListItem[] = [
   },
 ];
 
-/** An assignment row of the coach's, reaching `playerIds`. */
-const rowReaching = (id: string, playerIds: readonly string[]) => ({
-  id,
-  target: { kind: 'group', id, name: 'Grupė' },
-  deadline: null,
-  players: playerIds.map((playerId) => ({ playerId, displayName: playerId })),
-});
-
 beforeEach(() => {
   server.list.mockReset().mockResolvedValue(ITEMS);
-  // London: a group of three, and one of them on their own too.
-  server.assignments
-    .mockReset()
-    .mockImplementation((_db, _coach, id) =>
-      Promise.resolve(
-        id === LONDON
-          ? [
-              rowReaching('row-1', ['ona', 'rokas', 'tomas']),
-              rowReaching('row-2', ['ona']),
-            ]
-          : [],
-      ),
-    );
+  // London reaches three players (the db and domain count them, #395).
+  server.counts.mockReset().mockResolvedValue(new Map([[LONDON, 3]]));
   // London is assigned to three players (R-230's teaching material).
   server.assignedByMe.mockReset().mockResolvedValue(new Set([LONDON]));
 });
@@ -149,7 +123,7 @@ describe('myRepertoires', () => {
   it('reads no assignee count nor assignment for an account that is not a coach', async () => {
     server.account.mockResolvedValue({ id: 'rokas', coachSince: null });
     await myRepertoires();
-    expect(server.assignments).not.toHaveBeenCalled();
+    expect(server.counts).not.toHaveBeenCalled();
     expect(server.assignedByMe).not.toHaveBeenCalled();
   });
 
@@ -182,58 +156,28 @@ describe('myRepertoires', () => {
     expect(server.assignedByMe).toHaveBeenCalledExactlyOnceWith(DB, 'jonas');
   });
 
-  it("gives a coach's repertoire how many distinct players it reaches, read only for the assigned ones (R-225)", async () => {
+  it("gives a coach's repertoire how many distinct players it reaches, in one read for all of them (R-225, #395)", async () => {
     server.account.mockResolvedValue({ id: 'jonas', coachSince: NOW });
     const items = await myRepertoires();
     expect(items.map((item) => [item.id, item.assignedTo])).toEqual([
       [LONDON, 3],
       [FORK, 0],
     ]);
-    // The session coach's id, never one from the request; the fork is not
-    // assigned, so nothing is read for it.
-    expect(server.assignments.mock.calls).toEqual([
-      [DB, 'jonas', LONDON, expect.any(Date)],
-    ]);
+    // The session coach's id, never one from the request.
+    expect(server.counts).toHaveBeenCalledExactlyOnceWith(DB, 'jonas');
   });
 
-  it('counts a player who forked it, as the teaching fact does: the forked Najdorf is teaching material, assigned to 1 (#381)', async () => {
+  it('shows a count only on teaching material, and reads none when the coach assigned nothing', async () => {
     server.account.mockResolvedValue({ id: 'jonas', coachSince: NOW });
-    const NAJDORF = '3c9e1b7a-2d4f-4e6a-9b8c-0a1b2c3d4e5f';
-    server.list.mockResolvedValue([
-      {
-        id: NAJDORF,
-        side: 'black',
-        name: 'Najdorf',
-        chapters: 3,
-        moves: 40,
-        updatedAt: NOW,
-        forkedFrom: null,
-      },
-    ]);
-    server.assignedByMe.mockResolvedValue(new Set([NAJDORF]));
-    // Its one player forked it: no longer live, still reached by the row.
-    server.assignments.mockResolvedValue([
-      {
-        ...rowReaching('row-1', []),
-        players: [
-          {
-            playerId: 'rokas',
-            displayName: 'Rokas',
-            status: {
-              deadline: null,
-              overdue: false,
-              paused: false,
-              done: false,
-              forked: true,
-            },
-          },
-        ],
-      },
-    ]);
+    // A count for a repertoire not assigned by the coach is not shown.
+    server.counts.mockResolvedValue(new Map([[FORK, 2]]));
+    server.assignedByMe.mockResolvedValue(new Set());
     const items = await myRepertoires();
-    expect(
-      items.map((item) => [item.id, item.assignedTo, item.teaching]),
-    ).toEqual([[NAJDORF, 1, true]]);
+    expect(items.map((item) => [item.id, item.assignedTo])).toEqual([
+      [LONDON, 0],
+      [FORK, 0],
+    ]);
+    expect(server.counts).not.toHaveBeenCalled();
   });
 });
 
@@ -245,7 +189,7 @@ describe('importTargets', () => {
       { id: FORK, name: 'Karo-Kan gynyba', side: 'black' },
     ]);
     expect(server.list).toHaveBeenCalledExactlyOnceWith(DB, 'jonas');
-    expect(server.assignments).not.toHaveBeenCalled();
+    expect(server.counts).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * The coach-progress access step for one repertoire (#392), shared by
- * coachRepertoireProgress and coachAssigneeStandings so a change to the
+ * coachRepertoireProgress and repertoireAssignees so a change to the
  * access rules (Q26, R-154 to R-156) is made once: the facts are read in
  * the caller's snapshot, the domain decides (progressRepertoire, granted
  * only: never a forked assignment, R-155), the link is read again in the

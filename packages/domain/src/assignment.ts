@@ -206,7 +206,7 @@ export const deadlineSchema = z.iso
   });
 
 /** One group assignment as one member has it. */
-export interface GroupDeadline {
+interface GroupDeadline {
   readonly deadline: string | null;
   /** The member's join day in Vilnius. */
   readonly joinedDay: string;
