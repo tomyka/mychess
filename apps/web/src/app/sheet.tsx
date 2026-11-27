@@ -13,9 +13,10 @@ import {
 // is inert, and the browser keeps Tab inside it. Preflight zeroes its
 // margins, so the classes place it: pinned to the bottom edge under md, as
 // a sheet, and centred from md. The safe-area padding keeps its last row
-// above the home indicator.
+// above the home indicator. The top edge (card-edge, none in light) draws
+// the sheet against the scrim in dark, where the surface barely differs.
 const SHEET =
-  'mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-card bg-surface p-gutter pb-[calc(var(--spacing-gutter)+env(safe-area-inset-bottom))] text-fg shadow-sheet backdrop:bg-scrim md:m-auto md:max-w-lg md:rounded-card md:pb-gutter md:shadow-card';
+  'mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-card border-t border-card-edge bg-surface p-gutter pb-[calc(var(--spacing-gutter)+env(safe-area-inset-bottom))] text-fg shadow-sheet backdrop:bg-scrim md:m-auto md:max-w-lg md:rounded-card md:pb-gutter md:shadow-card';
 
 /**
  * A bottom sheet on a phone, a dialog from md. The holder keeps whether it

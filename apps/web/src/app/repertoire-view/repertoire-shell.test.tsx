@@ -160,6 +160,20 @@ describe('RepertoireShell', () => {
     );
   });
 
+  it('gives the desktop move list the panel’s room left, scrolling on its own, with no half-screen cap (Task 18)', () => {
+    renderView();
+    const moves = document.querySelector('[data-moves]');
+    const classes = (moves?.getAttribute('class') ?? '').split(/\s+/u);
+    expect(classes).toEqual(
+      expect.arrayContaining([
+        'lg:min-h-40',
+        'lg:flex-1',
+        'lg:overflow-y-auto',
+      ]),
+    );
+    expect(classes).not.toContain('lg:max-h-[50dvh]');
+  });
+
   it('puts the comment strip under the board row, before the scrolling panel (spec, Comment strip)', () => {
     renderView();
     const strip = screen.getByRole('region', { name: r.panel.intro });

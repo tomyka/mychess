@@ -5,8 +5,8 @@ import 'server-only';
 // by the player's live assignment (R-202).
 import {
   assignedByMe,
-  assignedPlayerCount,
   assignedRepertoireForPlayer,
+  coachAssignments,
   coachNotesOn,
   forkCoachNotesOn,
   listPersonalNotes,
@@ -108,7 +108,10 @@ export async function downloadableRepertoire(
  */
 export type MyRepertoire = Omit<RepertoireListItem, 'forkedFrom'> & {
   readonly forkCoachName: string | null;
-  /** How many players have it live from the coach (R-225); 0 for a non-coach. */
+  /**
+   * How many players the coach's assignments of it reach (R-225), those
+   * who forked it included; 0 for a non-coach.
+   */
   readonly assignedTo: number;
   /**
    * Assigned by the account to any player or group, an empty group
@@ -124,17 +127,19 @@ function assignedByAccount(account: Account): Promise<ReadonlySet<string>> {
 }
 
 /**
- * How many players have each of `items` assigned, in order: read only for
- * a coach, filtered by the session coach in the query.
+ * How many distinct players the coach's assignments of repertoire `id`
+ * reach, those who forked it included (#381), so the count agrees with
+ * the teaching fact; filtered by the session coach in the query.
  */
-function assignedCounts(
+async function assigneeCount(
   account: Account,
-  items: readonly RepertoireListItem[],
-): Promise<number[]> {
-  if (!isCoach(account)) return Promise.resolve(items.map(() => 0));
-  return Promise.all(
-    items.map((item) => assignedPlayerCount(getDb(), account.id, item.id)),
-  );
+  id: string,
+  now: Date,
+): Promise<number> {
+  const rows = await coachAssignments(getDb(), account.id, id, now);
+  return new Set(
+    rows.flatMap((row) => row.players.map((player) => player.playerId)),
+  ).size;
 }
 
 /** One of the account's own repertoires a PGN import can add to. */
@@ -158,19 +163,23 @@ export async function importTargets(): Promise<ImportTarget[]> {
 export async function myRepertoires(): Promise<MyRepertoire[]> {
   const account = await requireOnboarded();
   const items = await listRepertoires(getDb(), account.id);
-  const [counts, assigned] = await Promise.all([
-    assignedCounts(account, items),
-    assignedByAccount(account),
-  ]);
-  return items.map(({ forkedFrom, ...item }, index) => ({
-    ...item,
-    forkCoachName: forkedFrom?.coachName ?? null,
-    assignedTo: counts[index] ?? 0,
-    teaching: isTeachingMaterial(
-      { kind: 'own', repertoire: { id: item.id } },
-      assigned,
-    ),
-  }));
+  const assigned = await assignedByAccount(account);
+  const now = new Date();
+  return Promise.all(
+    items.map(async ({ forkedFrom, ...item }) => {
+      const teaching = isTeachingMaterial(
+        { kind: 'own', repertoire: { id: item.id } },
+        assigned,
+      );
+      return {
+        ...item,
+        forkCoachName: forkedFrom?.coachName ?? null,
+        // Read only for teaching material: no other has an assignee.
+        assignedTo: teaching ? await assigneeCount(account, item.id, now) : 0,
+        teaching,
+      };
+    }),
+  );
 }
 
 /**

@@ -147,6 +147,28 @@ describe('the group’s progress (R-153, spec A group)', () => {
     );
   });
 
+  it('gives the phone card’s name link a 44px touch target, and leaves the grid’s clamped to two lines (Task 18)', () => {
+    show();
+    const card = cardOf('Gabija').getByRole('link', { name: 'Gabija' });
+    expect(card.className.split(' ')).toEqual(
+      expect.arrayContaining(['min-h-touch', 'inline-flex', 'items-center']),
+    );
+    const grid = rowOf('Gabija').getByRole('link', { name: 'Gabija' });
+    expect(grid.className.split(' ')).not.toContain('inline-flex');
+    expect(grid.parentElement?.className).toContain('line-clamp-2');
+  });
+
+  it('centres a desktop row’s cells, so the name and Last trained line up with the 44px progress link (Task 18)', () => {
+    show();
+    const row = rowOf('Gabija');
+    const cells = [
+      row.getByRole('rowheader', { name: /Gabija/ }),
+      ...row.getAllByRole('cell'),
+    ];
+    for (const cell of cells)
+      expect(cell.className.split(' ')).toContain('align-middle');
+  });
+
   it('links each cell to the member’s progress, named by player and repertoire (WCAG 2.5.3)', () => {
     show();
     const cell = cellOf('Gabija', /Karo-Kan/);

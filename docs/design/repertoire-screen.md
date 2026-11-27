@@ -350,15 +350,22 @@ without Edit. A new repertoire with no chapters opens in builder mode.
   `min(100dvh - 3rem - shell chrome, 46rem, 100vw - panel - 6rem)`: 696px
   at 1280 x 800, 736px (the cap) at 1440 x 900, 568px at 1024 x 768, where
   the page does not scroll sideways.
-- **The card stretches to the board's height** when the panel is shorter
-  (an empty repertoire, a short chapter) and grows with the panel when it
-  is longer; the page scrolls, the board stays sticky beside it. One block
-  of equal height reads calmer than a short card floating by a tall board.
+- **The page never scrolls** (#381 part 5, Task 18): the grid is the
+  viewport less the shell chrome high (`100dvh - shell chrome`, rows
+  `auto minmax(0, 1fr)`), and the card is exactly the board's height. One
+  block of equal height reads calmer than a short card floating by a tall
+  board. Measured on a production build at 1280 x 800 and 1440 x 900: the
+  document is the viewport's height on the owner's, the assigned and the
+  coach's shared repertoire page (chapter root, a commented move, the note
+  editor open); before, 840 to 1112px at 1280 x 800.
 - **Panel order, every width, one DOM order:** board row, builder row,
   status line, comment strip, then the scroller (summary row, status strip,
-  lead, chapter line, moves, Train here, notes). The desktop move list
-  scrolls in its own box (at most `50dvh`), so the comment strip above it
-  stays in view while stepping.
+  lead, chapter line, moves, Train here, notes). On a desktop the move list
+  takes the room the panel leaves (at least 10rem) and scrolls in its own
+  box, so selecting a move scrolls only that box and the comment strip
+  above it stays in view while stepping. Where the rows above it leave the
+  scroller less than that (the coach's note editor open at 1280 x 800), the
+  scroller scrolls too; nothing is clipped.
 - **640-1023px:** the phone layout (Board height above).
 
 ### The move list

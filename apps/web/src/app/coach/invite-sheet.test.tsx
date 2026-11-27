@@ -157,6 +157,22 @@ describe('InviteSheet: creating a link (R-98, R-99)', () => {
     expect(writeText).toHaveBeenCalledWith(LINK);
   });
 
+  it('makes Create link secondary once a link is shown, so Copy is not competing with a second link (Task 18)', async () => {
+    renderSheet();
+    const { sheet } = openSheet();
+    const create = within(sheet).getByRole('button', { name: s.create });
+    expect(create.className.split(' ')).toContain('bg-accent');
+    fireEvent.click(create);
+    await within(sheet).findByRole('textbox', { name: i.link });
+    const after = within(sheet)
+      .getByRole('button', { name: s.create })
+      .className.split(' ');
+    expect(after).not.toContain('bg-accent');
+    expect(after).toEqual(
+      expect.arrayContaining(['border', 'border-border-strong']),
+    );
+  });
+
   it('forgets the link once closed: it is shown once', async () => {
     renderSheet();
     const { sheet } = openSheet();

@@ -121,11 +121,12 @@ function UnderMoves({
 }
 
 /**
- * The move list's box: on a desktop it scrolls on its own, at most about
- * half a screen high, so stepping keeps the comment strip above it in
- * view; on a phone the whole panel scrolls.
+ * The move list's box: on a desktop it takes the room the panel leaves (at
+ * least 10rem) and scrolls on its own, so selecting a move scrolls only
+ * this box and the page never scrolls (Task 18); on a phone the whole
+ * panel scrolls.
  */
-const MOVES_BOX = 'lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto';
+const MOVES_BOX = 'lg:min-h-40 lg:flex-1 lg:overflow-y-auto';
 
 /**
  * What scrolls in the panel (the frame's scroller): the view's summary

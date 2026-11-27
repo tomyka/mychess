@@ -11,13 +11,24 @@ import { GroupCell } from './group-cell';
 /** One member's row of the grid. */
 type MemberRow = GroupGrid['rows'][number];
 
-/** The member's name, linked to their page. */
-function MemberLink({ row }: { readonly row: MemberRow }): JSX.Element {
+const MEMBER_LINK = 'font-semibold break-words text-accent hover:underline';
+
+/** The phone card's name link: a 44px touch target (Task 18). */
+const CARD_MEMBER_LINK = `${MEMBER_LINK} inline-flex min-h-touch items-center`;
+
+/**
+ * The member's name, linked to their page; `className` sizes it: a touch
+ * target on the phone card, inline in the grid's two-line clamp.
+ */
+function MemberLink({
+  row,
+  className = MEMBER_LINK,
+}: {
+  readonly row: MemberRow;
+  readonly className?: string;
+}): JSX.Element {
   return (
-    <Link
-      href={coachPlayerPath(row.player.id)}
-      className="font-semibold break-words text-accent hover:underline"
-    >
+    <Link href={coachPlayerPath(row.player.id)} className={className}>
       {row.player.displayName}
     </Link>
   );
@@ -58,7 +69,7 @@ function MemberCard({
   return (
     <li className={`${CARD} flex flex-col gap-1 p-4`}>
       <span className="flex items-baseline justify-between gap-3">
-        <MemberLink row={row} />
+        <MemberLink row={row} className={CARD_MEMBER_LINK} />
         <LastTrained days={row.lastTrainedDays} />
       </span>
       <ul className="flex flex-col">
@@ -79,10 +90,18 @@ function MemberCard({
 const CELL = 'p-2 align-top';
 
 /**
+ * A member row's cell: centred, so the name and Last trained line up with
+ * the progress cell's 44px link (Task 18).
+ */
+const ROW_CELL = 'p-2 align-middle';
+
+/**
  * The sticky player column, about 170px, its names held to two lines.
  * Its background is the card's, so cells scrolling under it are hidden.
  */
-const PLAYER_CELL = `${CELL} sticky left-0 z-10 w-[170px] min-w-[170px] bg-surface shadow-[inset_-1px_0_0_var(--color-border)]`;
+const PLAYER_COLUMN =
+  'sticky left-0 z-10 w-[170px] min-w-[170px] bg-surface shadow-[inset_-1px_0_0_var(--color-border)]';
+const PLAYER_CELL = `${CELL} ${PLAYER_COLUMN}`;
 
 /** One member's row of the desktop grid, Last trained last. */
 function GridTableRow({
@@ -94,17 +113,17 @@ function GridTableRow({
 }): JSX.Element {
   return (
     <tr className="border-t border-border">
-      <th scope="row" className={`${PLAYER_CELL} font-normal`}>
+      <th scope="row" className={`${ROW_CELL} ${PLAYER_COLUMN} font-normal`}>
         <span className="line-clamp-2">
           <MemberLink row={row} />
         </span>
       </th>
       {grid.columns.map((column, index) => (
-        <td key={column.id} className={CELL}>
+        <td key={column.id} className={ROW_CELL}>
           <MemberCell row={row} grid={grid} index={index} />
         </td>
       ))}
-      <td className={`${CELL} whitespace-nowrap`}>
+      <td className={`${ROW_CELL} whitespace-nowrap`}>
         <LastTrained days={row.lastTrainedDays} />
       </td>
     </tr>

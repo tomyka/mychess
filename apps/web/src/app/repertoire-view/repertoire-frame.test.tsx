@@ -44,19 +44,22 @@ const classesOf = (element: Element | null | undefined): readonly string[] =>
   (element?.getAttribute('class') ?? '').split(/\s+/u);
 
 describe('RepertoireFrame', () => {
-  it('is a fixed-height column on a phone and the two-column grid on a desktop', () => {
+  it('is a fixed-height column on a phone and a viewport-high two-column grid on a desktop, so the page never scrolls (Task 18)', () => {
     const main = renderFrame();
-    expect(classesOf(main)).toEqual(
+    const classes = classesOf(main);
+    expect(classes).toEqual(
       expect.arrayContaining([
         'flex',
         'flex-col',
         'h-[calc(100dvh-var(--shell-chrome,0px))]',
         'lg:grid',
-        'lg:h-auto',
+        'lg:h-[calc(100dvh-var(--shell-chrome,0px))]',
         'lg:grid-cols-[auto_var(--spacing-panel)]',
-        'lg:grid-rows-[auto_1fr]',
+        'lg:grid-rows-[auto_minmax(0,1fr)]',
       ]),
     );
+    expect(classes).not.toContain('lg:h-auto');
+    expect(classes).not.toContain('lg:grid-rows-[auto_1fr]');
     expect(main.getAttribute('aria-busy')).toBeNull();
   });
 
@@ -128,6 +131,9 @@ describe('RepertoireFrame', () => {
         'flex-col',
         'lg:col-start-2',
         'lg:row-start-2',
+        // The card's second row, all of it and no more (Task 18).
+        'lg:self-stretch',
+        'lg:overflow-hidden',
       ]),
     );
     // Board row, builder row, status line, comment strip, then the scroller.
@@ -173,11 +179,12 @@ describe('RepertoireFrame', () => {
     for (const cell of empty) expect(classesOf(cell)).toContain('empty:hidden');
   });
 
-  it('scrolls the scroller on a phone and lets it grow with the page on a desktop', () => {
+  it('fills the rest of the panel with the scroller at every width, so the desktop move list takes the room left (Task 18)', () => {
     renderFrame();
     const scroller = cellOf('scroller');
     expect(scroller.hasAttribute('data-panel-scroller')).toBe(true);
-    expect(classesOf(scroller)).toEqual(
+    const classes = classesOf(scroller);
+    expect(classes).toEqual(
       expect.arrayContaining([
         'flex-1',
         'min-h-0',
@@ -186,12 +193,12 @@ describe('RepertoireFrame', () => {
         'pt-2',
         'pb-3',
         'gap-3',
-        'lg:flex-none',
-        'lg:overflow-visible',
         'lg:p-0',
         'lg:gap-4',
       ]),
     );
+    expect(classes).not.toContain('lg:flex-none');
+    expect(classes).not.toContain('lg:overflow-visible');
   });
 
   it('puts what is outside the cells (live regions) after them, and marks a loading page busy', () => {

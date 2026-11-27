@@ -44,24 +44,34 @@ function NewLink({
 
 /**
  * Create link: a personal invite (R-98), its link shown once below the
- * button, or the refusal (R-114, Coach mode off) in the status line.
+ * button, or the refusal (R-114, Coach mode off) in the status line. Once
+ * a link is shown, Create link turns secondary: copying it is the next
+ * step, not making another.
  */
 function CreateLink({ today }: { readonly today: string }): JSX.Element {
   const t = useTranslations('coach.inviteSheet');
   const [state, action] = useActionState(createInviteAction, NOT_CREATED);
+  const shown =
+    state.link === undefined || state.expiresAt === undefined
+      ? null
+      : { link: state.link, expiresAt: state.expiresAt };
   return (
     <div className="flex flex-col gap-4">
       <p>{t('intro')}</p>
       <InviteRefusalLine refusal={state.refusal} />
       <form action={action} className="flex flex-col">
         <input type="hidden" name="kind" value="personal" />
-        <PendingButton className={PRIMARY_BUTTON}>{t('create')}</PendingButton>
+        <PendingButton
+          className={shown === null ? PRIMARY_BUTTON : SECONDARY_BUTTON}
+        >
+          {t('create')}
+        </PendingButton>
       </form>
-      {state.link === undefined || state.expiresAt === undefined ? null : (
+      {shown === null ? null : (
         <NewLink
-          key={state.link}
-          link={state.link}
-          expiresAt={state.expiresAt}
+          key={shown.link}
+          link={shown.link}
+          expiresAt={shown.expiresAt}
           today={today}
         />
       )}

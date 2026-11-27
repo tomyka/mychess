@@ -7,9 +7,13 @@
 // the second, on one card, so the header's top is level with the board's.
 import type { JSX, ReactNode } from 'react';
 
-/** The page: a fixed-height column on a phone, the two-column grid on a desktop. */
+/**
+ * The page: the viewport less the shell's chrome at every width, so it
+ * never scrolls (Task 18): a column on a phone, the two-column grid on a
+ * desktop, whose panel row takes the height the top bar leaves.
+ */
 const GRID =
-  'flex h-[calc(100dvh-var(--shell-chrome,0px))] flex-col lg:grid lg:h-auto lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_1fr] lg:items-start lg:justify-center lg:gap-x-8 lg:px-gutter-wide lg:py-6';
+  'flex h-[calc(100dvh-var(--shell-chrome,0px))] flex-col lg:grid lg:h-[calc(100dvh-var(--shell-chrome,0px))] lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)] lg:items-start lg:justify-center lg:gap-x-8 lg:px-gutter-wide lg:py-6';
 
 /**
  * The desktop card behind the top bar and the panel, one surface for both
@@ -30,8 +34,8 @@ const TOP_BAR_CELL =
  * the screen is wide and gives up height first: it shrinks 100 times
  * faster than the panel, down to 7rem, and is a size container, so the
  * board in it (BOARD_SQUARE) is the largest square that fits, centred.
- * On a desktop it spans both rows, stays in view while the panel scrolls
- * with the page (#331), and is as wide as the viewport is high, less the
+ * On a desktop it spans both rows, sticky should the page ever scroll
+ * (it does not, Task 18), and is as wide as the viewport is high, less the
  * app bar and the page's padding, at most 46rem: at 1280x800,
  * 800 - 56 - 48 = 696px (finding 7). It is never wider than the viewport
  * less the panel, the gap and the side padding (6rem), so a 1024px-wide
@@ -47,10 +51,11 @@ const BOARD_SQUARE = 'w-[min(100cqw,100cqh)] lg:w-full';
  * The panel's cell: the rows under the board and the scroller. Below `lg`
  * it starts at its basis and keeps it while the board shrinks; the strip
  * and the rows live here, so stepping through moves never resizes the
- * board. On a desktop the card's second row.
+ * board. On a desktop the card's second row, all of its height and no
+ * more: the scroller in it takes what the rows leave (Task 18).
  */
 const PANEL_CELL =
-  'flex min-h-0 flex-col lg:col-start-2 lg:row-start-2 lg:px-4 lg:pb-4';
+  'flex min-h-0 flex-col lg:col-start-2 lg:row-start-2 lg:self-stretch lg:overflow-hidden lg:px-4 lg:pb-4';
 
 /**
  * The panel cell's basis below `lg`, which sets the phone board's cap:
@@ -82,11 +87,13 @@ const STATUS_ROW = `${ROW} lg:mb-3`;
 const COMMENT_ROW = 'shrink-0 empty:hidden lg:mb-4';
 
 /**
- * On a phone the scroller; on a desktop a plain column that grows with its
- * content, so the panel scrolls with the page (#331).
+ * The scroller, the rest of the panel at every width. On a desktop the
+ * move list in it takes the room left and scrolls on its own; the
+ * scroller itself scrolls only when what is around the moves leaves them
+ * less than their minimum (Task 18).
  */
 const SCROLLER =
-  'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-gutter pt-2 pb-3 lg:flex-none lg:gap-4 lg:overflow-visible lg:p-0';
+  'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-gutter pt-2 pb-3 lg:gap-4 lg:p-0';
 
 export interface RepertoireFrameProps {
   /** The header: over the board on a phone, first on the card on a desktop. */

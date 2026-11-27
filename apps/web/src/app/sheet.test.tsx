@@ -129,4 +129,12 @@ describe('Sheet', () => {
       expect.arrayContaining(['mt-auto', 'md:m-auto', 'backdrop:bg-scrim']),
     );
   });
+
+  it('draws its top edge with the card-edge token, so it shows against the scrim in dark (Task 18)', () => {
+    render(<Opener />);
+    openSheet();
+    expect(screen.getByRole('dialog').className.split(' ')).toEqual(
+      expect.arrayContaining(['border-t', 'border-card-edge']),
+    );
+  });
 });

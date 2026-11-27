@@ -1428,6 +1428,15 @@ describe('Today’s assignment facts and fork offers', () => {
     expect(JSON.stringify(mine)).not.toContain(london);
   });
 
+  it('My repertoires still counts a player who forked the coach’s repertoire: teaching material, Assigned to 1 (#381)', async () => {
+    const { rokas, rimantas, london } = await cast();
+    actAs(rokas);
+    await outcomeOf(forkAction({}, formOf({ repertoireId: london })));
+    actAs(rimantas);
+    const londonCard = (await myRepertoires()).find((one) => one.id === london);
+    expect(londonCard).toMatchObject({ teaching: true, assignedTo: 1 });
+  });
+
   it('show the session player’s own pause, not another player’s', async () => {
     const people = await cast();
     actAs(people.gabija);

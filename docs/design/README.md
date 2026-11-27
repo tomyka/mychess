@@ -205,6 +205,10 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `board-hint-edge` on light / dark square (2026-10-26, dark theme re-measured 2026-11-25 on `#d7c2a0` / `#946f4f`; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.5, a hue cue only) | 10.7 / 4.7 | 8.5 / 3.3 |
 | `board-hint` on `board-hint-edge` | 8.2 | 8.2 |
 | Board coordinates (2026-11-26, #381 part 4; `board.css`, bold, 0.75rem, 0.875rem from `lg`, inside the corner squares; static, both themes): `board-coord-on-light` (`#7a5232`) on a light square / `board-coord-on-dark` (`#ffffff`) on a dark square | 4.97 / 3.15 | 3.93 / 4.52 |
+| The sheet over its `scrim` (2026-11-27, #381 part 5; `Sheet`'s `::backdrop`): the sheet's `surface` against the scrimmed `bg` / scrimmed `surface`. Not text and not a control state, so no AA minimum; the sheet reads by its place (bottom edge on a phone, centred from `md`), its rounded top, its heading and the dimmed page. In dark the scrim cannot lift it further (`surface` on pure black is 1.27), only an edge can | 2.70 / 2.52 | 1.19 / 1.16 |
+| The selected radio card (2026-11-27, #381 part 5, dark finding 15): the `accent` ring on `surface`; the `accent-subtle` fill against `surface` (a tint, not the signal: the ring and the checked radio carry the state) | 5.82; 1.17 | 7.33; 1.11 |
+| Coach screens (2026-11-27, #381 part 5): Needs attention's 3px edges on `surface`, `error` / `due` / idle `border-strong` (graphic, 3:1) | 6.54 / 5.86 / 3.70 | 7.40 / 8.49 / 3.55 |
+| Coach screens: the due count (`due`) on `surface`; the Done pill (`success` on `success-subtle`); the Overdue pill (`error` on `error-subtle`); `fg-muted` in the comment strip (`accent-subtle`) | 5.86; 5.29; 5.58; 5.38 | 8.49; 6.87; 6.98; 6.01 |
 
 `apps/web/src/app/tokens.test.ts` enforces the text, control and focus
 pairs above (AA, both themes) on every run, so a token change that drops
@@ -221,3 +225,63 @@ move's arrows and circles) carry the same information.
 For every visible change: screenshots at 390px and 1280px, light
 and dark (4 per screen; English only, R-217), plus a keyboard pass and a 200% zoom check. The
 report lists what matches the screen note, what does not, and the fix.
+
+### Coach screens (#381 part 5), 2026-11-27
+
+Production build of 910e9a13, persona seeds, coach Rimantas; 390x844,
+375x667, 1280x800 and 1440x900, light and dark, plus 640x400 (1280 at
+200%). Spec `docs/superpowers/specs/2026-11-27-coach-screens-design.md`.
+
+**Signed off, except finding 16** (fix 1 below, which blocks). Fixes 2 to 5
+are small and may follow.
+
+Measured: dashboard player rows 65 / 65 / 70px on a phone (about 64
+budgeted); group page Progress at y = 144 at both phone widths (budget 140
+to 160; 273 before); group grid player column 170px at 1280; shared
+repertoire at 375x667 with the comment and the note strip: scroller 155px
+(budget 155), 3 whole move rows, board 252px; at 390x844 4 rows, board
+390px; the note strip 44px; the desktop note card heading at y = 361 at
+1280x800, beside the board (finding 6); the new invite link at y = 395 to
+439 inside the sheet at 375x667 (finding 11); no sideways scroll at 200%.
+Focus is visible on every control (the stretched row and card links ring
+the whole card); focus stays in the sheets (initial focus on the note's
+textarea); DOM order matches the visual order.
+
+Findings 1 to 13, 15 and 17 pass. Fails and fixes (component code,
+`web-dev`):
+
+1. **Finding 16, desktop shared repertoire still scrolls:** 876px at the
+   chapter root, 1006 with a commented move selected, 1112 with the note
+   editor open (1280x800); 1054 at 1440x900. The owner's page also scrolls
+   (840). Cause: the panel grows with its content and the move list is
+   capped at `50dvh` (`MOVES_BOX`, `repertoire-view/repertoire-panel.tsx`)
+   rather than taking the room left. Fix: from `lg`, give the frame's grid
+   a fixed height (`lg:h-[calc(100dvh-var(--shell-chrome,0px))]` on `GRID`
+   in `repertoire-view/repertoire-frame.tsx`, the card's rows then
+   `auto_minmax(0,1fr)`), make `PANEL_CELL` `lg:min-h-0 lg:overflow-hidden`
+   and the move box `lg:min-h-40 lg:flex-1 lg:overflow-y-auto` without the
+   `50dvh` cap. The board is sticky meanwhile, so it never leaves the
+   screen; the spec's "no page scroll" is what fails.
+2. **My repertoires, the coach's forked "Naidorfo variantas":** off Today
+   (teaching material) and without a bar, but its card has no "Assigned to
+   1", while its Repertoire screen lists Dovydas ("Own copy"). The count
+   (`assignedCounts`) and the teaching test (`assignedByAccount`) in
+   `apps/web/src/server/repertoires.ts` disagree; count a forked
+   assignment as an assignee, as the Repertoire screen does.
+3. **Group page, phone cards:** the player name link is 24px tall
+   (touch target 44px). Give it `min-h-touch` with `inline-flex
+   items-center`, or stretch it over the card's name row.
+4. **Group grid (desktop):** the player and Last trained cells sit at the
+   top while the progress cell's 44px link centres its content, so a row
+   reads about 10px out of line. Align the row's cells to the middle
+   (`align-middle`), or the link to the start.
+5. **Invite a player sheet:** after Create link, Create link stays the
+   primary button under the new link, so Copy (secondary) competes with
+   making a second link. Make Create link secondary once a link is shown.
+
+Not failing, noted: the sheet's edge in dark is 1.19:1 against the
+scrimmed page (see Contrast; a `border-t border-card-edge` on `Sheet` in
+`apps/web/src/app/sheet.tsx` would draw it); a fork's title in `text-2xl`
+takes four lines at 390 on its progress page; the Change panel's
+date label reads "Dec 20, 2026" (the app's `MEDIUM_DATE`) beside the
+native field, which follows the browser's locale.
