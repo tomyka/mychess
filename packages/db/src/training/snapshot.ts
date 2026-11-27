@@ -10,10 +10,19 @@ import {
   type ReviewState,
   type Side,
 } from '@mychess/chess';
-import { dayEnd, dayStart, type TrainingSettings } from '@mychess/domain';
+import {
+  dayEnd,
+  dayStart,
+  isTeachingMaterial,
+  type TrainingSettings,
+} from '@mychess/domain';
 import { REPEATABLE_READ, type Executor } from '../client';
 import { isUuid } from '../ids';
-import { trainingEntries, type TrainingRepertoireEntry } from './entries';
+import {
+  assignedByMe,
+  trainingEntries,
+  type TrainingRepertoireEntry,
+} from './entries';
 import {
   knownWithoutLearning,
   learnedBetween,
@@ -63,12 +72,22 @@ export interface TrainingSnapshot {
   readonly settings: TrainingSettings;
 }
 
-/** The entries the scope names; undefined when it names none the player trains. */
-function scoped(
+/**
+ * The entries the scope names; undefined when it names none the player
+ * trains. Every repertoire leaves out the account's teaching material
+ * (R-230), read only for it; one repertoire still names it, so Train here
+ * works.
+ */
+async function scoped(
+  tx: Executor,
+  playerId: string,
   entries: readonly TrainingRepertoireEntry[],
   scope: TrainingScope,
-): readonly TrainingRepertoireEntry[] | undefined {
-  if (scope.kind === 'all') return entries;
+): Promise<readonly TrainingRepertoireEntry[] | undefined> {
+  if (scope.kind === 'all') {
+    const assigned = await assignedByMe(tx, playerId);
+    return entries.filter((e) => !isTeachingMaterial(e, assigned));
+  }
   const named = entries.filter((e) => e.repertoire.id === scope.repertoireId);
   return named.length === 0 ? undefined : named;
 }
@@ -126,7 +145,7 @@ export async function trainingSnapshot(
   }
   return db.transaction(async (tx) => {
     const all = await trainingEntries(tx, playerId);
-    const entries = scoped(all, scope);
+    const entries = await scoped(tx, playerId, all, scope);
     if (entries === undefined) return undefined;
     const stored = await reviewsOf(tx, playerId);
     const held = repertoireKeys(all.map((e) => e.repertoire));

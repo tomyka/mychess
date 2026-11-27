@@ -101,6 +101,10 @@ _Avoid_: Template, default repertoire, course
 A Coach giving a Repertoire to a Player or a Group, live-linked: the Player trains the Coach's Repertoire and sees the Coach's later edits. May carry a deadline. A Group assignment applies to current and future members while they remain in the Group.
 _Avoid_: Copy, share, subscription
 
+**Teaching material**:
+A Coach's own Repertoire assigned to at least one Player or Group. It is not the Coach's own training: it leaves the Coach's Today and its counts, though the Coach can still open it and train it from its page (R-230).
+_Avoid_: Library, course
+
 **Fork**:
 A Player's personal, editable copy of an assigned Repertoire, cut off from the Coach's later edits. The only way for a Player to change or add Moves to something they were assigned.
 Its **Fork origin** records the source Repertoire and the assigning Coach's display name at fork time; the source becomes unknown when that Repertoire is deleted, and the name stays (R-49), so the Player's list can say whose Assignment it was. A Coach learns that a Repertoire shared with them is the Fork of their own Assignment, and links to it, only while it is shared through an active link (R-43, R-155); the newest such Fork is named.

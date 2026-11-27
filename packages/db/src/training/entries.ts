@@ -10,9 +10,32 @@ import {
   learnOrder,
   type TrainingEntry,
 } from '@mychess/domain';
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import { assignments } from '../assignment-schema';
 import { REPEATABLE_READ, type Executor } from '../client';
 import { namesOf } from '../assignments/names';
 import { trainingSources } from '../assignments/player-training';
+
+const assignedRowsSchema = z.array(z.object({ repertoireId: z.uuid() }));
+
+/**
+ * The repertoires `accountId` assigned, as a coach, to at least one player
+ * or group (R-230), in one statement. Unassigning deletes the row, so one
+ * unassigned from everyone is not here.
+ */
+export async function assignedByMe(
+  db: Executor,
+  accountId: string,
+): Promise<Set<string>> {
+  const rows = assignedRowsSchema.parse(
+    await db
+      .selectDistinct({ repertoireId: assignments.repertoireId })
+      .from(assignments)
+      .where(eq(assignments.coachId, accountId)),
+  );
+  return new Set(rows.map((row) => row.repertoireId));
+}
 
 /**
  * The coach's name, read in the same snapshot as the repertoire: an

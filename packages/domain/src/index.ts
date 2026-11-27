@@ -362,6 +362,7 @@ export {
   type SignInRefusal,
   type SignInRefusalReason,
 } from './sign-in';
+export { isTeachingMaterial } from './teaching';
 export {
   DEFAULT_TRAINING_SETTINGS,
   RESULT_KINDS,

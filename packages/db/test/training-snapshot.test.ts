@@ -9,7 +9,7 @@ import {
   unassign,
 } from '../src';
 import { useTestDatabase } from '../src/testing';
-import { seedCoach, seedLink, seedPlayer } from './support/coaching';
+import { seedCoach, seedGroup, seedLink, seedPlayer } from './support/coaching';
 import { graphOf, newRepertoire } from './support/repertoires';
 import { countStatements } from './support/statements';
 import { keysOf, writeReview } from './support/training';
@@ -43,7 +43,8 @@ async function assignToP(repertoireId: string): Promise<void> {
   expect(done.ok).toBe(true);
 }
 
-async function unassignFromP(repertoireId: string): Promise<void> {
+/** Unassigns one assignment of the repertoire, whichever target it has. */
+async function unassignOne(repertoireId: string): Promise<void> {
   const { rows } = await client.query(
     'select id from assignments where repertoire_id = $1',
     [repertoireId],
@@ -115,7 +116,7 @@ describe('trainingSnapshot', () => {
     const kings = await repertoireOf('c', 'Trenerio', KINGS);
     await assignToP(kings);
     await learned(E4);
-    await unassignFromP(kings);
+    await unassignOne(kings);
     expect(await snapshotKeys(ALL)).toEqual([]);
     await assignToP(kings);
     expect(await snapshotKeys(ALL)).toEqual([E4]);
@@ -232,6 +233,80 @@ describe('trainingSnapshot', () => {
       });
       expect(snapshot).toBeUndefined();
       expect(statements).toBe(0);
+    });
+  });
+
+  describe("a coach's teaching material (R-230)", () => {
+    const coachSnapshot = (scope: Parameters<typeof trainingSnapshot>[2]) =>
+      trainingSnapshot(db, 'c', scope, NOW);
+
+    async function assignToGroup(repertoireId: string): Promise<void> {
+      const groupId = await seedGroup(db, 'c', 'Šeštadienio grupė');
+      const done = await assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId,
+          target: { kind: 'group', groupId },
+          deadline: null,
+        },
+        NOW,
+      );
+      expect(done.ok).toBe(true);
+    }
+
+    it('leaves an own repertoire assigned to a group, even an empty one, out of every-repertoire entries but keeps it in others', async () => {
+      const taught = await repertoireOf('c', 'Mokomasis', KINGS);
+      const own = await repertoireOf('c', 'Savas');
+      await assignToGroup(taught);
+      const snapshot = await coachSnapshot(ALL);
+      expect(snapshot?.entries.map((e) => e.repertoire.id)).toEqual([own]);
+      expect(snapshot?.others).toEqual([
+        { id: taught, name: 'Mokomasis', side: 'white', graph: KINGS },
+      ]);
+    });
+
+    it('leaves out an own repertoire assigned to a player', async () => {
+      const taught = await repertoireOf('c', 'Mokomasis', KINGS);
+      await assignToP(taught);
+      const snapshot = await coachSnapshot(ALL);
+      expect(snapshot?.entries).toEqual([]);
+      expect(snapshot?.others.map((o) => o.id)).toEqual([taught]);
+    });
+
+    it('keeps the reviews of its keys held, so none goes dormant', async () => {
+      const taught = await repertoireOf('c', 'Mokomasis', KINGS);
+      await assignToGroup(taught);
+      const e4 = startReview(E4, hoursAgo(48));
+      await writeReview(db, 'c', e4, { learnedAt: hoursAgo(48) });
+      const snapshot = await coachSnapshot(ALL);
+      expect(snapshot?.reviews).toEqual(new Map([[E4, e4]]));
+    });
+
+    it('still gives it scoped to it, so Train here works', async () => {
+      const taught = await repertoireOf('c', 'Mokomasis', KINGS);
+      await assignToGroup(taught);
+      const snapshot = await coachSnapshot({
+        kind: 'repertoire',
+        repertoireId: taught,
+      });
+      expect(snapshot?.entries).toMatchObject([
+        { kind: 'own', repertoire: { id: taught } },
+      ]);
+    });
+
+    it('brings it back to every repertoire once it is unassigned from everyone', async () => {
+      const taught = await repertoireOf('c', 'Mokomasis', KINGS);
+      await assignToGroup(taught);
+      await assignToP(taught);
+      await unassignOne(taught);
+      expect(
+        (await coachSnapshot(ALL))?.entries.map((e) => e.repertoire.id),
+      ).toEqual([]);
+      await unassignOne(taught);
+      const snapshot = await coachSnapshot(ALL);
+      expect(snapshot?.entries.map((e) => e.repertoire.id)).toEqual([taught]);
+      expect(snapshot?.others).toEqual([]);
     });
   });
 
