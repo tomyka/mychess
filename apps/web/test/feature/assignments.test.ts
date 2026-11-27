@@ -1469,6 +1469,23 @@ const STANDING = z.strictObject({
   mastered: z.boolean(),
 });
 
+/**
+ * An assignee as the Repertoire screen gets them: the standing and the
+ * assignment status (deadline and flags), nothing else.
+ */
+const ASSIGNEE = z.strictObject({
+  standing: STANDING,
+  status: z
+    .strictObject({
+      deadline: z.iso.date().nullable(),
+      overdue: z.boolean(),
+      paused: z.boolean(),
+      done: z.boolean(),
+      forked: z.boolean(),
+    })
+    .nullable(),
+});
+
 describe('the assignees’ standings on the coach’s Repertoire screen (R-225, Q26)', () => {
   /** The session coach's standings of `repertoireId`, by player id. */
   async function standingsOf(
@@ -1487,11 +1504,11 @@ describe('the assignees’ standings on the coach’s Repertoire screen (R-225, 
     // Gabija has it alone, Rokas through the group: both linked and live.
     expect([...standings.keys()].sort()).toEqual([gabija.id, rokas.id].sort());
     for (const standing of standings.values()) {
-      // Exactly the counts and the mastered flag: no move, time or id.
-      const shape = STANDING.safeParse(standing);
+      // Exactly the counts, the mastered flag and the status: no move, time or id.
+      const shape = ASSIGNEE.safeParse(standing);
       expect(shape.success).toBe(true);
       // Nothing trained yet: every one of the Taimanov's own moves is new.
-      expect(shape.data?.counts.notStarted).toBeGreaterThan(0);
+      expect(shape.data?.standing.counts.notStarted).toBeGreaterThan(0);
     }
     expect(await state()).toEqual(before);
   });
@@ -1504,6 +1521,6 @@ describe('the assignees’ standings on the coach’s Repertoire screen (R-225, 
     const standings = await standingsOf(taimanov);
     // Whether or not the list still names him, his progress is withheld.
     expect(standings.get(rokas.id) ?? null).toBeNull();
-    expect(STANDING.safeParse(standings.get(gabija.id)).success).toBe(true);
+    expect(ASSIGNEE.safeParse(standings.get(gabija.id)).success).toBe(true);
   });
 });
