@@ -300,7 +300,7 @@ export function leaveGroup(
 /** A repertoire the coach assigned to a group, as the group list names it. */
 export interface GroupAssignment {
   readonly repertoireId: string;
-  readonly name: string;
+  readonly repertoireName: string;
   /** A calendar date (YYYY-MM-DD); null for none. */
   readonly deadline: string | null;
 }
@@ -328,13 +328,13 @@ const groupAssignmentRowsSchema = z.array(
   z.object({
     groupId: z.uuid(),
     repertoireId: z.uuid(),
-    name: z.string(),
+    repertoireName: z.string(),
     deadline: z.iso.date().nullable(),
   }),
 );
 
 const byRepertoireName = byName((one: GroupAssignment) => ({
-  name: one.name,
+  name: one.repertoireName,
   id: one.repertoireId,
 }));
 
@@ -351,11 +351,13 @@ async function groupAssignments(
       .select({
         groupId: assignments.groupId,
         repertoireId: assignments.repertoireId,
-        name: repertoires.name,
+        repertoireName: repertoires.name,
         deadline: assignments.deadline,
       })
       .from(assignments)
       .innerJoin(repertoires, eq(repertoires.id, assignments.repertoireId))
+      // assignments_repertoire_fk and assignments_group_fk tie the repertoire
+      // and the group to this coach, so coachId alone scopes the rows.
       .where(
         and(eq(assignments.coachId, coachId), isNotNull(assignments.groupId)),
       ),

@@ -29,6 +29,8 @@ export async function seedAssignment(
     readonly repertoireId: string;
     readonly target: { playerId: string } | { groupId: string };
     readonly now: Date;
+    /** A calendar date (YYYY-MM-DD); none when omitted. */
+    readonly deadline?: string;
   },
 ): Promise<string> {
   const [inserted] = await db
@@ -38,6 +40,7 @@ export async function seedAssignment(
       repertoireId: row.repertoireId,
       assignedVersion: 1,
       createdAt: row.now,
+      deadline: row.deadline ?? null,
       ...row.target,
     })
     .returning({ id: assignments.id });

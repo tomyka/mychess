@@ -942,6 +942,19 @@ describe('openGroupInvite and the group page (R-232) - SECURITY', () => {
     expect(await openGroupInvite(db, 'c', groupId, at(3000))).toBeUndefined();
   });
 
+  it('keeps giving the newest group invite after a player accepts it: a group link is never used up', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    await invite('group', groupId, 'c', at(1000));
+    const newest = await invite('group', groupId, 'c', at(2000));
+    expect((await accept(newest.token, 'p1', at(3000))).ok).toBe(true);
+    expect(await openGroupInvite(db, 'c', groupId, at(3000))).toEqual({
+      id: newest.inviteId,
+      expiresAt: at(2000 + WEEK),
+    });
+  });
+
   it('gives none from the moment the invite expires', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     const groupId = await seedGroup(db, 'c', 'Mano');

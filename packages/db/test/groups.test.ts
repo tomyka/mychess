@@ -594,7 +594,14 @@ describe('coachGroups and coachGroup', () => {
         target: { groupId },
         now: T0,
       });
-    for (const id of [zuikis, yra, zalias]) await toGroup('c', id, saturday);
+    for (const id of [zuikis, zalias]) await toGroup('c', id, saturday);
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: yra,
+      target: { groupId: saturday },
+      now: T0,
+      deadline: '2026-12-01',
+    });
     await toGroup('d', theirs, foreign);
     await seedAssignment(db, {
       coachId: 'c',
@@ -602,24 +609,20 @@ describe('coachGroups and coachGroup', () => {
       target: { playerId: 'ruta' },
       now: T0,
     });
-    await client.query(
-      'update assignments set deadline = $1 where repertoire_id = $2',
-      ['2026-12-01', yra],
-    );
     const listed = await coachGroups(db, 'c');
     expect(listed.map((g) => [g.id, g.assignments])).toEqual([
       [empty, []],
       [
         saturday,
         [
-          { repertoireId: yra, name: 'Yra', deadline: '2026-12-01' },
-          { repertoireId: zalias, name: 'Žalias', deadline: null },
-          { repertoireId: zuikis, name: 'Zuikis', deadline: null },
+          { repertoireId: yra, repertoireName: 'Yra', deadline: '2026-12-01' },
+          { repertoireId: zalias, repertoireName: 'Žalias', deadline: null },
+          { repertoireId: zuikis, repertoireName: 'Zuikis', deadline: null },
         ],
       ],
     ]);
     expect((await coachGroups(db, 'd'))[0]?.assignments).toEqual([
-      { repertoireId: theirs, name: 'Kitas', deadline: null },
+      { repertoireId: theirs, repertoireName: 'Kitas', deadline: null },
     ]);
   });
 
