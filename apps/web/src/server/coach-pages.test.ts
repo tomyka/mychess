@@ -1,7 +1,8 @@
 import type {
+  CoachStatus,
+  DashboardPlayer,
   GroupPage,
   GroupProgressCell,
-  HomePlayer,
   LinkedAccount,
   PlayerProgress,
   ProgressRow,
@@ -22,7 +23,7 @@ const GROUP = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
 const server = vi.hoisted(() => ({
   coach: vi.fn<() => Promise<unknown>>(),
-  home: vi.fn<(...args: unknown[]) => Promise<HomePlayer[]>>(),
+  home: vi.fn<(...args: unknown[]) => Promise<DashboardPlayer[]>>(),
   groups: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(),
   invites: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(),
   player: vi.fn<(...args: unknown[]) => Promise<PlayerProgress | undefined>>(),
@@ -30,7 +31,7 @@ const server = vi.hoisted(() => ({
 }));
 
 vi.mock('@mychess/db', () => ({
-  coachHomePlayers: server.home,
+  coachDashboard: server.home,
   coachGroups: server.groups,
   coachInvites: server.invites,
   coachPlayerProgress: server.player,
@@ -107,20 +108,64 @@ beforeEach(() => {
 describe('coachHomeData', () => {
   it('gives each player the Vilnius days since they last trained, in one read', async () => {
     // 23:30 in Vilnius on 19 October: yesterday.
-    const overdue = { nearestDeadline: '2026-10-15', overdue: true };
-    const free = { nearestDeadline: null, overdue: false };
     server.home.mockResolvedValue([
-      { ...ROKAS, ...overdue, lastTrained: new Date('2026-10-19T20:30:00Z') },
-      { ...GABIJA, ...free, lastTrained: null },
+      {
+        ...ROKAS,
+        lastTrained: new Date('2026-10-19T20:30:00Z'),
+        rows: [ASSIGNED, SHARED],
+      },
+      { ...GABIJA, lastTrained: null, rows: [] },
     ]);
     const home = await coachHomeData();
-    // The deadline signal passes through as the read decided it (#329).
     expect(home.players).toEqual([
-      { ...ROKAS, ...overdue, lastTrainedDays: 1 },
-      { ...GABIJA, ...free, lastTrainedDays: null },
+      {
+        ...ROKAS,
+        nearestDeadline: '2026-10-20',
+        overdue: true,
+        lastTrainedDays: 1,
+      },
+      {
+        ...GABIJA,
+        nearestDeadline: null,
+        overdue: false,
+        lastTrainedDays: null,
+      },
     ]);
     // As of now: overdue is judged at the clock.
     expect(server.home).toHaveBeenCalledExactlyOnceWith(DB, 'jonas', NOW);
+  });
+
+  it('takes the nearest open deadline of the live assignments, and overdue from any row (#329)', async () => {
+    const row = (
+      name: string,
+      status: Partial<CoachStatus>,
+      view: ProgressRow['view'] = GRANTED,
+    ): ProgressRow => ({
+      ...ASSIGNED,
+      repertoire: { ...LONDON, name },
+      status: { ...STATUS, overdue: false, ...status },
+      view,
+    });
+    server.home.mockResolvedValue([
+      {
+        ...ROKAS,
+        lastTrained: null,
+        rows: [
+          row('Done', { deadline: '2026-10-21', done: true }),
+          row(
+            'Forked',
+            { deadline: '2026-10-22', forked: true, overdue: true },
+            { kind: 'forked', sharedForkId: null },
+          ),
+          row('Later', { deadline: '2026-11-30' }),
+          row('Sooner', { deadline: '2026-10-25' }),
+          row('None', { deadline: null }),
+        ],
+      },
+    ]);
+    expect((await coachHomeData()).players).toMatchObject([
+      { nearestDeadline: '2026-10-25', overdue: false },
+    ]);
   });
 });
 

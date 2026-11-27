@@ -186,6 +186,8 @@ export interface PlayerSummary {
   readonly nextDeadline: string | null;
   /** There is a live assignment and every one is done. */
   readonly allDone: boolean;
+  /** Some live assignment is overdue; a forked one never is (R-155). */
+  readonly overdue: boolean;
 }
 
 const add = (a: ProgressCounts, b: ProgressCounts): ProgressCounts => ({
@@ -209,5 +211,6 @@ export function playerSummary(rows: readonly CoachRowFacts[]): PlayerSummary {
     nextDeadline: nextDeadline ?? null,
     allDone:
       assignments.length > 0 && assignments.every((row) => row.status.done),
+    overdue: assignments.some((row) => row.status.overdue),
   };
 }

@@ -9,8 +9,10 @@
  * plus 4 per repertoire shown (its row and the 3 of its graph). The player
  * page reads through coachPlayerProgress, the progress page through
  * coachRepertoireProgress, whose one-repertoire access step (grantedReads,
- * granted.ts) it shares with coachAssigneeStandings; the home and group pages are composed in
- * pages.ts, the group grid from groupGrid here.
+ * granted.ts) it shares with coachAssigneeStandings. The dashboard
+ * (dashboard.ts) builds each player's rows as the player page does
+ * (playerRepertoires, rowOf); the group page is composed in pages.ts, the
+ * group grid from groupGrid here.
  */
 import {
   progressOf,
@@ -28,6 +30,7 @@ import {
   type CoachProgressFacts,
   type PlayerRepertoire,
   type ProgressSource,
+  type RepertoireScope,
 } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -126,13 +129,13 @@ async function trackedReviewsOf(
 }
 
 /** A repertoire of progressRepertoires, loaded through its entryRead's scope. */
-interface Shown {
+export interface Shown {
   readonly loaded: LoadedGraph;
   readonly read: EntryRead;
 }
 
 /** A row of the player page; badges and status only for an assignment. */
-function rowOf(
+export function rowOf(
   { loaded, read }: Shown,
   tracked: ReadonlyMap<string, TrackedReview>,
   now: Date,
@@ -164,19 +167,26 @@ function byNameWithinSource(shown: readonly Shown[]): Shown[] {
   );
 }
 
+/** Loads a repertoire as a scope reaches it for viewing (loadVisible). */
+export type LoadVisible = (
+  scope: RepertoireScope,
+  id: string,
+) => Promise<LoadedGraph | undefined>;
+
 /**
- * Every repertoire of progressRepertoires its scope reaches: this coach's
- * assignments (by name), then the shared ones (by name).
+ * Every repertoire of progressRepertoires its scope reaches, as `load`
+ * loads it: this coach's assignments (by name), then the shared ones (by
+ * name). The viewer must be one isCoachLinked found linked.
  */
-async function playerRepertoires(
-  tx: Executor,
+export async function playerRepertoires(
+  load: LoadVisible,
   viewer: ProgressViewer,
 ): Promise<Shown[]> {
   const out: Shown[] = [];
   const { coachId, playerId, facts } = viewer;
   for (const entry of progressRepertoires(coachId, playerId, facts)) {
     const read = entryRead(entry, viewer);
-    const loaded = await loadVisible(tx, read.scope, entry.repertoireId);
+    const loaded = await load(read.scope, entry.repertoireId);
     if (loaded !== undefined) out.push({ loaded, read });
   }
   return byNameWithinSource(out);
@@ -198,7 +208,10 @@ export function coachPlayerProgress(
     const linked = await linkedPlayer(tx, coachId, playerId);
     if (linked === undefined) return undefined;
     const { viewer, player } = linked;
-    const shown = await playerRepertoires(tx, viewer);
+    const shown = await playerRepertoires(
+      (scope, id) => loadVisible(tx, scope, id),
+      viewer,
+    );
     const tracked = await trackedReviewsOf(
       tx,
       playerId,

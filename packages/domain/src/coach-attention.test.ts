@@ -408,7 +408,29 @@ describe('playerSummary', () => {
       counts: counts({ learned: 15, due: 5, notStarted: 10, skipped: 2 }),
       nextDeadline: '2026-12-20',
       allDone: false,
+      overdue: false,
     });
+  });
+
+  it('is overdue when a live assignment is overdue, paused or not', () => {
+    const rows = [
+      assigned({ status: status({ deadline: '2026-12-20' }) }),
+      assigned({
+        status: status({ deadline: '2026-10-01', overdue: true, paused: true }),
+      }),
+    ];
+    expect(playerSummary(rows).overdue).toBe(true);
+  });
+
+  it('is never overdue for a forked assignment (R-155) or a share', () => {
+    const rows = [
+      assigned({
+        status: status({ deadline: '2026-10-01', overdue: true, forked: true }),
+        counts: null,
+      }),
+      shared('Taimanov', counts({ due: 3 })),
+    ];
+    expect(playerSummary(rows).overdue).toBe(false);
   });
 
   it('takes the earliest of several open deadlines', () => {
@@ -431,6 +453,7 @@ describe('playerSummary', () => {
       counts: null,
       nextDeadline: null,
       allDone: false,
+      overdue: false,
     });
   });
 
@@ -470,6 +493,7 @@ describe('playerSummary', () => {
       counts: null,
       nextDeadline: null,
       allDone: false,
+      overdue: false,
     });
   });
 });

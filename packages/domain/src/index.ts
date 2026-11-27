@@ -199,12 +199,6 @@ export {
 } from './fork-offer';
 export { forkOriginOf, type ForkOrigin } from './fork-origin';
 export {
-  NO_DEADLINES,
-  deadlineAssignments,
-  playerDeadlines,
-  type PlayerDeadlines,
-} from './home-deadlines';
-export {
   drillCoachNotes,
   type DrillCoachNote,
   type DrillRepertoire,

@@ -289,10 +289,11 @@ viewport height on desktop, so no page scroll at 1280x800), with:
   assignment (deadline, overdue, paused, done, % learned, due count, last
   trained). Its thresholds (3 days, 80%, 30 due, 7 days) are named
   constants there. Days count in Europe/Vilnius, as overdue does.
-- **Dashboard read:** extend the batched assignee-standings read (#385,
-  #392) so the dashboard gets, per player, the per-repertoire progress and
-  due counts in one query, through the one coach-progress access step
-  (Q26, R-156). No per-player query loop.
+- **Dashboard read:** one batched read (`coachDashboard`) gives, per
+  player, the rows the player page shows (progress, due counts, status),
+  through the same coach-progress access step (Q26, R-156), in one
+  snapshot: a fixed number of statements whatever the number of players,
+  plus 4 per repertoire and scope shown. No per-player query loop.
 - **Teaching material** (R-230): "assigned to at least one player or group"
   decided in the domain and applied in Today's read.
 - **Group done counts** and the picker's "has it via" come from the

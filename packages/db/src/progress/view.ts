@@ -122,7 +122,7 @@ interface Reviewed {
 }
 
 /** What a coach sees of one player's assignment: its badges and status. */
-export interface AssignmentMarks {
+interface AssignmentMarks {
   readonly badges: BadgeSet;
   readonly status: CoachStatus;
 }

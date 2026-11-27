@@ -5,24 +5,28 @@ import 'server-only';
 // filters again in SQL (#303). An undefined read is a plain 404 (plan
 // decision 4).
 import {
+  coachDashboard,
   coachGroupPage,
   coachGroups,
-  coachHomePlayers,
   coachInvites,
   coachPlayerProgress,
   sharedRepertoireSnapshot,
   type CoachGroup,
   type CoachGroupSummary,
   type CoachInvite,
+  type DashboardPlayer,
   type GroupProgress,
   type GroupProgressCell,
-  type HomePlayer,
   type LinkedAccount,
   type PlayerProgress,
   type ProgressRow,
   type RepertoireRef,
 } from '@mychess/db';
-import type { AccountRef } from '@mychess/domain';
+import {
+  playerSummary,
+  type AccountRef,
+  type CoachRowFacts,
+} from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { daysSince } from '../lib/days-ago';
@@ -38,10 +42,35 @@ import {
  * A player on the coach's home, with when they last trained (R-154), their
  * nearest deadline and whether they are overdue (#329).
  */
-interface CoachHomePlayer extends Omit<HomePlayer, 'lastTrained'> {
+interface CoachHomePlayer extends LinkedAccount {
+  /** The earliest deadline of a live assignment not done (playerSummary). */
+  readonly nearestDeadline: string | null;
+  /** Some live assignment is overdue (playerSummary). */
+  readonly overdue: boolean;
   /** Whole Vilnius days since the player last trained; null for never. */
   readonly lastTrainedDays: number | null;
 }
+
+/** What the domain reads of a dashboard row (R-155: no counts when forked). */
+const rowFacts = (row: ProgressRow): CoachRowFacts => ({
+  name: row.repertoire.name,
+  status: row.status,
+  counts: row.view.kind === 'granted' ? row.view.standing.counts : null,
+});
+
+/** The home's player, from the dashboard read, days counted from `now`. */
+const homePlayerOf = (
+  { lastTrained, rows, ...player }: DashboardPlayer,
+  now: Date,
+): CoachHomePlayer => {
+  const summary = playerSummary(rows.map(rowFacts));
+  return {
+    ...player,
+    nearestDeadline: summary.nextDeadline,
+    overdue: summary.overdue,
+    lastTrainedDays: daysSince(lastTrained, now),
+  };
+};
 
 /** What the coach dashboard's home shows: the coach's own players, groups, invites. */
 export interface CoachHomeData {
@@ -58,12 +87,9 @@ export async function coachHomeData(): Promise<CoachHomeData> {
   const coach = await requireCoach();
   const db = getDb();
   const now = new Date();
-  const players = await coachHomePlayers(db, coach.id, now);
+  const players = await coachDashboard(db, coach.id, now);
   return {
-    players: players.map(({ lastTrained, ...player }) => ({
-      ...player,
-      lastTrainedDays: daysSince(lastTrained, now),
-    })),
+    players: players.map((player) => homePlayerOf(player, now)),
     groups: await coachGroups(db, coach.id),
     invites: await coachInvites(db, coach.id, now),
   };

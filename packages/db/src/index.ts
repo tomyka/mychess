@@ -194,12 +194,8 @@ export {
   coachAssigneeStandings,
   type AssigneeStandingsRequest,
 } from './progress/assignee-standings';
-export {
-  coachGroupPage,
-  coachHomePlayers,
-  type GroupPage,
-  type HomePlayer,
-} from './progress/pages';
+export { coachDashboard, type DashboardPlayer } from './progress/dashboard';
+export { coachGroupPage, type GroupPage } from './progress/pages';
 export type { ProgressView, RepertoireRef } from './progress/view';
 export {
   countRateLimited,
