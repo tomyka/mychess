@@ -140,6 +140,21 @@ export const assignedScope = (playerId: string): RepertoireScope => ({
   playerId,
 });
 
+/**
+ * A string equal for equal scopes and different for different ones, to
+ * key a map by scope (#392). Ids never contain a colon.
+ */
+export function scopeKey(scope: RepertoireScope): string {
+  switch (scope.kind) {
+    case 'own':
+      return `own:${scope.ownerId}`;
+    case 'shared':
+      return `shared:${scope.coachId}:${scope.playerId}`;
+    case 'assigned':
+      return `assigned:${scope.playerId}`;
+  }
+}
+
 /** What an account does with a repertoire it reaches. */
 export type RepertoirePurpose = 'view' | 'edit';
 

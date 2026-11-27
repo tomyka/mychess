@@ -25,6 +25,7 @@ import {
   personalNoteSchema,
   repertoireNameSchema,
   repertoireSchema,
+  scopeKey,
   sharedScope,
   type RepertoireScope,
 } from './repertoire';
@@ -294,6 +295,32 @@ describe('canUseScope (#278: view through any scope, edit only as the owner)', (
       });
     },
   );
+});
+
+describe('scopeKey (#392: one map key per scope)', () => {
+  it('names each kind and its ids', () => {
+    expect([
+      scopeKey(ownScope('gabija')),
+      scopeKey(sharedScope('rimantas', 'gabija')),
+      scopeKey(assignedScope('rokas')),
+    ]).toEqual(['own:gabija', 'shared:rimantas:gabija', 'assigned:rokas']);
+  });
+
+  it('is equal for equal scopes built apart', () => {
+    expect(scopeKey(sharedScope('rimantas', 'gabija'))).toBe(
+      scopeKey({ kind: 'shared', coachId: 'rimantas', playerId: 'gabija' }),
+    );
+  });
+
+  it('tells apart scopes with the same ids', () => {
+    const keys = new Set([
+      scopeKey(ownScope('gabija')),
+      scopeKey(assignedScope('gabija')),
+      scopeKey(sharedScope('gabija', 'rokas')),
+      scopeKey(sharedScope('rokas', 'gabija')),
+    ]);
+    expect(keys.size).toBe(4);
+  });
 });
 
 describe('canViewRepertoire and canEditRepertoire are the own scope only', () => {

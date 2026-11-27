@@ -8,7 +8,8 @@
  * share for a shared one (Q26). Statements: fixed in the number of players,
  * plus 4 per repertoire shown (its row and the 3 of its graph). The player
  * page reads through coachPlayerProgress, the progress page through
- * coachRepertoireProgress; the home and group pages are composed in
+ * coachRepertoireProgress, whose one-repertoire access step (grantedReads,
+ * granted.ts) it shares with coachAssigneeStandings; the home and group pages are composed in
  * pages.ts, the group grid from groupGrid here.
  */
 import {
@@ -37,6 +38,7 @@ import type { CoachGroup, GroupMember } from '../groups';
 import { isUuid } from '../ids';
 import { trackedReviews } from '../training/reviews';
 import { coachProgressFacts, lastTrained } from './facts';
+import { grantedReads } from './granted';
 import {
   byRepertoireName,
   entryRead,
@@ -227,8 +229,9 @@ export interface RepertoireProgressRequest extends PlayerRepertoire {
 }
 
 /**
- * The progress page (R-152): undefined unless progressRepertoire grants
- * it. The repertoire then loads through that entry's scope.
+ * The progress page (R-152): undefined unless the access step
+ * (grantedReads) grants it. The player's name is read by the link
+ * (coachPlayer), and the repertoire loads through that entry's scope.
  */
 export function coachRepertoireProgress(
   db: Db,
@@ -237,17 +240,11 @@ export function coachRepertoireProgress(
 ): Promise<RepertoireProgressView | undefined> {
   if (!isUuid(repertoireId)) return Promise.resolve(undefined);
   return db.transaction(async (tx) => {
-    const linked = await linkedPlayer(tx, coachId, playerId);
-    if (linked === undefined) return undefined;
-    const { viewer, player } = linked;
-    const entry = progressRepertoire(
-      coachId,
-      playerId,
-      repertoireId,
-      viewer.facts,
-    );
-    if (entry?.kind !== 'granted') return undefined;
-    const read = entryRead(entry, viewer);
+    const [granted] = await grantedReads(tx, coachId, repertoireId, [playerId]);
+    if (granted === undefined) return undefined;
+    const player = await coachPlayer(tx, coachId, playerId);
+    if (player === undefined) return undefined;
+    const { read } = granted;
     const loaded = await loadVisible(tx, read.scope, repertoireId);
     if (loaded === undefined) return undefined;
     const tracked = await trackedReviewsOf(tx, playerId, [loaded]);

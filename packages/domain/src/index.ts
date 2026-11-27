@@ -294,6 +294,7 @@ export {
   canViewRepertoire,
   assignedScope,
   ownScope,
+  scopeKey,
   sharedScope,
   canWritePersonalNote,
   chapterNameSchema,
