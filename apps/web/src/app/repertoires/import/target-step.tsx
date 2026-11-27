@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useId, type JSX, type ReactNode } from 'react';
 import type { ImportTarget } from '../../../server/import-preview';
+import { FIELD, RADIO_CARD } from '../../fields';
 import { SECTION_TITLE } from '../../settings/styles';
 import { StepNumber } from './step-number';
 import type { ImportOption } from './import-flow-state';
@@ -11,11 +12,9 @@ import type { TargetView } from './use-import-flow';
 const CHOICE =
   'flex min-h-touch cursor-pointer items-center gap-3 has-disabled:cursor-not-allowed has-disabled:opacity-60';
 
-const CARD =
-  'flex flex-col gap-3 rounded-control border border-border-strong bg-surface px-3 py-2 has-checked:border-accent has-checked:ring-1 has-checked:ring-accent';
+const CARD = `${RADIO_CARD} flex flex-col gap-3 px-3 py-2`;
 
-const FIELD =
-  'min-h-touch w-full rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error';
+const WIDE_FIELD = `${FIELD} w-full`;
 
 function Choice({
   label,
@@ -30,9 +29,10 @@ function Choice({
   readonly onChoose: () => void;
   readonly children: ReactNode;
 }): JSX.Element {
+  const labelId = useId();
   return (
-    <div className={CARD}>
-      <label className={CHOICE}>
+    <div role="group" aria-labelledby={labelId} className={CARD}>
+      <label id={labelId} className={CHOICE}>
         <input
           type="radio"
           name="target"
@@ -76,7 +76,7 @@ function NameField({
         onChange={(event) => {
           onName(event.currentTarget.value);
         }}
-        className={FIELD}
+        className={WIDE_FIELD}
       />
     </div>
   );
@@ -131,7 +131,7 @@ function ExistingField({
         onChange={(event) => {
           onChoose(event.currentTarget.value);
         }}
-        className={FIELD}
+        className={WIDE_FIELD}
       >
         {options.map((option) => (
           <option key={option.id} value={option.id}>

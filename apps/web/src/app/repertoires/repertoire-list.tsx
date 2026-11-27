@@ -32,6 +32,8 @@ export interface RepertoireCard {
   readonly forkCoachName: string | null;
   /** How many players have it from the viewer as their coach (R-225); 0 when none. */
   readonly assignedTo: number;
+  /** Assigned by the viewer to anyone: teaching material (R-230). */
+  readonly teaching: boolean;
 }
 
 /** The training standings of what the viewer trains, by repertoire id. */
@@ -174,6 +176,16 @@ function CardLink({ view }: { readonly view: CardView }): JSX.Element {
   );
 }
 
+/**
+ * An own repertoire's standing: none while it is teaching material, whose
+ * card says its assignees, not the coach's own progress (R-230).
+ */
+const ownStanding = (
+  item: RepertoireCard,
+  standings: Standings,
+): TrainedStanding | undefined =>
+  item.teaching ? undefined : standings.get(item.id);
+
 function OwnCard({
   item,
   now,
@@ -192,7 +204,7 @@ function OwnCard({
         tag: item.forkCoachName === null ? null : 'fork',
         meta,
         badges: null,
-        standing: standings.get(item.id),
+        standing: ownStanding(item, standings),
       }}
     />
   );
@@ -286,8 +298,8 @@ function SideGroup({
 /**
  * The account's repertoires and those assigned to it (#328) by side, White
  * then Black, each sorted by name in English order (R-160, R-217), each
- * with its standing where the viewer trains it (R-225); one line when there
- * are none at all.
+ * with its standing where the viewer trains it (R-225) unless it is
+ * teaching material (R-230); one line when there are none at all.
  */
 export function RepertoireList({
   items,

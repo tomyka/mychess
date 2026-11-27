@@ -289,6 +289,22 @@ describe('ImportFlow', () => {
     expect([...select.options].map((o) => o.text)).toEqual(['Taimanovas']);
   });
 
+  it('tints the chosen target card accent-subtle with an accent ring, as the side cards (#381 dark finding 15)', async () => {
+    renderFlow();
+    await previewAsBlack();
+    const card = screen
+      .getByRole('group', { name: i.targetNew })
+      .className.split(' ');
+    expect(card).toEqual(
+      expect.arrayContaining([
+        'has-checked:bg-accent-subtle',
+        'has-checked:ring-1',
+        'has-checked:ring-accent',
+      ]),
+    );
+    expect(card.filter((name) => name.includes('dark:'))).toEqual([]);
+  });
+
   it('Change reopens step 1 and focuses the file input', async () => {
     renderFlow();
     await previewAsBlack();

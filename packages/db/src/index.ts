@@ -235,6 +235,7 @@ export {
   type ShareTarget,
 } from './shares';
 export {
+  assignedByMe,
   trainingEntries,
   type TrainingRepertoireEntry,
 } from './training/entries';

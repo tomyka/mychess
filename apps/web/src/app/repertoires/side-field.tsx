@@ -3,9 +3,9 @@
 import { SIDES, type Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
+import { RADIO_CARD } from '../fields';
 
-const CHOICE =
-  'flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent has-disabled:cursor-not-allowed has-disabled:opacity-60';
+const CHOICE = `${RADIO_CARD} flex min-h-touch cursor-pointer items-center gap-3 px-3 has-disabled:cursor-not-allowed has-disabled:opacity-60`;
 
 /** The side shown and what choosing another does: a held choice. */
 export interface HeldSide {

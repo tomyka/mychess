@@ -18,6 +18,7 @@ const card = (
   updatedAt: NOW,
   forkCoachName: null,
   assignedTo: 0,
+  teaching: false,
   ...over,
 });
 
@@ -273,6 +274,43 @@ describe('RepertoireList', () => {
     expect(
       within(cardOf('Šiaurės gambitas')).queryByText(/Assigned to/u),
     ).toBeNull();
+  });
+
+  it('shows teaching material with its assignees and no own bar, share, due or New (R-230)', () => {
+    renderList(
+      [
+        // With three players.
+        card({
+          id: 'r-1',
+          name: 'Londono sistema',
+          assignedTo: 3,
+          teaching: true,
+        }),
+        // Only with a group that has no members yet.
+        card({ id: 'r-2', name: 'Šiaurės gambitas', teaching: true }),
+        card({ id: 'r-3', name: 'Žaibas' }),
+      ],
+      [],
+      new Map([
+        ['r-1', trained(82, 3, 15)],
+        ['r-2', trained(0, 0, 12)],
+        ['r-3', trained(82, 3, 15)],
+      ]),
+    );
+    expect(
+      within(cardOf('Londono sistema')).getByText('Assigned to 3'),
+    ).toBeDefined();
+    for (const name of ['Londono sistema', 'Šiaurės gambitas']) {
+      const taught = cardOf(name);
+      expect(within(taught).queryByText(/learned|due|New/u)).toBeNull();
+      expect(taught.querySelector('[aria-hidden="true"]')).toBeNull();
+      expect(taught.getAttribute('aria-describedby')?.split(' ')).toHaveLength(
+        1,
+      );
+    }
+    const own = cardOf('Žaibas');
+    expect(within(own).getByText('82% learned · 3 due')).toBeDefined();
+    expect(own.querySelector('[aria-hidden="true"]')).not.toBeNull();
   });
 
   it('says a side is empty only when it has neither an own nor an assigned repertoire', () => {

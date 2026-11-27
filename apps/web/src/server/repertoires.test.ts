@@ -28,6 +28,7 @@ const server = vi.hoisted(() => ({
   coaches: vi.fn<(db: unknown, ownerId: string) => Promise<unknown>>(),
   shared:
     vi.fn<(db: unknown, ownerId: string, id: string) => Promise<string[]>>(),
+  assignedByMe: vi.fn<(db: unknown, coachId: string) => Promise<Set<string>>>(),
 }));
 
 // The owner-filtered read: the db returns nothing for a repertoire the
@@ -38,6 +39,7 @@ vi.mock('@mychess/db', () => ({
   loadRepertoire: server.load,
   playerCoaches: server.coaches,
   sharedCoachIds: server.shared,
+  assignedByMe: server.assignedByMe,
 }));
 vi.mock('./db', () => ({ getDb: () => DB }));
 // The session account; requireOnboarded's redirects are session.ts's own.
@@ -76,6 +78,8 @@ beforeEach(() => {
     .mockImplementation((_db, _coach, id) =>
       Promise.resolve(id === LONDON ? 3 : 0),
     );
+  // London is assigned to three players (R-230's teaching material).
+  server.assignedByMe.mockReset().mockResolvedValue(new Set([LONDON]));
 });
 
 describe('myRepertoires', () => {
@@ -91,6 +95,7 @@ describe('myRepertoires', () => {
         updatedAt: NOW,
         forkCoachName: null,
         assignedTo: 0,
+        teaching: false,
       },
       {
         id: FORK,
@@ -101,15 +106,46 @@ describe('myRepertoires', () => {
         updatedAt: NOW,
         forkCoachName: 'Jonas',
         assignedTo: 0,
+        teaching: false,
       },
     ]);
     expect(server.list).toHaveBeenCalledExactlyOnceWith(DB, 'rokas');
   });
 
-  it('reads no assignee count for an account that is not a coach', async () => {
+  it('reads no assignee count nor assignment for an account that is not a coach', async () => {
     server.account.mockResolvedValue({ id: 'rokas', coachSince: null });
     await myRepertoires();
     expect(server.count).not.toHaveBeenCalled();
+    expect(server.assignedByMe).not.toHaveBeenCalled();
+  });
+
+  it("marks a coach's repertoire assigned to anyone as teaching material, one assigned only to an empty group included (R-230)", async () => {
+    server.account.mockResolvedValue({ id: 'jonas', coachSince: NOW });
+    const GROUP_ONLY = '5e2d9c1a-7b3f-4a6e-8c0d-1f2e3a4b5c6d';
+    server.list.mockResolvedValue([
+      ...ITEMS,
+      {
+        id: GROUP_ONLY,
+        side: 'white',
+        name: 'Italų partija',
+        chapters: 1,
+        moves: 12,
+        updatedAt: NOW,
+        forkedFrom: null,
+      },
+    ]);
+    // London is with three players; the Italian only with a group that has
+    // no members yet, so no player has it but it is assigned.
+    server.assignedByMe.mockResolvedValue(new Set([LONDON, GROUP_ONLY]));
+    const items = await myRepertoires();
+    expect(
+      items.map((item) => [item.id, item.assignedTo, item.teaching]),
+    ).toEqual([
+      [LONDON, 3, true],
+      [FORK, 0, false],
+      [GROUP_ONLY, 0, true],
+    ]);
+    expect(server.assignedByMe).toHaveBeenCalledExactlyOnceWith(DB, 'jonas');
   });
 
   it("gives a coach's repertoire how many players have it assigned (R-225)", async () => {
