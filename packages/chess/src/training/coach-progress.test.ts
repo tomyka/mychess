@@ -9,6 +9,7 @@ import {
   type Side,
 } from '../repertoire/graph';
 import {
+  isUnstarted,
   percentLearned,
   progressOf,
   repertoireStanding,
@@ -429,5 +430,25 @@ describe('a chapter learned yesterday (#321, R-177, R-178)', () => {
     expect(percentLearned(progress.counts)).toBe(90);
     expect(progress.chapters[0]?.mastered).toBe(false);
     expect(progress.mastered).toBe(false);
+  });
+});
+
+describe('isUnstarted', () => {
+  it('holds when every move is still to learn', () => {
+    expect(isUnstarted({ notStarted: 3, skipped: 0, due: 0, learned: 0 })).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['a learned move', { notStarted: 3, skipped: 0, due: 0, learned: 1 }],
+    ['a due move', { notStarted: 3, skipped: 0, due: 1, learned: 0 }],
+    [
+      'an "I know this" move',
+      { notStarted: 3, skipped: 1, due: 0, learned: 0 },
+    ],
+    ['no move at all', { notStarted: 0, skipped: 0, due: 0, learned: 0 }],
+  ])('does not hold with %s', (_, counts) => {
+    expect(isUnstarted(counts)).toBe(false);
   });
 });

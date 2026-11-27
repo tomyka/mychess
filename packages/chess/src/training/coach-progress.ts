@@ -48,6 +48,14 @@ export function totalMoves(counts: ProgressCounts): number {
 }
 
 /**
+ * Whether nothing is started: there are moves and every one is still to
+ * learn (an "I know this" move is started, R-151).
+ */
+export function isUnstarted(counts: ProgressCounts): boolean {
+  return counts.notStarted > 0 && counts.notStarted === totalMoves(counts);
+}
+
+/**
  * R-177: learned moves (not due, skipped or not started) as a whole
  * percentage of all player moves, matching the learned count; null with no
  * player moves.

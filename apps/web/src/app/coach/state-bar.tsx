@@ -5,11 +5,13 @@ import {
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { MasteredBadge } from '../mastered-badge';
 
 /** One segment's width as a share of the whole, which is never 0 here. */
 const segment = (part: number, whole: number): string =>
   `${String((part / whole) * 100)}%`;
+
+/** The bar's height: 6px in a row, 8px in a page header (spec, Shared pieces). */
+const HEIGHT = { row: 'h-1.5', header: 'h-2' } as const;
 
 /**
  * The share learned in words, and whether there is anything to learn: an
@@ -28,15 +30,16 @@ export function usePercentLearned(counts: ProgressCounts): {
 
 /**
  * The four states of R-151 as one bar (learned violet, "I know this" muted
- * violet, due amber, to learn the grey track), with the same counts in words
- * (never colour alone, docs/design/README.md) and the Mastered badge.
+ * violet, due amber, to learn the grey track). The bar is hidden from
+ * screen readers: ProgressCounts says the same counts in words beside it
+ * (never colour alone, docs/design/README.md).
  */
 export function StateBar({
   counts,
-  mastered,
+  size,
 }: {
   readonly counts: ProgressCounts;
-  readonly mastered: boolean;
+  readonly size: keyof typeof HEIGHT;
 }): JSX.Element {
   const t = useTranslations('coach.progress');
   const whole = totalMoves(counts);
@@ -44,25 +47,19 @@ export function StateBar({
     return <p className="text-sm text-fg-muted">{t('nothing')}</p>;
   }
   return (
-    <div className="flex flex-col gap-1">
+    <div
+      aria-hidden="true"
+      className={`flex ${HEIGHT[size]} overflow-hidden rounded-pill bg-border`}
+    >
       <div
-        aria-hidden="true"
-        className="flex h-2 overflow-hidden rounded-pill bg-border"
-      >
-        <div
-          className="bg-learned"
-          style={{ width: segment(counts.learned, whole) }}
-        />
-        <div
-          className="bg-skipped"
-          style={{ width: segment(counts.skipped, whole) }}
-        />
-        <div className="bg-due" style={{ width: segment(counts.due, whole) }} />
-      </div>
-      <p className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
-        <span className="text-pretty">{t('counts', { ...counts })}</span>
-        {mastered ? <MasteredBadge /> : null}
-      </p>
+        className="bg-learned"
+        style={{ width: segment(counts.learned, whole) }}
+      />
+      <div
+        className="bg-skipped"
+        style={{ width: segment(counts.skipped, whole) }}
+      />
+      <div className="bg-due" style={{ width: segment(counts.due, whole) }} />
     </div>
   );
 }

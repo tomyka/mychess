@@ -1,4 +1,3 @@
-import type { ProgressCounts } from '@mychess/chess';
 import type { ProgressRow } from '@mychess/db';
 import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
@@ -9,7 +8,8 @@ import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { AssignmentBadges } from '../../../assignment-badges';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../settings/styles';
 import { LastTrained } from '../../last-trained';
-import { StateBar, usePercentLearned } from '../../state-bar';
+import { ProgressCounts } from '../../progress-counts';
+import { StateBar } from '../../state-bar';
 
 /** The repertoire's name: a link to its progress page, or plain when forked (R-155). */
 function RowName({
@@ -31,19 +31,6 @@ function RowName({
       {repertoire.name}
     </Link>
   );
-}
-
-/**
- * " · 50 % išmokta" after the source; nothing when there is nothing to
- * learn, which the state bar under it says once.
- */
-function Percent({
-  counts,
-}: {
-  readonly counts: ProgressCounts;
-}): JSX.Element | null {
-  const percent = usePercentLearned(counts);
-  return percent.empty ? null : <>{` · ${percent.text}`}</>;
 }
 
 /**
@@ -74,7 +61,7 @@ function ForkedNote({
   );
 }
 
-/** One repertoire: name, assigned or shared with % learned, badges, the state bar. */
+/** One repertoire: name, assigned or shared, badges, the state bar and its counts. */
 function Row({
   playerId,
   row,
@@ -88,21 +75,19 @@ function Row({
     <li className="flex flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-2">
         <RowName playerId={playerId} row={row} />
-        <span className="text-sm text-fg-muted">
-          {t(row.source)}
-          {view.kind === 'forked' ? null : (
-            <Percent counts={view.standing.counts} />
-          )}
-        </span>
+        <span className="text-sm text-fg-muted">{t(row.source)}</span>
       </div>
       {badges === null ? null : <AssignmentBadges flags={badges} />}
       {view.kind === 'forked' ? (
         <ForkedNote playerId={playerId} sharedForkId={view.sharedForkId} />
       ) : (
-        <StateBar
-          counts={view.standing.counts}
-          mastered={view.standing.mastered}
-        />
+        <>
+          <StateBar counts={view.standing.counts} size="row" />
+          <ProgressCounts
+            counts={view.standing.counts}
+            mastered={view.standing.mastered}
+          />
+        </>
       )}
     </li>
   );

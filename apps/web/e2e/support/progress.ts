@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import {
   importPgn,
+  isUnstarted,
   percentLearned,
   playerKeys,
   type Side,
@@ -56,9 +57,23 @@ export const notStarted = (total: number): Counts => ({
   notStarted: total,
 });
 
-/** The state bar's counts line. */
-export const countsText = (counts: Counts): string =>
-  plural(en.coach.progress.counts, { ...counts });
+/** The counts said after the share learned, when above zero. */
+const COUNTED = ['due', 'skipped', 'notStarted'] as const;
+
+/**
+ * The counts line beside the state bar (ProgressCounts): "Not started · N
+ * moves" while nothing is started, else the share learned, then the counts
+ * above zero, joined by " · ".
+ */
+export function countsText(counts: Counts): string {
+  const t = en.coach.progress;
+  if (isUnstarted(counts))
+    return plural(t.notStarted, { count: counts.notStarted });
+  const parts = COUNTED.filter((part) => counts[part] > 0).map((part) =>
+    format(t.part[part], { count: String(counts[part]) }),
+  );
+  return [percentText(counts), ...parts].join(t.separator);
+}
 
 /**
  * "n % learned": the learned moves only (R-177), as the app rounds it

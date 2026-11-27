@@ -8,6 +8,7 @@ import {
 import { z } from 'zod';
 import { vilniusDay } from './calendar';
 import { isCoach, type CoachState } from './coach';
+import { byNameAndId, type NameAndId } from './name-order';
 
 /** Message-catalogue keys for assignment refusals; the UI translates them. */
 export const ASSIGNMENT_REFUSALS = {
@@ -107,22 +108,60 @@ export function canSetDeadline(
 }
 
 /** Whom an existing assignment of the repertoire went to. */
-export interface AssignedTarget {
+export interface AssignedTarget extends NameAndId {
   readonly kind: AssignmentTarget['kind'];
-  readonly id: string;
 }
+
+/** One player an existing assignment reaches. */
+export interface ReachedPlayer {
+  readonly playerId: string;
+  /** They forked it and train their own copy (R-20, R-128). */
+  readonly forked: boolean;
+}
+
+/** An existing assignment of the repertoire and the players it reaches. */
+export interface ExistingAssignment {
+  readonly target: AssignedTarget;
+  readonly players: readonly ReachedPlayer[];
+}
+
+/**
+ * A player still offered, with the names of the groups the repertoire
+ * already reaches them through (R-134), in name order (R-160).
+ */
+export type AssignablePlayer<P> = P & { readonly viaGroups: readonly string[] };
 
 /** The candidates still offered for one repertoire. */
 export interface AssignableTargets<P, G> {
-  readonly players: readonly P[];
+  readonly players: readonly AssignablePlayer<P>[];
   readonly groups: readonly G[];
 }
+
+/**
+ * The groups through which the repertoire reaches the player, by name
+ * (R-160). A forked group assignment does not count: the player trains
+ * their own copy (lead decision, #381).
+ */
+const viaGroupsOf = (
+  assignments: readonly ExistingAssignment[],
+  playerId: string,
+): string[] =>
+  assignments
+    .filter(
+      ({ target, players }) =>
+        target.kind === 'group' &&
+        players.some((p) => p.playerId === playerId && !p.forked),
+    )
+    .map(({ target }) => target)
+    .toSorted(byNameAndId)
+    .map((group) => group.name);
 
 /**
  * The coach's linked players and groups this repertoire is not yet
  * assigned to as that target, in their order: canAssign's alreadyAssigned
  * rule. A player who has it only through a group stays assignable
- * individually (R-16, R-134).
+ * individually, which gives them their own deadline, and says through
+ * which groups (R-16, R-134).
  */
 export function assignableTargets<
   P extends { readonly id: string },
@@ -130,14 +169,23 @@ export function assignableTargets<
 >(
   players: readonly P[],
   groups: readonly G[],
-  assigned: readonly AssignedTarget[],
+  assignments: readonly ExistingAssignment[],
 ): AssignableTargets<P, G> {
   const taken = (kind: AssignedTarget['kind']): ReadonlySet<string> =>
-    new Set(assigned.filter((a) => a.kind === kind).map((a) => a.id));
+    new Set(
+      assignments
+        .filter(({ target }) => target.kind === kind)
+        .map(({ target }) => target.id),
+    );
   const takenPlayers = taken('player');
   const takenGroups = taken('group');
   return {
-    players: players.filter((player) => !takenPlayers.has(player.id)),
+    players: players
+      .filter((player) => !takenPlayers.has(player.id))
+      .map((player) => ({
+        ...player,
+        viaGroups: viaGroupsOf(assignments, player.id),
+      })),
     groups: groups.filter((group) => !takenGroups.has(group.id)),
   };
 }

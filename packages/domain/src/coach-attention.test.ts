@@ -8,6 +8,7 @@ import {
   NEAR_DEADLINE_PERCENT,
   attentionOf,
   byAttention,
+  deadlineNearness,
   playerSummary,
   type Attention,
   type AttentionInput,
@@ -494,6 +495,25 @@ describe('playerSummary', () => {
       nextDeadline: null,
       allDone: false,
       overdue: false,
+    });
+  });
+});
+
+describe('deadlineNearness (R-229, R-231)', () => {
+  it.each([
+    ['2026-11-27', 0, true],
+    ['2026-11-30', 3, true],
+    ['2026-12-01', 4, false],
+    ['2026-11-26', -1, false],
+    ['2026-11-01', -26, false],
+  ])('counts %s from 27 Nov as %i days, near: %s', (deadline, days, near) => {
+    expect(deadlineNearness(deadline, '2026-11-27')).toEqual({ days, near });
+  });
+
+  it('counts whole calendar days across the DST change', () => {
+    expect(deadlineNearness('2026-10-26', '2026-10-24')).toEqual({
+      days: 2,
+      near: true,
     });
   });
 });

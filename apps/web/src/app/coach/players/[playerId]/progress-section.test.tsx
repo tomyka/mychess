@@ -82,8 +82,10 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
     expect(link.getAttribute('href')).toBe('/coach/players/p-1/progress/r-1');
     const row = within(rowOf(link));
     expect(row.getByText(MESSAGES.assignment.badge.overdue)).toBeTruthy();
-    expect(row.getByText('Assigned · 25% learned')).toBeTruthy();
-    expect(row.getByText(/1 learned · 1 due/)).toBeTruthy();
+    expect(row.getByText('Assigned')).toBeTruthy();
+    expect(rowOf(link).textContent).toMatch(/25% learned · 1 due · 2 to learn/);
+    // The share learned is said once, in the counts, not after the source.
+    expect(rowOf(link).textContent.match(/25% learned/gu)).toHaveLength(1);
   });
 
   it('shows a shared repertoire with no badges, and Mastered', () => {
@@ -91,7 +93,8 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
     const link = screen.getByRole('link', { name: 'Londono sistema' });
     expect(link.getAttribute('href')).toBe('/coach/players/p-1/progress/r-3');
     const row = within(rowOf(link));
-    expect(row.getByText('Shared · 100% learned')).toBeTruthy();
+    expect(row.getByText('Shared')).toBeTruthy();
+    expect(row.getByText('100% learned')).toBeTruthy();
     expect(row.getByText(p.mastered)).toBeTruthy();
     expect(row.queryByText(MESSAGES.assignment.badge.overdue)).toBeNull();
   });

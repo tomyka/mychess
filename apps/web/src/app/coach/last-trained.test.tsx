@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { LastTrained } from './last-trained';
+import { LastTrained, LastTrainedNote } from './last-trained';
 
 const p = MESSAGES.coach.progress;
 
@@ -62,6 +62,39 @@ describe('LastTrained (R-154)', () => {
     show(null);
     expect(
       screen.getByText('Not trained yet on the repertoires you can see'),
+    ).toBeTruthy();
+  });
+});
+
+const showShort = (days: number | null): HTMLElement => {
+  const { container } = render(
+    <NextIntlClientProvider locale="en" messages={MESSAGES}>
+      <LastTrained days={days} form="short" />
+    </NextIntlClientProvider>,
+  );
+  return container;
+};
+
+describe('LastTrained, short form (R-231)', () => {
+  it.each([
+    [0, 'today'],
+    [1, 'yesterday'],
+    [5, '5 days ago'],
+    [null, 'never'],
+  ])('says %s days as "%s"', (days, said) => {
+    expect(showShort(days).textContent).toBe(said);
+  });
+});
+
+describe('LastTrainedNote (R-154)', () => {
+  it('says once what last trained counts', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <LastTrainedNote />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByText('Last trained counts only the repertoires you can see.'),
     ).toBeTruthy();
   });
 });

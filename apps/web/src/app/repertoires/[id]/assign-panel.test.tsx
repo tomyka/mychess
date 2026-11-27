@@ -77,8 +77,8 @@ const TODAY = '2026-11-17';
 
 const PEOPLE: Pick<AssignPanelData, 'players' | 'groups' | 'today'> = {
   players: [
-    { id: 'rokas', displayName: 'Rokas' },
-    { id: 'egle', displayName: 'Eglė' },
+    { id: 'rokas', displayName: 'Rokas', viaGroups: [] },
+    { id: 'egle', displayName: 'Eglė', viaGroups: [] },
   ],
   groups: [{ id: GROUP, name: 'Šeštadienio grupė' }],
   today: TODAY,
@@ -219,7 +219,7 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
 
   it('offers what the loader left assignable, leaving out an empty kind', () => {
     renderPanel({
-      players: [{ id: 'egle', displayName: 'Eglė' }],
+      players: [{ id: 'egle', displayName: 'Eglė', viaGroups: [] }],
       groups: [],
       assignments: [TO_GROUP, TO_ROKAS],
       today: TODAY,

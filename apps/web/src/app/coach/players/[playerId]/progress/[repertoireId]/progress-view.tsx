@@ -8,6 +8,7 @@ import type {
 } from '../../../../../../server/coach-progress';
 import { AssignmentBadges } from '../../../../../assignment-badges';
 import { SECTION, SECTION_TITLE } from '../../../../../settings/styles';
+import { ProgressCounts } from '../../../../progress-counts';
 import { StateBar } from '../../../../state-bar';
 import { COACH_PAGE, SubpageHeader } from '../../../../subpage-header';
 
@@ -21,7 +22,8 @@ function Lines({ chapter }: { readonly chapter: ChapterRow }): JSX.Element {
           <span className="text-sm break-words">
             {lineText(line.sans, chapter.whiteFirst)}
           </span>
-          <StateBar counts={line.counts} mastered={line.mastered} />
+          <StateBar counts={line.counts} size="row" />
+          <ProgressCounts counts={line.counts} mastered={line.mastered} />
         </li>
       ))}
     </ul>
@@ -33,7 +35,12 @@ function Lines({ chapter }: { readonly chapter: ChapterRow }): JSX.Element {
  * with no line (no own move) is a plain row, with nothing to open.
  */
 function Chapter({ chapter }: { readonly chapter: ChapterRow }): JSX.Element {
-  const bar = <StateBar counts={chapter.counts} mastered={chapter.mastered} />;
+  const bar = (
+    <>
+      <StateBar counts={chapter.counts} size="row" />
+      <ProgressCounts counts={chapter.counts} mastered={chapter.mastered} />
+    </>
+  );
   if (chapter.lines.length === 0) {
     return (
       <li className="flex min-h-touch flex-col justify-center gap-1">
@@ -76,7 +83,8 @@ export function ProgressView({
       >
         <p className="break-words text-fg-muted">{page.player.displayName}</p>
         {page.badges === null ? null : <AssignmentBadges flags={page.badges} />}
-        <StateBar
+        <StateBar counts={page.standing.counts} size="header" />
+        <ProgressCounts
           counts={page.standing.counts}
           mastered={page.standing.mastered}
         />

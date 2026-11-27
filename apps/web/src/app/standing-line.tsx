@@ -1,4 +1,9 @@
-import { percentLearned, totalMoves, type Standing } from '@mychess/chess';
+import {
+  isUnstarted,
+  percentLearned,
+  totalMoves,
+  type Standing,
+} from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { MasteredBadge } from './mastered-badge';
@@ -16,8 +21,8 @@ function useStandingText(
   due: number,
 ): string {
   const t = useTranslations('standing');
-  const total = totalMoves(standing.counts);
-  if (standing.counts.notStarted === total) return t('new', { count: total });
+  if (isUnstarted(standing.counts))
+    return t('new', { count: totalMoves(standing.counts) });
   return due > 0
     ? t('learnedDue', { percent, due })
     : t('learned', { percent });

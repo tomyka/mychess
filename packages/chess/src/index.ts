@@ -126,6 +126,7 @@ export {
   dueReviews,
   grade,
   hintReview,
+  isUnstarted,
   knowThis,
   learnAgainKeys,
   learnLines,

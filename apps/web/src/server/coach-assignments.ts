@@ -17,6 +17,7 @@ import {
   isCoach,
   vilniusDay,
   type AccountRef,
+  type AssignablePlayer,
 } from '@mychess/domain';
 import { getDb } from './db';
 import { requireOnboarded } from './session';
@@ -29,10 +30,11 @@ interface AssignableGroup {
 
 /**
  * The assign panel: whom it can still go to (assignableTargets: those it
- * is not yet assigned to), and whom it went to.
+ * is not yet assigned to, each player with the groups they have it
+ * through, R-134), and whom it went to.
  */
 export interface AssignPanelData {
-  readonly players: readonly AccountRef[];
+  readonly players: readonly AssignablePlayer<AccountRef>[];
   readonly groups: readonly AssignableGroup[];
   readonly assignments: readonly CoachAssignment[];
   /**
@@ -85,7 +87,13 @@ async function panelOf(
   const offer = assignableTargets(
     players.map(({ id, displayName }) => ({ id, displayName })),
     groups.map(({ id, name }) => ({ id, name })),
-    assignments.map((assignment) => assignment.target),
+    assignments.map(({ target, players: reached }) => ({
+      target,
+      players: reached.map(({ playerId, badges }) => ({
+        playerId,
+        forked: badges.forked,
+      })),
+    })),
   );
   const standings = await assigneeStandings(
     db,

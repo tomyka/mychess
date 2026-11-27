@@ -215,7 +215,6 @@
       "empty": "{name} has no repertoires you can see yet.",
       "assigned": "Assigned",
       "shared": "Shared",
-      "counts": "{learned} learned · {due} due · {skipped} marked as known · {notStarted} to learn",
       "percent": "{percent}% learned",
       "mastered": "Mastered",
       "nothing": "Nothing to learn",
@@ -234,7 +233,29 @@
       "noAssignment": "Not assigned",
       "cellDue": "{due} due",
       "cellLabel": "{name}, {repertoire}: {percent}, {due}",
-      "cellLabelNothing": "{name}, {repertoire}: {nothing}"
+      "cellLabelNothing": "{name}, {repertoire}: {nothing}",
+      "separator": " · ",
+      "part": {
+        "due": "{count} due",
+        "skipped": "{count} marked as known",
+        "notStarted": "{count} to learn"
+      },
+      "notStarted": "Not started · {count, plural, one {# move} other {# moves}}",
+      "trained": {
+        "today": "today",
+        "yesterday": "yesterday",
+        "daysAgo": "{days, plural, one {# day ago} other {# days ago}}",
+        "never": "never"
+      },
+      "lastTrainedNote": "Last trained counts only the repertoires you can see."
+    },
+    "status": {
+      "due": "Due {date} · {days, plural, one {in # day} other {in # days}}",
+      "dueToday": "Due today",
+      "dueOn": "Due {date}",
+      "deadline": "deadline {date}",
+      "noDeadline": "No deadline",
+      "done": "Done"
     }
   },
   "invite": {

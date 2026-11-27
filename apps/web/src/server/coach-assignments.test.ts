@@ -114,9 +114,52 @@ describe('coachAssignData', () => {
       },
     ]);
     const data = await coachAssignData(ID);
-    expect(data.panel?.players).toEqual([{ id: 'egle', displayName: 'Eglė' }]);
+    expect(data.panel?.players).toEqual([
+      { id: 'egle', displayName: 'Eglė', viaGroups: [] },
+    ]);
     expect(data.panel?.groups).toEqual([]);
     expect(data.panel?.assignments).toHaveLength(2);
+  });
+
+  it('says through which assigned groups a still-offered player has it (R-134)', async () => {
+    const reaches = (
+      playerId: string,
+      displayName: string,
+      forked = false,
+    ) => ({
+      playerId,
+      displayName,
+      deadline: null,
+      badges: { overdue: false, paused: false, forked, updated: false },
+    });
+    server.players.mockResolvedValue([
+      { id: 'egle', displayName: 'Eglė', linkedAt: NOW, groups: [] },
+      { id: 'marta', displayName: 'Marta', linkedAt: NOW, groups: [] },
+      { id: 'rokas', displayName: 'Rokas', linkedAt: NOW, groups: [] },
+    ]);
+    server.assignments.mockResolvedValue([
+      // Rokas's own assignment names no group, and he is not offered.
+      { ...ASSIGNMENT, players: [reaches('rokas', 'Rokas')] },
+      {
+        id: 'a-2',
+        target: { kind: 'group', id: GROUP, name: 'U1600' },
+        deadline: null,
+        players: [reaches('egle', 'Eglė'), reaches('rokas', 'Rokas')],
+      },
+      {
+        id: 'a-3',
+        target: { kind: 'group', id: 'g-2', name: 'Juniors' },
+        deadline: null,
+        // Marta forked her copy: Juniors no longer reaches her (lead decision).
+        players: [reaches('egle', 'Eglė'), reaches('marta', 'Marta', true)],
+      },
+    ]);
+    const data = await coachAssignData(ID);
+    // Eglė stays assignable, her groups in name order (R-160).
+    expect(data.panel?.players).toEqual([
+      { id: 'egle', displayName: 'Eglė', viaGroups: ['Juniors', 'U1600'] },
+      { id: 'marta', displayName: 'Marta', viaGroups: [] },
+    ]);
   });
 
   it('reads each assigned player’s standing in one access-checked read (R-225)', async () => {

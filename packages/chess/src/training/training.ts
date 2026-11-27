@@ -50,6 +50,7 @@ export type { Reconciliation, WeakSpot } from './progress';
 export { moveState } from './move-state';
 export type { MoveState, TrackedReview } from './move-state';
 export {
+  isUnstarted,
   percentLearned,
   progressOf,
   repertoireStanding,

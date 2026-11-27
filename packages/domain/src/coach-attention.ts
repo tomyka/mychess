@@ -6,7 +6,7 @@
  */
 import { percentLearned, type ProgressCounts } from '@mychess/chess';
 import type { AssignmentStatus } from './assignment';
-import { daysBetween } from './calendar';
+import { daysBetween, vilniusDay } from './calendar';
 import { byNameAndId, type NameAndId } from './name-order';
 
 /** A deadline this many Vilnius days away or fewer is near. */
@@ -69,6 +69,22 @@ interface DatedRow {
 const daysUntil = (day: string, now: Date): number =>
   daysBetween(now, new Date(`${day}T12:00:00Z`));
 
+/** A `YYYY-MM-DD` day at noon UTC: the same calendar day in Vilnius. */
+const noonOf = (day: string): Date => new Date(`${day}T12:00:00Z`);
+
+/**
+ * Whole Vilnius days from `today` to `deadline` (both `YYYY-MM-DD`),
+ * negative when past, and whether that is near: from today up to
+ * NEAR_DEADLINE_DAYS ahead. A passed deadline is never near (R-229, R-231).
+ */
+export function deadlineNearness(
+  deadline: string,
+  today: string,
+): { readonly days: number; readonly near: boolean } {
+  const days = daysBetween(noonOf(today), noonOf(deadline));
+  return { days, near: days >= 0 && days <= NEAR_DEADLINE_DAYS };
+}
+
 const live = (rows: readonly CoachRowFacts[]): LiveRow[] =>
   rows.flatMap((row) =>
     row.status !== null && !row.status.forked
@@ -104,8 +120,7 @@ function nearRow(
   const { done, deadline } = row.status;
   if (done || deadline === null || row.counts === null) return [];
   const percent = percentLearned(row.counts);
-  const days = daysUntil(deadline, now);
-  const near = days >= 0 && days <= NEAR_DEADLINE_DAYS;
+  const { days, near } = deadlineNearness(deadline, vilniusDay(now));
   return percent !== null && near && percent < NEAR_DEADLINE_PERCENT
     ? [{ name: row.name, days, percent }]
     : [];

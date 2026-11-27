@@ -44,7 +44,7 @@ const SHARED: RepertoireSharing = {
 };
 
 const PANEL: AssignPanelData = {
-  players: [{ id: 'egle', displayName: 'Eglė' }],
+  players: [{ id: 'egle', displayName: 'Eglė', viaGroups: [] }],
   groups: [],
   assignments: [
     {

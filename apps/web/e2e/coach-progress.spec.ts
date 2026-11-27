@@ -246,10 +246,7 @@ async function rokasPage(
   await expect(section.getByText(t.today, { exact: true })).toBeVisible();
   const row = progressRow(coach, cast, KARO_KAN);
   await expect(row.getByRole('link', { name: KARO_KAN })).toBeVisible();
-  const percent = percentText(SEEDED[ROKAS]);
-  await expect(
-    row.getByText(`${t.assigned} · ${percent}`, { exact: true }),
-  ).toBeVisible();
+  await expect(row.getByText(t.assigned, { exact: true })).toBeVisible();
   await expect(
     row.getByText(countsText(SEEDED[ROKAS]), { exact: true }),
   ).toBeVisible();
@@ -305,11 +302,10 @@ async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
   ).toBeVisible();
   await expect(caroKann.getByText(t.mastered, { exact: true })).toBeVisible();
   const taimanov = notStarted(TAIMANOV_KEYS.length);
+  const taimanovRow = progressRow(coach, cast, TAIMANOV);
+  await expect(taimanovRow.getByText(t.shared, { exact: true })).toBeVisible();
   await expect(
-    progressRow(coach, cast, TAIMANOV).getByText(
-      `${t.shared} · ${percentText(taimanov)}`,
-      { exact: true },
-    ),
+    taimanovRow.getByText(countsText(taimanov), { exact: true }),
   ).toBeVisible();
 
   await coach

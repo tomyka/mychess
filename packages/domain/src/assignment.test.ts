@@ -34,6 +34,7 @@ import {
   type ChangeStamp,
   type SeenFacts,
   type AssignmentTarget,
+  type ExistingAssignment,
   type BadgeSet,
 } from './assignment';
 import { vilniusDay } from './calendar';
@@ -585,62 +586,125 @@ describe('assignableTargets (R-15, R-16, R-134)', () => {
   const blue = { id: 'blue', name: 'Blue' };
   const players = [ann, bob];
   const groups = [red, blue];
+  const toPlayer = (id: string): ExistingAssignment => ({
+    target: { kind: 'player', id, name: id },
+    players: [{ playerId: id, forked: false }],
+  });
+  /** A group assignment reaching `members`, and `forked`, who forked it. */
+  const toGroup = (
+    group: { readonly id: string; readonly name: string },
+    members: readonly string[] = [],
+    forked: readonly string[] = [],
+  ): ExistingAssignment => ({
+    target: { kind: 'group', ...group },
+    players: [
+      ...members.map((playerId) => ({ playerId, forked: false })),
+      ...forked.map((playerId) => ({ playerId, forked: true })),
+    ],
+  });
+  const offered = (...list: readonly (typeof ann)[]) =>
+    list.map((player) => ({ ...player, viaGroups: [] }));
 
-  it.each([
+  it.each<
+    [
+      string,
+      readonly ExistingAssignment[],
+      readonly (typeof ann)[],
+      typeof groups,
+    ]
+  >([
     ['offers everyone when it is assigned to no one', [], players, groups],
-    [
-      'leaves out a player it is assigned to',
-      [{ kind: 'player', id: 'ann' }],
-      [bob],
-      groups,
-    ],
-    [
-      'leaves out a group it is assigned to',
-      [{ kind: 'group', id: 'blue' }],
-      players,
-      [red],
-    ],
+    ['leaves out a player it is assigned to', [toPlayer('ann')], [bob], groups],
+    ['leaves out a group it is assigned to', [toGroup(blue)], players, [red]],
     [
       'does not mistake a group for a player with the same id',
-      [{ kind: 'group', id: 'ann' }],
+      [toGroup({ id: 'ann', name: 'Ann' })],
       players,
       groups,
     ],
     [
       'does not mistake a player for a group with the same id',
-      [{ kind: 'player', id: 'red' }],
+      [toPlayer('red')],
       players,
       groups,
     ],
     [
       'offers no one once everyone has it',
-      [
-        { kind: 'player', id: 'ann' },
-        { kind: 'player', id: 'bob' },
-        { kind: 'group', id: 'red' },
-        { kind: 'group', id: 'blue' },
-      ],
+      [toPlayer('ann'), toPlayer('bob'), toGroup(red), toGroup(blue)],
       [],
       [],
     ],
-  ] as const)('%s', (_, assigned, expectedPlayers, expectedGroups) => {
-    expect(assignableTargets(players, groups, assigned)).toStrictEqual({
-      players: expectedPlayers,
+  ])('%s', (_, assignments, expectedPlayers, expectedGroups) => {
+    expect(assignableTargets(players, groups, assignments)).toStrictEqual({
+      players: offered(...expectedPlayers),
       groups: expectedGroups,
     });
   });
 
-  it('keeps a player who has it only through a group assignable individually (R-134)', () => {
+  it('keeps a player who has it through a group assignable, naming the group (R-134)', () => {
     // Ann is in Red, which has it; only an assignment to Ann takes her out.
     expect(
-      assignableTargets([ann], [red], [{ kind: 'group', id: 'red' }]),
-    ).toStrictEqual({ players: [ann], groups: [] });
+      assignableTargets(players, groups, [toGroup(red, ['ann'])]),
+    ).toStrictEqual({
+      players: [
+        { ...ann, viaGroups: ['Red'] },
+        { ...bob, viaGroups: [] },
+      ],
+      groups: [blue],
+    });
   });
 
-  it('keeps the candidates in their order, as the same objects', () => {
-    const { players: left } = assignableTargets([bob, ann], [], []);
-    expect(left).toStrictEqual([bob, ann]);
-    expect(left[0]).toBe(bob);
+  it('names every group a player has it through in name order (R-160)', () => {
+    const assignments = [
+      toGroup({ id: 'g3', name: 'Saturday' }, ['ann']),
+      toGroup({ id: 'g2', name: 'Juniors' }, ['ann']),
+      toGroup({ id: 'g1', name: 'U1600' }, ['ann']),
+      toGroup({ id: 'g0', name: 'Juniors' }, ['ann']),
+    ];
+    expect(assignableTargets([ann], [], assignments).players).toStrictEqual([
+      { ...ann, viaGroups: ['Juniors', 'Juniors', 'Saturday', 'U1600'] },
+    ]);
+  });
+
+  it('names no group a player forked their copy of (lead decision)', () => {
+    expect(
+      assignableTargets(
+        players,
+        [],
+        [toGroup(red, [], ['ann']), toGroup(blue, ['ann'], ['bob'])],
+      ).players,
+    ).toStrictEqual([
+      { ...ann, viaGroups: ['Blue'] },
+      { ...bob, viaGroups: [] },
+    ]);
+  });
+
+  it('does not offer a player assigned individually who is also in a group', () => {
+    expect(
+      assignableTargets(players, [], [toPlayer('ann'), toGroup(red, ['ann'])])
+        .players,
+    ).toStrictEqual(offered(bob));
+  });
+
+  it('names no group for a player its group does not reach', () => {
+    expect(
+      assignableTargets(players, [], [toGroup(red, ['bob'])]).players,
+    ).toStrictEqual([
+      { ...ann, viaGroups: [] },
+      { ...bob, viaGroups: ['Red'] },
+    ]);
+  });
+
+  it('keeps the candidates in their order and leaves its input as it was', () => {
+    const candidates = [bob, ann];
+    const assignments = [
+      toGroup({ id: 'g2', name: 'Saturday' }, ['ann']),
+      toGroup({ id: 'g1', name: 'Juniors' }, ['ann']),
+    ];
+    const { players: left } = assignableTargets(candidates, [], assignments);
+    expect(left.map((player) => player.id)).toStrictEqual(['bob', 'ann']);
+    expect(candidates).toStrictEqual([bob, ann]);
+    expect(assignments.map((a) => a.target.id)).toStrictEqual(['g2', 'g1']);
   });
 });
 
