@@ -133,7 +133,9 @@ Three to five teammates at a time; each one costs tokens.
 - **Edit source with Edit and Write**, never with splice or concatenation
   scripts: in S7 a splice picked up another task's leftover scratch file and
   overwrote half a test file. Scratch files go in a subfolder named after
-  your task.
+  your task. The `no-shell-source-edits.mjs` hook enforces it for source
+  under `apps/` and `packages/` (`docs/quality-gates.md`, Hooks); `mv` and
+  `git mv` stay allowed.
 - **There is no Python on this machine.** Script with node (`node -e`, or an
   `.mjs` file in your scratch subfolder).
 - **Never skip, weaken or delete a failing test** to reach green; a failing

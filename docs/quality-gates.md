@@ -25,6 +25,7 @@ One web test file: from `apps/web`, `pnpm exec vitest run --config vitest.compon
 ## Hooks (`.claude/settings.json`)
 
 - **PreToolUse** `protect-config.mjs`: refuses agent edits to the gate configs and `--no-verify`.
+- **PreToolUse** `no-shell-source-edits.mjs`: refuses shell splices of source under `apps/` and `packages/` (`sed -i`, `perl -i`, a `node -e` / `python -c` that writes files, a redirect or heredoc into a source file); source is edited with Edit and Write (`docs/agent-team.md`). `mv` and `git mv` are allowed.
 - **PostToolUse** `post-edit.mjs`: formats the edited file, `eslint --fix`es it and reports what is left.
 - **Stop** `stop-gate.mjs`: runs `gate.mjs check` (the fast gate, no mutation: `stopHook.mutation` is `"off"`), skipping when the tree is unchanged since the last pass, and gives up blocking after `stopHook.maxConsecutiveBlocks` failures.
 

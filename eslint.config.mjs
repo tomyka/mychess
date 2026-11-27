@@ -183,7 +183,28 @@ export default defineConfig(
       'vitest/no-disabled-tests': 'error',
       'vitest/expect-expect': [
         'error',
-        { assertFunctionNames: ['expect', 'expectTypeOf'] },
+        { assertFunctionNames: ['expect', 'expectTypeOf', 'expect*'] },
+      ],
+    },
+  },
+  // Tokens only in components (docs/design/README.md, rule 6): a raw hex
+  // colour in a .tsx string is a review finding, so lint finds it first.
+  {
+    files: ['apps/web/src/**/*.tsx'],
+    ignores: ['apps/web/src/**/*.test.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Literal[value=/#[0-9a-fA-F]{3,8}\\b/]',
+          message:
+            'Use a colour token (tokens.css), not a raw hex value (docs/design/README.md rule 6).',
+        },
+        {
+          selector: 'TemplateElement[value.raw=/#[0-9a-fA-F]{3,8}\\b/]',
+          message:
+            'Use a colour token (tokens.css), not a raw hex value (docs/design/README.md rule 6).',
+        },
       ],
     },
   },

@@ -42,6 +42,11 @@
             "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR}/quality/hooks/protect-config.mjs\"",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/quality/hooks/no-shell-source-edits.mjs\"",
+            "timeout": 15
           }
         ]
       }
