@@ -41,11 +41,6 @@ interface PanelNotes {
    * nothing when absent (the coach's note sits under the comment strip).
    */
   readonly render?: (moveKey: string) => ReactNode;
-  /**
-   * A line under the move list before them (the coach's "read-only"), at
-   * every move; after the empty state in a repertoire without chapters.
-   */
-  readonly preface?: ReactNode;
 }
 
 /** The move's Comment (R-102): what it is called, and in builder mode its field. */
@@ -88,7 +83,7 @@ interface RepertoirePanelProps {
 
 /**
  * Under the move list: Train here while a player who trains it browses
- * (spec, "Train here (browse)"), the notes' preface, then the move's notes.
+ * (spec, "Train here (browse)"), then the move's notes.
  */
 function UnderMoves({
   chapter,
@@ -111,7 +106,6 @@ function UnderMoves({
           path={state.path}
         />
       )}
-      {content.notes.preface}
       {/* No box at the root, where there are no notes: it would add a gap. */}
       {move === undefined ? null : (
         <PositionBody move={move} renderNotes={content.notes.render} />
@@ -131,8 +125,8 @@ const MOVES_BOX = 'lg:min-h-40 lg:flex-1 lg:overflow-y-auto';
 /**
  * What scrolls in the panel (the frame's scroller): the view's summary
  * line and any changes since the last visit, the chapter line, in builder
- * mode the intro or the comment field, the moves, then Train here, the
- * notes' preface and the move's notes. While browsing the comment strip
+ * mode the intro or the comment field, the moves, then Train here and the
+ * move's notes. While browsing the comment strip
  * shows the intro and the comment just above this scroller, at every
  * width. The DOM order is the visual order, so Tab follows what the eye
  * sees (WCAG 2.4.3).
@@ -164,11 +158,8 @@ export function RepertoirePanel({
         }
       />
       {chapter === undefined ? (
-        // No chapter: the view's empty state, then the notes' preface.
-        <>
-          {content.empty}
-          {content.notes.preface}
-        </>
+        // No chapter: the view's empty state.
+        content.empty
       ) : (
         <ChapterBody chapter={chapter} view={view} content={content} />
       )}

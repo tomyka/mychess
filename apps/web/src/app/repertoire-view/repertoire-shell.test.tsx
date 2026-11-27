@@ -42,7 +42,6 @@ const r = MESSAGES.repertoires;
 const D4 = moveKey(START_KEY, 'd4');
 const NOTE_LABEL = 'Coach note';
 const CHANGES = 'Du nauji ėjimai';
-const PREFACE = 'Tik skaityti';
 
 interface ViewOptions {
   readonly graph?: RepertoireGraph;
@@ -85,7 +84,6 @@ function View({
           byMove,
           kind: 'coach',
           kept,
-          preface: <p>{PREFACE}</p>,
           render: (key) => (
             <p>{key === D4 ? 'Pastaba apie d4' : 'Kita pastaba'}</p>
           ),
@@ -337,7 +335,7 @@ describe('RepertoireShell', () => {
 });
 
 describe('the panel', () => {
-  it('shows the strip, then the summary line, the changes, the chapters, the moves, the notes’ preface and the move’s notes in that order', () => {
+  it('shows the strip, then the summary line, the changes, the chapters, the moves and the move’s notes in that order', () => {
     renderView();
     forward();
     expect(
@@ -347,7 +345,6 @@ describe('the panel', () => {
         screen.getByText(CHANGES),
         screen.getByRole('button', { expanded: false }),
         firstMove(),
-        screen.getByText(PREFACE),
         screen.getByText('Pastaba apie d4'),
       ]),
     ).toEqual([]);
@@ -365,13 +362,6 @@ describe('the panel', () => {
     expect(
       firstMove(`1. d4, ${r.moves.hasComment}, ${r.moves.hasKeptCoachNote}`),
     ).toBeDefined();
-  });
-
-  it('shows the notes’ preface after the empty state in a repertoire without chapters', () => {
-    renderView({ graph: { side: 'white', chapters: [], moves: [] } });
-    expect(
-      outOfOrder([screen.getByText('Skyrių nėra'), screen.getByText(PREFACE)]),
-    ).toEqual([]);
   });
 
   it('puts Train here, then the move’s notes, under the move list', () => {

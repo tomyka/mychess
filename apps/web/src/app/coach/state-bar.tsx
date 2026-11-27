@@ -1,8 +1,4 @@
-import {
-  percentLearned,
-  totalMoves,
-  type ProgressCounts,
-} from '@mychess/chess';
+import { totalMoves, type ProgressCounts } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 
@@ -12,21 +8,6 @@ const segment = (part: number, whole: number): string =>
 
 /** The bar's height: 6px in a row, 8px in a page header (spec, Shared pieces). */
 const HEIGHT = { row: 'h-1.5', header: 'h-2' } as const;
-
-/**
- * The share learned in words, and whether there is anything to learn: an
- * empty repertoire says "nothing to learn" rather than a percentage.
- */
-export function usePercentLearned(counts: ProgressCounts): {
-  readonly text: string;
-  readonly empty: boolean;
-} {
-  const t = useTranslations('coach.progress');
-  const percent = percentLearned(counts);
-  return percent === null
-    ? { text: t('nothing'), empty: true }
-    : { text: t('percent', { percent }), empty: false };
-}
 
 /**
  * The four states of R-151 as one bar (learned violet, "I know this" muted
