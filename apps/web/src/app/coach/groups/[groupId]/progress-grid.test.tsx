@@ -8,6 +8,13 @@ import { ProgressGrid } from './progress-grid';
 const p = MESSAGES.coach.progress;
 
 const NONE = { overdue: false, paused: false, forked: false, updated: false };
+const STATUS = {
+  deadline: null,
+  overdue: false,
+  paused: false,
+  done: false,
+  forked: false,
+};
 
 const GRID: GroupGrid = {
   columns: [
@@ -21,6 +28,7 @@ const GRID: GroupGrid = {
       cells: [
         {
           badges: NONE,
+          status: STATUS,
           view: {
             kind: 'granted',
             standing: {
@@ -38,10 +46,12 @@ const GRID: GroupGrid = {
       cells: [
         {
           badges: { ...NONE, forked: true },
+          status: { ...STATUS, forked: true },
           view: { kind: 'forked', sharedForkId: null },
         },
         {
           badges: { ...NONE, overdue: true },
+          status: { ...STATUS, overdue: true },
           view: {
             kind: 'granted',
             standing: {
@@ -158,6 +168,7 @@ describe('the group grid (R-153)', () => {
           cells: [
             {
               badges: NONE,
+              status: STATUS,
               view: {
                 kind: 'granted',
                 standing: {

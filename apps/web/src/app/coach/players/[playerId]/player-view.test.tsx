@@ -42,6 +42,13 @@ const ROKAS: CoachPlayerPageData = {
         repertoire: { id: 'r-9', name: 'Karo-Kan gynyba', side: 'black' },
         source: 'assigned',
         badges: { overdue: false, paused: true, forked: false, updated: false },
+        status: {
+          deadline: null,
+          overdue: false,
+          paused: true,
+          done: false,
+          forked: false,
+        },
         view: {
           kind: 'granted',
           standing: {

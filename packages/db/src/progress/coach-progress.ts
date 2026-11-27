@@ -32,6 +32,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assignments } from '../assignment-schema';
+import type { CoachStatus } from '../assignments/badges';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { coachPlayer, type LinkedAccount } from '../coaching';
 import type { CoachGroup, GroupMember } from '../groups';
@@ -61,6 +62,8 @@ export interface ProgressRow {
   readonly source: ProgressSource;
   /** The S5 badges of an assignment; null for a shared repertoire. */
   readonly badges: BadgeSet | null;
+  /** An assignment's deadline and status (R-129); null for a shared repertoire. */
+  readonly status: CoachStatus | null;
   /** The standing where the domain grants it; forked otherwise (R-155). */
   readonly view: ProgressView;
 }
@@ -128,17 +131,19 @@ interface Shown {
   readonly read: EntryRead;
 }
 
-/** A row of the player page; badges only for an assignment. */
+/** A row of the player page; badges and status only for an assignment. */
 function rowOf(
   { loaded, read }: Shown,
   tracked: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): ProgressRow {
   const reviewed = { graph: loaded.graph, tracked, now };
+  const marks = read.marks(reviewed);
   return {
     repertoire: loaded.repertoire,
     source: read.source,
-    badges: read.badges(reviewed),
+    badges: marks?.badges ?? null,
+    status: marks?.status ?? null,
     view: read.view(reviewed),
   };
 }
@@ -252,7 +257,7 @@ export function coachRepertoireProgress(
       player: { id: player.id, displayName: player.displayName },
       repertoire: loaded.repertoire,
       graph: loaded.graph,
-      badges: read.badges({ graph: loaded.graph, tracked, now }),
+      badges: read.marks({ graph: loaded.graph, tracked, now })?.badges ?? null,
       progress: progressOf(loaded.graph, tracked, now),
     };
   }, REPEATABLE_READ);
@@ -261,6 +266,8 @@ export function coachRepertoireProgress(
 /** One cell of the group grid; null where the member has no assignment. */
 export interface GroupProgressCell {
   readonly badges: BadgeSet;
+  /** The assignment's deadline and status, as on the player page. */
+  readonly status: CoachStatus;
   /** The standing where the domain grants it; forked otherwise (R-155). */
   readonly view: ProgressView;
 }
@@ -298,8 +305,8 @@ async function groupRepertoireIds(
 
 /**
  * The member's cell of `column`: null unless progressRepertoire shows this
- * coach's assignment of it, live or forked; its badges, and its standing
- * only where granted.
+ * coach's assignment of it, live or forked; its badges and status, and its
+ * standing only where granted.
  */
 function cellOf(
   viewer: ProgressViewer,
@@ -313,8 +320,8 @@ function cellOf(
   if (entry === undefined) return null;
   const read = entryRead(entry, viewer);
   const reviewed = { graph: column.graph, tracked, now };
-  const badges = read.badges(reviewed);
-  return badges === null ? null : { badges, view: read.view(reviewed) };
+  const marks = read.marks(reviewed);
+  return marks === null ? null : { ...marks, view: read.view(reviewed) };
 }
 
 /** What the grid knows of every member, read once for the whole group. */

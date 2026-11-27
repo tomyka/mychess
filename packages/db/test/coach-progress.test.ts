@@ -221,6 +221,94 @@ describe('coachPlayerProgress', () => {
   });
 });
 
+/** Sets the deadline of every assignment of `repertoireId`. */
+const setDeadline = (repertoireId: string, deadline: string) =>
+  db
+    .update(assignments)
+    .set({ deadline })
+    .where(eq(assignments.repertoireId, repertoireId));
+
+/** The row of `repertoireId` on the player page of `playerId`. */
+async function rowOn(playerId: string, repertoireId: string) {
+  const rows = present(await coachPlayerProgress(db, 'c', playerId, NOW)).rows;
+  return present(rows.find((row) => row.repertoire.id === repertoireId));
+}
+
+describe('the assignment status on each progress row (#381)', () => {
+  it('gives an assigned row its deadline and status, and a shared row none', async () => {
+    await setDeadline(karoKan, '2026-11-02');
+    expect((await rowOn('p', karoKan)).status).toEqual({
+      deadline: '2026-11-02',
+      overdue: false,
+      paused: false,
+      done: false,
+      forked: false,
+    });
+    expect((await rowOn('p', shared)).status).toBeNull();
+  });
+
+  it('says overdue past the deadline and paused while paused', async () => {
+    await setDeadline(karoKan, '2026-10-20');
+    succeeded(
+      await pauseAssignment(
+        db,
+        { playerId: 'p', repertoireId: karoKan, paused: true },
+        NOW,
+      ),
+    );
+    expect((await rowOn('p', karoKan)).status).toEqual({
+      deadline: '2026-10-20',
+      overdue: true,
+      paused: true,
+      done: false,
+      forked: false,
+    });
+  });
+
+  it('is done once every player move of the assignment has a Review (R-129)', async () => {
+    await setDeadline(karoKan, '2026-10-20');
+    await learnAll('p', karoKan);
+    expect((await rowOn('p', karoKan)).status).toEqual({
+      deadline: '2026-10-20',
+      overdue: false,
+      paused: false,
+      done: true,
+      forked: false,
+    });
+  });
+
+  it('says forked for a forked assignment, whose view stays forked (R-155)', async () => {
+    await setDeadline(karoKan, '2026-10-20');
+    succeeded(
+      await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW),
+    );
+    const row = await rowOn('p', karoKan);
+    expect(row.status).toEqual({
+      deadline: '2026-10-20',
+      overdue: false,
+      paused: false,
+      done: false,
+      forked: true,
+    });
+    expect(row.view).toEqual({ kind: 'forked', sharedForkId: null });
+  });
+
+  it('gives each group grid cell the status of the member’s player-page row', async () => {
+    await setDeadline(groupRep, '2026-10-20');
+    await learnAll('q', groupRep);
+    const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
+    const statuses = grid.rows.map((row) => row.cells[0]?.status);
+    expect(statuses).toEqual([
+      (await rowOn('p', groupRep)).status,
+      (await rowOn('q', groupRep)).status,
+    ]);
+    expect(statuses.map((one) => [one?.overdue, one?.done])).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+  });
+});
+
 describe('coachRepertoireProgress', () => {
   it('drills an assignment down to chapters and lines', async () => {
     const own = await learnAll('p', karoKan);
@@ -393,6 +481,13 @@ describe('coachGroupPage (R-153)', () => {
           paused: false,
           forked: false,
           updated: false,
+        },
+        status: {
+          deadline: null,
+          overdue: false,
+          paused: false,
+          done: false,
+          forked: false,
         },
         view: {
           kind: 'granted',
@@ -584,12 +679,6 @@ describe('coachHomePlayers', () => {
     (await coachHomePlayers(db, coachId, NOW)).map(
       ({ id, nearestDeadline, overdue }) => [id, nearestDeadline, overdue],
     );
-
-  const setDeadline = (repertoireId: string, deadline: string) =>
-    db
-      .update(assignments)
-      .set({ deadline })
-      .where(eq(assignments.repertoireId, repertoireId));
 
   it('gives each player the nearest deadline of this coach’s assignments not done, and whether one is overdue (#329)', async () => {
     expect(await deadlinesOf()).toEqual([

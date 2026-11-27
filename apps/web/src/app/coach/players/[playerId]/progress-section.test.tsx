@@ -8,6 +8,13 @@ import { ProgressSection } from './progress-section';
 
 const p = MESSAGES.coach.progress;
 const COUNTS = { notStarted: 2, skipped: 0, due: 1, learned: 1 };
+const STATUS = {
+  deadline: null,
+  overdue: false,
+  paused: false,
+  done: false,
+  forked: false,
+};
 
 const PROGRESS: PlayerProgressSection = {
   lastTrainedDays: 4,
@@ -16,18 +23,21 @@ const PROGRESS: PlayerProgressSection = {
       repertoire: { id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' },
       source: 'assigned',
       badges: { overdue: true, paused: false, forked: false, updated: false },
+      status: { ...STATUS, overdue: true },
       view: { kind: 'granted', standing: { counts: COUNTS, mastered: false } },
     },
     {
       repertoire: { id: 'r-2', name: 'Itališkoji partija', side: 'white' },
       source: 'assigned',
       badges: { overdue: false, paused: false, forked: true, updated: false },
+      status: { ...STATUS, forked: true },
       view: { kind: 'forked', sharedForkId: null },
     },
     {
       repertoire: { id: 'r-3', name: 'Londono sistema', side: 'white' },
       source: 'shared',
       badges: null,
+      status: null,
       view: {
         kind: 'granted',
         standing: {
@@ -94,6 +104,7 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
           repertoire: { id: 'r-4', name: 'Tuščias', side: 'white' },
           source: 'assigned',
           badges: null,
+          status: null,
           view: {
             kind: 'granted',
             standing: {

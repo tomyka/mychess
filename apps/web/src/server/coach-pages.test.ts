@@ -55,6 +55,13 @@ const GABIJA = account('gabija', 'Gabija');
 
 const COUNTS = { notStarted: 1, skipped: 2, due: 3, learned: 4 };
 const BADGES = { overdue: true, paused: false, forked: false, updated: false };
+const STATUS = {
+  deadline: '2026-10-20',
+  overdue: true,
+  paused: false,
+  done: false,
+  forked: false,
+};
 const LONDON = {
   id: '0b9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c4',
   name: 'Londono sistema',
@@ -73,12 +80,14 @@ const ASSIGNED: ProgressRow = {
   repertoire: LONDON,
   source: 'assigned',
   badges: BADGES,
+  status: STATUS,
   view: GRANTED,
 };
 const SHARED: ProgressRow = {
   repertoire: TAIMANOV,
   source: 'shared',
   badges: null,
+  status: null,
   view: GRANTED,
 };
 
@@ -162,6 +171,7 @@ describe('coachPlayerData', () => {
 describe('coachGroupData', () => {
   const cell: GroupProgressCell = {
     badges: BADGES,
+    status: STATUS,
     view: { kind: 'forked', sharedForkId: null },
   };
 

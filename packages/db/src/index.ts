@@ -178,6 +178,7 @@ export {
 export {
   coachPlayerProgress,
   coachRepertoireProgress,
+export type { CoachStatus } from './assignments/badges';
   type GroupProgress,
   type GroupProgressCell,
   type GroupProgressRow,
