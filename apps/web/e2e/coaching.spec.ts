@@ -1,13 +1,22 @@
 // S4 journeys (plan Task A18): C-M1-1, U1-M1-1, G-M1-1 and D-M1-1's
 // accept part, a revoked invite, unlink ending access (checklist 3), and
 // Coach mode refusing to switch off while players are linked (R-100).
+// #381 part 5 (plan Task 17): the coach unlinks from the player page
+// (R-44), and a group's New link replaces its open link while Revoke
+// closes it (R-233).
 import {
   expect,
   type APIRequestContext,
   type Browser,
   type BrowserContext,
+  type Locator,
   type Page,
 } from '@playwright/test';
+import {
+  coachReady,
+  linkedPlayer,
+  type Cast,
+} from './support/assignment-people';
 import {
   acceptInvite,
   createGroup,
@@ -20,6 +29,7 @@ import {
 } from './support/coaching';
 import {
   en,
+  format,
   freshEmail,
   newDevice,
   newOnboardedAccount,
@@ -31,7 +41,14 @@ import { openTab } from './support/nav';
 
 const GROUP = 'Šeštadienio grupė';
 const COACH = 'Rimantas Vaitkus';
-const PLAYERS = ['Rokas Petrauskas', 'Gabija Navickaitė', 'Dovydas Kazlauskas'];
+const ROKAS = 'Rokas Petrauskas';
+const GABIJA = 'Gabija Navickaitė';
+const DOVYDAS = 'Dovydas Kazlauskas';
+const PLAYERS = [ROKAS, GABIJA, DOVYDAS];
+
+/** A section of /coach whose name carries its count ("Players · 3"). */
+const countedRegion = (page: Page, title: string): Locator =>
+  page.getByRole('region', { name: new RegExp(`^${title} · `, 'u') });
 
 /** A page on a new device of its own, kept in `devices` to close later. */
 async function onDevice(
@@ -178,5 +195,124 @@ test('a revoked invite says only that it is not valid, and offers no Accept', as
     ).toHaveCount(0);
   } finally {
     await other.close();
+  }
+});
+
+test('R-44: the coach unlinks a player from the player page, after confirming; the player leaves the dashboard', async ({
+  page: coach,
+  request,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const devices: BrowserContext[] = [];
+  const cast: Cast = { messages: en, browser, request, devices };
+  try {
+    await coachReady(coach, cast);
+    const rokas = await linkedPlayer(cast, {
+      link: await createInvite(coach, en),
+      name: ROKAS,
+    });
+    await linkedPlayer(cast, {
+      link: await createInvite(coach, en),
+      name: GABIJA,
+    });
+
+    await coach.goto('/coach');
+    const players = countedRegion(coach, en.coach.players.title);
+    await players.getByRole('link', { name: ROKAS, exact: true }).click();
+    await expect(coach).toHaveURL(/\/coach\/players\/[^/]+$/);
+    const t = en.coach.players;
+    const unlink = coach.getByRole('button', {
+      name: format(en.coach.player.unlink, { name: ROKAS }),
+      exact: true,
+    });
+    const question = coach.getByText(format(t.unlinkConfirm, { name: ROKAS }), {
+      exact: true,
+    });
+    // It asks first; Cancel keeps him.
+    await unlink.click();
+    await expect(question).toBeVisible();
+    await coach.getByRole('button', { name: t.cancel, exact: true }).click();
+    await expect(question).toHaveCount(0);
+    await unlink.click();
+    await coach
+      .getByRole('button', { name: t.confirmUnlink, exact: true })
+      .click();
+
+    await expect(coach).toHaveURL(/\/coach$/);
+    await expect(
+      countedRegion(coach, en.coach.players.title).getByRole('link', {
+        name: GABIJA,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(coach.getByText(ROKAS)).toHaveCount(0);
+    // His side: no coach left.
+    await rokas.page.goto('/settings');
+    await expect(
+      rokas.page.getByText(en.settings.myCoaches.empty),
+    ).toBeVisible();
+  } finally {
+    for (const device of devices) await device.close();
+  }
+});
+
+test('R-233: a group’s New link replaces its open link, and Revoke closes the new one', async ({
+  page: coach,
+  request,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const devices: BrowserContext[] = [];
+  const cast: Cast = { messages: en, browser, request, devices };
+  const invalid = async (link: string, name: string): Promise<void> => {
+    const device = await newDevice(browser);
+    devices.push(device);
+    const page = await device.newPage();
+    await newOnboardedAccount(page, request, name);
+    await page.goto(link);
+    await expect(page.getByText(en.invite.invalid)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: en.invite.accept }),
+    ).toHaveCount(0);
+  };
+  try {
+    await coachReady(coach, cast);
+    const first = await createGroup(coach, en, GROUP);
+    const second = await newGroupLink(coach, en, GROUP);
+    expect(second).not.toBe(first);
+
+    // The group's earlier link no longer works; the new one does.
+    await invalid(first, ROKAS);
+    await linkedPlayer(cast, { link: second, name: GABIJA, group: GROUP });
+
+    // Revoke closes it without making another.
+    const t = en.coach.group;
+    await coach.reload();
+    const section = coach.getByRole('region', {
+      name: t.inviteTitle,
+      exact: true,
+    });
+    const revoke = section.getByRole('button', {
+      name: en.coach.invites.revoke,
+      exact: true,
+    });
+    await revoke.click();
+    await expect(
+      section.getByText(t.revokeConfirm, { exact: true }),
+    ).toBeVisible();
+    await section
+      .getByRole('button', {
+        name: en.coach.inviteSheet.confirmRevoke,
+        exact: true,
+      })
+      .click();
+    await expect(
+      section.getByText(t.noOpenLink, { exact: true }),
+    ).toBeVisible();
+    await expect(revoke).toHaveCount(0);
+    await invalid(second, DOVYDAS);
+  } finally {
+    for (const device of devices) await device.close();
   }
 });
