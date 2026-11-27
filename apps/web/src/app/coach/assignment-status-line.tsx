@@ -22,10 +22,11 @@ interface DeadlineText {
 }
 
 /**
- * The deadline in words: none once overdue (the Overdue pill says it) or
- * when done without one. Otherwise the date, in "deadline" wording alone,
- * in "due" wording with the days to it ("Due today" on the day), the date
- * alone once done. The domain decides what is near; done is never near.
+ * The deadline in words: none when done or overdue without one. Otherwise
+ * the date, in "deadline" wording alone, in "due" wording with the days to
+ * it ("Due today" on the day), the date alone once done or overdue (the
+ * Overdue pill follows it). The domain decides what is near; done and
+ * overdue are never near.
  */
 function useDeadlineText(
   status: CoachStatus,
@@ -35,15 +36,14 @@ function useDeadlineText(
   const t = useTranslations('coach.status');
   const date = useShortDeadline(today);
   const { deadline, overdue, done } = status;
-  if (overdue) return null;
   if (deadline === null)
-    return done ? null : { text: t('noDeadline'), near: false };
+    return done || overdue ? null : { text: t('noDeadline'), near: false };
   const on = date(deadline);
   const { days, near } = deadlineNearness(deadline, today);
-  const tone = near && !done;
+  const tone = near && !done && !overdue;
   if (wording === 'deadline')
     return { text: t('deadline', { date: on }), near: tone };
-  if (done) return { text: t('dueOn', { date: on }), near: false };
+  if (done || overdue) return { text: t('dueOn', { date: on }), near: false };
   return days === 0
     ? { text: t('dueToday'), near: tone }
     : { text: t('due', { date: on, days }), near: tone };

@@ -8,12 +8,10 @@ import {
   coachDashboard,
   coachGroupPage,
   coachGroups,
-  coachInvites,
   coachPlayerProgress,
   sharedRepertoireSnapshot,
   type CoachGroup,
   type CoachGroupSummary,
-  type CoachInvite,
   type DashboardPlayer,
   type GroupProgress,
   type GroupProgressCell,
@@ -23,9 +21,14 @@ import {
   type RepertoireRef,
 } from '@mychess/db';
 import {
+  attentionOf,
+  byAttention,
   playerSummary,
+  vilniusDay,
   type AccountRef,
+  type Attention,
   type CoachRowFacts,
+  type PlayerSummary,
 } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
@@ -39,16 +42,19 @@ import {
 } from './repertoire-for-viewer';
 
 /**
- * A player on the coach's home, with when they last trained (R-154), their
- * nearest deadline and whether they are overdue (#329).
+ * A player's row on the coach dashboard (R-231): when they last trained
+ * (R-154) and their summary over what the coach may see.
  */
-interface CoachHomePlayer extends LinkedAccount {
-  /** The earliest deadline of a live assignment not done (playerSummary). */
-  readonly nearestDeadline: string | null;
-  /** Some live assignment is overdue (playerSummary). */
-  readonly overdue: boolean;
+export interface DashboardPlayerLine extends AccountRef {
   /** Whole Vilnius days since the player last trained; null for never. */
   readonly lastTrainedDays: number | null;
+  readonly summary: PlayerSummary;
+}
+
+/** One Needs attention card (R-229): the player and their most urgent reason. */
+export interface AttentionCard {
+  readonly player: AccountRef;
+  readonly reason: Attention;
 }
 
 /** What the domain reads of a dashboard row (R-155: no counts when forked). */
@@ -58,40 +64,68 @@ const rowFacts = (row: ProgressRow): CoachRowFacts => ({
   counts: row.view.kind === 'granted' ? row.view.standing.counts : null,
 });
 
-/** The home's player, from the dashboard read, days counted from `now`. */
-const homePlayerOf = (
-  { lastTrained, rows, ...player }: DashboardPlayer,
-  now: Date,
-): CoachHomePlayer => {
-  const summary = playerSummary(rows.map(rowFacts));
+/** A player as the dashboard reads them: their row and their reason, if any. */
+interface ReadPlayer {
+  readonly line: DashboardPlayerLine;
+  readonly reason: Attention | null;
+}
+
+/** The domain's view of one player from the dashboard read, at `now`. */
+const readPlayer = (player: DashboardPlayer, now: Date): ReadPlayer => {
+  const rows = player.rows.map(rowFacts);
+  const { lastTrained, linkedAt } = player;
   return {
-    ...player,
-    nearestDeadline: summary.nextDeadline,
-    overdue: summary.overdue,
-    lastTrainedDays: daysSince(lastTrained, now),
+    line: {
+      id: player.id,
+      displayName: player.displayName,
+      lastTrainedDays: daysSince(lastTrained, now),
+      summary: playerSummary(rows),
+    },
+    reason: attentionOf({ rows, lastTrained, linkedAt }, now),
   };
 };
 
-/** What the coach dashboard's home shows: the coach's own players, groups, invites. */
-export interface CoachHomeData {
-  readonly players: readonly CoachHomePlayer[];
+/** The cards' order (R-229): by reason, then by the player's name. */
+const cardOrder = byAttention(({ player, reason }: AttentionCard) => ({
+  name: player.displayName,
+  id: player.id,
+  reason,
+}));
+
+/** The players with a reason, in the domain's order (R-229). */
+const attentionList = (read: readonly ReadPlayer[]): AttentionCard[] =>
+  read
+    .flatMap(({ line: { id, displayName }, reason }) =>
+      reason === null ? [] : [{ player: { id, displayName }, reason }],
+    )
+    .toSorted(cardOrder);
+
+/** What the coach dashboard shows: who needs attention, the players, the groups. */
+export interface CoachDashboardData {
+  readonly attention: readonly AttentionCard[];
+  /** By name (R-160), as the read gives them. */
+  readonly players: readonly DashboardPlayerLine[];
   readonly groups: readonly CoachGroupSummary[];
-  readonly invites: readonly CoachInvite[];
+  /** Today's Vilnius day, so the server and the browser write dates alike. */
+  readonly today: string;
 }
 
 /**
- * The coach dashboard's home, `/coach`: the players and when they last
- * trained in one read; the groups and invites are the coach's own data.
+ * The coach dashboard, `/coach` (R-229): the players and their progress in
+ * one read, judged by the domain; the groups are the coach's own data.
  */
-export async function coachHomeData(): Promise<CoachHomeData> {
+export async function coachDashboardData(): Promise<CoachDashboardData> {
   const coach = await requireCoach();
   const db = getDb();
   const now = new Date();
-  const players = await coachDashboard(db, coach.id, now);
+  const read = (await coachDashboard(db, coach.id, now)).map((player) =>
+    readPlayer(player, now),
+  );
   return {
-    players: players.map((player) => homePlayerOf(player, now)),
+    attention: attentionList(read),
+    players: read.map(({ line }) => line),
     groups: await coachGroups(db, coach.id),
-    invites: await coachInvites(db, coach.id, now),
+    today: vilniusDay(now),
   };
 }
 

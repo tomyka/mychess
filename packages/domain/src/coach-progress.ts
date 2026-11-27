@@ -47,7 +47,10 @@ export type ProgressSource = 'shared' | 'assigned';
  * and badges only). `assignment` is this coach's assignment behind it, for
  * the badges; null for a shared one. A forked one names the player's fork
  * of it when the player shares that fork with this coach (#328), so the
- * page can link to it; null otherwise, never an unshared fork (R-43).
+ * page can link to it; null otherwise, never an unshared fork (R-43). A
+ * shared one names, in `forkOf`, this coach's repertoire it is the player's
+ * Fork of (#328, R-155), so the page can say whose own copy it is; null
+ * when it is not one.
  */
 export type ProgressRepertoire =
   | {
@@ -55,6 +58,7 @@ export type ProgressRepertoire =
       readonly kind: 'granted';
       readonly source: 'shared';
       readonly assignment: null;
+      readonly forkOf: string | null;
     }
   | {
       readonly repertoireId: string;
@@ -104,21 +108,37 @@ const newestFirst = (a: SharedFork, b: SharedFork): number =>
   (a.repertoireId < b.repertoireId ? 1 : -1);
 
 /**
- * The player's fork of `repertoireId` they share with this coach, only one
- * the share facts hold too (R-39, R-43). The player may fork an assignment
- * again once it is assigned again (R-128): the newest such Fork is named.
+ * The player's forks of this coach's repertoires they share with this
+ * coach, only ones the share facts hold too (R-39, R-43).
+ */
+const sharedForksOf = (facts: CoachProgressFacts): SharedFork[] =>
+  facts.sharedForks.filter((one) =>
+    facts.sharedRepertoireIds.has(one.repertoireId),
+  );
+
+/**
+ * The player's shared fork of `repertoireId` (sharedForksOf). The player
+ * may fork an assignment again once it is assigned again (R-128): the
+ * newest such Fork is named.
  */
 const sharedForkOf = (
   repertoireId: string,
   facts: CoachProgressFacts,
 ): string | null =>
-  facts.sharedForks
-    .filter(
-      (one) =>
-        one.sourceRepertoireId === repertoireId &&
-        facts.sharedRepertoireIds.has(one.repertoireId),
-    )
+  sharedForksOf(facts)
+    .filter((one) => one.sourceRepertoireId === repertoireId)
     .toSorted(newestFirst)[0]?.repertoireId ?? null;
+
+/**
+ * This coach's repertoire that the shared `repertoireId` is the player's
+ * Fork of (sharedForksOf), or null when it is not one.
+ */
+const forkOf = (
+  repertoireId: string,
+  facts: CoachProgressFacts,
+): string | null =>
+  sharedForksOf(facts).find((one) => one.repertoireId === repertoireId)
+    ?.sourceRepertoireId ?? null;
 
 /** An assignment of this repertoire: granted when live, forked, or nothing. */
 function assignedEntry(
@@ -154,6 +174,7 @@ function entryOf(
       kind: 'granted',
       source: 'shared',
       assignment: null,
+      forkOf: forkOf(repertoireId, facts),
     };
   return assignedEntry(
     own.find((a) => a.repertoireId === repertoireId),

@@ -23,7 +23,9 @@ describe('the coach’s progress page', () => {
     loader.progress.mockResolvedValue({
       player: { id: 'p-1', displayName: 'Rokas' },
       repertoire: { id: 'r-1', name: 'Taimanovas', side: 'black' },
-      badges: null,
+      tag: 'shared',
+      status: null,
+      today: '2026-11-27',
       standing: {
         counts: { notStarted: 1, skipped: 0, due: 0, learned: 0 },
         mastered: false,

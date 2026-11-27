@@ -50,11 +50,15 @@ const facts = (
   ...extra,
 });
 
-const shared = (repertoireId: string): ProgressRepertoire => ({
+const shared = (
+  repertoireId: string,
+  forkOf: string | null = null,
+): ProgressRepertoire => ({
   repertoireId,
   kind: 'granted',
   source: 'shared',
   assignment: null,
+  forkOf,
 });
 const assigned = (one: AssignmentFacts): ProgressRepertoire => ({
   repertoireId: one.repertoireId,
@@ -195,6 +199,25 @@ describe('progressRepertoire (R-39, R-42, R-155)', () => {
     );
   });
 
+  it('says which of this coach’s repertoires a shared one is the player’s fork of (#328)', () => {
+    const sharing = facts({
+      sharedRepertoireIds: new Set(['shared', 'fork']),
+      sharedForks: [sharedFork('fork', 'forked')],
+    });
+    expect(progressRepertoire('c', 'p', 'fork', sharing)).toEqual(
+      shared('fork', 'forked'),
+    );
+    expect(progressRepertoire('c', 'p', 'shared', sharing)).toEqual(
+      shared('shared'),
+    );
+  });
+
+  it('never calls a fork the player does not share with this coach one (R-39, R-43)', () => {
+    // The fork is shared with another coach only, so it is not this coach's to see.
+    const elsewhere = facts({ sharedForks: [sharedFork('fork', 'forked')] });
+    expect(progressRepertoire('c', 'p', 'fork', elsewhere)).toBeUndefined();
+  });
+
   it('shows nothing else', () => {
     expect(progressRepertoire('c', 'p', 'private', facts())).toBeUndefined();
   });
@@ -252,7 +275,7 @@ describe('progressRepertoires (R-151, R-155)', () => {
       assigned(assignment('live')),
       assigned(PAUSED),
       forked(FORKED, 'fork'),
-      shared('fork'),
+      shared('fork', 'forked'),
     ]);
   });
 

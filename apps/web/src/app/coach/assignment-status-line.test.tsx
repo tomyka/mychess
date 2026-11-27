@@ -76,10 +76,19 @@ describe('AssignmentStatusLine (R-231)', () => {
     expect(done.className).not.toContain('bg-success-subtle');
   });
 
-  it('shows the Overdue pill when overdue', () => {
-    show({ deadline: '2026-11-20', overdue: true });
+  it('says the passed deadline, then the Overdue pill, when overdue', () => {
+    const { textContent } = show({ deadline: '2026-11-01', overdue: true });
     expect(pill('Overdue').className).toContain('text-error');
+    expect(textContent).toBe('Due Nov 1Overdue');
     expect(screen.queryByText(/in -/u)).toBeNull();
+  });
+
+  it('says the passed deadline in "deadline" wording too', () => {
+    const { textContent } = show(
+      { deadline: '2026-11-01', overdue: true },
+      'deadline',
+    );
+    expect(textContent).toBe('deadline Nov 1Overdue');
   });
 
   it('shows the Paused pill when paused', () => {

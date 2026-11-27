@@ -32,6 +32,13 @@ const JONAS = { id: 'jonas' };
 const COUNTS = { notStarted: 1, skipped: 2, due: 3, learned: 4 };
 const REF = { id: REPERTOIRE, name: 'Karo-Kan', side: 'black' } as const;
 const BADGES = { overdue: true, paused: false, forked: false, updated: false };
+const STATUS = {
+  deadline: '2026-10-18',
+  overdue: true,
+  paused: false,
+  done: false,
+  forked: false,
+};
 
 const ADVANCE: Chapter = {
   id: 'ch1',
@@ -44,7 +51,10 @@ const VIEW: RepertoireProgressView = {
   player: { id: PLAYER, displayName: 'Rokas' },
   repertoire: REF,
   graph: { side: 'black', chapters: [ADVANCE], moves: [] },
+  source: 'assigned',
+  forkOf: null,
   badges: BADGES,
+  status: STATUS,
   progress: {
     counts: COUNTS,
     mastered: false,
@@ -135,12 +145,14 @@ describe('coachProgressData', () => {
     );
   });
 
-  it('gives the standing and names each chapter', async () => {
+  it('gives the tag, the status, today in Vilnius, the standing and each chapter named', async () => {
     server.repertoire.mockResolvedValue(VIEW);
     expect(await coachProgressData(PLAYER, REPERTOIRE)).toEqual({
       player: { id: PLAYER, displayName: 'Rokas' },
       repertoire: REF,
-      badges: BADGES,
+      tag: 'assigned',
+      status: STATUS,
+      today: '2026-10-20',
       standing: { counts: COUNTS, mastered: false },
       chapters: [
         {
@@ -153,6 +165,40 @@ describe('coachProgressData', () => {
         },
       ],
     });
+  });
+
+  it('tags a shared repertoire as shared, with no status', async () => {
+    server.repertoire.mockResolvedValue({
+      ...VIEW,
+      source: 'shared',
+      badges: null,
+      status: null,
+    });
+    expect(await coachProgressData(PLAYER, REPERTOIRE)).toMatchObject({
+      tag: 'shared',
+      status: null,
+    });
+  });
+
+  it('tags the player’s shared fork of the coach’s repertoire as a fork (R-155)', async () => {
+    server.repertoire.mockResolvedValue({
+      ...VIEW,
+      source: 'shared',
+      forkOf: 'coach-repertoire',
+      badges: null,
+      status: null,
+    });
+    expect(await coachProgressData(PLAYER, REPERTOIRE)).toMatchObject({
+      tag: 'fork',
+    });
+  });
+
+  it('gives today as the Vilnius day, which is already tomorrow at 23:30 UTC', async () => {
+    vi.setSystemTime(new Date('2026-10-20T23:30:00Z'));
+    server.repertoire.mockResolvedValue(VIEW);
+    expect((await coachProgressData(PLAYER, REPERTOIRE)).today).toBe(
+      '2026-10-21',
+    );
   });
 
   it('tells apart chapters named after the same opening (R-158)', async () => {

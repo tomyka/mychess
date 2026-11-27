@@ -11,8 +11,8 @@ import {
   unlinkPlayerAction,
 } from '../../src/app/coach/actions';
 import {
+  coachDashboardData,
   coachGroupData,
-  coachHomeData,
   coachPlayerData,
 } from '../../src/server/coach-pages';
 import {
@@ -186,7 +186,7 @@ describe('createGroupAction (R-12, R-70)', () => {
     expect(
       await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė' }))),
     ).toEqual({ redirectedTo: '/settings' });
-    expect(await outcomeOf(coachHomeData())).toEqual({
+    expect(await outcomeOf(coachDashboardData())).toEqual({
       redirectedTo: '/settings',
     });
     expect(await groupNames()).toEqual([]);
@@ -457,8 +457,8 @@ describe('coachPlayerData (the player page)', () => {
   });
 });
 
-describe('coachHomeData', () => {
-  it('lists the coach’s own players, groups and invites only', async () => {
+describe('coachDashboardData', () => {
+  it('lists the coach’s own players and groups only', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
     const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
@@ -468,18 +468,37 @@ describe('coachHomeData', () => {
     await link(jonas.id, rokas.id, groupId);
     await link(ona.id, gabija.id);
     actAs(jonas);
-    expect(await outcomeOf(coachHomeData())).toMatchObject({
+    const dashboard = await outcomeOf(coachDashboardData());
+    expect(dashboard).toMatchObject({
+      attention: [],
       players: [
         {
           id: rokas.id,
           displayName: 'Rokas',
-          groups: [{ id: groupId, name: 'Šeštadienio grupė' }],
+          lastTrainedDays: null,
+          summary: { counts: null, nextDeadline: null },
         },
       ],
-      groups: [{ id: groupId, name: 'Šeštadienio grupė', memberCount: 1 }],
-      // Open invites only: the personal one Rokas used is gone; the group's
-      // own invite, made with it, is open (R-204).
-      invites: [{ kind: 'group', groupName: 'Šeštadienio grupė' }],
+      groups: [
+        {
+          id: groupId,
+          name: 'Šeštadienio grupė',
+          memberCount: 1,
+          assignments: [],
+        },
+      ],
     });
+    // Only these fields reach the page; invites leave the dashboard (the
+    // Invite a player sheet reads them).
+    const fields = z.object({
+      players: z.array(z.record(z.string(), z.unknown())),
+    });
+    expect(
+      Object.keys(z.record(z.string(), z.unknown()).parse(dashboard)).sort(),
+    ).toEqual(['attention', 'groups', 'players', 'today']);
+    expect(
+      fields.parse(dashboard).players.map((one) => Object.keys(one).sort()),
+    ).toEqual([['displayName', 'id', 'lastTrainedDays', 'summary']]);
+    expect(JSON.stringify(dashboard)).not.toContain('rokas@example.lt');
   });
 });

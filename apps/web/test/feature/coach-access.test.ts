@@ -38,8 +38,8 @@ import {
   unlinkPlayerAction,
 } from '../../src/app/coach/actions';
 import {
+  coachDashboardData,
   coachGroupData,
-  coachHomeData,
   coachPlayerData,
   sharedRepertoireData,
 } from '../../src/server/coach-pages';
@@ -225,7 +225,7 @@ async function setUp(): Promise<Ids> {
 // Every page under src/app/coach has one entry; the guard below fails
 // when a page is added without one (plan decision 14).
 const COACH_PAGES: Readonly<Record<string, (ids: Ids) => Promise<unknown>>> = {
-  coach: () => coachHomeData(),
+  coach: () => coachDashboardData(),
   'coach/players/[playerId]': (ids) => coachPlayerData(ids.rokas.id),
   'coach/groups/[groupId]': (ids) => coachGroupData(ids.group),
   'coach/players/[playerId]/repertoires/[repertoireId]': (ids) =>
@@ -469,33 +469,31 @@ describe('a coach who is not linked (checklist 1)', () => {
     expect(await coachingRows()).toEqual(before);
   });
 
-  it('sees only the own players, groups and invites at home', async () => {
+  it('sees only the own players and groups on the dashboard', async () => {
     const ids = await setUp();
-    const dovydasInvite = await openInvite(ids.dovydas.id);
     actAs(ids.dovydas);
-    const dovydasHome = await outcomeOf(coachHomeData());
-    expect(dovydasHome).toMatchObject({
+    const dovydasDashboard = await outcomeOf(coachDashboardData());
+    expect(dovydasDashboard).toMatchObject({
       players: [{ id: ids.gabija.id, displayName: 'Gabija' }],
       groups: [{ id: ids.dovydasGroup, name: 'Dovydo grupė', memberCount: 1 }],
     });
-    expect(dovydasHome).toHaveProperty('players.length', 1);
-    expect(dovydasHome).toHaveProperty('groups.length', 1);
-    const home = JSON.stringify(dovydasHome);
-    expect(home).not.toContain(ids.rokas.id);
-    expect(home).not.toContain(ids.group);
-    expect(home).not.toContain(ids.invite);
-    expect(home).toContain(dovydasInvite);
+    expect(dovydasDashboard).toHaveProperty('players.length', 1);
+    expect(dovydasDashboard).toHaveProperty('groups.length', 1);
+    const dashboard = JSON.stringify(dovydasDashboard);
+    expect(dashboard).not.toContain(ids.rokas.id);
+    expect(dashboard).not.toContain(ids.group);
+    expect(dashboard).not.toContain(ids.invite);
+    expect(dashboard).not.toContain(ids.assigned);
 
     actAs(ids.rimantas);
-    const rimantasHome = await outcomeOf(coachHomeData());
-    expect(rimantasHome).toMatchObject({
+    const rimantasDashboard = await outcomeOf(coachDashboardData());
+    expect(rimantasDashboard).toMatchObject({
       players: [{ id: ids.rokas.id, displayName: 'Rokas Petrauskas' }],
       groups: [{ id: ids.group, name: 'Šeštadienio grupė', memberCount: 1 }],
     });
-    expect(rimantasHome).toHaveProperty('players.length', 1);
-    expect(rimantasHome).toHaveProperty('groups.length', 1);
-    expect(JSON.stringify(rimantasHome)).not.toContain(ids.gabija.id);
-    expect(JSON.stringify(rimantasHome)).not.toContain(dovydasInvite);
+    expect(rimantasDashboard).toHaveProperty('players.length', 1);
+    expect(rimantasDashboard).toHaveProperty('groups.length', 1);
+    expect(JSON.stringify(rimantasDashboard)).not.toContain(ids.gabija.id);
   });
 });
 
@@ -516,7 +514,9 @@ describe('access ends with the link (checklist 3)', () => {
       members: [],
       addable: [],
     });
-    expect(await outcomeOf(coachHomeData())).toMatchObject({ players: [] });
+    expect(await outcomeOf(coachDashboardData())).toMatchObject({
+      players: [],
+    });
   });
 
   it('after the coach unlinks, the next request is 404', async () => {

@@ -52,7 +52,12 @@ export type Attention =
       readonly percent: number;
     }
   | { readonly kind: 'duePile'; readonly due: number }
-  | { readonly kind: 'idle'; readonly days: number };
+  | {
+      readonly kind: 'idle';
+      readonly days: number;
+      /** Counted from the last training, or from the link when never trained. */
+      readonly since: 'training' | 'link';
+    };
 
 /** A live (not forked) assignment's row. */
 interface LiveRow extends CoachRowFacts {
@@ -64,10 +69,6 @@ interface DatedRow {
   readonly name: string;
   readonly days: number;
 }
-
-/** Whole Vilnius days from today to `day` (`YYYY-MM-DD`), negative when past. */
-const daysUntil = (day: string, now: Date): number =>
-  daysBetween(now, new Date(`${day}T12:00:00Z`));
 
 /** A `YYYY-MM-DD` day at noon UTC: the same calendar day in Vilnius. */
 const noonOf = (day: string): Date => new Date(`${day}T12:00:00Z`);
@@ -99,7 +100,7 @@ const visible = (rows: readonly CoachRowFacts[]): CoachRowFacts[] =>
 function overdueRow(row: LiveRow, now: Date): DatedRow[] {
   const { overdue, deadline } = row.status;
   return overdue && deadline !== null
-    ? [{ name: row.name, days: -daysUntil(deadline, now) }]
+    ? [{ name: row.name, days: daysBetween(noonOf(deadline), now) }]
     : [];
 }
 
@@ -156,8 +157,10 @@ function idle(input: AttentionInput, now: Date): Attention | null {
     (row) => !row.status.done && !row.status.paused,
   );
   if (!unfinished) return null;
-  const days = daysBetween(input.lastTrained ?? input.linkedAt, now);
-  return days >= IDLE_DAYS ? { kind: 'idle', days } : null;
+  const { lastTrained, linkedAt } = input;
+  const days = daysBetween(lastTrained ?? linkedAt, now);
+  const since = lastTrained === null ? 'link' : 'training';
+  return days >= IDLE_DAYS ? { kind: 'idle', days, since } : null;
 }
 
 /** The most urgent reason the player needs attention (R-229), or null. */
@@ -184,14 +187,44 @@ export const ATTENTION_ORDER = [
 const rank = (reason: Attention): number =>
   ATTENTION_ORDER.indexOf(reason.kind);
 
+/** What a Needs attention card is ordered by: its reason, name and id. */
+export type AttentionKey = NameAndId & { readonly reason: Attention };
+
 /**
  * The order of the Needs attention cards (R-229): most urgent reason first,
- * then by name in the one name order (R-160).
+ * then by name in the one name order (R-160). `key` says where a card
+ * keeps its reason, name and id.
  */
-export const byAttention = (
-  a: NameAndId & { readonly reason: Attention },
-  b: NameAndId & { readonly reason: Attention },
-): number => rank(a.reason) - rank(b.reason) || byNameAndId(a, b);
+export const byAttention =
+  <T>(key: (one: T) => AttentionKey) =>
+  (a: T, b: T): number => {
+    const x = key(a);
+    const y = key(b);
+    return rank(x.reason) - rank(y.reason) || byNameAndId(x, y);
+  };
+
+/** An assignment as a group lists it: its repertoire and deadline. */
+export interface DatedAssignment {
+  readonly repertoireName: string;
+  /** `YYYY-MM-DD`; null for none. */
+  readonly deadline: string | null;
+}
+
+/**
+ * The assignment a one-line summary names (a group's meta line): the
+ * earliest deadline, a passed one too, then by repertoire name; one
+ * without a deadline only when none has one.
+ */
+export function nearestAssignment<T extends DatedAssignment>(
+  assignments: readonly T[],
+): T | undefined {
+  return assignments.toSorted(
+    (a, b) =>
+      Number(a.deadline === null) - Number(b.deadline === null) ||
+      (a.deadline ?? '').localeCompare(b.deadline ?? '') ||
+      a.repertoireName.localeCompare(b.repertoireName, 'en'),
+  )[0];
+}
 
 /** A player's line on the dashboard (R-231). */
 export interface PlayerSummary {

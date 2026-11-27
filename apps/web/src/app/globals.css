@@ -7,6 +7,16 @@
     text-size-adjust: 100%;
   }
 
+  /* Below md (48rem) the tab bar is fixed over the page's foot: whatever is
+     scrolled or focused into view stops clear of it (#381 part 5). */
+  @media (width < 48rem) {
+    html {
+      scroll-padding-bottom: calc(
+        var(--spacing-tabbar) + env(safe-area-inset-bottom) + 1rem
+      );
+    }
+  }
+
   body {
     background-color: var(--color-bg);
     color: var(--color-fg);

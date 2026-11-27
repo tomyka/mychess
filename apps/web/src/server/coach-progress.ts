@@ -3,9 +3,14 @@ import 'server-only';
 // and parses its ids before any read; the acting coach is always the
 // session's. The db read decides access through the domain and filters
 // again in SQL; an undefined read is a plain 404 (S4 plan decision 4).
-import { coachRepertoireProgress, type RepertoireRef } from '@mychess/db';
+import {
+  coachRepertoireProgress,
+  type CoachStatus,
+  type RepertoireProgressView,
+  type RepertoireRef,
+} from '@mychess/db';
 import type { ChapterProgress, Standing } from '@mychess/chess';
-import type { AccountRef, BadgeSet } from '@mychess/domain';
+import { vilniusDay, type AccountRef } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
@@ -19,14 +24,31 @@ export interface ChapterRow extends Omit<ChapterProgress, 'chapter'> {
   readonly title: string;
 }
 
+/**
+ * How the coach has the repertoire, as the player page tags it: their own
+ * assignment, shared with them, or the player's Fork of one of the coach's
+ * repertoires, shared with them (R-155, #328).
+ */
+type ProgressTag = 'assigned' | 'shared' | 'fork';
+
 /** The progress page (R-152). */
 export interface ProgressPage {
   readonly player: AccountRef;
   readonly repertoire: RepertoireRef;
-  readonly badges: BadgeSet | null;
+  readonly tag: ProgressTag;
+  /** The assignment's deadline and status; null for a shared repertoire. */
+  readonly status: CoachStatus | null;
+  /** Today in Vilnius, so the server and the browser word deadlines alike. */
+  readonly today: string;
   readonly standing: Standing;
   readonly chapters: readonly ChapterRow[];
 }
+
+const tagOf = ({
+  source,
+  forkOf,
+}: Pick<RepertoireProgressView, 'source' | 'forkOf'>): ProgressTag =>
+  forkOf === null ? source : 'fork';
 
 const idsSchema = z.object({
   playerId: accountIdSchema,
@@ -47,18 +69,21 @@ export async function coachProgressData(
     repertoireId: rawRepertoireId,
   });
   if (!parsed.success) notFound();
+  const now = new Date();
   const view =
     (await coachRepertoireProgress(
       getDb(),
       { coachId: coach.id, ...parsed.data },
-      new Date(),
+      now,
     )) ?? notFound();
   const title = chapterLabelOf(view.graph);
   const { counts, mastered, chapters } = view.progress;
   return {
     player: view.player,
     repertoire: view.repertoire,
-    badges: view.badges,
+    tag: tagOf(view),
+    status: view.status,
+    today: vilniusDay(now),
     standing: { counts, mastered },
     chapters: chapters.map(({ chapter, ...rest }) => ({
       ...rest,

@@ -6,39 +6,72 @@ import type { ProgressPage } from '../../../../../../server/coach-progress';
 import { ProgressView } from './progress-view';
 
 const p = MESSAGES.coach.progress;
-const COUNTS = { notStarted: 0, skipped: 0, due: 0, learned: 3 };
-const PARTIAL = { notStarted: 2, skipped: 0, due: 1, learned: 0 };
+const LEARNED = { notStarted: 0, skipped: 0, due: 0, learned: 3 };
+const DUE = { notStarted: 2, skipped: 1, due: 4, learned: 3 };
+const UNSTARTED = { notStarted: 5, skipped: 0, due: 0, learned: 0 };
+const HALF = { notStarted: 1, skipped: 0, due: 0, learned: 1 };
 const NONE = { notStarted: 0, skipped: 0, due: 0, learned: 0 };
 const PAGE: ProgressPage = {
   player: { id: 'p-1', displayName: 'Rokas' },
   repertoire: { id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' },
-  badges: { overdue: false, paused: true, forked: false, updated: false },
-  standing: { counts: COUNTS, mastered: true },
+  tag: 'assigned',
+  status: {
+    deadline: '2026-11-30',
+    overdue: false,
+    paused: false,
+    done: false,
+    forked: false,
+  },
+  today: '2026-11-27',
+  standing: { counts: DUE, mastered: false },
   chapters: [
     {
       id: 'ch1',
-      title: 'Advance variation',
+      title: 'Caro-Kann Defense: Advance Variation',
       whiteFirst: true,
-      counts: COUNTS,
-      mastered: true,
+      counts: DUE,
+      mastered: false,
       lines: [
         {
-          sans: ['e4', 'c6', 'd4', 'd5', 'e5', 'Bf5'],
-          counts: COUNTS,
+          sans: ['e4', 'c6', 'd4', 'd5', 'e5', 'Bf5', 'Nf3', 'e6'],
+          counts: DUE,
+          mastered: false,
+        },
+        {
+          sans: ['e4', 'c6', 'd4', 'd5', 'e5', 'Bf5', 'Nc3', 'e6'],
+          counts: UNSTARTED,
+          mastered: false,
+        },
+        {
+          sans: ['e4', 'c6', 'd4', 'd5', 'e5', 'Bf5', 'h4', 'h5'],
+          counts: LEARNED,
           mastered: true,
+        },
+        {
+          sans: ['e4', 'c6', 'd4', 'd5', 'e5', 'Bf5', 'Be2', 'e6'],
+          counts: HALF,
+          mastered: false,
         },
       ],
     },
     {
       id: 'ch2',
-      title: 'Exchange variation',
+      title: 'Caro-Kann Defense: Exchange Variation',
       whiteFirst: false,
-      counts: PARTIAL,
+      counts: UNSTARTED,
       mastered: false,
-      lines: [{ sans: ['c6', 'd4', 'd5'], counts: PARTIAL, mastered: false }],
+      lines: [{ sans: ['c6', 'd4', 'd5'], counts: UNSTARTED, mastered: false }],
     },
     {
       id: 'ch3',
+      title: 'Caro-Kann Defense: Two Knights Attack',
+      whiteFirst: true,
+      counts: LEARNED,
+      mastered: true,
+      lines: [{ sans: ['e4', 'c6'], counts: LEARNED, mastered: true }],
+    },
+    {
+      id: 'ch4',
       title: 'Empty chapter',
       whiteFirst: true,
       counts: NONE,
@@ -62,69 +95,175 @@ function chapterOf(title: string): HTMLDetailsElement {
   return details;
 }
 
+function summaryOf(title: string): HTMLElement {
+  const summary = chapterOf(title).querySelector('summary');
+  if (summary === null) throw new Error('no summary');
+  return summary;
+}
+
+/** The text of the line that starts with `text`, and its state. */
+function lineOf(title: string, text: string): HTMLElement {
+  const lines = within(chapterOf(title)).getByRole('list', { name: p.lines });
+  const line = within(lines).getByText(text).closest('li');
+  if (line === null) throw new Error(`no line ${text}`);
+  return line;
+}
+
+const header = (): HTMLElement => screen.getByRole('banner');
+
+/** Whether an element in `root` reads `text` whole, across its parts. */
+const reads = (root: HTMLElement, text: string): boolean =>
+  [...root.querySelectorAll('p, span')].some((one) => one.textContent === text);
+
 describe('the progress page (R-152)', () => {
-  it('heads with the repertoire, the player named, one way back, badges and the whole bar', () => {
+  it('heads with the repertoire, the way back to the player, the tag and the status', () => {
     show();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Karo-Kan gynyba' }),
     ).toBeTruthy();
-    const header = screen.getByRole('banner');
-    expect(within(header).getByText('Rokas')).toBeTruthy();
-    expect(within(header).getAllByRole('link')).toHaveLength(1);
     // Its parent is the player's page, not the dashboard (#381).
     expect(
-      within(header)
+      within(header())
         .getByRole('link', { name: 'Back to Rokas' })
         .getAttribute('href'),
     ).toBe('/coach/players/p-1');
+    expect(within(header()).getByText('Rokas')).toBeTruthy();
+    expect(within(header()).getByText('Assigned')).toBeTruthy();
+    expect(within(header()).getByText('Due Nov 30 · in 3 days')).toBeTruthy();
+  });
+
+  it('heads with the whole bar at header size and the counts in words', () => {
+    show();
+    expect(header().querySelector('[aria-hidden="true"].h-2')).not.toBeNull();
     expect(
-      within(header).getByText(MESSAGES.assignment.badge.paused),
+      reads(header(), '30% learned · 4 due · 1 marked as known · 2 to learn'),
+    ).toBe(true);
+  });
+
+  it('opens an assignment as the coach’s own repertoire', () => {
+    show();
+    expect(
+      within(header())
+        .getByRole('link', { name: 'Open repertoire' })
+        .getAttribute('href'),
+    ).toBe('/repertoires/r-1');
+    expect(
+      within(header()).queryByRole('link', { name: 'Open & add notes' }),
+    ).toBeNull();
+  });
+
+  it('shows the Overdue pill of an overdue assignment', () => {
+    show({
+      ...PAGE,
+      status: {
+        deadline: '2026-11-20',
+        overdue: true,
+        paused: false,
+        done: false,
+        forked: false,
+      },
+    });
+    expect(within(header()).getByText('Overdue')).toBeTruthy();
+  });
+
+  it('tags a shared repertoire, with no status, opening it to add notes', () => {
+    show({ ...PAGE, tag: 'shared', status: null });
+    expect(within(header()).getByText('Shared with you')).toBeTruthy();
+    expect(within(header()).queryByText(/^Due /)).toBeNull();
+    expect(
+      within(header())
+        .getByRole('link', { name: 'Open & add notes' })
+        .getAttribute('href'),
+    ).toBe('/coach/players/p-1/repertoires/r-1');
+    expect(
+      within(header()).queryByRole('link', { name: 'Open repertoire' }),
+    ).toBeNull();
+  });
+
+  it('titles a fork by whose own copy it is, tags it "Own copy", opening it to add notes (R-155)', () => {
+    show({ ...PAGE, tag: 'fork', status: null });
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Rokas’s own copy of Karo-Kan gynyba',
+      }),
     ).toBeTruthy();
-    expect(within(header).getByText(p.mastered)).toBeTruthy();
+    // The title names the player; the tag need not again.
+    expect(within(header()).getByText('Own copy').className).toContain(
+      'rounded-pill',
+    );
+    expect(within(header()).queryByText('Rokas’s own copy')).toBeNull();
+    expect(within(header()).queryByText('Shared with you')).toBeNull();
+    expect(
+      within(header())
+        .getByRole('link', { name: 'Open & add notes' })
+        .getAttribute('href'),
+    ).toBe('/coach/players/p-1/repertoires/r-1');
   });
 
-  it('shows no badges when there is no assignment', () => {
-    show({ ...PAGE, badges: null });
-    expect(screen.queryByText(MESSAGES.assignment.badge.paused)).toBeNull();
-  });
-
-  it('lists the chapters under their heading, each with lines closed at first', () => {
+  it('lists the chapters under their heading, each closed at first', () => {
     show();
     const section = screen.getByRole('region', { name: p.chapters });
-    expect(section.querySelector('ul')?.children).toHaveLength(3);
-    expect(within(section).getAllByRole('group')).toHaveLength(2);
-    expect(chapterOf('Advance variation').open).toBe(false);
+    expect(section.querySelector('ul')?.children).toHaveLength(4);
+    expect(within(section).getAllByRole('group')).toHaveLength(3);
+    expect(chapterOf('Caro-Kann Defense: Advance Variation').open).toBe(false);
   });
 
-  it('opens a chapter to its numbered lines', () => {
-    show();
-    fireEvent.click(screen.getByText('Advance variation'));
-    const chapter = chapterOf('Advance variation');
-    expect(chapter.open).toBe(true);
-    const lines = within(chapter).getByRole('list', { name: p.lines });
-    expect(within(lines).getByText('1. e4 c6 2. d4 d5 3. e5 Bf5')).toBeTruthy();
-  });
-
-  it('numbers a Black-first chapter’s lines from 1...', () => {
+  it('sums each chapter up as % and due, not started, or Mastered', () => {
     show();
     expect(
-      within(chapterOf('Exchange variation')).getByText('1... c6 2. d4 d5'),
+      reads(
+        summaryOf('Caro-Kann Defense: Advance Variation'),
+        '30% learned · 4 due',
+      ),
+    ).toBe(true);
+    expect(
+      within(summaryOf('Caro-Kann Defense: Exchange Variation')).getByText(
+        'Not started · 5 moves',
+      ),
     ).toBeTruthy();
-  });
-
-  it('marks a mastered chapter and not one still in progress', () => {
-    show();
-    const summaryOf = (title: string): HTMLElement => {
-      const summary = chapterOf(title).querySelector('summary');
-      if (summary === null) throw new Error('no summary');
-      return summary;
-    };
+    const mastered = summaryOf('Caro-Kann Defense: Two Knights Attack');
+    expect(within(mastered).getByText(p.mastered)).toBeTruthy();
+    // Mastered says it all: no "100% learned" beside it.
+    expect(within(mastered).queryByText(/learned/u)).toBeNull();
     expect(
-      within(summaryOf('Advance variation')).getByText(p.mastered),
-    ).toBeTruthy();
-    expect(
-      within(summaryOf('Exchange variation')).queryByText(p.mastered),
+      within(summaryOf('Caro-Kann Defense: Advance Variation')).queryByText(
+        p.mastered,
+      ),
     ).toBeNull();
+  });
+
+  it('opens a chapter to its lines, each from where it leaves the trunk', () => {
+    show();
+    const title = 'Caro-Kann Defense: Advance Variation';
+    fireEvent.click(screen.getByText(title));
+    expect(chapterOf(title).open).toBe(true);
+    expect(lineOf(title, '… 4. Nf3 e6')).toBeTruthy();
+    expect(lineOf(title, '… 4. Nc3 e6')).toBeTruthy();
+  });
+
+  it('gives each line its state on the right: due, not started, Mastered or % learned', () => {
+    show();
+    const title = 'Caro-Kann Defense: Advance Variation';
+    expect(
+      within(lineOf(title, '… 4. Nf3 e6')).getByText('4 due'),
+    ).toBeTruthy();
+    expect(
+      within(lineOf(title, '… 4. Nc3 e6')).getByText('Not started'),
+    ).toBeTruthy();
+    expect(
+      within(lineOf(title, '… 4. h4 h5')).getByText(p.mastered),
+    ).toBeTruthy();
+    expect(
+      within(lineOf(title, '… 4. Be2 e6')).getByText('50% learned'),
+    ).toBeTruthy();
+  });
+
+  it('writes a one-line chapter whole, a Black-first one from 1...', () => {
+    show();
+    expect(
+      lineOf('Caro-Kann Defense: Exchange Variation', '1... c6 2. d4 d5'),
+    ).toBeTruthy();
   });
 
   it('shows a chapter with no own move as a plain row, with nothing to open', () => {
@@ -140,7 +279,7 @@ describe('the progress page (R-152)', () => {
   it('makes each chapter’s summary a full touch target', () => {
     show();
     expect(
-      chapterOf('Advance variation').querySelector('summary')?.className,
+      summaryOf('Caro-Kann Defense: Advance Variation').className,
     ).toContain('min-h-touch');
   });
 });

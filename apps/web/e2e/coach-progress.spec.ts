@@ -110,18 +110,33 @@ async function expectNoPrivateName(page: Page): Promise<void> {
   expect(await page.content()).not.toContain(LONDON);
 }
 
-/** The players list on /coach: each player's "last trained". */
+/**
+ * The Players section on /coach. Its name carries its count ("Players ·
+ * 3"), so it is matched from its start; scoping to it keeps a player's link
+ * apart from their Needs attention card.
+ */
+const playersRegion = (coach: Page, cast: Cast): Locator =>
+  coach.getByRole('region', {
+    name: new RegExp(`^${cast.messages.coach.players.title} · `, 'u'),
+  });
+
+/**
+ * The players list on /coach: each player's "last trained", in the short
+ * form of the dashboard's rows ("today", "never"). A phone shows a list,
+ * desktop a table: the hidden one is not in the accessibility tree.
+ */
 async function playersList(coach: Page, cast: Cast): Promise<void> {
-  const t = cast.messages.coach.players;
+  const t = cast.messages.coach;
   await coach.goto('/coach');
-  const list = coach.getByRole('region', { name: t.title, exact: true });
+  const list = playersRegion(coach, cast);
   for (const name of [GABIJA, ROKAS, DOVYDAS] as const) {
-    const row = list.getByRole('listitem').filter({
-      has: coach.getByRole('link', { name, exact: true }),
-    });
-    await expect(
-      row.getByText(lastTrained(cast, name), { exact: true }),
-    ).toBeVisible();
+    const row = list
+      .getByRole('listitem')
+      .or(list.getByRole('row'))
+      .filter({ has: coach.getByRole('link', { name, exact: true }) });
+    const trained =
+      name === DOVYDAS ? t.progress.trained.never : t.progress.trained.today;
+    await expect(row.getByText(trained, { exact: true })).toBeVisible();
   }
   await expectNoPrivateName(coach);
 }
@@ -178,8 +193,9 @@ const pageHeader = (page: Page): Locator =>
 
 /**
  * Rokas's progress page (R-152): the whole repertoire's counts as seeded;
- * the first chapter opens to its lines, the first holding his three seeded
- * moves. Back to his player page by the header's back link (#381).
+ * the first chapter, summed up as % learned and due, opens to its one line,
+ * written whole with its state ("2 due") on its right. Back to his player
+ * page by the header's back link (#381).
  */
 async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
   const t = cast.messages.coach.progress;
@@ -189,10 +205,11 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
     header.getByText(countsText(SEEDED[ROKAS]), { exact: true }),
   ).toBeVisible();
   // The Advance variation is the first chapter and has the one line.
-  const counts = countsText({
-    ...SEEDED[ROKAS],
-    notStarted: FIRST_LINE_MOVES - 3,
-  });
+  const due = format(t.part.due, { count: String(ROKAS_DUE.length) });
+  const summed = [
+    percentText({ ...SEEDED[ROKAS], notStarted: FIRST_LINE_MOVES - 3 }),
+    due,
+  ].join(t.separator);
   const chapters = coach.getByRole('region', { name: t.chapters, exact: true });
   const [advance, twoKnights] = KARO_KAN_TITLES;
   const titleOf = (index: number): Locator =>
@@ -202,7 +219,7 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
   const first = chapters.locator('details').first();
   await expect(first).not.toHaveAttribute('open');
   const summary = first.locator('summary');
-  await expect(summary.getByText(counts, { exact: true })).toBeVisible();
+  await expect(summary.getByText(summed, { exact: true })).toBeVisible();
   await summary.click();
   await expect(first).toHaveAttribute('open');
   const lines = first
@@ -210,7 +227,7 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
     .getByRole('listitem');
   await expect(lines).toHaveCount(1);
   await expect(lines).toContainText(/^1\. e4 c6 2\. d4 d5 3\. e5 Bf5/);
-  await expect(lines.getByText(counts, { exact: true })).toBeVisible();
+  await expect(lines.getByText(due, { exact: true })).toBeVisible();
   await expectNoPrivateName(coach);
   await expect(header.getByText(ROKAS, { exact: true })).toBeVisible();
   await header
@@ -271,7 +288,9 @@ async function dovydasPage(
   const { messages } = cast;
   const t = messages.coach.progress;
   await coach.goto('/coach');
-  await coach.getByRole('link', { name: DOVYDAS, exact: true }).click();
+  await playersRegion(coach, cast)
+    .getByRole('link', { name: DOVYDAS, exact: true })
+    .click();
   const section = progressSection(coach, cast);
   await expect(
     section.getByText(t.neverTrained, { exact: true }),
@@ -295,7 +314,9 @@ async function gabijaPage(coach: Page, cast: Cast): Promise<void> {
   const { messages } = cast;
   const t = messages.coach.progress;
   await coach.goto('/coach');
-  await coach.getByRole('link', { name: GABIJA, exact: true }).click();
+  await playersRegion(coach, cast)
+    .getByRole('link', { name: GABIJA, exact: true })
+    .click();
   const caroKann = progressRow(coach, cast, KARO_KAN);
   await expect(
     caroKann.getByText(countsText(SEEDED[GABIJA]), { exact: true }),

@@ -236,7 +236,13 @@ export interface RepertoireProgressView {
   readonly repertoire: RepertoireRef;
   /** Its graph as loaded, so the page titles its chapters without a second read. */
   readonly graph: RepertoireGraph;
+  /** Assigned by this coach, or shared by the player (shared wins, Q26). */
+  readonly source: ProgressSource;
+  /** The coach's repertoire a shared one is the player's Fork of; null otherwise. */
+  readonly forkOf: string | null;
   readonly badges: BadgeSet | null;
+  /** The assignment's deadline and status (R-129); null for a shared one. */
+  readonly status: CoachStatus | null;
   readonly progress: RepertoireProgress;
 }
 
@@ -262,15 +268,19 @@ export function coachRepertoireProgress(
     if (granted === undefined) return undefined;
     const player = await coachPlayer(tx, coachId, playerId);
     if (player === undefined) return undefined;
-    const { read } = granted;
+    const { read, forkOf } = granted;
     const loaded = await loadVisible(tx, read.scope, repertoireId);
     if (loaded === undefined) return undefined;
     const tracked = await trackedReviewsOf(tx, playerId, [loaded]);
+    const marks = read.marks({ graph: loaded.graph, tracked, now });
     return {
       player: { id: player.id, displayName: player.displayName },
       repertoire: loaded.repertoire,
       graph: loaded.graph,
-      badges: read.marks({ graph: loaded.graph, tracked, now })?.badges ?? null,
+      source: read.source,
+      forkOf,
+      badges: marks?.badges ?? null,
+      status: marks?.status ?? null,
       progress: progressOf(loaded.graph, tracked, now),
     };
   }, REPEATABLE_READ);

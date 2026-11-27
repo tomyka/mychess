@@ -132,17 +132,35 @@
     "tooLong": "A group name can be at most 60 characters."
   },
   "coach": {
-    "title": "Coach dashboard",
+    "title": "Coach",
+    "sectionCount": "{title} · {count}",
     "notCoach": "Switch Coach mode on in settings first.",
     "stillLinked": "Coach mode cannot be switched off while players are linked to you.",
     "groupLimit": "You cannot create any more groups.",
     "inviteLimit": "You have reached the limit of {limit} open invites. You can create another once one expires, is used or is revoked.",
     "groupNotFound": "Group not found.",
     "notLinked": "This player is not linked to you.",
+    "attention": {
+      "title": "Needs attention",
+      "overdue": "{days, plural, =0 {{name} is overdue} one {{name} is # day overdue} other {{name} is # days overdue}}",
+      "overdueMany": "{count} repertoires overdue",
+      "deadlineNear": "{name} {days, plural, =0 {due today} one {due in # day} other {due in # days}} · {percent}% learned",
+      "duePile": "{count, plural, one {# move due} other {# moves due}}",
+      "idle": "Has not trained for {days, plural, one {# day} other {# days}}",
+      "idleNever": "Has not trained since linking, {days, plural, one {# day} other {# days}} ago"
+    },
     "players": {
       "title": "Players",
-      "empty": "No player is linked to you yet. Create an invite and send the link to a player.",
-      "groups": "Groups: {groups}",
+      "empty": "No player is linked to you yet.",
+      "nothing": "Nothing assigned or shared",
+      "by": "by {date}",
+      "column": {
+        "player": "Player",
+        "progress": "Progress",
+        "due": "Due",
+        "nextDeadline": "Next deadline",
+        "lastTrained": "Last trained"
+      },
       "noGroups": "Not in any group",
       "unlink": "Unlink",
       "unlinkConfirm": "Unlink this player? {name} will leave your groups, and you will no longer see their data.",
@@ -151,11 +169,14 @@
     },
     "groups": {
       "title": "Groups",
-      "empty": "No groups yet.",
+      "new": "New group",
+      "cancel": "Cancel",
       "name": "Group name",
       "create": "Create group",
       "members": "{count, plural, one {# player} other {# players}}",
-      "createdNoLink": "The group was created, but without an invite link: you already have {limit} open invites. Once one expires, is used or is revoked, create a group invite below."
+      "assignmentDue": "{name} due {date}",
+      "more": "+{count} more",
+      "createdNoLink": "The group was created, but without an invite link: you already have {limit} open invites. Once one expires, is used or is revoked, make a new link on the group’s page."
     },
     "invites": {
       "title": "Invites",
@@ -227,6 +248,15 @@
       "neverTrained": "Not trained yet on the repertoires you can see",
       "chapters": "Chapters",
       "lines": "Lines",
+      "lineNotStarted": "Not started",
+      "ownCopyTitle": "{name}’s own copy of {repertoire}",
+      "tag": {
+        "assigned": "Assigned",
+        "shared": "Shared with you",
+        "fork": "Own copy"
+      },
+      "openRepertoire": "Open repertoire",
+      "openShared": "Open & add notes",
       "gridTitle": "Group progress",
       "gridEmpty": "Nothing is assigned to the group yet.",
       "player": "Player",

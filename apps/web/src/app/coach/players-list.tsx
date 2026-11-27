@@ -1,146 +1,235 @@
-'use client';
-
-import type { AccountRef, BadgeSet } from '@mychess/domain';
-import { useFormatter, useTranslations } from 'next-intl';
+import { percentLearned, type ProgressCounts } from '@mychess/chess';
+import type { PlayerSummary } from '@mychess/domain';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useActionState, useId, type JSX } from 'react';
+import { useId, type JSX } from 'react';
 import { coachPlayerPath } from '../../lib/routes';
-import { MEDIUM_DATE } from '../../lib/date-format';
-import { AssignmentBadges } from '../assignment-badges';
-import { ConfirmedAction } from '../confirmed-action';
-import { useDeadline } from '../use-deadline';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../settings/styles';
-import { unlinkPlayerAction, type CoachActionState } from './actions';
-import { LastTrained } from './last-trained';
-import { RefusalLine } from './refusal-line';
+import type { DashboardPlayerLine } from '../../server/coach-pages';
+import { Pill } from '../pill';
+import { SECTION_TITLE } from '../settings/styles';
+import { CARD } from '../surfaces';
+import { useShortDeadline } from '../use-deadline';
+import { LastTrained, LastTrainedNote } from './last-trained';
+import { ROW_LINK } from './row-link';
+import { StateBar } from './state-bar';
 
-/** One linked player as the coach dashboard lists them. */
-export interface CoachPlayerRow extends AccountRef {
-  readonly groups: readonly { readonly id: string; readonly name: string }[];
-  /** Whole Vilnius days since the player last trained; null for never (R-154). */
-  readonly lastTrainedDays: number | null;
-  /** When the player linked: it tells two of the same name apart (#329). */
-  readonly linkedAt: Date;
-  /**
-   * The earliest deadline, `YYYY-MM-DD`, of this coach's live assignments
-   * to the player not yet done; null for none (#329).
-   */
-  readonly nearestDeadline: string | null;
-  /** One of those assignments is overdue (R-51). */
-  readonly overdue: boolean;
-}
-
-/** Only the Overdue badge on, as assignments show it (R-51). */
-const OVERDUE: BadgeSet = {
-  overdue: true,
-  paused: false,
-  forked: false,
-  updated: false,
-};
-
-/**
- * Whether the player is overdue (#329): the Overdue badge, else the
- * nearest deadline; nothing without one.
- */
-function DeadlineSignal({
-  player,
+/** The bar beside "N% learned" (R-231); the bar alone says an empty one. */
+function Learned({
+  counts,
+  barWidth,
 }: {
-  readonly player: CoachPlayerRow;
-}): JSX.Element | null {
-  const t = useTranslations('assignment');
-  const date = useDeadline();
-  if (player.overdue) return <AssignmentBadges flags={OVERDUE} />;
-  if (player.nearestDeadline === null) return null;
+  readonly counts: ProgressCounts;
+  readonly barWidth: string;
+}): JSX.Element {
+  const t = useTranslations('coach.progress');
+  const percent = percentLearned(counts);
   return (
-    <p className="text-sm">
-      {t('deadlineOn', { date: date(player.nearestDeadline) })}
-    </p>
+    <span className="flex min-w-0 items-center gap-2">
+      <span className={`${barWidth} shrink-0`}>
+        <StateBar counts={counts} size="row" />
+      </span>
+      {percent === null ? null : <span>{t('percent', { percent })}</span>}
+    </span>
   );
 }
 
-const INITIAL: CoachActionState = {};
-
-/** "Linked since", which tells two players of the same name apart (#329). */
-function LinkedSince({ at }: { readonly at: Date }): JSX.Element {
-  const t = useTranslations('coach.player');
-  const format = useFormatter();
-  const date = format.dateTime(at, MEDIUM_DATE);
-  return <p className="text-sm text-fg-muted">{t('linkedSince', { date })}</p>;
+/**
+ * The due count in the due tone above zero (R-231): "43 due" in a row,
+ * where a zero is left out; the number alone in its table column.
+ */
+function Due({
+  counts,
+  form,
+}: {
+  readonly counts: ProgressCounts | null;
+  readonly form: 'row' | 'cell';
+}): JSX.Element | null {
+  const t = useTranslations('coach.progress.part');
+  if (counts === null || (form === 'row' && counts.due === 0)) return null;
+  return (
+    <span className={counts.due > 0 ? 'text-due' : 'text-fg-muted'}>
+      {form === 'row' ? t('due', { count: counts.due }) : counts.due}
+    </span>
+  );
 }
 
 /**
- * One player: the name (to their page), when they linked, their groups,
- * last trained, and Unlink kept quiet (#329).
+ * Where the player's assignments stand: Overdue, Done when every one is,
+ * else the next deadline ("by Nov 30" in a row, the date alone in its
+ * table column); nothing without one.
  */
+function Deadline({
+  summary,
+  today,
+  form,
+}: {
+  readonly summary: PlayerSummary;
+  readonly today: string;
+  readonly form: 'row' | 'cell';
+}): JSX.Element | null {
+  const t = useTranslations('coach');
+  const badge = useTranslations('assignment.badge');
+  const date = useShortDeadline(today);
+  if (summary.overdue) return <Pill tone="overdue">{badge('overdue')}</Pill>;
+  if (summary.allDone) return <Pill tone="done">{t('status.done')}</Pill>;
+  if (summary.nextDeadline === null) return null;
+  const on = date(summary.nextDeadline);
+  return (
+    <span className="text-fg-muted">
+      {form === 'row' ? t('players.by', { date: on }) : on}
+    </span>
+  );
+}
+
+/** One player on a phone: name and last trained, then their progress. */
 function PlayerRow({
   player,
-  unlink,
+  today,
 }: {
-  readonly player: CoachPlayerRow;
-  readonly unlink: (form: FormData) => void;
+  readonly player: DashboardPlayerLine;
+  readonly today: string;
 }): JSX.Element {
-  const t = useTranslations('coach.players');
-  const format = useFormatter();
-  const nameId = useId();
-  const groups = player.groups.map((group) => group.name);
+  const t = useTranslations('coach');
+  const { counts } = player.summary;
   return (
-    <li className="flex flex-col gap-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <div className="flex flex-col">
-        <Link
-          id={nameId}
-          href={coachPlayerPath(player.id)}
-          className={`${TEXT_LINK} text-lg font-semibold`}
-        >
+    <li className="relative flex flex-col gap-1 border-b border-border py-2 last:border-b-0">
+      <span className="flex items-baseline justify-between gap-3">
+        <Link href={coachPlayerPath(player.id)} className={ROW_LINK}>
           {player.displayName}
         </Link>
-        <LinkedSince at={player.linkedAt} />
-      </div>
-      <DeadlineSignal player={player} />
-      <p className="text-sm text-fg-muted">
-        {groups.length === 0
-          ? t('noGroups')
-          : t('groups', {
-              groups: format.list(groups, { type: 'conjunction' }),
-            })}
-      </p>
-      <LastTrained days={player.lastTrainedDays} />
-      <ConfirmedAction
-        action={unlink}
-        fields={{ playerId: player.id }}
-        describedBy={nameId}
-        label={t('unlink')}
-        question={t('unlinkConfirm', { name: player.displayName })}
-        confirm={t('confirmUnlink')}
-        cancel={t('cancel')}
-        look="quiet"
-      />
+        <LastTrained days={player.lastTrainedDays} form="short" />
+      </span>
+      {counts === null ? (
+        <span className="text-sm text-fg-muted">{t('players.nothing')}</span>
+      ) : (
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
+          <Learned counts={counts} barWidth="w-16" />
+          <Due counts={counts} form="row" />
+          <Deadline summary={player.summary} today={today} form="row" />
+        </span>
+      )}
     </li>
   );
 }
 
-/** The coach's linked players, by display name (R-12); a refused Unlink. */
-export function PlayersList({
-  players,
+const CELL = 'px-3 py-2 first:pl-0 last:pr-0';
+
+/** A cell that never wraps; only the player's name does. */
+const FIXED_CELL = `${CELL} whitespace-nowrap`;
+
+/** One player in the desktop table; the whole row links to their page. */
+function PlayerTableRow({
+  player,
+  today,
 }: {
-  readonly players: readonly CoachPlayerRow[];
+  readonly player: DashboardPlayerLine;
+  readonly today: string;
 }): JSX.Element {
   const t = useTranslations('coach.players');
-  const titleId = useId();
-  const [state, unlink] = useActionState(unlinkPlayerAction, INITIAL);
+  const { counts } = player.summary;
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
-      <h2 id={titleId} className={SECTION_TITLE}>
-        {t('title')}
-      </h2>
-      <RefusalLine state={state} />
-      {players.length === 0 ? (
-        <p className="text-fg-muted">{t('empty')}</p>
-      ) : (
-        <ul className="flex flex-col gap-4">
-          {players.map((player) => (
-            <PlayerRow key={player.id} player={player} unlink={unlink} />
+    <tr className="relative border-t border-border">
+      <td className={CELL}>
+        <Link href={coachPlayerPath(player.id)} className={ROW_LINK}>
+          {player.displayName}
+        </Link>
+      </td>
+      <td className={`${FIXED_CELL} text-fg-muted`}>
+        {counts === null ? (
+          t('nothing')
+        ) : (
+          <Learned counts={counts} barWidth="w-16" />
+        )}
+      </td>
+      <td className={FIXED_CELL}>
+        <Due counts={counts} form="cell" />
+      </td>
+      <td className={FIXED_CELL}>
+        <Deadline summary={player.summary} today={today} form="cell" />
+      </td>
+      <td className={FIXED_CELL}>
+        <LastTrained days={player.lastTrainedDays} form="short" />
+      </td>
+    </tr>
+  );
+}
+
+const COLUMNS = [
+  'player',
+  'progress',
+  'due',
+  'nextDeadline',
+  'lastTrained',
+] as const;
+
+/** The players as a table from md (spec, The dashboard). */
+function PlayersTable({
+  players,
+  today,
+}: {
+  readonly players: readonly DashboardPlayerLine[];
+  readonly today: string;
+}): JSX.Element {
+  const t = useTranslations('coach.players.column');
+  return (
+    <table className="hidden w-full text-left text-sm md:table">
+      <thead>
+        <tr className="text-fg-muted">
+          {COLUMNS.map((column) => (
+            <th
+              key={column}
+              scope="col"
+              className={`${FIXED_CELL} font-medium`}
+            >
+              {t(column)}
+            </th>
           ))}
-        </ul>
+        </tr>
+      </thead>
+      <tbody>
+        {players.map((player) => (
+          <PlayerTableRow key={player.id} player={player} today={today} />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * Every linked player, by name (R-160), one compact row each (R-231): a
+ * list on a phone, a table from md. Unlink is on the player's page.
+ */
+export function PlayersList({
+  players,
+  today,
+}: {
+  readonly players: readonly DashboardPlayerLine[];
+  readonly today: string;
+}): JSX.Element {
+  const t = useTranslations('coach');
+  const titleId = useId();
+  return (
+    <section aria-labelledby={titleId} className="flex flex-col gap-3">
+      <h2 id={titleId} className={SECTION_TITLE}>
+        {t('sectionCount', {
+          title: t('players.title'),
+          count: players.length,
+        })}
+      </h2>
+      {players.length === 0 ? (
+        <p className="text-fg-muted">{t('players.empty')}</p>
+      ) : (
+        <>
+          <div className={`${CARD} px-4 md:py-2`}>
+            <ul className="flex flex-col md:hidden">
+              {players.map((player) => (
+                <PlayerRow key={player.id} player={player} today={today} />
+              ))}
+            </ul>
+            <PlayersTable players={players} today={today} />
+          </div>
+          <LastTrainedNote />
+        </>
       )}
     </section>
   );

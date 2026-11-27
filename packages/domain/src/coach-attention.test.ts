@@ -9,11 +9,13 @@ import {
   attentionOf,
   byAttention,
   deadlineNearness,
+  nearestAssignment,
   playerSummary,
   type Attention,
   type AttentionInput,
   type CoachRowFacts,
   type CoachRowStatus,
+  type DatedAssignment,
 } from './coach-attention';
 
 const NOW = new Date('2026-11-27T10:00:00Z'); // Vilnius 27 Nov
@@ -105,6 +107,14 @@ describe('attentionOf (R-229)', () => {
       repertoires: ['Italian', 'Slav'],
       days: 5,
     });
+  });
+
+  it('counts 0 days, not -0, for one overdue on its deadline day', () => {
+    const rows = [
+      assigned({ status: status({ overdue: true, deadline: '2026-11-27' }) }),
+    ];
+    const reason = attentionOf(input({ rows }), NOW);
+    expect(reason?.kind === 'overdue' ? reason.days : undefined).toBe(0);
   });
 
   it('flags a deadline within 3 days under 80% learned, not done', () => {
@@ -208,6 +218,7 @@ describe('attentionOf (R-229)', () => {
     expect(attentionOf(input({ rows, lastTrained }), NOW)).toEqual({
       kind: 'idle',
       days: 7,
+      since: 'training',
     });
     expect(
       attentionOf(
@@ -236,10 +247,11 @@ describe('attentionOf (R-229)', () => {
     expect(attentionOf(input({ rows, lastTrained }), NOW)).toEqual({
       kind: 'idle',
       days: 10,
+      since: 'training',
     });
   });
 
-  it('counts a never-trained player from the link day', () => {
+  it('counts a never-trained player from the link day, and says so', () => {
     const rows = [assigned()];
     expect(
       attentionOf(
@@ -250,7 +262,7 @@ describe('attentionOf (R-229)', () => {
         }),
         NOW,
       ),
-    ).toEqual({ kind: 'idle', days: 7 });
+    ).toEqual({ kind: 'idle', days: 7, since: 'link' });
     expect(
       attentionOf(
         input({
@@ -348,12 +360,17 @@ describe('byAttention (R-229, R-160)', () => {
     percent: 10,
   };
   const pile: Attention = { kind: 'duePile', due: 30 };
-  const idle: Attention = { kind: 'idle', days: 7 };
+  const idle: Attention = { kind: 'idle', days: 7, since: 'training' };
   const card = (name: string, id: string, reason: Attention) => ({
-    name,
-    id,
+    player: { id, displayName: name },
     reason,
   });
+  /** The order of cards shaped as the loader shapes them. */
+  const order = byAttention((one: ReturnType<typeof card>) => ({
+    name: one.player.displayName,
+    id: one.player.id,
+    reason: one.reason,
+  }));
 
   it('ranks overdue, then a near deadline, a due pile-up, idleness', () => {
     expect(ATTENTION_ORDER).toEqual([
@@ -368,7 +385,7 @@ describe('byAttention (R-229, R-160)', () => {
       card('Cy', 'c', near),
       card('Dan', 'd', overdue),
     ];
-    expect(cards.toSorted(byAttention).map((c) => c.name)).toEqual([
+    expect(cards.toSorted(order).map((c) => c.player.displayName)).toEqual([
       'Dan',
       'Cy',
       'Ben',
@@ -383,7 +400,7 @@ describe('byAttention (R-229, R-160)', () => {
       card('Ada', 'a1', pile),
       card('Ben', 'b', pile),
     ];
-    expect(cards.toSorted(byAttention).map((c) => c.id)).toEqual([
+    expect(cards.toSorted(order).map((c) => c.player.id)).toEqual([
       'a2',
       'a1',
       'b',
@@ -496,6 +513,39 @@ describe('playerSummary', () => {
       allDone: false,
       overdue: false,
     });
+  });
+});
+
+describe('nearestAssignment', () => {
+  const one = (repertoireName: string, deadline: string | null) => ({
+    repertoireName,
+    deadline,
+  });
+
+  it('takes the earliest deadline, past ones too', () => {
+    expect(
+      nearestAssignment([
+        one('Italian', '2026-12-20'),
+        one('No date', null),
+        one('Slav', '2026-11-20'),
+      ]),
+    ).toEqual(one('Slav', '2026-11-20'));
+  });
+
+  it('breaks a tie of deadlines by name', () => {
+    expect(
+      nearestAssignment([
+        one('Slav', '2026-12-01'),
+        one('Italian', '2026-12-01'),
+      ]),
+    ).toEqual(one('Italian', '2026-12-01'));
+  });
+
+  it('takes the first by name when none has a deadline, and none of nothing', () => {
+    expect(
+      nearestAssignment([one('Slav', null), one('Italian', null)]),
+    ).toEqual(one('Italian', null));
+    expect(nearestAssignment<DatedAssignment>([])).toBeUndefined();
   });
 });
 

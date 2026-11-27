@@ -135,14 +135,15 @@ R-160 (name order, English since R-217), R-177, R-204, R-217 to R-228.
     overdue");
   - deadline near, `due`: "Slav due in 3 days · 3% learned";
   - due pile-up, `due`: "52 moves due";
-  - idle, `fg-muted`: "Has not trained for 12 days".
+  - idle, `border-strong` edge: "Has not trained for 12 days" (never
+    trained: "Has not trained since linking, 12 days ago").
   Phone: a column; desktop: three cards per row. No section when nobody has
   a reason.
 - **Players · N:** every linked player, by name (R-160), one compact link row
-  (about 56px on a phone): name and last trained ("today", "5 days ago",
+  (about 64px on a phone): name and last trained ("today", "5 days ago",
   "never") on the first line; the `StateBar` and overall % learned over
   what the coach may see, the due count (amber above zero), and the next
-  deadline ("next deadline 30 Nov") or the Done pill when every assignment
+  deadline ("by 30 Nov"; the Overdue pill when overdue) or the Done pill when every assignment
   is done. Desktop: a table, columns Player / Progress / Due / Next deadline /
   Last trained. A player with nothing the coach may see shows "Nothing
   assigned or shared". Footnote once under the list: "Last trained counts
@@ -224,7 +225,7 @@ header:
 ## A player's progress (`/coach/players/[playerId]/progress/[repertoireId]`)
 
 - **Header:** back to the player; the repertoire's name (a fork: "<name>'s
-  own copy of <repertoire>"); the tag and `AssignmentStatus` as on the player
+  own copy of <repertoire>", its tag just "Own copy"); the tag and `AssignmentStatus` as on the player
   card; the 8px `StateBar` and % learned; `ProgressCounts`; **Open
   repertoire** / **Open & add notes**.
 - **Chapters:** disclosures, closed by default: the full title (R-158), a

@@ -21,8 +21,10 @@ export async function switchOnCoachMode(
 const INVITE_LINK = /\/invite\/[A-Za-z0-9_-]{43}$/;
 
 /**
- * On the coach dashboard: a new group named `name`; returns the group
- * invite link it is made with, shown once in the groups section (R-204).
+ * On the coach dashboard: New group, then a new group named `name`;
+ * returns the group invite link it is made with, shown once in the
+ * groups section (R-204). The section's name carries its count
+ * ("Groups · 1"), so it is matched from its start.
  */
 export async function createGroup(
   page: Page,
@@ -30,7 +32,10 @@ export async function createGroup(
   name: string,
 ): Promise<string> {
   const t = messages.coach.groups;
-  const section = page.getByRole('region', { name: t.title });
+  const section = page.getByRole('region', {
+    name: new RegExp(`^${t.title} · `, 'u'),
+  });
+  await section.getByRole('button', { name: t.new, exact: true }).click();
   await section.getByLabel(t.name, { exact: true }).fill(name);
   await section.getByRole('button', { name: t.create }).click();
   await expect(section.getByRole('link', { name, exact: true })).toBeVisible();

@@ -2,23 +2,32 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import type { CoachHomeData } from '../../server/coach-pages';
+import type { CoachDashboardData } from '../../server/coach-pages';
 import CoachPage from './page';
 
 const NOW = new Date('2026-10-18T08:00:00Z');
 
+const ROKAS = { id: 'p-1', displayName: 'Rokas' };
+
 // requireCoach, inside the loader, never returns for a signed-out account
 // or one without Coach mode; the feature suite covers that.
-const DATA: CoachHomeData = {
+const DATA: CoachDashboardData = {
+  attention: [
+    {
+      player: ROKAS,
+      reason: { kind: 'idle', days: 12, since: 'training' },
+    },
+  ],
   players: [
     {
-      id: 'p-1',
-      displayName: 'Rokas',
-      linkedAt: NOW,
-      groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
-      lastTrainedDays: null,
-      nearestDeadline: null,
-      overdue: false,
+      ...ROKAS,
+      lastTrainedDays: 12,
+      summary: {
+        counts: { learned: 1, due: 0, skipped: 0, notStarted: 3 },
+        nextDeadline: null,
+        allDone: false,
+        overdue: false,
+      },
     },
   ],
   groups: [
@@ -30,38 +39,37 @@ const DATA: CoachHomeData = {
       assignments: [],
     },
   ],
-  invites: [
-    {
-      id: 'i-1',
-      kind: 'group',
-      groupId: 'g-1',
-      groupName: 'Šeštadienio grupė',
-      expiresAt: NOW,
-      createdAt: NOW,
-    },
-  ],
+  today: '2026-10-18',
 };
 
-vi.mock('../../server/coach-pages', () => ({
-  coachHomeData: () => Promise.resolve(DATA),
+const data = vi.hoisted((): { current: CoachDashboardData | undefined } => ({
+  current: undefined,
 }));
 
-vi.mock('./actions', () => ({
-  createGroupAction: vi.fn(),
-  createInviteAction: vi.fn(),
-  revokeInviteAction: vi.fn(),
-  unlinkPlayerAction: vi.fn(),
+vi.mock('../../server/coach-pages', () => ({
+  coachDashboardData: () => Promise.resolve(data.current),
 }));
+
+vi.mock('./actions', () => ({ createGroupAction: vi.fn() }));
 
 const c = MESSAGES.coach;
 
-describe('the coach dashboard', () => {
-  it('shows the players, groups and invites sections', async () => {
-    render(
-      <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        {await CoachPage()}
-      </NextIntlClientProvider>,
-    );
+async function renderPage(page: CoachDashboardData): Promise<void> {
+  data.current = page;
+  render(
+    <NextIntlClientProvider
+      locale="en"
+      messages={MESSAGES}
+      timeZone="Europe/Vilnius"
+    >
+      {await CoachPage()}
+    </NextIntlClientProvider>,
+  );
+}
+
+describe('the coach dashboard (R-229)', () => {
+  it('leads with who needs attention, then the players, then the groups', async () => {
+    await renderPage(DATA);
     expect(
       screen.getByRole('heading', { level: 1, name: c.title }),
     ).toBeDefined();
@@ -69,24 +77,40 @@ describe('the coach dashboard', () => {
       screen
         .getAllByRole('heading', { level: 2 })
         .map((heading) => heading.textContent),
-    ).toEqual([c.players.title, c.groups.title, c.invites.title]);
-    const players = screen.getByRole('region', { name: c.players.title });
-    expect(within(players).getByRole('link', { name: 'Rokas' })).toBeDefined();
-    expect(within(players).getByText(c.progress.neverTrained)).toBeDefined();
-    const groups = screen.getByRole('region', { name: c.groups.title });
+    ).toEqual(['Needs attention · 1', 'Players · 1', 'Groups · 1']);
+    const attention = screen.getByRole('region', { name: /^Needs attention/u });
+    expect(
+      within(attention).getByText('Has not trained for 12 days'),
+    ).toBeDefined();
+    const groups = screen.getByRole('region', { name: /^Groups/u });
     expect(
       within(groups)
         .getByRole('link', { name: 'Šeštadienio grupė' })
         .getAttribute('href'),
     ).toBe('/coach/groups/g-1');
-    const invites = screen.getByRole('region', { name: c.invites.title });
+  });
+
+  it('has no invites section and no Unlink', async () => {
+    await renderPage(DATA);
+    expect(screen.queryByRole('region', { name: c.invites.title })).toBeNull();
+    expect(screen.queryByRole('button', { name: c.players.unlink })).toBeNull();
+  });
+
+  it('has the three regions in reading order', async () => {
+    await renderPage(DATA);
     expect(
-      within(invites)
-        .getAllByRole('option')
-        .map((option) => option.textContent),
-    ).toEqual([c.invites.noGroup, 'Šeštadienio grupė']);
+      screen
+        .getAllByRole('region')
+        .map((region) => region.getAttribute('aria-labelledby'))
+        .map((id) => document.getElementById(id ?? '')?.textContent),
+    ).toEqual(['Needs attention · 1', 'Players · 1', 'Groups · 1']);
+  });
+
+  it('says how to invite when no player is linked, without Needs attention', async () => {
+    await renderPage({ ...DATA, attention: [], players: [] });
+    expect(screen.getByText(c.players.empty)).toBeDefined();
     expect(
-      within(invites).getByRole('button', { name: c.invites.revoke }),
-    ).toBeDefined();
+      screen.queryByRole('heading', { name: /^Needs attention/u }),
+    ).toBeNull();
   });
 });

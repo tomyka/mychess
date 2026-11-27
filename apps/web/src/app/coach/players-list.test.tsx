@@ -1,198 +1,187 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import type { CoachActionState } from './actions';
-import { PlayersList, type CoachPlayerRow } from './players-list';
-
-const server = vi.hoisted(() => ({
-  unlink:
-    vi.fn<
-      (previous: CoachActionState, form: FormData) => Promise<CoachActionState>
-    >(),
-}));
-
-vi.mock('./actions', () => ({ unlinkPlayerAction: server.unlink }));
+import type { DashboardPlayerLine } from '../../server/coach-pages';
+import { PlayersList } from './players-list';
 
 const p = MESSAGES.coach.players;
+const TODAY = '2026-11-27';
 
-const ROKAS: CoachPlayerRow = {
-  id: 'p-1',
-  displayName: 'Rokas',
-  groups: [
-    { id: 'g-1', name: 'Sekmadienio grupė' },
-    { id: 'g-2', name: 'Šeštadienio grupė' },
-  ],
-  lastTrainedDays: 1,
-  linkedAt: new Date('2026-09-14T10:00:00Z'),
-  nearestDeadline: '2026-11-01',
-  overdue: true,
-};
-const GABIJA: CoachPlayerRow = {
-  id: 'p-2',
-  displayName: 'Gabija',
-  groups: [],
-  lastTrainedDays: null,
-  linkedAt: new Date('2026-10-02T10:00:00Z'),
-  nearestDeadline: null,
+const SUMMARY: DashboardPlayerLine['summary'] = {
+  counts: { learned: 10, due: 43, skipped: 0, notStarted: 47 },
+  nextDeadline: '2026-11-30',
+  allDone: false,
   overdue: false,
 };
 
-/** "Linked since" with `date` written as the page writes it, in Vilnius. */
-const linkedSince = (date: Date): string =>
-  MESSAGES.coach.player.linkedSince.replace(
-    '{date}',
-    new Intl.DateTimeFormat('en', {
-      dateStyle: 'medium',
-      timeZone: 'Europe/Vilnius',
-    }).format(date),
-  );
+const ROKAS: DashboardPlayerLine = {
+  id: 'p-1',
+  displayName: 'Rokas',
+  lastTrainedDays: 5,
+  summary: SUMMARY,
+};
+const GABIJA: DashboardPlayerLine = {
+  id: 'p-2',
+  displayName: 'Gabija',
+  lastTrainedDays: null,
+  summary: { counts: null, nextDeadline: null, allDone: false, overdue: false },
+};
+const EGLE: DashboardPlayerLine = {
+  id: 'p-3',
+  displayName: 'Eglė',
+  lastTrainedDays: 0,
+  summary: {
+    counts: { learned: 20, due: 0, skipped: 0, notStarted: 0 },
+    nextDeadline: null,
+    allDone: true,
+    overdue: false,
+  },
+};
 
-function renderList(players: readonly CoachPlayerRow[]): void {
+function renderList(players: readonly DashboardPlayerLine[]): void {
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <PlayersList players={players} />
+    <NextIntlClientProvider
+      locale="en"
+      messages={MESSAGES}
+      timeZone="Europe/Vilnius"
+    >
+      <PlayersList players={players} today={TODAY} />
     </NextIntlClientProvider>,
   );
 }
 
-const playerItem = (name: string) =>
-  within(screen.getByRole('link', { name }).closest('li') ?? document.body);
+/** The phone list (the table is the same players from md). */
+const phoneList = () => within(screen.getByRole('list'));
 
-beforeEach(() => {
-  server.unlink.mockReset().mockResolvedValue({});
-});
+/** A player's row in the phone list. */
+const phoneRow = (name: string) =>
+  within(
+    phoneList().getByRole('link', { name }).closest('li') ?? document.body,
+  );
 
-describe('PlayersList', () => {
+/** A player's row in the desktop table. */
+const tableRow = (name: string) =>
+  within(
+    within(screen.getByRole('table'))
+      .getByRole('link', { name })
+      .closest('tr') ?? document.body,
+  );
+
+describe('PlayersList (R-231)', () => {
   it('says how to get a first player', () => {
     renderList([]);
     expect(
-      screen.getByRole('heading', { level: 2, name: p.title }),
+      screen.getByRole('heading', { level: 2, name: 'Players · 0' }),
     ).toBeDefined();
     expect(screen.getByText(p.empty)).toBeDefined();
+    expect(screen.queryByRole('table')).toBeNull();
   });
 
-  it('links each player to their page and names their groups', () => {
+  it('heads the list with its count and links each row to the player', () => {
     renderList([ROKAS, GABIJA]);
     expect(
-      screen
+      screen.getByRole('heading', { level: 2, name: 'Players · 2' }),
+    ).toBeDefined();
+    expect(
+      phoneList()
         .getAllByRole('link')
         .map((link) => [link.textContent, link.getAttribute('href')]),
     ).toEqual([
       ['Rokas', '/coach/players/p-1'],
       ['Gabija', '/coach/players/p-2'],
     ]);
-    expect(
-      playerItem('Rokas').getByText(
-        'Groups: Sekmadienio grupė and Šeštadienio grupė',
-      ),
-    ).toBeDefined();
-    expect(playerItem('Gabija').getByText(p.noGroups)).toBeDefined();
   });
 
-  it('says when each player last trained (R-154)', () => {
-    renderList([ROKAS, GABIJA]);
-    expect(
-      playerItem('Rokas').getByText(MESSAGES.coach.progress.yesterday),
-    ).toBeDefined();
-    expect(
-      playerItem('Gabija').getByText(MESSAGES.coach.progress.neverTrained),
-    ).toBeDefined();
-  });
-
-  it('joins the group names as English joins a list', () => {
-    const three = [...ROKAS.groups, { id: 'g-3', name: 'Jaunimas' }];
-    renderList([{ ...ROKAS, groups: three }]);
-    expect(
-      playerItem('Rokas').getByText(
-        'Groups: Sekmadienio grupė, Šeštadienio grupė, and Jaunimas',
-      ),
-    ).toBeDefined();
-  });
-
-  it('unlinks a player only after the confirm step', async () => {
-    renderList([ROKAS, GABIJA]);
-    const gabija = playerItem('Gabija');
-    fireEvent.click(gabija.getByRole('button', { name: p.unlink }));
-    expect(
-      gabija.getByText(p.unlinkConfirm.replace('{name}', 'Gabija')),
-    ).toBeDefined();
-    expect(server.unlink).not.toHaveBeenCalled();
-    fireEvent.click(gabija.getByRole('button', { name: p.confirmUnlink }));
-    await waitFor(() => {
-      expect(server.unlink).toHaveBeenCalledTimes(1);
-    });
-    expect(
-      Object.fromEntries(server.unlink.mock.lastCall?.[1].entries() ?? []),
-    ).toEqual({ playerId: 'p-2' });
-  });
-
-  it('shows a refused Unlink in the players section', async () => {
-    server.unlink.mockResolvedValue({ refusal: 'coach.notLinked' });
-    renderList([ROKAS, GABIJA]);
-    const players = within(screen.getByRole('region', { name: p.title }));
-    expect(players.getByRole('status').textContent).toBe('');
-    const gabija = playerItem('Gabija');
-    fireEvent.click(gabija.getByRole('button', { name: p.unlink }));
-    fireEvent.click(gabija.getByRole('button', { name: p.confirmUnlink }));
-    await waitFor(() => {
-      expect(players.getByRole('status').textContent).toBe(
-        MESSAGES.coach.notLinked,
-      );
-    });
-  });
-
-  it('tells two players of the same name apart by when each linked (#329)', () => {
-    const other = { ...ROKAS, id: 'p-3', linkedAt: GABIJA.linkedAt };
-    renderList([ROKAS, other]);
-    const rows = screen
-      .getAllByRole('link', { name: 'Rokas' })
-      .map((link) => link.closest('li')?.textContent ?? '');
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toContain(linkedSince(ROKAS.linkedAt));
-    expect(rows[1]).toContain(linkedSince(GABIJA.linkedAt));
-  });
-
-  it('marks a player with an overdue assignment, and gives the nearest deadline otherwise (#329)', () => {
-    const a = MESSAGES.assignment;
-    const due = {
-      ...GABIJA,
-      id: 'p-4',
-      displayName: 'Eglė',
-      nearestDeadline: '2026-12-01',
-    };
-    renderList([ROKAS, GABIJA, due]);
-    const rokas = playerItem('Rokas');
-    expect(rokas.getByText(a.badge.overdue)).toBeDefined();
-    expect(rokas.queryByText(/^Deadline/u)).toBeNull();
-    const egle = playerItem('Eglė');
-    expect(
-      egle.getByText(
-        a.deadlineOn.replace(
-          '{date}',
-          new Intl.DateTimeFormat('en', {
-            dateStyle: 'long',
-            timeZone: 'Europe/Vilnius',
-          }).format(new Date('2026-12-01T12:00:00Z')),
-        ),
-      ),
-    ).toBeDefined();
-    expect(egle.queryByText(a.badge.overdue)).toBeNull();
-    const gabija = playerItem('Gabija');
-    expect(gabija.queryByText(a.badge.overdue)).toBeNull();
-    expect(gabija.queryByText(/^Deadline/u)).toBeNull();
-  });
-
-  it('keeps Unlink a quiet text action, not a button as big as the name (#329)', () => {
+  it('gives last trained, % learned, the due count and the next deadline', () => {
     renderList([ROKAS]);
-    const unlink = playerItem('Rokas').getByRole('button', { name: p.unlink });
-    expect(unlink.className).not.toContain('border');
-    expect(unlink.className).toContain('underline');
+    const row = phoneRow('Rokas');
+    expect(row.getByText('5 days ago')).toBeDefined();
+    expect(row.getByText('10% learned')).toBeDefined();
+    expect(row.getByText('43 due').className).toContain('text-due');
+    expect(row.getByText('by Nov 30')).toBeDefined();
+    expect(
+      row.getByText('10% learned').parentElement?.querySelector('.h-1\\.5'),
+    ).not.toBeNull();
+  });
+
+  it('leaves out a zero due count and shows Done when every assignment is', () => {
+    renderList([EGLE]);
+    const row = phoneRow('Eglė');
+    expect(row.getByText('today')).toBeDefined();
+    expect(row.queryByText(/due/u)).toBeNull();
+    expect(row.getByText(MESSAGES.coach.status.done).className).toContain(
+      'rounded-pill',
+    );
+  });
+
+  it('shows Overdue in place of the next deadline', () => {
+    renderList([
+      {
+        ...ROKAS,
+        summary: { ...SUMMARY, nextDeadline: '2026-11-20', overdue: true },
+      },
+    ]);
+    const row = phoneRow('Rokas');
+    expect(row.getByText(MESSAGES.assignment.badge.overdue)).toBeDefined();
+    expect(row.queryByText(/^by /u)).toBeNull();
+  });
+
+  it('says when the coach may see nothing of a player', () => {
+    renderList([GABIJA]);
+    const row = phoneRow('Gabija');
+    expect(row.getByText('never')).toBeDefined();
+    expect(row.getByText(p.nothing)).toBeDefined();
+  });
+
+  it('has no Unlink: that is on the player page', () => {
+    renderList([ROKAS, GABIJA]);
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('says once what last trained counts', () => {
+    renderList([ROKAS, GABIJA]);
+    expect(
+      screen.getAllByText(MESSAGES.coach.progress.lastTrainedNote),
+    ).toHaveLength(1);
+  });
+
+  it('is a list on a phone and a table from md, with the same players', () => {
+    renderList([ROKAS, GABIJA]);
+    const list = screen.getByRole('list');
+    const table = screen.getByRole('table');
+    expect(list.className).toContain('md:hidden');
+    expect(table.className.split(' ')).toEqual(
+      expect.arrayContaining(['hidden', 'md:table']),
+    );
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent),
+    ).toEqual(['Player', 'Progress', 'Due', 'Next deadline', 'Last trained']);
+    expect(
+      within(table)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Rokas', 'Gabija']);
+  });
+
+  it('fills the table’s columns for each player', () => {
+    renderList([ROKAS, GABIJA, EGLE]);
+    expect(
+      tableRow('Rokas')
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Rokas', '10% learned', '43', 'Nov 30', '5 days ago']);
+    expect(
+      tableRow('Gabija')
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Gabija', p.nothing, '', '', 'never']);
+    expect(
+      tableRow('Eglė')
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Eglė', '100% learned', '0', 'Done', 'today']);
   });
 });

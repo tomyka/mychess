@@ -334,6 +334,82 @@ describe('coachRepertoireProgress', () => {
     expect(view?.badges).toBeNull();
   });
 
+  it('gives an assignment its source and status, and a shared one none (#381)', async () => {
+    await setDeadline(karoKan, '2026-11-02');
+    const progressOf = (repertoireId: string) =>
+      coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId },
+        NOW,
+      );
+    expect(present(await progressOf(karoKan))).toMatchObject({
+      source: 'assigned',
+      forkOf: null,
+      status: {
+        deadline: '2026-11-02',
+        overdue: false,
+        paused: false,
+        done: false,
+        forked: false,
+      },
+    });
+    expect(present(await progressOf(shared))).toMatchObject({
+      source: 'shared',
+      forkOf: null,
+      status: null,
+    });
+  });
+
+  /** p's fork of the coach's karoKan, shared with `coaches`. */
+  async function sharedForkWith(...coaches: string[]): Promise<string> {
+    const forked = await forkAssignment(
+      db,
+      { playerId: 'p', repertoireId: karoKan },
+      NOW,
+    );
+    if (!forked.ok) throw new Error(forked.refusal.reason);
+    const { forkId } = forked.value;
+    for (const coachId of coaches)
+      succeeded(
+        await shareRepertoire(db, {
+          ownerId: 'p',
+          repertoireId: forkId,
+          coachId,
+          now: NOW,
+        }),
+      );
+    return forkId;
+  }
+
+  const forkProgress = (coachId: string, repertoireId: string) =>
+    coachRepertoireProgress(db, { coachId, playerId: 'p', repertoireId }, NOW);
+
+  it('names the coach’s repertoire a shared one is the player’s fork of (R-155, #328)', async () => {
+    const forkId = await sharedForkWith('c');
+    expect(present(await forkProgress('c', forkId))).toMatchObject({
+      repertoire: { id: forkId, name: 'Londono sistema' },
+      source: 'shared',
+      forkOf: karoKan,
+      status: null,
+    });
+  });
+
+  it('names no fork to another coach, whose repertoire it is not a fork of (R-39, R-43)', async () => {
+    await seedLink(db, 'other', 'p');
+    const forkId = await sharedForkWith('c', 'other');
+    expect(present(await forkProgress('other', forkId))).toMatchObject({
+      source: 'shared',
+      forkOf: null,
+    });
+  });
+
+  it('shows nothing of a fork shared with another coach only', async () => {
+    await seedLink(db, 'other', 'p');
+    const forkId = await sharedForkWith('other');
+    expect(await forkProgress('c', forkId)).toBeUndefined();
+    expect(present(await forkProgress('other', forkId)).forkOf).toBeNull();
+  });
+
   it('is undefined for a private, forked, another coach’s or malformed one', async () => {
     expect(
       await coachRepertoireProgress(
