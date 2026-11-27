@@ -130,6 +130,24 @@ Three to five teammates at a time; each one costs tokens.
 - **No production data** reaches any teammate. Tests and persona testing use the
   persona seeds.
 - **The working tree is shared.** Teammates never run `git stash`, `git checkout -- <file>`, `git reset` or `git clean`: in a shared tree they move other teammates' uncommitted work. To check whether a failure is yours, run only your own tests.
+- **The index is shared too (#381 part 5).** A teammate's `git mv` or
+  `git rm` stages into the one index, so the lead's next commit carries it
+  (77428041 shipped a half-done rename). Teammates move and delete files
+  with plain `mv`/`rm`; while teammates work, the lead checks
+  `git diff --cached --stat` and commits named paths only
+  (`git commit -- <paths>`), and never stages a hand-made partial hunk
+  (cab31cd5 put an export inside another export list).
+- **One owner per shared file while teammates run in parallel.** In #381
+  part 5 two teammates rewrote `last-trained.tsx` and one overwrote the
+  other's hook. The lead names, in each brief, which functions of a shared
+  file (a loader, `en.json` keys) each teammate may touch, and teammates
+  re-read the file right before every edit.
+- **A loader or read whose shape changes runs the web feature suite**
+  (`cd apps/web && npx vitest run --config vitest.feature.config.ts`), not
+  only its own unit tests: in #381 part 5 CI found two feature files with
+  stale field allowlists. Run web tests with their config
+  (`vitest.component.config.ts` or `vitest.feature.config.ts`); db tests
+  live in `packages/db/test/`.
 - **Edit source with Edit and Write**, never with splice or concatenation
   scripts: in S7 a splice picked up another task's leftover scratch file and
   overwrote half a test file. Scratch files go in a subfolder named after
