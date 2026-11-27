@@ -13,14 +13,17 @@ const server = vi.hoisted(() => ({
   count: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   players: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   groups: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-  progress:
-    vi.fn<
-      (
-        db: unknown,
-        request: { readonly playerId: string },
-        now: Date,
-      ) => Promise<unknown>
-    >(),
+  standings: vi.fn<
+    (
+      db: unknown,
+      request: {
+        readonly coachId: string;
+        readonly repertoireId: string;
+        readonly playerIds: readonly string[];
+      },
+      now: Date,
+    ) => Promise<unknown>
+  >(),
 }));
 
 vi.mock('@mychess/db', () => ({
@@ -28,7 +31,7 @@ vi.mock('@mychess/db', () => ({
   assignedPlayerCount: server.count,
   coachPlayers: server.players,
   coachGroups: server.groups,
-  coachRepertoireProgress: server.progress,
+  coachAssigneeStandings: server.standings,
 }));
 
 vi.mock('./db', () => ({ getDb: () => DB }));
@@ -58,7 +61,11 @@ beforeEach(() => {
       groups: [{ id: GROUP, name: 'Šeštadienio grupė' }],
     },
   ]);
-  server.progress.mockReset().mockResolvedValue(undefined);
+  server.standings
+    .mockReset()
+    .mockImplementation((_db, request) =>
+      Promise.resolve(new Map(request.playerIds.map((id) => [id, null]))),
+    );
   server.groups.mockReset().mockResolvedValue([
     {
       id: GROUP,
@@ -112,7 +119,7 @@ describe('coachAssignData', () => {
     expect(data.panel?.assignments).toHaveLength(2);
   });
 
-  it('reads each assigned player’s standing through the coach’s progress read (R-225)', async () => {
+  it('reads each assigned player’s standing in one access-checked read (R-225)', async () => {
     const counts = { notStarted: 4, skipped: 0, due: 1, learned: 5 };
     server.assignments.mockResolvedValue([
       {
@@ -146,26 +153,20 @@ describe('coachAssignData', () => {
         ],
       },
     ]);
-    server.progress.mockImplementation((_db, request) =>
-      Promise.resolve(
-        request.playerId === 'rokas'
-          ? { progress: { counts, mastered: false, chapters: [] } }
-          : // Marta made her own copy: no progress for the coach (R-155).
-            undefined,
-      ),
-    );
+    const read = new Map([
+      ['rokas', { counts, mastered: false }],
+      // Marta made her own copy: no standing for the coach (R-155).
+      ['marta', null],
+    ]);
+    server.standings.mockResolvedValue(read);
     const data = await coachAssignData(ID);
-    expect(data.panel?.standings).toEqual(
-      new Map([
-        ['rokas', { counts, mastered: false }],
-        ['marta', null],
-      ]),
-    );
-    // Once per player, for the session coach and this repertoire only.
-    expect(server.progress).toHaveBeenCalledTimes(2);
-    expect(server.progress).toHaveBeenCalledWith(
+    expect(data.panel?.standings).toEqual(read);
+    // One batched read (#385), of each player once, for the session coach
+    // and this repertoire only.
+    expect(server.standings).toHaveBeenCalledTimes(1);
+    expect(server.standings).toHaveBeenCalledWith(
       DB,
-      { coachId: 'jonas', playerId: 'marta', repertoireId: ID },
+      { coachId: 'jonas', repertoireId: ID, playerIds: ['rokas', 'marta'] },
       NOW,
     );
   });
@@ -180,6 +181,6 @@ describe('coachAssignData', () => {
     expect(server.assignments).not.toHaveBeenCalled();
     expect(server.players).not.toHaveBeenCalled();
     expect(server.groups).not.toHaveBeenCalled();
-    expect(server.progress).not.toHaveBeenCalled();
+    expect(server.standings).not.toHaveBeenCalled();
   });
 });

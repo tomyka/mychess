@@ -187,6 +187,10 @@ export {
   type RepertoireProgressView,
 } from './progress/coach-progress';
 export {
+  coachAssigneeStandings,
+  type AssigneeStandingsRequest,
+} from './progress/assignee-standings';
+export {
   coachGroupPage,
   coachHomePlayers,
   type GroupPage,

@@ -22,7 +22,7 @@ import { sharedPairs, type SharedPair } from '../share-scope';
 import { reviewResults } from '../training-schema';
 
 /** Which of `playerIds` are linked to `coachId`: one statement. */
-async function linkedOf(
+export async function linkedOf(
   db: Executor,
   coachId: string,
   playerIds: readonly string[],

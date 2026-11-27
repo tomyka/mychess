@@ -4,14 +4,14 @@ import 'server-only';
 // only the repertoire, and every query filters by the coach again.
 import {
   assignedPlayerCount,
+  coachAssigneeStandings,
   coachAssignments,
   coachGroups,
   coachPlayers,
-  coachRepertoireProgress,
   type CoachAssignment,
   type Db,
 } from '@mychess/db';
-import { standingOf, type Standing } from '@mychess/chess';
+import type { Standing } from '@mychess/chess';
 import {
   assignableTargets,
   isCoach,
@@ -49,11 +49,11 @@ export interface AssignPanelData {
 }
 
 /**
- * The standing of each player `assignments` reach, read through the coach
- * progress page's access-checked read (Q26, R-156): no new query, and
- * whatever that read withholds is null here.
+ * The standing of each player `assignments` reach, in one snapshot with
+ * the coach progress page's access rules (Q26, R-155, R-156; #385):
+ * whatever that page withholds is null here.
  */
-async function assigneeStandings(
+function assigneeStandings(
   db: Db,
   of: { readonly coachId: string; readonly repertoireId: string },
   assignments: readonly CoachAssignment[],
@@ -62,13 +62,7 @@ async function assigneeStandings(
   const playerIds = [
     ...new Set(assignments.flatMap((a) => a.players.map((p) => p.playerId))),
   ];
-  const read = async (playerId: string) => {
-    const view = await coachRepertoireProgress(db, { ...of, playerId }, now);
-    const standing: Standing | null =
-      view === undefined ? null : standingOf(view.progress);
-    return [playerId, standing] as const;
-  };
-  return new Map(await Promise.all(playerIds.map(read)));
+  return coachAssigneeStandings(db, { ...of, playerIds }, now);
 }
 
 export interface CoachAssignData {
