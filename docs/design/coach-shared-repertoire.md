@@ -116,4 +116,109 @@ Enter (multi-line text). Move chips with the coach's note say so in their
 name ("9... Ne5, has a comment, My coach note"; a dedicated catalogue key
 "has my coach note" is requested from i18n-content).
 
+## Height budget (#381 part 5)
+
+Task 0 of `docs/superpowers/plans/2026-11-27-coach-screens.md`, for Tasks
+11 and 13. Method as in `repertoire-screen.md` (phone board height). Part
+sizes were measured on the current build (production, persona coach,
+2026-11-27); the new parts are budgeted from them.
+
+### Measured parts (current shell, both widths)
+
+| Part | px |
+| --- | --- |
+| Tab bar | 56 |
+| Top bar, one-line name (4 + 44 row + 4) | 52 |
+| Board row (`py-2` + 44) | 60 |
+| Comment strip, one line / two lines / none | 36 / 56 / 0 |
+| Scroller top padding (`pt-2`) | 8 |
+| Chapter line (closed) + gap | 44 + 12 |
+| Move row (pitch) | 44 |
+
+### Shared repertoire page, phone
+
+- **Top bar:** one row, as the owner's page: back (44) · the name
+  (`text-base/5`, semibold, never clamped) with the tag "Shared with you ·
+  read-only" under it (`text-xs/4`, `fg-muted`) · **Progress** (text link,
+  44 tall, about 67px with its gap). The name gets about 224px at 375 and
+  239px at 390. Height = 8 + max(44, 20 x name lines + 16): **52** for a
+  one-line name, **64** for two lines, 84 for three. The seed's "Sicilijos
+  gynyba, Taimanovo variantas" (290px) takes two lines at both widths;
+  "Naidorfo variantas" (143px) one. A fork's "<name>'s own copy of ..." is
+  usually two. Extra name lines come out of the board, not the panel (as on
+  the owner's page).
+- **The summary row leaves the scroller** (the player's name and Progress
+  are now in the top bar), so the scroller is: 8 + chapter line 44 + 12 +
+  move rows.
+- **Coach note strip:** one 44px row (`min-h-touch`, no extra padding),
+  directly under the comment strip in the fixed region. The whole strip is
+  one button: pen glyph, the note cut to one line (`truncate`), then "Edit"
+  (or "Add a note") as its visible end; accessible name "Edit my coach note
+  on 5... Qc7" / "Add a coach note on 5... Qc7". It opens the bottom sheet,
+  which overlays and moves nothing. At the chapter root (no move) there is
+  no strip, since a coach note belongs to a move.
+- **Board cap:** the panel cell's basis on this page is **18.5rem (296px)**
+  instead of the owner's 16.5rem: board row 60 + one-line comment 36 + note
+  strip 44 + scroller 156 (8 + 44 + 12 + two move rows 88, 4 to spare for
+  the flex shrink share). The board cell is unchanged (`flex: 0 100 100vw`,
+  `min-h-28`, `container-type: size`, board `w-[min(100cqw,100cqh)]`), so
+  the board is `min(100vw, 100dvh - 56 - top bar - 296px)`. Task 13 sets the
+  basis through the shell (a prop or a CSS variable on `RepertoireShell`'s
+  panel cell); the owner's and the player's pages keep 16.5rem.
+
+Results (scroller rows = whole move rows visible above the tab bar):
+
+| Viewport | Name lines | Top bar | Board | Panel | Scroller: no comment / 1-line / 2-line comment (with the note strip) |
+| --- | --- | --- | --- | --- | --- |
+| 375 x 667 | 1 | 52 | 264 | 295 | 191 (2.9 rows) / 155 (**2 rows**) / 135 (1.6 rows) |
+| 375 x 667 | 2 | 64 | 252 | 295 | same as above |
+| 390 x 844 | 1 | 52 | 390 | 346 | 242 (4 rows) / 206 (3.2 rows) / 186 (2.8 rows) |
+| 390 x 844 | 2 | 64 | 390 | 334 | 230 (3.8 rows) / 194 (2.95 rows) / 174 (2.5 rows) |
+
+- At the chapter root (no note strip, a two-line intro) at 375 x 667: 179px,
+  2.6 rows.
+- Against today's coach page at 375 x 667 (board 296, scroller 147: the
+  summary row, the chapter line and part of one move row), the coach gives
+  32 to 44px of board for two full move rows and the note in view. A
+  two-line comment leaves 1.6 rows there; selecting a move scrolls its row
+  into view (`block: 'nearest'`), so the current move is always visible.
+  A 19.75rem basis would keep two rows under a two-line comment too, but
+  leaves a 244px board (30px squares); not chosen.
+
+### Group page, phone
+
+- **Header:** row 1 (44): back (44, `-ml-2`) · the name (`text-2xl`,
+  breaks at words) · the account avatar (44). Row 2 (min 44): the meta line
+  (`text-sm`, `fg-muted`, wrapping: "3 players · Karo-Kan gynyba: pagrindai,
+  deadline 20 Dec") · **Rename** at its right (text link, 44 tall, about
+  70px). Rename sits on row 2 because in row 1 it squeezes the name to
+  194px (179 at 375) and "Šeštadienio grupė" (213px) would wrap; on
+  desktop Rename sits beside the name. Rename swaps the name row for the
+  inline form.
+- **Spacing:** the header and Progress share one block with `gap-6` (24);
+  the Progress section has no top border or padding (it follows the
+  header). The sections after it keep the page's `gap-8` and `border-t
+  pt-6`.
+- **Progress heading y** = 24 (main `pt-6`) + 44 + 4 + row 2 + 24:
+
+| Case | Row 2 | Progress at |
+| --- | --- | --- |
+| One-line name, meta of 1 to 2 lines (the seed group, both widths) | 44 | **140** |
+| Meta of 3 lines (two assignments) | 60 | 156 |
+| Two-line name (over about 19 characters at 375), meta 2 lines | 44 | 160 |
+| Meta of 4 lines (three assignments or more) | 80 | 176 |
+
+  The same at 375 x 667 and 390 x 844 (the seed name fits one line at
+  both; the meta takes two lines at both). Today it is 273.
+- Three or more assignments would miss the 160px target by 20px per extra
+  meta line. Lead decision: the meta line names at most one assignment, the
+  one with the nearest deadline ("6 players · Slav Defence due 30 Nov ·
+  +2 more"); every assignment and deadline is in "Assigned to this group"
+  just below. So the meta line stays within two lines and Progress at 140
+  to 160.
+- **R-113 line** (Coach mode off): not in the header; it heads the Players
+  section, next to the controls it explains, so Progress stays where
+  budgeted. Without Rename, row 2 is the meta line alone (20 per line).
+- **Delete group** at the bottom on a phone: no effect on the budget.
+
 > Note (2026-11-25): Lithuanian language support was dropped (R-217, #378). References here to Lithuanian copy, `glossary-lt.md`, the i18n-content role or R-180 are historical.
