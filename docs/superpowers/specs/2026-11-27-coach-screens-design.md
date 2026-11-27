@@ -49,8 +49,8 @@ themes; coach persona Rimantas, players from the persona seeds):
     deadline; Change shows three same-weight buttons, Unassign not marked
     destructive; Assign is a secondary button; the date shows mm/dd/yyyy;
     assignee rows mix "New · 43 moves" and "0% learned" and show no due,
-    Overdue or Paused; the picker offers players who already have it through
-    a group.
+    Overdue or Paused; the picker does not say which players already have it
+    through a group.
 13. Unlink sits on every dashboard row; its confirmation pushes the list down.
 15. Dark: the selected radio card fills near-black and reads as a hole.
 16. Desktop shared repertoire scrolls (976px at 1280x800).
@@ -106,7 +106,7 @@ R-160 (name order, English since R-217), R-177, R-204, R-217 to R-228.
 
 ## Shared pieces
 
-- **`ProgressBar`** (four-state, from S7's `state-bar`) in two sizes: 6px for
+- **`StateBar`** (the four-state bar of S7, `coach/state-bar.tsx`) in two sizes: 6px for
   rows, 8px for page headers. Colours: learned `learned`, due `due`, skipped
   `skipped`, not started the track.
 - **`AssignmentStatus`**, one line in the same words everywhere: "Due 30 Nov
@@ -140,7 +140,7 @@ R-160 (name order, English since R-217), R-177, R-204, R-217 to R-228.
   a reason.
 - **Players · N:** every linked player, by name (R-160), one compact link row
   (about 56px on a phone): name and last trained ("today", "5 days ago",
-  "never") on the first line; the `ProgressBar` and overall % learned over
+  "never") on the first line; the `StateBar` and overall % learned over
   what the coach may see, the due count (amber above zero), and the next
   deadline ("next deadline 30 Nov") or the Done pill when every assignment
   is done. Desktop: a table, columns Player / Progress / Due / Next deadline /
@@ -182,7 +182,7 @@ header:
   - the name and a tag: **Assigned**, **Shared with you**, or **<name>'s own
     copy**;
   - assignments: `AssignmentStatus`;
-  - `ProgressBar` and `ProgressCounts`;
+  - `StateBar` and `ProgressCounts`;
   - **Progress** (to the drill-down) and **Open repertoire** (assigned: the
     coach's own repertoire page) or **Open & add notes** (shared: the
     read-only view).
@@ -203,7 +203,7 @@ header:
   are not rendered, and a line says why.
 - **Progress** first:
   - Phone: one card per player (name and last trained), then one line per
-    group repertoire: its name, a 6px `ProgressBar`, %, the due count in
+    group repertoire: its name, a 6px `StateBar`, %, the due count in
     amber, or Done / Not started / Overdue / Paused.
   - Desktop: a grid, players down (about 170px column, names not wrapped
     beyond two lines), the group's repertoires across, Last trained last.
@@ -225,14 +225,16 @@ header:
 
 - **Header:** back to the player; the repertoire's name (a fork: "<name>'s
   own copy of <repertoire>"); the tag and `AssignmentStatus` as on the player
-  card; the 8px `ProgressBar` and % learned; `ProgressCounts`; **Open
+  card; the 8px `StateBar` and % learned; `ProgressCounts`; **Open
   repertoire** / **Open & add notes**.
 - **Chapters:** disclosures, closed by default: the full title (R-158), a
   6px bar, % and due, or "Not started · N moves", or Mastered.
-- **Lines** inside an open chapter: written from the chapter's start
-  position ("… 5. a4 Bf5 6. e3 e6"), numbered as on the repertoire page,
-  wrapping, with its state on the right: "N due", "Not started", Mastered or
-  "N% learned".
+- **Lines** inside an open chapter: written from where they leave the
+  chapter's trunk (the moves every line of the chapter shares), so "… 5. a4
+  Bf5 6. e3 e6" rather than the whole line from move 1; numbered from the
+  chapter root as on the repertoire page; a one-line chapter shows its whole
+  line. Each wraps, with its state on the right: "N due", "Not started",
+  Mastered or "N% learned".
 
 ## A shared repertoire and the coach note (`/coach/players/[playerId]/repertoires/[repertoireId]`)
 
@@ -254,27 +256,28 @@ viewport height on desktop, so no page scroll at 1280x800), with:
 
 ## Assignments on the Repertoire screen (`/repertoires/[id]/manage`)
 
-- **Assigned to:** player rows: name, 6px `ProgressBar`, % learned, due count
+- **Assigned to:** player rows: name, 6px `StateBar`, % learned, due count
   (amber), the deadline as "deadline 20 Dec", the Overdue, Paused or Done
-  pill; a fork: "Own copy", no progress (R-155). Group rows: the group name,
-  "N done of M", the deadline.
+  pill; a fork: "Own copy", no progress (R-155). Group rows: the group name
+  and the deadline (its players' rows follow it, as now).
 - **Change** opens inline: a date field shown as day month year
   (`MEDIUM_DATE` style label beside the native input, the stored value
   unchanged), **Save deadline** (primary), **Clear deadline** (text button),
   then, apart, **Unassign** in the error tone with its confirmation stating
   R-130's effects.
-- **Assign to players:** the picker lists a player who already has the
-  repertoire through a group as disabled, "already has it via <group>"; the
-  deadline field as above; **Assign** is primary.
+- **Assign to players:** a player who already has the repertoire through a
+  group stays assignable (R-134: an individual assignment gives them their
+  own deadline), labelled "has it via <group> · assigning sets their own
+  deadline"; the deadline field as above; **Assign** is primary.
 
 ## The coach's own repertoires (R-230)
 
 - **Today:** leaves out the coach's own repertoires that are assigned to at
   least one player or group, from its list, its counts and the Today tab
   badge.
-- **My repertoires card** of such a repertoire: the meta line "Assigned to N
-  · N done" (players with a live assignment, through groups counted once),
-  no own `LearnedBar` or own due count.
+- **My repertoires card** of such a repertoire: the meta line keeps
+  "Assigned to N" (as since part 4), with no own `LearnedBar` or own due
+  count; who has done it is on its Repertoire screen and the group pages.
 - The repertoire page, its Train here and its summary row are unchanged: the
   coach can still drill it.
 
@@ -292,7 +295,7 @@ viewport height on desktop, so no page scroll at 1280x800), with:
   (Q26, R-156). No per-player query loop.
 - **Teaching material** (R-230): "assigned to at least one player or group"
   decided in the domain and applied in Today's read.
-- **Group done counts** and the picker's "already has it via" come from the
+- **Group done counts** and the picker's "has it via" come from the
   assignment reads that exist; any new read gets db tests with the access
   rules.
 
@@ -305,8 +308,8 @@ viewport height on desktop, so no page scroll at 1280x800), with:
   shared); `AssignmentStatus` (in N days, today, overdue, paused, done, no
   deadline, "deadline" wording); `ProgressCounts` zero dropping; group phone
   card and grid cell; invite sheet (created, shown once, revoke); coach note
-  card and phone sheet; Repertoire screen Change panel and picker disabled
-  row.
+  card and phone sheet; Repertoire screen Change panel and the picker's "has it
+  via" label.
 - db: the extended dashboard read and Today without teaching material, with
   the access rules.
 - E2E: the coach journeys (invite, create group, assign, change deadline,
