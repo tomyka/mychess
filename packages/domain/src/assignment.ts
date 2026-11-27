@@ -108,12 +108,12 @@ export function canSetDeadline(
 }
 
 /** Whom an existing assignment of the repertoire went to. */
-export interface AssignedTarget extends NameAndId {
+interface AssignedTarget extends NameAndId {
   readonly kind: AssignmentTarget['kind'];
 }
 
 /** One player an existing assignment reaches. */
-export interface ReachedPlayer {
+interface ReachedPlayer {
   readonly playerId: string;
   /** They forked it and train their own copy (R-20, R-128). */
   readonly forked: boolean;

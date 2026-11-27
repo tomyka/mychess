@@ -5,10 +5,10 @@ import { fideIdSchema, type FideId } from './fide-id';
 /** The PGN game results a broadcast header carries. */
 export const BROADCAST_RESULTS = ['1-0', '0-1', '1/2-1/2', '*'] as const;
 
-export type BroadcastResult = (typeof BROADCAST_RESULTS)[number];
+type BroadcastResult = (typeof BROADCAST_RESULTS)[number];
 
 /** A game's result from one player's side; `unknown` for an unfinished `*`. */
-export type PlayerOutcome = 'win' | 'draw' | 'loss' | 'unknown';
+type PlayerOutcome = 'win' | 'draw' | 'loss' | 'unknown';
 
 /** Who played a broadcast game and how it ended (spec decision 1). */
 export interface BroadcastPairing {

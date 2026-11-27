@@ -66,7 +66,7 @@ export function magicLinkRequest(
  * Request fields that would let the client choose what the provider is
  * asked for, or skip the redirect with its own id token (security item 7).
  */
-export const CLIENT_OAUTH_FIELDS = [
+const CLIENT_OAUTH_FIELDS = [
   'scopes',
   'additionalParams',
   'loginHint',
@@ -152,7 +152,7 @@ export type ProviderJoin =
  * the account's unproven access (R-87), which the adapter leaves to Better
  * Auth's own locked clean-up.
  */
-export type JoinAllowed =
+type JoinAllowed =
   | { readonly kind: 'link' }
   | { readonly kind: 'proveEmail'; readonly accountId: string };
 

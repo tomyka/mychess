@@ -18,5 +18,3 @@ export const displayNameSchema = z
   .trim()
   .min(1, DISPLAY_NAME_ISSUES.blank)
   .max(DISPLAY_NAME_MAX, DISPLAY_NAME_ISSUES.tooLong);
-
-export type DisplayName = z.infer<typeof displayNameSchema>;

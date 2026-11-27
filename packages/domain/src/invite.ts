@@ -98,7 +98,7 @@ export function canRevoke(invite: Invite, now: Date): boolean {
 export type InvitingCoach = CoachFacts & Pick<Account, 'id' | 'disabledAt'>;
 
 /** The coach's links at the moment of accepting (read under lock). */
-export interface AcceptCounts {
+interface AcceptCounts {
   readonly linkedPlayers: number;
   readonly alreadyLinked: boolean;
 }

@@ -4,13 +4,11 @@ export {
   ENTITLEMENTS,
   accountSchema,
   canonicalEmail,
-  entitlementLimits,
   profileSchema,
   type Account,
   type AccountRef,
   type AccountRefusal,
   type Entitlement,
-  type EntitlementLimits,
   type Profile,
 } from './account';
 export {
@@ -23,11 +21,8 @@ export {
   deletableAccount,
   deleteConfirmation,
   type AccountDeletion,
-  type AccountStage,
   type DeletableAccount,
-  type DeleteConfirmation,
   type LifecycleRefusalReason,
-  type Onboarding,
   type OnboardingRefusal,
 } from './account-lifecycle';
 export {
@@ -41,7 +36,6 @@ export {
   ASSIGNMENT_REFUSALS,
   assignableTargets,
   assignmentBadges,
-  assignmentStatus,
   assignmentDeadline,
   assignmentStatusOf,
   canAssign,
@@ -51,58 +45,37 @@ export {
   canUseAssignment,
   deadlineSchema,
   deadlineSources,
-  effectiveDeadline,
   isTrainingActive,
   isUpdated,
   newsOf,
-  type AssignFacts,
   type AssignablePlayer,
-  type AssignableTargets,
-  type AssignedTarget,
-  type ExistingAssignment,
-  type ReachedPlayer,
-  type ChangeAssignmentFacts,
-  type AssignmentProgress,
-  type AssignmentStatusFacts,
   type AssignmentFacts,
   type AssignmentReach,
   type AssignmentRefusal,
-  type AssignmentStart,
-  type AssignmentStatus,
   type AssignmentTarget,
-  type BadgeFacts,
   type BadgeSet,
   type ChangeStamp,
-  type DeadlineSources,
   type SeenFacts,
 } from './assignment';
 export { assigneeCount, livePlayerCount } from './assignees';
 export {
   settleAssignmentChange,
   type PlayerRepertoire,
-  type Settlement,
-  type SettlementFacts,
 } from './assignment-settlement';
 export {
-  BROADCAST_GAME_ISSUE,
   BROADCAST_RESULTS,
   BROADCAST_TEXT_MAX,
   LICHESS_GAME_URL,
   broadcastGameSchema,
   gameForPlayer,
   groupByColourAndFamily,
-  isIndexableGame,
   openingVariation,
   preferOfficialCopies,
   type BroadcastGame,
   type BroadcastGameInput,
-  type BroadcastPairing,
-  type BroadcastResult,
   type ColourSection,
-  type OfficialCopyGame,
   type OpeningFamilyGroup,
   type PlayerGame,
-  type PlayerOutcome,
 } from './broadcast-game';
 export {
   BROADCAST_MONTH_RULES,
@@ -121,14 +94,12 @@ export {
   type BroadcastMonth,
   type BroadcastMonthAction,
   type BroadcastMonthRefusal,
-  type BroadcastMonthState,
   type BroadcastMonthStatus,
 } from './broadcast-month';
 export {
   APPROVED_BROADCAST_ORGANISERS,
   BROADCAST_TOUR_ID_PATTERN,
   BROADCAST_TOUR_REFUSALS,
-  approvedOrganiser,
   broadcastTourIdSchema,
   qualifyBroadcastTour,
   broadcastRoundIdSchema,
@@ -140,7 +111,6 @@ export {
   type BroadcastRoundId,
   type BroadcastTourClaimRefusal,
   type BroadcastTourId,
-  type BroadcastTourRefusal,
   type BroadcastTourStatus,
   type QueuedBroadcastTour,
 } from './broadcast-tour';
@@ -149,43 +119,25 @@ export {
   broadcastPruneWindow,
   broadcastWindowStart,
   isBeforeBroadcastWindow,
-  isAfterBroadcastDumps,
   isMonthBeforeBroadcastWindow,
-  isWithinBroadcastWindow,
-  monthOfInstant,
   tourListingDate,
   type BroadcastWindow,
 } from './broadcast-window';
 export {
-  FIDE_ID_REFUSALS,
   fideId,
   fideIdSchema,
   type FideId,
   type FideIdRefusal,
 } from './fide-id';
+export { dayEnd, dayStart, daysBetween, vilniusDay } from './calendar';
+export { byName, byNameAndId } from './name-order';
 export {
-  HOME_TIME_ZONE,
-  dayEnd,
-  dayStart,
-  daysBetween,
-  vilniusDay,
-} from './calendar';
-export { byName, byNameAndId, type NameAndId } from './name-order';
-export {
-  ATTENTION_ORDER,
-  DUE_PILE,
-  IDLE_DAYS,
-  NEAR_DEADLINE_DAYS,
-  NEAR_DEADLINE_PERCENT,
   attentionOf,
   byAttention,
   deadlineNearness,
   nearestAssignment,
   playerSummary,
   type Attention,
-  type AttentionInput,
-  type AttentionKey,
-  type DatedAssignment,
   type PlayerSummary,
 } from './coach-attention';
 export { playerPageCards, type RepertoireCard } from './coach-player-page';
@@ -198,10 +150,8 @@ export {
   forkOfferDaysLeft,
   forkOfferExpiry,
   forkOfferState,
-  type ForkOfferFacts,
   type ForkOfferReason,
   type ForkOfferRefusal,
-  type ForkOfferState,
 } from './fork-offer';
 export { forkOriginOf, type ForkOrigin } from './fork-origin';
 export {
@@ -239,17 +189,13 @@ export {
   canStopCoaching,
   groupNameSchema,
   isCoach,
-  type CoachFacts,
   type CoachRefusal,
   type CoachState,
-  type MembershipFacts,
 } from './coach';
 export {
   INVITE_ISSUES,
   INVITE_KINDS,
   INVITE_REFUSALS,
-  INVITE_STATES,
-  INVITE_TTL_MS,
   acceptedBy,
   canAccept,
   canRevoke,
@@ -258,8 +204,6 @@ export {
   inviteState,
   inviteTokenSchema,
   newInviteSchema,
-  type AcceptCounts,
-  type Acceptance,
   type Invite,
   type InviteKind,
   type InviteRefusal,
@@ -268,33 +212,31 @@ export {
   type NewInvite,
   type ServedFacts,
 } from './invite';
-export {
-  canMarkKnown,
-  knowScopeSchema,
-  type KnowScope,
-  type KnownScopeKeys,
-} from './know-scope';
+export { canMarkKnown, knowScopeSchema, type KnowScope } from './know-scope';
 // Refusals are values (CLAUDE.md); apps read the shape from here.
 export { ok, refuse, type Result } from '@mychess/chess';
+export { DISPLAY_NAME_ISSUES } from './display-name';
 export {
-  DISPLAY_NAME_ISSUES,
-  DISPLAY_NAME_MAX,
-  displayNameSchema,
-  type DisplayName,
-} from './display-name';
-// Every rate rule and counter key is public: the module is re-exported whole.
-export * from './rate-limit';
+  FIDE_SEARCH_RATE_LIMIT,
+  IMPORT_PREVIEW_RATE_LIMIT,
+  IMPORT_RATE_LIMIT,
+  MAGIC_LINK_EMAIL_RATE_LIMIT,
+  MAGIC_LINK_RATE_LIMIT,
+  TRAINING_RATE_LIMIT,
+  TRAINING_RESULTS_RATE_LIMIT,
+  countRequest,
+  fideSearchRateKey,
+  importPreviewRateKey,
+  importRateKey,
+  magicLinkEmailRateKey,
+  trainingRateKey,
+  trainingResultsKey,
+  type RateRefusal,
+  type RateRule,
+} from './rate-limit';
+export { personaEmail, personaSignInAvailable } from './persona-sign-in';
 export {
-  PERSONA_EMAIL_DOMAIN,
-  PERSONA_REFUSALS,
-  personaEmail,
-  personaSignInAvailable,
-  type PersonaRefusal,
-} from './persona-sign-in';
-export {
-  CHAPTER_NAME_MAX,
   COMMENT_MAX,
-  PERSONAL_NOTE_MAX,
   REPERTOIRE_ISSUES,
   REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
@@ -338,12 +280,10 @@ export {
   type ShareRefusal,
 } from './sharing';
 export {
-  CLIENT_OAUTH_FIELDS,
   FRESH_AGE_SECONDS,
   GOOGLE,
   LICHESS,
   PROVIDERS,
-  SIGN_IN_REFUSALS,
   canLinkProvider,
   canOpenSession,
   canStartOAuth,
@@ -355,7 +295,6 @@ export {
   providerSessionStands,
   showsLichessNotice,
   signInEmail,
-  type JoinAllowed,
   type LinkEnd,
   type Provider,
   type ProviderJoin,
@@ -366,7 +305,6 @@ export { isTeachingMaterial } from './teaching';
 export {
   DEFAULT_TRAINING_SETTINGS,
   RESULT_KINDS,
-  RESULT_MAX_AGE_MS,
   SECONDS_PER_REVIEW,
   TRAINING_ISSUES,
   TRAINING_REFUSALS,
@@ -376,7 +314,6 @@ export {
   learnOrder,
   trainingSettingsSchema,
   type RepertoireKind,
-  type ResultAcceptance,
   type RecordFacts,
   type ResultKind,
   type StoredFacts,
@@ -397,4 +334,3 @@ export {
   type ResultStatus,
   type TrainingResult,
 } from './training-results';
-export type { Side } from '@mychess/chess';
