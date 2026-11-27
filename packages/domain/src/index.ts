@@ -170,6 +170,21 @@ export {
 } from './calendar';
 export { byName, byNameAndId, type NameAndId } from './name-order';
 export {
+  ATTENTION_ORDER,
+  DUE_PILE,
+  IDLE_DAYS,
+  NEAR_DEADLINE_DAYS,
+  NEAR_DEADLINE_PERCENT,
+  attentionOf,
+  byAttention,
+  playerSummary,
+  type Attention,
+  type AttentionInput,
+  type CoachRowFacts,
+  type CoachRowStatus,
+  type PlayerSummary,
+} from './coach-attention';
+export {
   FORK_OFFER_DAYS,
   FORK_OFFER_REASONS,
   FORK_OFFER_REFUSALS,
