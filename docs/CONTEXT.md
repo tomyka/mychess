@@ -264,6 +264,10 @@ _Avoid_: Status, progress level
 A set of Moves' counts per Move state (not started, skipped, Due, learned) and whether that set is Mastered: what the Coach sees for a Repertoire, a Chapter or a Line.
 _Avoid_: Stats, summary
 
+**Coach view**:
+What a Coach sees of one of a linked Player's Repertoires, as the access rules decide it (Q26): the Repertoire, whether it is assigned or shared, the Assignment's status, and its Standing where granted; of a forked Assignment only that it is forked, naming the Player's Fork when they share it (R-155). It is tagged assigned, shared or fork by one rule on every coach page: a forked Assignment, or a shared Repertoire that is the Player's Fork of the Coach's own, is a fork.
+_Avoid_: Progress row, card (a card is how the player page shows one)
+
 **Last trained**:
 When a Player last trained on a Repertoire the Coach may see progress on (R-154), shown as whole days ago in Vilnius. Training on a private Repertoire never shows.
 _Avoid_: Last active, last seen

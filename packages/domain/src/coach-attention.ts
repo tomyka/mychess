@@ -1,12 +1,12 @@
 /**
  * What the coach dashboard says of one player (R-229, R-231): the most
  * urgent reason they need attention, or none, and their summary line.
- * Pure: the reads give each row's status and counts (R-151, R-155). Days
+ * Pure: the reads give each repertoire's Coach view (R-151, R-155). Days
  * count in Europe/Vilnius, as overdue does.
  */
 import { percentLearned, type ProgressCounts } from '@mychess/chess';
-import type { AssignmentStatus } from './assignment';
 import { daysBetween, vilniusDay } from './calendar';
+import type { CoachRowStatus, CoachView } from './coach-view';
 import { byNameAndId, type NameAndId } from './name-order';
 
 /** A deadline this many Vilnius days away or fewer is near. */
@@ -18,21 +18,24 @@ export const DUE_PILE = 30;
 /** This many Vilnius days without training is idle. */
 export const IDLE_DAYS = 7;
 
-/** An assignment's status with its effective deadline (`YYYY-MM-DD`). */
-export type CoachRowStatus = AssignmentStatus & {
-  readonly deadline: string | null;
-};
-
-/** One repertoire the coach may see: an assignment (status) or a share (null). */
-export interface CoachRowFacts {
+/** What the rules read of a Coach view. */
+interface CoachRowFacts {
   readonly name: string;
+  /** An assignment's status; null for a share. */
   readonly status: CoachRowStatus | null;
   /** Its counts where granted; null for a forked assignment (R-155). */
   readonly counts: ProgressCounts | null;
 }
 
+const factsOf = ({ repertoire, status, view }: CoachView): CoachRowFacts => ({
+  name: repertoire.name,
+  status,
+  counts: view.kind === 'granted' ? view.standing.counts : null,
+});
+
 export interface AttentionInput {
-  readonly rows: readonly CoachRowFacts[];
+  /** The Coach views of the player, as the player page reads them. */
+  readonly rows: readonly CoachView[];
   /** The last training on what the coach may see (R-154), or never. */
   readonly lastTrained: Date | null;
   /** When the coach and the player were linked: idle counts from here. */
@@ -152,12 +155,15 @@ function duePile(rows: readonly CoachRowFacts[]): Attention | null {
   return due >= DUE_PILE ? { kind: 'duePile', due } : null;
 }
 
-function idle(input: AttentionInput, now: Date): Attention | null {
-  const unfinished = live(input.rows).some(
+function idle(
+  rows: readonly CoachRowFacts[],
+  { lastTrained, linkedAt }: AttentionInput,
+  now: Date,
+): Attention | null {
+  const unfinished = live(rows).some(
     (row) => !row.status.done && !row.status.paused,
   );
   if (!unfinished) return null;
-  const { lastTrained, linkedAt } = input;
   const days = daysBetween(lastTrained ?? linkedAt, now);
   const since = lastTrained === null ? 'link' : 'training';
   return days >= IDLE_DAYS ? { kind: 'idle', days, since } : null;
@@ -168,11 +174,12 @@ export function attentionOf(
   input: AttentionInput,
   now: Date,
 ): Attention | null {
+  const rows = input.rows.map(factsOf);
   return (
-    overdue(input.rows, now) ??
-    deadlineNear(input.rows, now) ??
-    duePile(input.rows) ??
-    idle(input, now)
+    overdue(rows, now) ??
+    deadlineNear(rows, now) ??
+    duePile(rows) ??
+    idle(rows, input, now)
   );
 }
 
@@ -248,7 +255,9 @@ const add = (a: ProgressCounts, b: ProgressCounts): ProgressCounts => ({
 const openDeadline = (row: LiveRow): string[] =>
   row.status.done || row.status.deadline === null ? [] : [row.status.deadline];
 
-export function playerSummary(rows: readonly CoachRowFacts[]): PlayerSummary {
+/** The player's line (R-231) over their Coach views. */
+export function playerSummary(views: readonly CoachView[]): PlayerSummary {
+  const rows = views.map(factsOf);
   const [first, ...rest] = visible(rows).flatMap((row) =>
     row.counts === null ? [] : [row.counts],
   );

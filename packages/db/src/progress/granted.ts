@@ -11,15 +11,13 @@ import type { Executor } from '../client';
 import { coachProgressFacts, linkedOf } from './facts';
 import { entryRead, type EntryRead } from './view';
 
-/** A player whose entry the domain grants, and how that entry is read. */
+/**
+ * A player whose entry the domain grants, and how that entry is read: its
+ * Coach view names the Fork a shared one is (#328, R-155).
+ */
 export interface GrantedRead {
   readonly playerId: string;
   readonly read: EntryRead;
-  /**
-   * The coach's repertoire a shared one is the player's Fork of, as the
-   * domain names it (progressRepertoire, #328, R-155); null otherwise.
-   */
-  readonly forkOf: string | null;
 }
 
 /**
@@ -38,13 +36,7 @@ export async function grantedReads(
   const granted = [...facts].flatMap(([playerId, one]) => {
     const entry = progressRepertoire(coachId, playerId, repertoireId, one);
     return entry?.kind === 'granted'
-      ? [
-          {
-            playerId,
-            read: entryRead(entry, { coachId, playerId }),
-            forkOf: entry.source === 'shared' ? entry.forkOf : null,
-          },
-        ]
+      ? [{ playerId, read: entryRead(entry, { coachId, playerId }) }]
       : [];
   });
   if (granted.length === 0) return [];

@@ -2,29 +2,27 @@
  * What the coach progress reads show, built from what they loaded: the
  * repertoires a coach may see progress on (each with its graph), their
  * player-move keys, and one mapping of each entry the domain decided
- * (entryRead): the scope it loads through, its full status (coachStatus,
- * shared with coachAssignments), and its
- * standing only where granted (R-155: none for a forked assignment).
- * Internal to the package.
+ * (entryRead): the scope it loads through and, once loaded, its Coach view
+ * as the domain builds it (coachViewOf: its status, and its standing only
+ * where granted, R-155). Internal to the package.
  */
-import { byName } from '@mychess/domain';
 import {
   playerKeys,
-  repertoireStanding,
   type RepertoireGraph,
   type Side,
-  type Standing,
   type TrackedReview,
 } from '@mychess/chess';
 import {
+  byName,
+  coachViewOf,
   ownScope,
   sharedScope,
   type CoachProgressFacts,
+  type CoachView,
   type ProgressRepertoire,
   type ProgressSource,
   type RepertoireScope,
 } from '@mychess/domain';
-import { coachStatus, type CoachStatus } from '../assignments/status';
 import type { Executor } from '../client';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
@@ -100,30 +98,16 @@ const scopeOf = (
 ): RepertoireScope =>
   source === 'shared' ? sharedScope(coachId, playerId) : ownScope(coachId);
 
-/**
- * What a row or cell shows of a repertoire: its standing, or that it is
- * forked (R-155), with the player's fork of it when they share that fork
- * with this coach (#328), so the page can link to it; null otherwise.
- */
-export type ProgressView =
-  | { readonly kind: 'granted'; readonly standing: Standing }
-  | { readonly kind: 'forked'; readonly sharedForkId: string | null };
-
-/** A graph with the player's Reviews on its moves, as of `now`. */
-interface Reviewed {
-  readonly graph: RepertoireGraph;
-  readonly tracked: ReadonlyMap<string, TrackedReview>;
-  readonly now: Date;
-}
-
 /** What the reads need of one entry of the domain, as it decided it. */
 export interface EntryRead {
   readonly source: ProgressSource;
   readonly scope: RepertoireScope;
-  /** The status of the entry's assignment; null for a shared one. */
-  readonly status: (reviewed: Reviewed) => CoachStatus | null;
-  /** Its standing only where the entry is granted; forked otherwise. */
-  readonly view: (reviewed: Reviewed) => ProgressView;
+  /** The entry's Coach view, as loaded, with the player's Reviews at `now`. */
+  readonly coachView: (
+    loaded: LoadedGraph,
+    tracked: ReadonlyMap<string, TrackedReview>,
+    now: Date,
+  ) => CoachView;
 }
 
 /** One entry of progressRepertoire(s), mapped to what the reads load and show. */
@@ -131,18 +115,10 @@ export function entryRead(
   entry: ProgressRepertoire,
   { coachId, playerId }: Pick<ProgressViewer, 'coachId' | 'playerId'>,
 ): EntryRead {
-  const { assignment } = entry;
   return {
     source: entry.source,
     scope: scopeOf(entry, coachId, playerId),
-    status: ({ graph, tracked, now }) =>
-      assignment === null ? null : coachStatus(assignment, graph, tracked, now),
-    view: ({ graph, tracked, now }) =>
-      entry.kind === 'granted'
-        ? {
-            kind: 'granted',
-            standing: repertoireStanding(graph, tracked, now),
-          }
-        : { kind: 'forked', sharedForkId: entry.sharedForkId },
+    coachView: ({ repertoire, graph }, tracked, now) =>
+      coachViewOf(entry, repertoire, { graph, tracked, now }),
   };
 }

@@ -13,10 +13,9 @@ import {
   playerSummary,
   type Attention,
   type AttentionInput,
-  type CoachRowFacts,
-  type CoachRowStatus,
   type DatedAssignment,
 } from './coach-attention';
+import type { CoachRowStatus, CoachView } from './coach-view';
 
 const NOW = new Date('2026-11-27T10:00:00Z'); // Vilnius 27 Nov
 const counts = (c: Partial<ProgressCounts>): ProgressCounts => ({
@@ -34,17 +33,32 @@ const status = (s: Partial<CoachRowStatus>): CoachRowStatus => ({
   forked: false,
   ...s,
 });
-const assigned = (over: Partial<CoachRowFacts> = {}): CoachRowFacts => ({
-  name: 'Slav',
-  status: status({}),
-  counts: counts({ notStarted: 10 }),
-  ...over,
+/** What a test says of a row: its name, its status, its counts or none. */
+interface Row {
+  readonly name: string;
+  readonly status: CoachRowStatus | null;
+  readonly counts: ProgressCounts | null;
+}
+/** The row as a Coach view: no counts is a forked one (R-155). */
+const viewOf = ({ name, status: s, counts: c }: Row): CoachView => ({
+  repertoire: { id: name, name, side: 'white' },
+  source: s === null ? 'shared' : 'assigned',
+  forkOf: null,
+  status: s,
+  view:
+    c === null
+      ? { kind: 'forked', sharedForkId: null }
+      : { kind: 'granted', standing: { counts: c, mastered: false } },
 });
-const shared = (name: string, c: ProgressCounts): CoachRowFacts => ({
-  name,
-  status: null,
-  counts: c,
-});
+const assigned = (over: Partial<Row> = {}): CoachView =>
+  viewOf({
+    name: 'Slav',
+    status: status({}),
+    counts: counts({ notStarted: 10 }),
+    ...over,
+  });
+const shared = (name: string, c: ProgressCounts): CoachView =>
+  viewOf({ name, status: null, counts: c });
 const input = (over: Partial<AttentionInput>): AttentionInput => ({
   rows: [],
   lastTrained: NOW,

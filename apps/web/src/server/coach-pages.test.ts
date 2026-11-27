@@ -6,8 +6,8 @@ import type {
   GroupProgressCell,
   LinkedAccount,
   PlayerProgress,
-  ProgressRow,
 } from '@mychess/db';
+import type { CoachView } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   coachDashboardData,
@@ -88,15 +88,17 @@ const GRANTED = {
   kind: 'granted',
   standing: { counts: COUNTS, mastered: false },
 } as const;
-const ASSIGNED: ProgressRow = {
+const ASSIGNED: CoachView = {
   repertoire: LONDON,
   source: 'assigned',
+  forkOf: null,
   status: STATUS,
   view: GRANTED,
 };
-const SHARED: ProgressRow = {
+const SHARED: CoachView = {
   repertoire: TAIMANOV,
   source: 'shared',
+  forkOf: null,
   status: null,
   view: GRANTED,
 };
@@ -156,14 +158,14 @@ describe('coachDashboardData', () => {
   });
 
   it('lists who needs attention, most urgent reason first, then by name (R-229)', async () => {
-    const pile: ProgressRow = {
+    const pile: CoachView = {
       ...SHARED,
       view: {
         kind: 'granted',
         standing: { counts: { ...COUNTS, due: 30 }, mastered: false },
       },
     };
-    const late: ProgressRow = {
+    const late: CoachView = {
       ...ASSIGNED,
       status: { ...STATUS, deadline: '2026-10-18' },
     };
@@ -185,7 +187,7 @@ describe('coachDashboardData', () => {
   });
 
   it('counts a never-trained player idle from the link (R-229)', async () => {
-    const open: ProgressRow = {
+    const open: CoachView = {
       ...ASSIGNED,
       status: { ...STATUS, deadline: null, overdue: false },
     };
@@ -238,8 +240,8 @@ describe('coachDashboardData', () => {
     const row = (
       name: string,
       status: Partial<CoachStatus>,
-      view: ProgressRow['view'] = GRANTED,
-    ): ProgressRow => ({
+      view: CoachView['view'] = GRANTED,
+    ): CoachView => ({
       ...ASSIGNED,
       repertoire: { ...LONDON, name },
       status: { ...STATUS, overdue: false, ...status },
@@ -319,13 +321,18 @@ describe('coachPlayerData', () => {
     done: false,
     forked: true,
   };
-  const forkedRow = (sharedForkId: string | null): ProgressRow => ({
+  const forkedRow = (sharedForkId: string | null): CoachView => ({
     repertoire: ITALIAN,
     source: 'assigned',
+    forkOf: null,
     status: FORKED_STATUS,
     view: { kind: 'forked', sharedForkId },
   });
-  const FORK_SHARED: ProgressRow = { ...SHARED, repertoire: FORK };
+  const FORK_SHARED: CoachView = {
+    ...SHARED,
+    repertoire: FORK,
+    forkOf: ITALIAN.id,
+  };
   const standing = GRANTED.standing;
 
   it('makes one read, as the session coach, of the parsed id at the clock', async () => {

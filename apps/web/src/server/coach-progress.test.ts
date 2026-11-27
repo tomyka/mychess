@@ -53,6 +53,7 @@ const VIEW: RepertoireProgressView = {
   source: 'assigned',
   forkOf: null,
   status: STATUS,
+  view: { kind: 'granted', standing: { counts: COUNTS, mastered: false } },
   progress: {
     counts: COUNTS,
     mastered: false,

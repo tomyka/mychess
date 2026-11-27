@@ -187,7 +187,6 @@ export {
   type GroupProgressCell,
   type GroupProgressRow,
   type PlayerProgress,
-  type ProgressRow,
   type RepertoireProgressRequest,
   type RepertoireProgressView,
 } from './progress/coach-progress';
@@ -198,7 +197,7 @@ export {
 } from './progress/assignee-standings';
 export { coachDashboard, type DashboardPlayer } from './progress/dashboard';
 export { coachGroupPage, type GroupPage } from './progress/pages';
-export type { ProgressView, RepertoireRef } from './progress/view';
+export type { RepertoireRef } from './progress/view';
 export {
   countRateLimited,
   countWeighted,

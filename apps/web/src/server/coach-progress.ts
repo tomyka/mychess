@@ -6,11 +6,15 @@ import 'server-only';
 import {
   coachRepertoireProgress,
   type CoachStatus,
-  type RepertoireProgressView,
   type RepertoireRef,
 } from '@mychess/db';
 import type { ChapterProgress, Standing } from '@mychess/chess';
-import { vilniusDay, type AccountRef } from '@mychess/domain';
+import {
+  coachViewTag,
+  vilniusDay,
+  type AccountRef,
+  type RepertoireCard,
+} from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
@@ -24,18 +28,12 @@ export interface ChapterRow extends Omit<ChapterProgress, 'chapter'> {
   readonly title: string;
 }
 
-/**
- * How the coach has the repertoire, as the player page tags it: their own
- * assignment, shared with them, or the player's Fork of one of the coach's
- * repertoires, shared with them (R-155, #328).
- */
-type ProgressTag = 'assigned' | 'shared' | 'fork';
-
 /** The progress page (R-152). */
 export interface ProgressPage {
   readonly player: AccountRef;
   readonly repertoire: RepertoireRef;
-  readonly tag: ProgressTag;
+  /** Tagged by the player page's rule (coachViewTag). */
+  readonly tag: RepertoireCard['tag'];
   /** The assignment's deadline and status; null for a shared repertoire. */
   readonly status: CoachStatus | null;
   /** Today in Vilnius, so the server and the browser word deadlines alike. */
@@ -43,12 +41,6 @@ export interface ProgressPage {
   readonly standing: Standing;
   readonly chapters: readonly ChapterRow[];
 }
-
-const tagOf = ({
-  source,
-  forkOf,
-}: Pick<RepertoireProgressView, 'source' | 'forkOf'>): ProgressTag =>
-  forkOf === null ? source : 'fork';
 
 const idsSchema = z.object({
   playerId: accountIdSchema,
@@ -81,7 +73,7 @@ export async function coachProgressData(
   return {
     player: view.player,
     repertoire: view.repertoire,
-    tag: tagOf(view),
+    tag: coachViewTag(view),
     status: view.status,
     today: vilniusDay(now),
     standing: { counts, mastered },

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CoachRowStatus } from './coach-attention';
-import {
-  byRepertoireUrgency,
-  ownCopyEntries,
-  type OwnCopyFacts,
-  type RepertoireUrgencyKey,
-} from './coach-player-page';
+import { playerPageCards } from './coach-player-page';
+import type { CoachRowStatus, CoachView } from './coach-view';
 
 const status = (s: Partial<CoachRowStatus>): CoachRowStatus => ({
   deadline: null,
@@ -15,28 +10,54 @@ const status = (s: Partial<CoachRowStatus>): CoachRowStatus => ({
   forked: false,
   ...s,
 });
+const STANDING = {
+  counts: { notStarted: 1, skipped: 2, due: 3, learned: 4 },
+  mastered: false,
+};
+const GRANTED = { kind: 'granted', standing: STANDING } as const;
+const repertoire = (name: string, id = name) =>
+  ({ id, name, side: 'white' }) as const;
 
-describe('byRepertoireUrgency (the player page, R-160)', () => {
-  const card = (
-    name: string,
-    s: Partial<CoachRowStatus> | null,
-    id = name,
-  ): RepertoireUrgencyKey => ({
-    name,
-    id,
-    status: s === null ? null : status(s),
-  });
-  const order = (cards: readonly RepertoireUrgencyKey[]): string[] =>
-    cards.toSorted(byRepertoireUrgency((one) => one)).map((one) => one.id);
+/** A live assignment's view, or a forked one's when its status says so. */
+const assigned = (
+  name: string,
+  s: Partial<CoachRowStatus>,
+  id = name,
+): CoachView => ({
+  repertoire: repertoire(name, id),
+  source: 'assigned',
+  forkOf: null,
+  status: status(s),
+  view: s.forked === true ? { kind: 'forked', sharedForkId: null } : GRANTED,
+});
+const shared = (name: string, id = name, forkOf: string | null = null) =>
+  ({
+    repertoire: repertoire(name, id),
+    source: 'shared',
+    forkOf,
+    status: null,
+    view: GRANTED,
+  }) as const satisfies CoachView;
+const forked = (name: string, sharedForkId: string | null): CoachView => ({
+  repertoire: repertoire(name),
+  source: 'assigned',
+  forkOf: null,
+  status: status({ forked: true }),
+  view: { kind: 'forked', sharedForkId },
+});
 
+const order = (views: readonly CoachView[]): string[] =>
+  playerPageCards(views).map((card) => card.repertoire.id);
+
+describe('playerPageCards: the order (the player page, R-160)', () => {
   it('puts overdue first, then the soonest deadline, then those without one, then shares', () => {
     expect(
       order([
-        card('Taimanov', null),
-        card('Caro-Kann', {}),
-        card('Slav', { deadline: '2026-12-20' }),
-        card('Italian', { deadline: '2026-11-20', overdue: true }),
-        card('Najdorf', { deadline: '2026-12-01' }),
+        shared('Taimanov'),
+        assigned('Caro-Kann', {}),
+        assigned('Slav', { deadline: '2026-12-20' }),
+        assigned('Italian', { deadline: '2026-11-20', overdue: true }),
+        assigned('Najdorf', { deadline: '2026-12-01' }),
       ]),
     ).toEqual(['Italian', 'Najdorf', 'Slav', 'Caro-Kann', 'Taimanov']);
   });
@@ -44,8 +65,8 @@ describe('byRepertoireUrgency (the player page, R-160)', () => {
   it('keeps a paused overdue one overdue (R-132)', () => {
     expect(
       order([
-        card('Najdorf', { deadline: '2026-11-28' }),
-        card('Italian', {
+        assigned('Najdorf', { deadline: '2026-11-28' }),
+        assigned('Italian', {
           deadline: '2026-11-20',
           overdue: true,
           paused: true,
@@ -57,11 +78,11 @@ describe('byRepertoireUrgency (the player page, R-160)', () => {
   it('puts done ones after the unfinished dated ones, by deadline, and before the undated (R-129)', () => {
     expect(
       order([
-        card('Taimanov', null),
-        card('Benoni', {}),
-        card('Slav', { deadline: '2026-11-10', done: true }),
-        card('Najdorf', { deadline: '2026-12-28' }),
-        card('Alapin', { deadline: '2026-11-05', done: true }),
+        shared('Taimanov'),
+        assigned('Benoni', {}),
+        assigned('Slav', { deadline: '2026-11-10', done: true }),
+        assigned('Najdorf', { deadline: '2026-12-28' }),
+        assigned('Alapin', { deadline: '2026-11-05', done: true }),
       ]),
     ).toEqual(['Najdorf', 'Alapin', 'Slav', 'Benoni', 'Taimanov']);
   });
@@ -69,19 +90,19 @@ describe('byRepertoireUrgency (the player page, R-160)', () => {
   it('orders overdue ones by the longest overdue first', () => {
     expect(
       order([
-        card('Alapin', { deadline: '2026-11-25', overdue: true }),
-        card('Zukertort', { deadline: '2026-11-01', overdue: true }),
+        assigned('Alapin', { deadline: '2026-11-25', overdue: true }),
+        assigned('Zukertort', { deadline: '2026-11-01', overdue: true }),
       ]),
     ).toEqual(['Zukertort', 'Alapin']);
   });
 
-  it('sorts an own copy as without a deadline, before the shares (R-155)', () => {
+  it('sorts a forked assignment as without a deadline, before the shares (R-155)', () => {
     expect(
       order([
-        card('Taimanov', null),
-        card('Italian', { deadline: '2026-11-01', forked: true }),
-        card('Slav', { deadline: '2026-12-20' }),
-        card('Benoni', {}),
+        shared('Taimanov'),
+        assigned('Italian', { deadline: '2026-11-01', forked: true }),
+        assigned('Slav', { deadline: '2026-12-20' }),
+        assigned('Benoni', {}),
       ]),
     ).toEqual(['Slav', 'Benoni', 'Italian', 'Taimanov']);
   });
@@ -89,60 +110,96 @@ describe('byRepertoireUrgency (the player page, R-160)', () => {
   it('breaks ties by name, then by id', () => {
     expect(
       order([
-        card('Slav', null, 'b'),
-        card('Benoni', null),
-        card('Slav', null, 'a'),
-        card('Italian', { deadline: '2026-12-01' }),
-        card('Caro-Kann', { deadline: '2026-12-01' }),
+        shared('Slav', 'b'),
+        shared('Benoni'),
+        shared('Slav', 'a'),
+        assigned('Italian', { deadline: '2026-12-01' }),
+        assigned('Caro-Kann', { deadline: '2026-12-01' }),
       ]),
     ).toEqual(['Caro-Kann', 'Italian', 'Benoni', 'a', 'b']);
   });
 });
 
-describe('ownCopyEntries (R-155, the player page)', () => {
-  const assignment = (id: string): OwnCopyFacts => ({
-    id,
-    shared: false,
-    forked: null,
+describe('playerPageCards: one card per repertoire (R-155, #328)', () => {
+  it('tags each card and gives it the standing granted on it', () => {
+    expect(playerPageCards([assigned('Slav', {}), shared('Taimanov')])).toEqual(
+      [
+        {
+          repertoire: repertoire('Slav'),
+          tag: 'assigned',
+          status: status({}),
+          granted: { id: 'Slav', standing: STANDING },
+        },
+        {
+          repertoire: repertoire('Taimanov'),
+          tag: 'shared',
+          status: null,
+          granted: { id: 'Taimanov', standing: STANDING },
+        },
+      ],
+    );
   });
-  const share = (id: string): OwnCopyFacts => ({
-    id,
-    shared: true,
-    forked: null,
-  });
-  const forked = (id: string, sharedForkId: string | null): OwnCopyFacts => ({
-    id,
-    shared: false,
-    forked: { sharedForkId },
-  });
-  const entries = (rows: readonly OwnCopyFacts[]) =>
-    ownCopyEntries(rows, (row) => row);
 
-  it('makes a forked assignment and the fork the player shares one own copy', () => {
-    const italian = forked('italian', 'fork');
-    const fork = share('fork');
-    expect(
-      entries([assignment('slav'), italian, fork, share('taimanov')]),
-    ).toEqual([
-      { kind: 'row', row: assignment('slav') },
-      { kind: 'ownCopy', assignment: italian, sharedFork: fork },
-      { kind: 'row', row: share('taimanov') },
+  it('makes a forked assignment and the fork the player shares one fork card with the fork’s standing', () => {
+    const cards = playerPageCards([
+      assigned('Slav', { deadline: '2026-12-20' }),
+      forked('Italian', 'fork'),
+      shared('Italian', 'fork', 'Italian'),
+      shared('Taimanov'),
+    ]);
+    expect(cards).toEqual([
+      {
+        repertoire: repertoire('Slav'),
+        tag: 'assigned',
+        status: status({ deadline: '2026-12-20' }),
+        granted: { id: 'Slav', standing: STANDING },
+      },
+      {
+        repertoire: repertoire('Italian'),
+        tag: 'fork',
+        status: status({ forked: true }),
+        granted: { id: 'fork', standing: STANDING },
+      },
+      {
+        repertoire: repertoire('Taimanov'),
+        tag: 'shared',
+        status: null,
+        granted: { id: 'Taimanov', standing: STANDING },
+      },
     ]);
   });
 
-  it('keeps an own copy the player does not share without a fork', () => {
-    const italian = forked('italian', null);
-    expect(entries([italian, share('taimanov')])).toEqual([
-      { kind: 'ownCopy', assignment: italian, sharedFork: null },
-      { kind: 'row', row: share('taimanov') },
+  it('keeps a fork the player does not share without progress', () => {
+    expect(playerPageCards([forked('Italian', null)])).toEqual([
+      {
+        repertoire: repertoire('Italian'),
+        tag: 'fork',
+        status: status({ forked: true }),
+        granted: null,
+      },
     ]);
   });
 
   it('takes the fork only from what is shared with the coach', () => {
-    const italian = forked('italian', 'slav');
-    expect(entries([assignment('slav'), italian])).toEqual([
-      { kind: 'row', row: assignment('slav') },
-      { kind: 'ownCopy', assignment: italian, sharedFork: null },
+    expect(
+      playerPageCards([
+        assigned('Slav', { deadline: '2026-12-20' }),
+        forked('Italian', 'Slav'),
+      ]).map(({ repertoire: { id }, granted }) => [id, granted?.id ?? null]),
+    ).toEqual([
+      ['Slav', 'Slav'],
+      ['Italian', null],
+    ]);
+  });
+
+  it('tags a shared Fork with no forked assignment on the page a fork, as its progress page does (#328)', () => {
+    expect(playerPageCards([shared('Italian', 'fork', 'italian')])).toEqual([
+      {
+        repertoire: repertoire('Italian', 'fork'),
+        tag: 'fork',
+        status: null,
+        granted: { id: 'fork', standing: STANDING },
+      },
     ]);
   });
 });

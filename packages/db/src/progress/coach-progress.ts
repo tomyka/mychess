@@ -27,6 +27,7 @@ import {
   progressRepertoires,
   type AccountRef,
   type CoachProgressFacts,
+  type CoachView,
   type PlayerRepertoire,
   type ProgressSource,
   type RepertoireScope,
@@ -50,29 +51,18 @@ import {
   loadVisible,
   type EntryRead,
   type LoadedGraph,
-  type ProgressView,
   type ProgressViewer,
   type RepertoireRef,
 } from './view';
 
 const NO_REVIEWS: ReadonlyMap<string, TrackedReview> = new Map();
 
-/** One repertoire on the player page. */
-export interface ProgressRow {
-  readonly repertoire: RepertoireRef;
-  /** The entry's source: assigned for a forked assignment too. */
-  readonly source: ProgressSource;
-  /** An assignment's deadline and status (R-129); null for a shared repertoire. */
-  readonly status: CoachStatus | null;
-  /** The standing where the domain grants it; forked otherwise (R-155). */
-  readonly view: ProgressView;
-}
-
 /** The player page: the player, and where they stand. */
 export interface PlayerProgress {
   /** The player, linked to the coach, with the coach's own groups. */
   readonly player: LinkedAccount;
-  readonly rows: readonly ProgressRow[];
+  /** The Coach view of each repertoire the page shows. */
+  readonly rows: readonly CoachView[];
   readonly lastTrained: Date | null;
 }
 
@@ -131,20 +121,12 @@ export interface Shown {
   readonly read: EntryRead;
 }
 
-/** A row of the player page; a status only for an assignment. */
-export function rowOf(
+/** A row of the player page: its Coach view. */
+export const rowOf = (
   { loaded, read }: Shown,
   tracked: ReadonlyMap<string, TrackedReview>,
   now: Date,
-): ProgressRow {
-  const reviewed = { graph: loaded.graph, tracked, now };
-  return {
-    repertoire: loaded.repertoire,
-    source: read.source,
-    status: read.status(reviewed),
-    view: read.view(reviewed),
-  };
-}
+): CoachView => read.coachView(loaded, tracked, now);
 
 /**
  * `shown` in the domain's order of sources, each source by name: the
@@ -225,18 +207,14 @@ export function coachPlayerProgress(
   }, REPEATABLE_READ);
 }
 
-/** One player's progress on one repertoire, chapters and lines included. */
-export interface RepertoireProgressView {
+/**
+ * One player's progress on one repertoire, chapters and lines included,
+ * with its Coach view.
+ */
+export interface RepertoireProgressView extends CoachView {
   readonly player: AccountRef;
-  readonly repertoire: RepertoireRef;
   /** Its graph as loaded, so the page titles its chapters without a second read. */
   readonly graph: RepertoireGraph;
-  /** Assigned by this coach, or shared by the player (shared wins, Q26). */
-  readonly source: ProgressSource;
-  /** The coach's repertoire a shared one is the player's Fork of; null otherwise. */
-  readonly forkOf: string | null;
-  /** The assignment's deadline and status (R-129); null for a shared one. */
-  readonly status: CoachStatus | null;
   readonly progress: RepertoireProgress;
 }
 
@@ -262,28 +240,26 @@ export function coachRepertoireProgress(
     if (granted === undefined) return undefined;
     const player = await coachPlayer(tx, coachId, playerId);
     if (player === undefined) return undefined;
-    const { read, forkOf } = granted;
+    const { read } = granted;
     const loaded = await loadVisible(tx, read.scope, repertoireId);
     if (loaded === undefined) return undefined;
     const tracked = await trackedReviewsOf(tx, playerId, [loaded]);
     return {
+      ...read.coachView(loaded, tracked, now),
       player: { id: player.id, displayName: player.displayName },
-      repertoire: loaded.repertoire,
       graph: loaded.graph,
-      source: read.source,
-      forkOf,
-      status: read.status({ graph: loaded.graph, tracked, now }),
       progress: progressOf(loaded.graph, tracked, now),
     };
   }, REPEATABLE_READ);
 }
 
-/** One cell of the group grid; null where the member has no assignment. */
-export interface GroupProgressCell {
+/**
+ * One cell of the group grid, the member's Coach view of the column's
+ * assignment; null where the member has no assignment.
+ */
+export interface GroupProgressCell extends Pick<CoachView, 'view'> {
   /** The assignment's deadline and status, as on the player page. */
   readonly status: CoachStatus;
-  /** The standing where the domain grants it; forked otherwise (R-155). */
-  readonly view: ProgressView;
 }
 
 /**
@@ -366,10 +342,12 @@ function cellOf(
   const id = column.repertoire.id;
   const entry = progressRepertoire(coachId, playerId, id, facts);
   if (entry === undefined) return null;
-  const read = entryRead(entry, viewer);
-  const reviewed = { graph: column.graph, tracked, now };
-  const status = read.status(reviewed);
-  return status === null ? null : { status, view: read.view(reviewed) };
+  const { status, view } = entryRead(entry, viewer).coachView(
+    column,
+    tracked,
+    now,
+  );
+  return status === null ? null : { status, view };
 }
 
 /** What the grid knows of every member, read once for the whole group. */

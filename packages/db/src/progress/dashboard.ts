@@ -13,6 +13,7 @@ import {
   isCoachLinked,
   scopeKey,
   type CoachProgressFacts,
+  type CoachView,
 } from '@mychess/domain';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { coachPlayers, type LinkedAccount } from '../coaching';
@@ -21,7 +22,6 @@ import {
   playerRepertoires,
   rowOf,
   type LoadVisible,
-  type ProgressRow,
   type Shown,
 } from './coach-progress';
 import { coachProgressFacts, lastTrained } from './facts';
@@ -32,7 +32,7 @@ export interface DashboardPlayer extends LinkedAccount {
   /** The latest result on a repertoire the coach may see; null for none. */
   readonly lastTrained: Date | null;
   /** As coachPlayerProgress gives them: assigned (by name), then shared. */
-  readonly rows: readonly ProgressRow[];
+  readonly rows: readonly CoachView[];
 }
 
 const NO_REVIEWS: ReadonlyMap<string, TrackedReview> = new Map();

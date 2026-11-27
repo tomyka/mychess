@@ -396,6 +396,17 @@ describe('coachRepertoireProgress', () => {
     });
   });
 
+  it('gives the player page the same Coach view of a shared fork as its progress page (#394)', async () => {
+    const forkId = await sharedForkWith('c');
+    const rows = present(await coachPlayerProgress(db, 'c', 'p', NOW)).rows;
+    const row = present(rows.find((one) => one.repertoire.id === forkId));
+    const { repertoire, source, forkOf, status, view } = present(
+      await forkProgress('c', forkId),
+    );
+    expect(row).toEqual({ repertoire, source, forkOf, status, view });
+    expect(row).toMatchObject({ forkOf: karoKan, view: { kind: 'granted' } });
+  });
+
   it('names no fork to another coach, whose repertoire it is not a fork of (R-39, R-43)', async () => {
     await seedLink(db, 'other', 'p');
     const forkId = await sharedForkWith('c', 'other');

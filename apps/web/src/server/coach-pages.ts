@@ -14,7 +14,6 @@ import {
   type CoachGroup,
   type CoachInvite,
   type CoachGroupSummary,
-  type CoachStatus,
   type DashboardPlayer,
   type GroupAssignment,
   type GroupColumn,
@@ -22,21 +21,17 @@ import {
   type GroupProgressCell,
   type LinkedAccount,
   type OpenGroupInvite,
-  type ProgressRow,
-  type RepertoireRef,
 } from '@mychess/db';
-import type { Standing } from '@mychess/chess';
 import {
   attentionOf,
   byAttention,
-  byRepertoireUrgency,
-  ownCopyEntries,
+  playerPageCards,
   playerSummary,
   vilniusDay,
   type AccountRef,
   type Attention,
-  type CoachRowFacts,
   type PlayerSummary,
+  type RepertoireCard,
 } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
@@ -65,13 +60,6 @@ export interface AttentionCard {
   readonly reason: Attention;
 }
 
-/** What the domain reads of a dashboard row (R-155: no counts when forked). */
-const rowFacts = (row: ProgressRow): CoachRowFacts => ({
-  name: row.repertoire.name,
-  status: row.status,
-  counts: row.view.kind === 'granted' ? row.view.standing.counts : null,
-});
-
 /** A player as the dashboard reads them: their row and their reason, if any. */
 interface ReadPlayer {
   readonly line: DashboardPlayerLine;
@@ -80,8 +68,7 @@ interface ReadPlayer {
 
 /** The domain's view of one player from the dashboard read, at `now`. */
 const readPlayer = (player: DashboardPlayer, now: Date): ReadPlayer => {
-  const rows = player.rows.map(rowFacts);
-  const { lastTrained, linkedAt } = player;
+  const { rows, lastTrained, linkedAt } = player;
   return {
     line: {
       id: player.id,
@@ -156,32 +143,11 @@ export async function coachDashboardData(): Promise<CoachDashboardData> {
   };
 }
 
-/**
- * How the coach has a repertoire on the player page: their assignment,
- * shared with them (R-42), or the player's own copy of an assignment
- * (R-155).
- */
-type RepertoireCardTag = 'assigned' | 'shared' | 'fork';
+/** One repertoire on the player page (R-231), as the domain makes it. */
+export type { RepertoireCard } from '@mychess/domain';
 
 /** The standing the domain grants on a repertoire, and its id, where its links go. */
-export interface GrantedView {
-  readonly id: string;
-  readonly standing: Standing;
-}
-
-/** One repertoire on the player page (R-231). */
-export interface RepertoireCard {
-  /** The repertoire it is named by: an own copy's is the assignment's. */
-  readonly repertoire: RepertoireRef;
-  readonly tag: RepertoireCardTag;
-  /** The assignment's deadline and status; null for a shared repertoire. */
-  readonly status: CoachStatus | null;
-  /**
-   * What the domain grants, and where Progress and Open go; for an own
-   * copy, its shared fork's; null for an own copy not shared (R-155).
-   */
-  readonly granted: GrantedView | null;
-}
+export type GrantedView = NonNullable<RepertoireCard['granted']>;
 
 /** One linked player's page. */
 export interface CoachPlayerPage extends LinkedAccount {
@@ -192,45 +158,6 @@ export interface CoachPlayerPage extends LinkedAccount {
   /** One per repertoire the coach may see, most urgent first. */
   readonly cards: readonly RepertoireCard[];
 }
-
-const grantedOf = (row: ProgressRow): GrantedView | null =>
-  row.view.kind === 'granted'
-    ? { id: row.repertoire.id, standing: row.view.standing }
-    : null;
-
-/**
- * The read's rows as cards, merged by the domain: an own copy takes its
- * shared fork's standing and links (the read names the fork, #328), and
- * that fork has no card of its own.
- */
-const cardsOf = (rows: readonly ProgressRow[]): RepertoireCard[] =>
-  ownCopyEntries(rows, (row) => ({
-    id: row.repertoire.id,
-    shared: row.source === 'shared',
-    forked:
-      row.view.kind === 'forked'
-        ? { sharedForkId: row.view.sharedForkId }
-        : null,
-  })).map((entry): RepertoireCard => {
-    if (entry.kind === 'ownCopy') {
-      const { repertoire, status } = entry.assignment;
-      const fork = entry.sharedFork;
-      const granted = fork === null ? null : grantedOf(fork);
-      return { repertoire, tag: 'fork', status, granted };
-    }
-    const { row } = entry;
-    const { repertoire, status, source } = row;
-    return { repertoire, tag: source, status, granted: grantedOf(row) };
-  });
-
-/** The cards in the domain's order for the player page. */
-const repertoireCardOrder = byRepertoireUrgency(
-  ({ repertoire, status }: RepertoireCard) => ({
-    name: repertoire.name,
-    id: repertoire.id,
-    status,
-  }),
-);
 
 /**
  * One linked player's page, from one read (coachPlayerProgress): the
@@ -252,7 +179,7 @@ export async function coachPlayerData(
     ...read.player,
     lastTrainedDays: daysSince(read.lastTrained, now),
     today: vilniusDay(now),
-    cards: cardsOf(read.rows).toSorted(repertoireCardOrder),
+    cards: playerPageCards(read.rows),
   };
 }
 

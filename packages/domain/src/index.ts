@@ -186,11 +186,10 @@ export {
   type AttentionInput,
   type AttentionKey,
   type DatedAssignment,
-  type CoachRowFacts,
-  type CoachRowStatus,
   type PlayerSummary,
 } from './coach-attention';
-export { byRepertoireUrgency, ownCopyEntries } from './coach-player-page';
+export { playerPageCards, type RepertoireCard } from './coach-player-page';
+export { coachViewOf, coachViewTag, type CoachView } from './coach-view';
 export {
   FORK_OFFER_DAYS,
   FORK_OFFER_REASONS,

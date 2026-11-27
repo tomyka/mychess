@@ -8,11 +8,7 @@
  * fixed in the number of players; the graph loads once per scope, so once
  * for the coach's own repertoire.
  */
-import {
-  repertoireStanding,
-  type Standing,
-  type TrackedReview,
-} from '@mychess/chess';
+import type { Standing, TrackedReview } from '@mychess/chess';
 import { scopeKey } from '@mychess/domain';
 import type { CoachStatus } from '../assignments/status';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
@@ -79,13 +75,12 @@ async function standingsOf(
     granted.flatMap(({ playerId, read }) => {
       const loaded = graphs.get(playerId);
       if (loaded === undefined) return [];
-      const { graph } = loaded;
-      const reviewed = { graph, tracked: tracked.get(playerId) ?? none, now };
-      const shown: AssigneeStanding = {
-        standing: repertoireStanding(graph, reviewed.tracked, now),
-        status: read.status(reviewed),
-      };
-      return [[playerId, shown] as const];
+      const reviews = tracked.get(playerId) ?? none;
+      const { status, view } = read.coachView(loaded, reviews, now);
+      // grantedReads grants only: the view always carries a standing.
+      return view.kind === 'granted'
+        ? [[playerId, { standing: view.standing, status }] as const]
+        : [];
     }),
   );
 }
