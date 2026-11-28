@@ -8,7 +8,7 @@ import {
   unlink,
 } from '@mychess/db';
 import type { AccountRef, CoachRefusal } from '@mychess/domain';
-import { refresh } from 'next/cache';
+import { refresh, revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { accountIdSchema } from '../../server/account-id';
 import { getDb } from '../../server/db';
@@ -16,11 +16,21 @@ import { requireOnboarded } from '../../server/session';
 
 const groupIdSchema = z.uuid();
 
+/**
+ * Coach mode shows in the shell (the Coach tab), which is in the segment
+ * layouts, so switching it re-renders from the root layout down. refresh()
+ * alone left the tab stale after a client navigation to Settings, which
+ * has a loading boundary under its layout (#381).
+ */
+function showCoachModeEverywhere(): void {
+  revalidatePath('/', 'layout');
+}
+
 /** Switches Coach mode on for the session account (R-11, R-13). */
 export async function startCoachingAction(): Promise<void> {
   const account = await requireOnboarded();
   await startCoaching(getDb(), account.id, new Date());
-  refresh();
+  showCoachModeEverywhere();
 }
 
 /** What the Coach mode switch shows after switching off was asked for. */
@@ -40,7 +50,7 @@ export async function stopCoachingAction(): Promise<StopCoachingState> {
   const account = await requireOnboarded();
   const result = await stopCoaching(getDb(), account.id, new Date());
   if (result.ok) {
-    refresh();
+    showCoachModeEverywhere();
     return {};
   }
   const players = await coachPlayers(getDb(), account.id);

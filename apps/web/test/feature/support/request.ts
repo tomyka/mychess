@@ -34,6 +34,8 @@ export interface MockedRequest {
   mailFails: boolean;
   /** How many times `refresh()` (next/cache) was called. */
   refreshed: number;
+  /** Each `revalidatePath(path, type)` call (next/cache), in order. */
+  revalidated: (readonly [string, string | undefined])[];
   /** The auth `getAuth()` answers with. */
   built?: BuiltAuth;
   /** The database `getDb()` answers with. */
@@ -47,6 +49,7 @@ export const request: MockedRequest = {
   mailed: [],
   mailFails: false,
   refreshed: 0,
+  revalidated: [],
 };
 
 /** A fresh request, signed out, on `built` and `db`. */
@@ -57,6 +60,7 @@ export function resetRequest(built: BuiltAuth, db: Db): void {
     mailed: [],
     mailFails: false,
     refreshed: 0,
+    revalidated: [],
     built,
     db,
   });
@@ -169,10 +173,16 @@ export function nextNavigation(): {
 }
 
 /** The body of a `next/cache` mock that counts refreshes. */
-export function nextCache(): { refresh: () => void } {
+export function nextCache(): {
+  refresh: () => void;
+  revalidatePath: (path: string, type?: string) => void;
+} {
   return {
     refresh: () => {
       request.refreshed += 1;
+    },
+    revalidatePath: (path, type) => {
+      request.revalidated.push([path, type]);
     },
   };
 }

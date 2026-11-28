@@ -41,7 +41,9 @@ describe('startCoachingAction (R-11, R-13)', () => {
       { email: 'jonas@example.lt', coach: true },
       { email: 'rokas@example.lt', coach: false },
     ]);
-    expect(request.refreshed).toBe(1);
+    // The whole tree from the root layout: the shell's Coach tab follows
+    // even where a loading boundary sits under the layout (#381).
+    expect(request.revalidated).toEqual([['/', 'layout']]);
   });
 
   it('sends a signed-out visitor to sign-in', async () => {
@@ -70,7 +72,8 @@ describe('stopCoachingAction (R-100, R-109)', () => {
       await sql.rows('select revoked_at is not null as revoked from invites'),
     ).toEqual([{ revoked: true }, { revoked: true }]); // the group's own invite (R-204) and the one made here
     expect(await sql.count('groups')).toBe(1);
-    expect(request.refreshed).toBe(1);
+    // The Coach tab goes, as it came (#381).
+    expect(request.revalidated).toEqual([['/', 'layout']]);
   });
 
   it('refuses while players are linked, lists them by name and stays on', async () => {
@@ -92,6 +95,7 @@ describe('stopCoachingAction (R-100, R-109)', () => {
         "select coach_since is not null as coach from accounts where email = 'jonas@example.lt'",
       ),
     ).toEqual([{ coach: true }]);
+    expect(request.revalidated).toEqual([]);
     expect(request.refreshed).toBe(0);
   });
 
