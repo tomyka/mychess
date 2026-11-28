@@ -1,6 +1,16 @@
 import { readFile } from 'node:fs/promises';
-import { expect, type Page } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
+import {
+  COACH,
+  ROKAS,
+  coachReady,
+  linkedPlayer,
+  type Cast,
+} from './support/assignment-people';
+import { assignTo, fixture, importRepertoire } from './support/assignments';
+import { createInvite } from './support/coaching';
 import { linkIn, nextMailTo } from './support/mailpit';
+import { expectSheetShape } from './support/sheet';
 import {
   en,
   expectGreeting,
@@ -19,7 +29,8 @@ import { fromAccountMenu } from './support/nav';
 /** From the account menu to settings. */
 async function openSettings(page: Page): Promise<void> {
   await fromAccountMenu(page, en, 'settings');
-  await expect(page).toHaveURL(/\/settings$/);
+  // The menu names the tab it was opened from (`?from=`, #381 part 6).
+  await expect(page).toHaveURL(/\/settings(\?from=\w+)?$/u);
 }
 
 /** In settings: a new display name, saved. */
@@ -27,12 +38,14 @@ async function rename(page: Page, name: string): Promise<void> {
   await page
     .getByLabel(en.settings.profile.displayName, { exact: true })
     .fill(name);
-  // The profile's own Save: the training limits have one too (S6).
-  await page
-    .getByRole('region', { name: en.settings.profile.title })
+  // The Account card's own Save: the training limits have one too (S6).
+  const account = page.getByRole('region', { name: en.settings.account.title });
+  await account
     .getByRole('button', { name: en.settings.profile.submit })
     .click();
-  await expect(page.getByText(en.settings.profile.saved)).toBeVisible();
+  await expect(
+    account.getByRole('status').filter({ hasText: en.settings.saved }),
+  ).toBeVisible();
 }
 
 test('settings offer no language choice; a changed name shows at once, in English', async ({
@@ -170,3 +183,79 @@ test('an account that has not finished onboarding deletes itself by typing its e
   });
   expect(mail.Subject).toBe(en.mail.deleted.subject);
 });
+
+/** Rokas's Italian (docs/personas/u1400.md), as assignments.spec.ts imports it. */
+const ITALIAN = 'Itališkoji partija';
+
+/** Settings' cards, most used first (#381 part 6). */
+const CARD_ORDER = [
+  en.training.settings.title,
+  en.settings.myCoaches.title,
+  en.settings.account.title,
+  en.settings.coachMode.title,
+  en.settings.export.title,
+];
+
+test(
+  'R-237: settings cards come most used first, My coaches lists what the coach assigns, and Delete account opens a sheet',
+  { tag: '@mobile' },
+  async ({ page: coach, request, browser, isMobile }) => {
+    test.setTimeout(240_000);
+    const devices: BrowserContext[] = [];
+    const cast: Cast = { messages: en, browser, request, devices };
+    try {
+      await coachReady(coach, cast);
+      const rokas = await linkedPlayer(cast, {
+        link: await createInvite(coach, en),
+        name: ROKAS,
+      });
+      await importRepertoire(coach, en, {
+        file: fixture('italiskoji.pgn'),
+        side: 'white',
+        name: ITALIAN,
+      });
+      await assignTo(coach, en, { target: ROKAS });
+
+      const page = rokas.page;
+      await page.goto('/');
+      await openSettings(page);
+      await expect(
+        page.getByRole('main').getByRole('heading', { level: 2 }),
+      ).toHaveText(CARD_ORDER);
+
+      // My coaches: the coach, and under Assigned the Italian, no deadline.
+      const t = en.settings.myCoaches;
+      const coaches = page.getByRole('region', { name: t.title, exact: true });
+      await expect(
+        coaches.getByRole('heading', { level: 3, name: COACH, exact: true }),
+      ).toBeVisible();
+      const assigned = coaches
+        .getByRole('list', { name: t.assigned, exact: true })
+        .getByRole('listitem');
+      await expect(assigned).toHaveCount(1);
+      await expect(assigned.getByText(ITALIAN, { exact: true })).toBeVisible();
+      await expect(
+        assigned.getByText(en.coach.status.noDeadline, { exact: true }),
+      ).toBeVisible();
+
+      // Delete account…: a bottom sheet on a phone, a dialog on a desktop;
+      // Cancel closes it and gives focus back to the button.
+      const open = page.getByRole('button', {
+        name: en.settings.delete.open,
+        exact: true,
+      });
+      await open.click();
+      const sheet = page.getByRole('dialog', {
+        name: en.settings.delete.title,
+      });
+      await expectSheetShape(page, sheet, isMobile);
+      await sheet
+        .getByRole('button', { name: en.settings.delete.cancel, exact: true })
+        .click();
+      await expect(sheet).toBeHidden();
+      await expect(open).toBeFocused();
+    } finally {
+      for (const device of devices) await device.close();
+    }
+  },
+);

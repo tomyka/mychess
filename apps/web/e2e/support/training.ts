@@ -347,5 +347,7 @@ export async function setTrainingLimits(
       .getByRole('checkbox', { name: t.learnArrowsLabel })
       .setChecked(limits.learnArrows);
   await section.getByRole('button', { name: t.submit }).click();
-  await expect(section.getByText(t.saved, { exact: true })).toBeVisible();
+  await expect(
+    section.getByText(messages.settings.saved, { exact: true }),
+  ).toBeVisible();
 }

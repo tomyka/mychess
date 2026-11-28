@@ -19,7 +19,8 @@ export async function switchOnCoachMode(
   await fromAccountMenu(page, messages, 'settings');
   await expect(page).toHaveURL(/\/settings/);
   await page.getByRole('button', { name: t.switchOn }).click();
-  await expect(page.getByText(t.on, { exact: true })).toBeVisible();
+  // Switched on, the card offers to switch it off (#381 part 6).
+  await expect(page.getByRole('button', { name: t.switchOff })).toBeVisible();
 }
 
 /** An invite link as the dashboard shows it once. */
@@ -149,21 +150,45 @@ export async function expectInviteFrom(
   );
 }
 
+/** Who sent an invite: the coach and, for a group invite, the group. */
+interface Inviter {
+  readonly coach: string;
+  readonly group?: string;
+}
+
+/** Sign-in names the invite's coach and group before any sign-in (R-235). */
+async function expectSignInTeaser(
+  page: Page,
+  { coach, group }: Inviter,
+): Promise<void> {
+  const t = en.signIn;
+  await expect(
+    page.getByText(
+      group === undefined
+        ? format(t.invitedPersonal, { coach })
+        : format(t.invitedToGroup, { coach, group }),
+      { exact: true },
+    ),
+  ).toBeVisible();
+}
+
 /**
  * Signed out, opens `link`: sign-in by magic link, then onboarding as
  * `name`, each carrying the invite back (R-81), and lands on
- * the confirm screen.
+ * the confirm screen. Given `from`, sign-in names the coach and group and
+ * welcome says the invite comes next (R-235).
  */
 export async function signUpThroughInvite(
   page: Page,
   request: APIRequestContext,
-  { link, name }: { link: string; name: string },
+  { link, name, from }: { link: string; name: string; from?: Inviter },
 ): Promise<void> {
   const token = /\/invite\/([A-Za-z0-9_-]{43})$/.exec(link)?.[1];
   if (token === undefined) throw new Error(`no token in ${link}`);
   const next = encodeURIComponent(`/invite/${token}`);
   await page.goto(link);
   await expect(page).toHaveURL(new RegExp(`/sign-in\\?next=${next}$`));
+  if (from !== undefined) await expectSignInTeaser(page, from);
   const email = freshEmail();
   const mail = await requestLink(page, request, en, {
     typed: email,
@@ -171,6 +196,12 @@ export async function signUpThroughInvite(
   });
   await page.goto(linkIn(mail.Text));
   await expect(page).toHaveURL(new RegExp(`/welcome\\?next=${next}$`));
+  if (from !== undefined)
+    await expect(
+      page.getByText(format(en.onboarding.nextInvite, { coach: from.coach }), {
+        exact: true,
+      }),
+    ).toBeVisible();
   // Only the name: no language is offered to choose.
   await page.getByRole('textbox').fill(name);
   await page.getByRole('button', { name: en.onboarding.submit }).click();

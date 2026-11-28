@@ -62,8 +62,9 @@ test("a player opens Opponent's games from the Opponents tab, searches a FIDE ID
 
   await openTab(page, en, 'opponents');
   await expect(page).toHaveURL(/\/fide$/);
+  // The title is the tab's name (#381).
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    en.fide.title,
+    en.nav.opponents,
   );
   // The page's own document, served with no referrer at all (security
   // requirements, task 4), not the site-wide same-origin.
@@ -113,7 +114,7 @@ test('a FIDE ID that is not one is refused on the page', async ({
   await newOnboardedAccount(page, request, 'Mantas');
   await page.goto('/fide');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    en.fide.title,
+    en.nav.opponents,
   );
   const field = page.getByLabel(en.fide.idLabel);
 
