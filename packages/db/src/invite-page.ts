@@ -1,7 +1,7 @@
 import {
   acceptedBy,
+  comesWithGroupOf,
   isValidInvite,
-  joinedGroupOf,
   ok,
   type Account,
   type InviteKind,
@@ -74,26 +74,32 @@ export interface InviteAssignment {
   readonly deadline: string | null;
 }
 
+/** What an invite link may say to anyone holding it (R-235). */
+export interface InviteTeaser {
+  readonly coachDisplayName: string;
+  readonly groupName: string | null;
+}
+
+/** The coach's display name and the group's name, as any invite read names them. */
+const teaserOf = ({ invite, coach }: FoundInvite): InviteTeaser => ({
+  coachDisplayName: coach.displayName,
+  groupName: invite.groupName,
+});
+
 /**
- * What the invite page shows: an invite the player may accept now
- * (`active`), with what it comes with (R-236), or one that already serves
- * them (`accepted`, #329), so a second visit confirms instead of offering
- * it again.
+ * What the invite page shows: the teaser of an invite the player may
+ * accept now (`active`), with what it comes with (R-236), or of one that
+ * already serves them (`accepted`, #329), so a second visit confirms
+ * instead of offering it again.
  */
 export type InvitePreview =
-  | {
+  | (InviteTeaser & {
       readonly state: 'active';
-      readonly coachDisplayName: string;
-      readonly groupName: string | null;
       readonly kind: InviteKind;
       /** The current assignments of the group accepting joins; none for no group. */
       readonly assignments: readonly InviteAssignment[];
-    }
-  | {
-      readonly state: 'accepted';
-      readonly coachDisplayName: string;
-      readonly groupName: string | null;
-    };
+    })
+  | (InviteTeaser & { readonly state: 'accepted' });
 
 /**
  * acceptedBy's facts for `playerId` on `invite`, both reads filtered by
@@ -113,15 +119,15 @@ async function servedFacts(
 }
 
 /**
- * What an invite comes with (R-236): the assignments of the group
- * accepting it joins (joinedGroupOf), by repertoire name, read only once
- * accepting is allowed; none when it joins no group.
+ * What an invite comes with (R-236): the assignments, by repertoire name,
+ * of the group comesWithGroupOf allows on `decision`; none otherwise.
  */
 async function comesWith(
   db: Executor,
   invite: PreviewedInvite,
+  decision: Result<undefined, InviteRefusal>,
 ): Promise<InviteAssignment[]> {
-  const groupId = joinedGroupOf(invite);
+  const groupId = comesWithGroupOf(invite, decision);
   if (groupId === null) return [];
   const assigned = await assignmentsToGroup(db, invite.coachId, groupId);
   return assigned.map(({ repertoireName, deadline }) => ({
@@ -146,22 +152,13 @@ export async function previewInvite(
   const found = await findInvite(db, token);
   if (found === undefined) return INVALID;
   const { invite, coach } = found;
-  const shown = {
-    coachDisplayName: coach.displayName,
-    groupName: invite.groupName,
-  };
+  const teaser = teaserOf(found);
   if (acceptedBy(invite, playerId, await servedFacts(db, invite, playerId)))
-    return ok({ state: 'accepted', ...shown });
+    return ok({ state: 'accepted', ...teaser });
   const check = await decide(db, invite, coach, { playerId, now });
   if (!check.ok) return check;
-  const assignments = await comesWith(db, invite);
-  return ok({ state: 'active', ...shown, kind: invite.kind, assignments });
-}
-
-/** What an invite link may say to anyone holding it (R-235). */
-export interface InviteTeaser {
-  readonly coachDisplayName: string;
-  readonly groupName: string | null;
+  const assignments = await comesWith(db, invite, check);
+  return ok({ state: 'active', ...teaser, kind: invite.kind, assignments });
 }
 
 /**
@@ -177,7 +174,7 @@ export async function inviteTeaser(
 ): Promise<InviteTeaser | undefined> {
   const found = await findInvite(db, token);
   if (found === undefined) return undefined;
-  const { invite, coach } = found;
-  if (!isValidInvite(invite, coach, now)) return undefined;
-  return { coachDisplayName: coach.displayName, groupName: invite.groupName };
+  return isValidInvite(found.invite, found.coach, now)
+    ? teaserOf(found)
+    : undefined;
 }

@@ -199,6 +199,7 @@ export {
   acceptedBy,
   canAccept,
   canRevoke,
+  comesWithGroupOf,
   inviteExpiry,
   inviteSchema,
   inviteState,

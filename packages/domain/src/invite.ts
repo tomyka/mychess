@@ -120,11 +120,21 @@ export const isValidInvite = (
 /**
  * The group accepting `invite` joins the player to, whatever its kind: a
  * group invite's group (R-98), or the group a personal invite names
- * (R-110); null for none. What the invite comes with is that group's
- * assignments (R-236).
+ * (R-110); null for none.
  */
 export const joinedGroupOf = (invite: Pick<Invite, 'groupId'>): string | null =>
   invite.groupId;
+
+/**
+ * The group whose assignments the invite page may show the player before
+ * joining (R-236): the group accepting joins (joinedGroupOf), only while
+ * `decision` (canAccept now) allows accepting; null otherwise, so a refused
+ * invite shows nothing of the group.
+ */
+export const comesWithGroupOf = (
+  invite: Pick<Invite, 'groupId'>,
+  decision: AcceptResult,
+): string | null => (decision.ok ? joinedGroupOf(invite) : null);
 
 /** An already linked player needs no new link, so the limit does not apply. */
 const hasRoom = (coach: InvitingCoach, counts: AcceptCounts): boolean =>

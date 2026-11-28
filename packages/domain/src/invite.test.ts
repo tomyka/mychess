@@ -1,3 +1,4 @@
+import { ok as allowed, refuse } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import {
   INVITE_ISSUES,
@@ -8,6 +9,7 @@ import {
   acceptedBy,
   canAccept,
   canRevoke,
+  comesWithGroupOf,
   inviteExpiry,
   inviteSchema,
   inviteState,
@@ -164,6 +166,27 @@ describe('joinedGroupOf (R-98, R-110, R-236)', () => {
   ])('%s', (_, subject, group) => {
     expect(joinedGroupOf(subject)).toBe(group);
   });
+});
+
+describe('comesWithGroupOf (R-236)', () => {
+  it.each<[string, Invite, string | null]>([
+    ["a group invite shows its group's", invite(), GROUP],
+    [
+      "a personal invite naming a group shows that group's",
+      personal({ groupId: GROUP }),
+      GROUP,
+    ],
+    ['a personal invite without a group shows none', personal(), null],
+  ])('while accepting is allowed, %s', (_, subject, group) => {
+    expect(comesWithGroupOf(subject, allowed())).toBe(group);
+  });
+
+  it.each(Object.values(INVITE_REFUSALS))(
+    'shows none once accepting is refused (%s)',
+    (reason) => {
+      expect(comesWithGroupOf(invite(), refuse(reason))).toBeNull();
+    },
+  );
 });
 
 describe('canAccept', () => {
