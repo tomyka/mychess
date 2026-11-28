@@ -37,7 +37,7 @@ import {
   signIn,
   test,
 } from './support/journey';
-import { openTab } from './support/nav';
+import { fromAccountMenu, mainNav, openTab } from './support/nav';
 
 const GROUP = 'Šeštadienio grupė';
 const COACH = 'Rimantas Vaitkus';
@@ -317,3 +317,32 @@ test('R-233: a group’s New link replaces its open link, and Revoke closes the 
     for (const device of devices) await device.close();
   }
 });
+
+test(
+  'R-11, R-13: Coach mode switched on and off in Settings, reached through the account menu, brings the Coach tab and takes it away',
+  { tag: '@mobile' },
+  async ({ page, request }) => {
+    await newOnboardedAccount(page, request, COACH);
+    const coachTab = mainNav(page, en).getByRole('link', {
+      name: en.nav.coach,
+    });
+    await expect(coachTab).toHaveCount(0);
+
+    // On, from Today through the account menu (a client navigation).
+    await switchOnCoachMode(page, en);
+    await expect(coachTab).toBeVisible();
+
+    // Off, from the Coach tab through the account menu again: with no
+    // player linked, it goes off and the tab goes with it.
+    await coachTab.click();
+    await expect(page).toHaveURL(/\/coach$/u);
+    await fromAccountMenu(page, en, 'settings');
+    await expect(page).toHaveURL(/\/settings\?from=coach$/u);
+    const t = en.settings.coachMode;
+    await page.getByRole('button', { name: t.switchOff, exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: t.switchOn, exact: true }),
+    ).toBeVisible();
+    await expect(coachTab).toHaveCount(0);
+  },
+);
