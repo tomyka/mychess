@@ -1,6 +1,7 @@
 'use client';
 
 import type { InviteTeaser } from '@mychess/db';
+import { EntryTitle } from '../entry-frame';
 import type { Provider } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useState, type JSX, type SubmitEvent } from 'react';
@@ -180,17 +181,17 @@ function ProviderButtons({
 }
 
 /**
- * The line under the title: from a valid invite, who invited (R-235); from
- * an invite that names no one, the generic invite line (a return path is
- * only ever an invite: returnPath, R-81); otherwise what MyChess is.
+ * The invite line under what MyChess is: from a valid invite, who invited
+ * (R-235); from an invite that names no one, the generic invite line (a
+ * return path is only ever an invite: returnPath, R-81); else nothing.
  */
-function LeadLine({
+function InviteLine({
   next,
   teaser,
 }: {
   readonly next: string | null;
   readonly teaser: InviteTeaser | null;
-}): JSX.Element {
+}): JSX.Element | null {
   const t = useTranslations('signIn');
   if (teaser !== null) {
     const coach = teaser.coachDisplayName;
@@ -203,7 +204,7 @@ function LeadLine({
     );
   }
   if (next !== null) return <p className="font-medium">{t('forInvite')}</p>;
-  return <p>{t('description')}</p>;
+  return null;
 }
 
 /**
@@ -237,8 +238,9 @@ export function SignInForm({
   return (
     <>
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t('signIn.title')}</h1>
-        <LeadLine next={next} teaser={teaser} />
+        <EntryTitle>{t('signIn.title')}</EntryTitle>
+        <p>{t('signIn.description')}</p>
+        <InviteLine next={next} teaser={teaser} />
         <p className="text-fg-muted">{t('signIn.intro')}</p>
       </header>
       <StatusLine

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { outOfOrder } from '../../../test/dom-order';
 import { MESSAGES } from '../../i18n/catalogue';
 import { queueKey } from '../training/result-queue';
 import { SignInForm, type SignInFormProps } from './sign-in-form';
@@ -244,9 +245,15 @@ describe('SignInForm with a return path (R-81)', () => {
 
   it('says the person signs in to accept a coach’s invite, naming no one for an invite that names no one (#329)', () => {
     renderForm({ next: NEXT, teaser: null });
-    expect(screen.getByText(s.forInvite)).toBeDefined();
     expect(screen.queryByText(/invited you/u)).toBeNull();
-    expect(screen.queryByText(s.description)).toBeNull();
+    // What MyChess is stays, the invite line under it (slice review).
+    expect(
+      outOfOrder([
+        screen.getByRole('heading', { level: 1, name: s.title }),
+        screen.getByText(s.description),
+        screen.getByText(s.forInvite),
+      ]),
+    ).toEqual([]);
   });
 
   it('names the coach and the group of a valid invite (R-235)', () => {
@@ -255,10 +262,13 @@ describe('SignInForm with a return path (R-81)', () => {
       teaser: { coachDisplayName: 'Rimantas V.', groupName: 'Juniors 2026' },
     });
     expect(
-      screen.getByText(
-        'Rimantas V. invited you to Juniors 2026. Sign in to accept.',
-      ),
-    ).toBeDefined();
+      outOfOrder([
+        screen.getByText(s.description),
+        screen.getByText(
+          'Rimantas V. invited you to Juniors 2026. Sign in to accept.',
+        ),
+      ]),
+    ).toEqual([]);
     expect(screen.queryByText(s.forInvite)).toBeNull();
   });
 

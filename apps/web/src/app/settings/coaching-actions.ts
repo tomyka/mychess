@@ -10,6 +10,7 @@ import {
 import type { AccountRef, CoachRefusal } from '@mychess/domain';
 import { refresh, revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { ROUTES } from '../../lib/routes';
 import { accountIdSchema } from '../../server/account-id';
 import { getDb } from '../../server/db';
 import { requireOnboarded } from '../../server/session';
@@ -23,7 +24,7 @@ const groupIdSchema = z.uuid();
  * has a loading boundary under its layout (#381).
  */
 function showCoachModeEverywhere(): void {
-  revalidatePath('/', 'layout');
+  revalidatePath(ROUTES.home, 'layout');
 }
 
 /** Switches Coach mode on for the session account (R-11, R-13). */

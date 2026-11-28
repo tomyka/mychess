@@ -14,7 +14,7 @@ export function CardSkeletons({
 }: {
   readonly sizes: readonly string[];
 }): JSX.Element {
-  const t = useTranslations('repertoires');
+  const t = useTranslations('nav');
   return (
     <>
       <SlowStatus text={t('loading')} />

@@ -6,7 +6,12 @@ import {
 } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
-import { settingsFrom, settingsParent } from '../../lib/routes';
+import type { MessageKey } from '../../i18n/message-key';
+import {
+  settingsFrom,
+  settingsParent,
+  type SettingsFrom,
+} from '../../lib/routes';
 import { getDb } from '../../server/db';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
@@ -83,6 +88,14 @@ function DataSection({
   );
 }
 
+/** Each tab Settings can be opened from, by its name in the navigation. */
+const TAB_NAME = {
+  today: 'nav.today',
+  repertoires: 'nav.repertoires',
+  opponents: 'nav.opponents',
+  coach: 'nav.coach',
+} as const satisfies Record<SettingsFrom, MessageKey>;
+
 /** "Settings", back to the tab the account menu opened it from (`?from=`). */
 function Header({ from }: { readonly from: unknown }): JSX.Element {
   const t = useTranslations();
@@ -90,7 +103,7 @@ function Header({ from }: { readonly from: unknown }): JSX.Element {
     <PageHeader
       back={{
         href: settingsParent(from),
-        parent: t(`nav.${settingsFrom(from)}`),
+        parent: t(TAB_NAME[settingsFrom(from)]),
       }}
       title={t('settings.title')}
     />

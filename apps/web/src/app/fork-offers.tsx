@@ -9,7 +9,7 @@ import {
   declineForkOfferAction,
   type ForkOfferState,
 } from './fork-offer-actions';
-import { SECTION_TITLE } from './settings/styles';
+import { SECTION_TITLE } from './surfaces';
 import { RefusalLine } from './coach/refusal-line';
 import { useLatestAction } from './use-latest-action';
 

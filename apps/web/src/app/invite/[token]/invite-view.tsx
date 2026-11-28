@@ -7,9 +7,9 @@ import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
 import { ROUTES } from '../../../lib/routes';
 import { PRIMARY_BUTTON, QUIET_ACTION, SECONDARY_BUTTON } from '../../buttons';
-import { EntryFrame } from '../../entry-frame';
+import { EntryFrame, EntryTitle } from '../../entry-frame';
 import { PendingButton } from '../../pending-button';
-import { SECTION_TITLE } from '../../settings/styles';
+import { SECTION_TITLE } from '../../surfaces';
 import { StatusLine } from '../../status-line';
 import { useShortDeadline } from '../../use-deadline';
 import { acceptInviteAction, type AcceptState } from './actions';
@@ -27,8 +27,6 @@ type Active = Extract<InvitePreview, { state: 'active' }>;
 
 const INITIAL: AcceptState = {};
 
-const TITLE = 'text-2xl font-bold sm:text-3xl';
-
 /** Where a refused invite sends the player on. */
 const WAYS_ON = {
   today: { href: ROUTES.home, label: 'nav.goToday' },
@@ -38,7 +36,8 @@ const WAYS_ON = {
 /**
  * Each refusal's heading, line, tone and way on. An invite from a disabled
  * coach (R-108) or one out of Coach mode is already `invalid`, so a
- * refusal says no more than that the invite cannot be used.
+ * refusal says no more than that the invite cannot be used. None names
+ * the coach or the group, however the page met it.
  */
 const REFUSED = {
   'invite.invalid': {
@@ -54,12 +53,25 @@ const REFUSED = {
     on: WAYS_ON.coach,
   },
   'invite.coachFull': {
-    title: 'title',
+    title: 'coachFullTitle',
     text: 'coachFull',
     tone: 'error',
     on: WAYS_ON.today,
   },
 } as const satisfies Record<RefusalKey, unknown>;
+
+/** Who invites, to which group: the confirm screen's heading. */
+function InviteTitle({ invite }: { readonly invite: Active }): JSX.Element {
+  const t = useTranslations('invite');
+  const coach = invite.coachDisplayName;
+  return (
+    <EntryTitle>
+      {invite.groupName === null
+        ? t('titlePersonal', { coach })
+        : t('titleGroup', { coach, group: invite.groupName })}
+    </EntryTitle>
+  );
+}
 
 /** Why the invite cannot be accepted, and a way on. */
 function Refused({ reason }: { readonly reason: RefusalKey }): JSX.Element {
@@ -68,7 +80,7 @@ function Refused({ reason }: { readonly reason: RefusalKey }): JSX.Element {
   const { title, text, tone, on } = REFUSED[reason];
   return (
     <>
-      <h1 className={TITLE}>{t(title)}</h1>
+      <EntryTitle>{t(title)}</EntryTitle>
       <StatusLine text={t(text)} tone={tone} />
       <Link href={on.href} className={`${SECONDARY_BUTTON} self-start`}>
         {messages(on.label)}
@@ -82,7 +94,7 @@ function Accepted({ coach }: { readonly coach: string }): JSX.Element {
   const t = useTranslations();
   return (
     <>
-      <h1 className={TITLE}>{t('invite.acceptedTitle', { coach })}</h1>
+      <EntryTitle>{t('invite.acceptedTitle', { coach })}</EntryTitle>
       <Link href={ROUTES.home} className={`${PRIMARY_BUTTON} self-start`}>
         {t('nav.goToday')}
       </Link>
@@ -154,14 +166,9 @@ function Confirm({
   readonly action: (form: FormData) => void;
 }): JSX.Element {
   const t = useTranslations('invite');
-  const coach = invite.coachDisplayName;
   return (
     <>
-      <h1 className={TITLE}>
-        {invite.groupName === null
-          ? t('titlePersonal', { coach })
-          : t('titleGroup', { coach, group: invite.groupName })}
-      </h1>
+      <InviteTitle invite={invite} />
       <Privacy />
       <ComesWith assignments={invite.assignments} today={today} />
       <form action={action} className="flex flex-wrap items-center gap-3">

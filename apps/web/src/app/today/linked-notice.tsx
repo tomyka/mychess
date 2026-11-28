@@ -2,12 +2,13 @@
 
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type JSX } from 'react';
+import { LINKED_PARAMS } from '../../lib/routes';
 import type { LinkedFact } from '../../server/today-page';
 import { QUIET_ACTION } from '../buttons';
 import { StatusLine } from '../status-line';
 
 /** The params accepting an invite lands on Today with (R-234). */
-const LINKED_PARAMS = ['linked', 'group'] as const;
+const DROPPED = Object.values(LINKED_PARAMS);
 
 /**
  * Once the notice has shown, takes `names` out of the address and keeps the
@@ -36,7 +37,7 @@ export function LinkedNotice({
 }): JSX.Element | null {
   const t = useTranslations('today');
   const [shown, setShown] = useState(true);
-  useDropParams(LINKED_PARAMS);
+  useDropParams(DROPPED);
   if (!shown) return null;
   const text =
     linked.groupName === null

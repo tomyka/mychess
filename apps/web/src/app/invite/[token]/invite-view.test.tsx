@@ -167,6 +167,20 @@ describe('InviteView, an invite open to accept', () => {
     expect(h1().textContent).toBe(i.invalidTitle);
     expect(screen.queryByRole('button', { name: i.accept })).toBeNull();
   });
+
+  it('heads a full coach’s refusal Accept met with its own title, naming no one (slice review)', async () => {
+    server.accept.mockResolvedValue({ refusal: 'invite.coachFull' });
+    renderView(active('Juniors 2026'));
+    fireEvent.click(screen.getByRole('button', { name: i.accept }));
+    const status = await screen.findByText(i.coachFull);
+    expect(status.className).toContain('text-error');
+    expect(h1().textContent).toBe(
+      'This coach cannot take more players right now',
+    );
+    expect(screen.queryByText(/Rimantas|Juniors/u)).toBeNull();
+    expect(screen.queryByRole('button', { name: i.accept })).toBeNull();
+    expect(link(MESSAGES.nav.goToday)).toBe('/');
+  });
 });
 
 describe('InviteView, an invite this account already accepted (#329)', () => {
@@ -231,7 +245,9 @@ describe('InviteView, an invite that cannot be accepted', () => {
 
   it("keeps a full coach's refusal, in the error tone", () => {
     renderView(refused('invite.coachFull'));
-    expect(h1().textContent).toBe(i.title);
+    expect(h1().textContent).toBe(
+      'This coach cannot take more players right now',
+    );
     const status = screen.getByRole('status');
     expect(status.textContent).toBe(
       'This coach cannot link any more players. Let your coach know.',

@@ -8,7 +8,8 @@ import FideLoading from './fide/loading';
 import InviteLoading from './invite/[token]/loading';
 import SettingsLoading from './settings/loading';
 
-const LOADING = MESSAGES.repertoires.loading;
+// The app's own word for a page loading, not the repertoire page's.
+const LOADING = MESSAGES.nav.loading;
 
 function renderIn(page: JSX.Element): void {
   render(

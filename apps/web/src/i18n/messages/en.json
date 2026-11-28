@@ -8,6 +8,7 @@
     "skip": "Skip to content",
     "today": "Today",
     "goToday": "Go to Today",
+    "loading": "Loading",
     "todayDue": "Today, {count} due",
     "repertoires": "Repertoires",
     "opponents": "Opponents",
@@ -307,7 +308,6 @@
     "kindInvalid": "Choose a kind of invite.",
     "groupRequired": "Choose a group for a group invite.",
     "groupInvalid": "Choose a group from the list.",
-    "title": "Invite from a coach",
     "titlePersonal": "{coach} invites you",
     "titleGroup": "{coach} invites you to {group}",
     "privacy": {
@@ -325,6 +325,7 @@
     "ownInviteTitle": "This is your own invite",
     "ownInvite": "Send the link to a player.",
     "backToCoach": "Back to Coach",
+    "coachFullTitle": "This coach cannot take more players right now",
     "coachFull": "This coach cannot link any more players. Let your coach know."
   },
   "mail": {

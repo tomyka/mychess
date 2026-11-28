@@ -4,6 +4,18 @@ import { BRAND } from '../lib/brand';
 import { ROUTES } from '../lib/routes';
 
 /**
+ * An entry screen's one heading, the same size on each of them (sign-in,
+ * welcome, the invite page, the 404 and error pages).
+ */
+export function EntryTitle({
+  children,
+}: {
+  readonly children: ReactNode;
+}): JSX.Element {
+  return <h1 className="text-2xl font-bold sm:text-3xl">{children}</h1>;
+}
+
+/**
  * The frame of the screens before the app (#381 part 6): sign-in, welcome
  * and the invite page. The wordmark in `fg`, as the top bar has it, over
  * one soft card; `below` goes under the card (welcome's delete link). Top

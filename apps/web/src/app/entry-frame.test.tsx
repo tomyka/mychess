@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { EntryFrame } from './entry-frame';
+import { EntryFrame, EntryTitle } from './entry-frame';
 
 describe('EntryFrame (#381 part 6)', () => {
   it('heads the page with the wordmark, a link to Today', () => {
@@ -45,5 +45,19 @@ describe('EntryFrame (#381 part 6)', () => {
     const button = screen.getByRole('button', { name: 'Delete account…' });
     expect(card?.contains(button)).toBe(false);
     expect(below?.contains(button)).toBe(true);
+  });
+});
+
+describe('EntryTitle (#381 part 6)', () => {
+  it('is the screen’s one level-1 heading, at the entry screens’ size', () => {
+    render(
+      <EntryFrame>
+        <EntryTitle>Sign in</EntryTitle>
+      </EntryFrame>,
+    );
+    const title = screen.getByRole('heading', { level: 1, name: 'Sign in' });
+    expect(title.className.split(' ')).toEqual(
+      expect.arrayContaining(['text-2xl', 'font-bold', 'sm:text-3xl']),
+    );
   });
 });

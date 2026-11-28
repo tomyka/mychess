@@ -1,11 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { ROUTES } from '../lib/routes';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
-import { EntryFrame } from './entry-frame';
+import { PRIMARY_BUTTON } from './buttons';
+import { EntryFrame, EntryTitle } from './entry-frame';
+import { GoToday } from './go-today';
 
 /**
  * What the error pages show (#381 part 6): that something went wrong, Try
@@ -18,17 +17,15 @@ export function ErrorView({
 }: {
   readonly reset: () => void;
 }): JSX.Element {
-  const t = useTranslations();
+  const t = useTranslations('error');
   return (
     <EntryFrame>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('error.title')}</h1>
+      <EntryTitle>{t('title')}</EntryTitle>
       <div className="flex flex-wrap gap-3">
         <button type="button" onClick={reset} className={PRIMARY_BUTTON}>
-          {t('error.retry')}
+          {t('retry')}
         </button>
-        <Link href={ROUTES.home} className={SECONDARY_BUTTON}>
-          {t('nav.goToday')}
-        </Link>
+        <GoToday look="secondary" />
       </div>
     </EntryFrame>
   );

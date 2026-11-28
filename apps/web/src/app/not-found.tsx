@@ -1,24 +1,12 @@
 import { accountStage } from '@mychess/domain';
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { ROUTES } from '../lib/routes';
 import { getAccount } from '../server/session';
-import { PRIMARY_BUTTON } from './buttons';
-import { EntryFrame } from './entry-frame';
+import { EntryFrame, EntryTitle } from './entry-frame';
+import { GoToday } from './go-today';
 import { AppShell } from './shell/app-shell';
 import { PageHeader } from './shell/page-header';
 import { CONTENT } from './surfaces';
-
-/** The way back to Today, under the one line. */
-function GoToday(): JSX.Element {
-  const t = useTranslations('nav');
-  return (
-    <Link href={ROUTES.home} className={`${PRIMARY_BUTTON} self-start`}>
-      {t('goToday')}
-    </Link>
-  );
-}
 
 /** In the shell: a page with its title row, as every shell page has. */
 function InShell(): JSX.Element {
@@ -29,7 +17,7 @@ function InShell(): JSX.Element {
         <PageHeader title={t('title')}>
           <p className="text-fg-muted">{t('body')}</p>
         </PageHeader>
-        <GoToday />
+        <GoToday look="primary" />
       </main>
     </AppShell>
   );
@@ -40,9 +28,9 @@ function InFrame(): JSX.Element {
   const t = useTranslations('notFound');
   return (
     <EntryFrame>
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+      <EntryTitle>{t('title')}</EntryTitle>
       <p className="text-fg-muted">{t('body')}</p>
-      <GoToday />
+      <GoToday look="primary" />
     </EntryFrame>
   );
 }

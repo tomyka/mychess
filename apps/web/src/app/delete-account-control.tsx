@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useId, useRef, useState, type JSX } from 'react';
 import { DANGER_ROW, QUIET_ACTION, QUIET_BUTTON } from './buttons';
 import { DeleteAccountForm } from './delete-account-form';
-import { SECTION_TITLE } from './settings/styles';
+import { SECTION_TITLE } from './surfaces';
 import { Sheet } from './sheet';
 
 /** Where the control sits: a row of Settings' Your data, or under welcome's card. */

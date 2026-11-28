@@ -24,7 +24,9 @@ export const SETTINGS_COLUMN =
 /** A text field's width in Settings: up to 360px. */
 export const SETTINGS_FIELD = 'max-w-[22.5rem]';
 
-export const SECTION_TITLE = 'text-xl font-bold';
+// One definition, in the neutral ../surfaces.ts; kept here for the form
+// pages that take their section classes from this module.
+export { SECTION_TITLE } from '../surfaces';
 
 /** A text link that is still a 44px touch target. */
 export const TEXT_LINK =

@@ -8,7 +8,7 @@ import type { LearnFocus, TrainingMode } from '@mychess/chess';
 export const TRAINING_SETTINGS_SECTION = 'training';
 
 /** The id of settings' My coaches section, which ROUTES.myCoaches opens. */
-const MY_COACHES_SECTION = 'coaches';
+export const MY_COACHES_SECTION = 'coaches';
 
 export const ROUTES = {
   home: '/',
@@ -33,6 +33,13 @@ export const invitePath = (token: string): string =>
   `/invite/${encodeURIComponent(token)}`;
 
 /**
+ * The names of the params accepting an invite lands on Today with (R-234):
+ * the coach's id and, for a group invite, the group's. Today reads them
+ * and the notice takes them out of the address once shown.
+ */
+export const LINKED_PARAMS = { coach: 'linked', group: 'group' } as const;
+
+/**
  * Today after accepting an invite, with whom (R-234): the coach and, for a
  * group invite, the group, by id. Today names them only for a coach the
  * session account is linked to, never from the URL.
@@ -41,8 +48,8 @@ export const acceptedInvitePath = (
   coachId: string,
   groupId: string | null,
 ): string => {
-  const query = new URLSearchParams({ linked: coachId });
-  if (groupId !== null) query.set('group', groupId);
+  const query = new URLSearchParams({ [LINKED_PARAMS.coach]: coachId });
+  if (groupId !== null) query.set(LINKED_PARAMS.group, groupId);
   return `${ROUTES.home}?${query.toString()}`;
 };
 

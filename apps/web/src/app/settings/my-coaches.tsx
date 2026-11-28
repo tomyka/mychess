@@ -3,6 +3,7 @@
 import type { GroupRef } from '@mychess/db';
 import { useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
+import { MY_COACHES_SECTION } from '../../lib/routes';
 import type { MyCoach } from '../../server/settings-page';
 import { DANGER_ROW_FITTED } from '../buttons';
 import { AssignmentStatusLine } from '../coach/assignment-status-line';
@@ -10,9 +11,6 @@ import { ConfirmedAction } from '../confirmed-action';
 import { PendingButton } from '../pending-button';
 import { leaveGroupAction, unlinkCoachAction } from './coaching-actions';
 import { SECTION_TITLE, SETTINGS_CARD } from './styles';
-
-/** The id the section has; ROUTES.myCoaches opens it. */
-const SECTION_ID = 'coaches';
 
 /** A row of a coach: its text first, its action at the end from sm. */
 const ROW =
@@ -157,7 +155,7 @@ export function MyCoaches({
   const titleId = useId();
   return (
     <section
-      id={SECTION_ID}
+      id={MY_COACHES_SECTION}
       aria-labelledby={titleId}
       className={`${SETTINGS_CARD} scroll-mt-4 md:scroll-mt-[calc(var(--spacing-tabbar)+1rem)]`}
     >

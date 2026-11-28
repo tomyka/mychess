@@ -10,6 +10,7 @@ import {
   type TodayAssigned,
   type TodayForkOffer,
 } from './assignment-pages';
+import { LINKED_PARAMS } from '../lib/routes';
 import { getDb } from './db';
 import {
   todayList,
@@ -41,10 +42,14 @@ export interface TodayPage {
 }
 
 /** Today's search params: the ids accepting an invite lands with (R-234). */
-export interface TodayParams {
-  readonly linked?: string | string[] | undefined;
-  readonly group?: string | string[] | undefined;
-}
+export type TodayParams = Readonly<
+  Partial<
+    Record<
+      (typeof LINKED_PARAMS)[keyof typeof LINKED_PARAMS],
+      string | string[] | undefined
+    >
+  >
+>;
 
 /**
  * The linked notice's fact: the coach of `params.linked` among the
@@ -56,7 +61,8 @@ async function linkedFact(
   playerId: string,
   params: TodayParams,
 ): Promise<LinkedFact | null> {
-  const { linked: coachId, group: groupId } = params;
+  const coachId = params[LINKED_PARAMS.coach];
+  const groupId = params[LINKED_PARAMS.group];
   if (typeof coachId !== 'string') return null;
   const coaches = await playerCoaches(getDb(), playerId);
   const coach = coaches.find(({ id }) => id === coachId);

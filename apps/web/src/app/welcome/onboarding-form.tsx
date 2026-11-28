@@ -4,6 +4,7 @@ import type { InviteTeaser } from '@mychess/db';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { PRIMARY_BUTTON } from '../buttons';
+import { EntryTitle } from '../entry-frame';
 import { NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
@@ -43,7 +44,7 @@ export function OnboardingForm({
   return (
     <>
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+        <EntryTitle>{t('title')}</EntryTitle>
         <p className="text-fg-muted">{t('intro')}</p>
       </header>
       <StatusLine
