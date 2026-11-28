@@ -9,6 +9,7 @@ import {
   test,
 } from './support/journey';
 import { mainNav } from './support/nav';
+import { expectSheetShape } from './support/sheet';
 
 const NO_SUCH_PAGE = '/no-such-page';
 
@@ -47,3 +48,20 @@ test('signed out, a page that does not exist says so without the shell', async (
   // Today asks a visitor to sign in first.
   await expect(page).toHaveURL(/\/sign-in/u);
 });
+
+test(
+  '#400: on a phone, the 404 in the shell carries the account menu, and it opens as a sheet',
+  { tag: '@mobile' },
+  async ({ page, request, isMobile }) => {
+    const name = 'Gabija Navickaitė';
+    const email = await newOnboardedAccount(page, request, name);
+    await expectNotFound(page);
+    const avatar = page.getByRole('button', { name: en.nav.account.open });
+    await expect(avatar).toBeVisible();
+    await avatar.click();
+    await expect(page.getByText(email, { exact: true })).toBeVisible();
+    const sheet = page.getByRole('dialog', { name });
+    if (isMobile) await expectSheetShape(page, sheet, true);
+    else await expect(sheet).toHaveCount(0);
+  },
+);

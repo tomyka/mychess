@@ -1,5 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { expect, type BrowserContext, type Page } from '@playwright/test';
+import {
+  expect,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import {
   COACH,
   ROKAS,
@@ -257,5 +262,34 @@ test(
     } finally {
       for (const device of devices) await device.close();
     }
+  },
+);
+
+/**
+ * `heading` is scrolled to: in the top quarter of the window. Unscrolled,
+ * My coaches' heading is already in view near the bottom (y 675 of 720 on
+ * desktop, 607 of 839 on Pixel 7), so "in the viewport" would not tell.
+ */
+async function expectNearTop(page: Page, heading: Locator): Promise<void> {
+  await expect(heading).toBeInViewport();
+  await expect
+    .poll(async () => (await heading.boundingBox())?.y ?? Infinity)
+    .toBeLessThan((page.viewportSize()?.height ?? 0) / 4);
+}
+
+test(
+  '#403: My coaches opened by its address scrolls to its card, on load and on reload',
+  { tag: '@mobile' },
+  async ({ page, request }) => {
+    await newOnboardedAccount(page, request, 'Austėja Žukauskaitė');
+    const heading = page.getByRole('heading', {
+      level: 2,
+      name: en.settings.myCoaches.title,
+      exact: true,
+    });
+    await page.goto('/settings#coaches');
+    await expectNearTop(page, heading);
+    await page.reload();
+    await expectNearTop(page, heading);
   },
 );
