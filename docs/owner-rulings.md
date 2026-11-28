@@ -267,6 +267,10 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-231** (#381, 2026-11-27): The coach's compact progress rows (dashboard, group, player page, Repertoire screen assignees) show the four-state bar beside "% learned", the due count when above zero, a Done pill when the assignment is done (R-129), and "Not started" only when nothing is started.
 - **R-232** (#381, 2026-11-27): Invites are split by kind: a group's invite lives on the group page (its open link's expiry and New link); a personal invite is made from "Invite a player" on the dashboard. A link is shown once, when made; open personal invites list their dates with Revoke.
 - **R-233** (#381, 2026-11-27): A group has at most one live invite link. New link on the group page revokes the group's earlier open links in the same step, and a Revoke button (error tone, confirmed) closes the current link without making a new one. Keeps R-98's "revocable" for group invites under R-232.
+- **R-234** (#381, 2026-11-28): Accepting a coach's invite lands the player on Today with a one-time notice "You are linked with <coach>" (and the group for a group invite). My coaches stays reachable from the account menu. Replaces landing on Settings > My coaches.
+- **R-235** (#381, 2026-11-28): An invite link names its coach (display name) and, for a group invite, the group's name to a visitor who is not signed in, on the sign-in page reached from the link. Nothing about the coach's players is shown; an invalid link shows no name.
+- **R-236** (#381, 2026-11-28): The signed-in confirm page of a group invite lists the repertoires currently assigned to that group, each with its deadline, before the player accepts. Not shown to signed-out visitors.
+- **R-237** (#381, 2026-11-28): My coaches is always shown in Settings and the account menu, for every account; with no coach it says that a coach links with you by sending an invite link. Settings keeps explicit Save buttons (no save on change).
 
 ## Open questions
 
