@@ -588,6 +588,13 @@ There is no staging (R-166); persona testing and E2E run on the local stack
    `POST /api/test/sign-in`, body `{"email":"persona-<id>@mychess.test"}`
    and the secret in `x-test-secret`. Magic links land in Mailpit.
 
+   Port 3000 must be free on both IPv4 and IPv6 first
+   (`Get-NetTCPConnection -LocalPort 3000 -State Listen` on Windows).
+   `next dev` listens on `::` and does not notice another dev server bound
+   to `[::1]:3000`; `localhost` then reaches one server or the other, and
+   pages reload in a loop with "Server could not finish this Suspense
+   boundary" and 503s (#382).
+
 ## Opponent's games (broadcast index)
 
 `/fide` ("Opponent's games", #316) lists a FIDE ID's over-the-board games
