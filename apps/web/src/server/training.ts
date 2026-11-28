@@ -36,66 +36,11 @@ import {
   type RepertoireKind,
 } from '@mychess/domain';
 import { cache } from 'react';
-import { z } from 'zod';
 import type { LearnScope } from '../lib/learn-scope';
-import { CHAPTER_PARAM, LINE_PARAM } from '../lib/routes';
 import { trainingDay } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
 import { chapterTitlesOf } from './chapter-names';
 import { getDb } from './db';
-import { chapterIdSchema } from './repertoire-edit';
-
-const searchSchema = z.object({
-  mode: z.enum(['review', 'learn']).catch('review'),
-  r: z.uuid().optional().catch(undefined),
-  /** A chapter id, as the repertoire page's `?chapter=` takes one. */
-  [CHAPTER_PARAM]: chapterIdSchema.optional().catch(undefined),
-  /** A line's index in its chapter: digits only. */
-  [LINE_PARAM]: z
-    .string()
-    .regex(/^\d{1,4}$/)
-    .transform(Number)
-    .optional()
-    .catch(undefined),
-});
-
-/** The focus the URL names: learn only, in the scoped repertoire, with a chapter. */
-function focusOf(
-  mode: TrainingMode,
-  repertoireId: string | undefined,
-  chapterId: string | undefined,
-  lineIndex: number | undefined,
-): LearnFocus | null {
-  if (mode !== 'learn' || repertoireId === undefined || chapterId === undefined)
-    return null;
-  return {
-    repertoireId,
-    chapterId,
-    ...(lineIndex === undefined ? {} : { lineIndex }),
-  };
-}
-
-/**
- * The page's search params (R-142, R-206): an unknown mode is a review; a
- * bad `r`, chapter or line is dropped.
- */
-export function parseTrainingSearch(
-  params: Readonly<Record<string, string | string[] | undefined>>,
-): {
-  readonly mode: TrainingMode;
-  readonly scope: TrainingScope;
-  readonly focus: LearnFocus | null;
-} {
-  const { mode, r, chapter, line } = searchSchema.parse(params);
-  return {
-    mode,
-    scope:
-      r === undefined
-        ? { kind: 'all' }
-        : { kind: 'repertoire', repertoireId: r },
-    focus: focusOf(mode, r, chapter, line),
-  };
-}
 
 /** The training data the snapshot holds: all of it but the coach notes. */
 type SnapshotData = Omit<TrainingData, 'coachNotes'>;

@@ -1,5 +1,6 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
+import { readRepertoiresQuery, type SearchParams } from '../../../lib/routes';
 import { myAssignedRepertoires } from '../../../server/assignment-pages';
 import { myRepertoires } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
@@ -8,8 +9,6 @@ import { CONTENT } from '../../surfaces';
 import { StatusLine } from '../../status-line';
 import { NewRepertoire } from '../new-repertoire';
 import { RepertoireList } from '../repertoire-list';
-
-type SearchParams = Record<string, string | string[] | undefined>;
 
 /** After a delete, the repertoire page comes here with `?deleted=1`. */
 function DeletedNotice({ shown }: { readonly shown: boolean }): JSX.Element {
@@ -32,7 +31,7 @@ export default async function RepertoiresPage({
     myAssignedRepertoires(),
     requireOnboarded().then(trainedStandings),
   ]);
-  const { deleted } = await searchParams;
+  const { deleted } = readRepertoiresQuery(await searchParams);
   // With no repertoire at all, the list is its one empty line, above the
   // open form; otherwise the form opens above the list (spec).
   const empty = items.length + assigned.length === 0;
@@ -47,7 +46,7 @@ export default async function RepertoiresPage({
   return (
     <main className={`${CONTENT} gap-8`}>
       <NewRepertoire startOpen={empty}>
-        <DeletedNotice shown={deleted === '1'} />
+        <DeletedNotice shown={deleted} />
         {empty ? list : null}
       </NewRepertoire>
       {empty ? null : list}

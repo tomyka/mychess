@@ -1,10 +1,10 @@
 import { marksInputSchema, type EditOp } from '@mychess/chess';
 import { chapterNameSchema, commentSchema } from '@mychess/domain';
 import { z } from 'zod';
+import { chapterIdSchema } from '../lib/routes';
 
-/** A chapter id from a request: an edit's, or a page's `?chapter=`. */
-export const chapterIdSchema = z.string().min(1).max(20);
-const chapterId = chapterIdSchema;
+// A chapter id has one shape (chapterIdSchema), the one a page's
+// `?chapter=` is read with.
 const from = z.string().min(1).max(100);
 const san = z.string().min(1).max(10);
 
@@ -16,14 +16,19 @@ const editOpSchema = z.discriminatedUnion('kind', [
   // A null chapter is the first move of a repertoire without chapters (R-111).
   z.object({
     kind: z.literal('addMove'),
-    chapterId: chapterId.nullable(),
+    chapterId: chapterIdSchema.nullable(),
     from,
     san,
   }),
-  z.object({ kind: z.literal('removeMove'), chapterId, from, san }),
+  z.object({
+    kind: z.literal('removeMove'),
+    chapterId: chapterIdSchema,
+    from,
+    san,
+  }),
   z.object({
     kind: z.literal('setMarks'),
-    chapterId,
+    chapterId: chapterIdSchema,
     from,
     san,
     marks: marksInputSchema,
@@ -36,10 +41,10 @@ const editOpSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('addChapter') }),
   z.object({
     kind: z.literal('renameChapter'),
-    chapterId,
+    chapterId: chapterIdSchema,
     name: chapterNameSchema,
   }),
-  z.object({ kind: z.literal('removeChapter'), chapterId }),
+  z.object({ kind: z.literal('removeChapter'), chapterId: chapterIdSchema }),
 ]) satisfies z.ZodType<EditOp>;
 
 /**

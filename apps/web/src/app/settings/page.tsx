@@ -6,6 +6,7 @@ import {
 } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
+import { readSettingsQuery, type SearchParams } from '../../lib/routes';
 import { getDb } from '../../server/db';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
@@ -24,11 +25,6 @@ import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
 import { SECTION_TITLE, SETTINGS_CARD, SETTINGS_COLUMN } from './styles';
 import { TrainingForm } from './training-form';
-
-type SearchParams = Record<string, string | string[] | undefined>;
-
-const first = (value: string | string[] | undefined): string | undefined =>
-  Array.isArray(value) ? value[0] : value;
 
 /** Account: the display name, then the sign-in methods, in one card. */
 function AccountSection({
@@ -91,7 +87,7 @@ function Header({
   from,
   isCoach,
 }: {
-  readonly from: unknown;
+  readonly from: string | undefined;
   readonly isCoach: boolean;
 }): JSX.Element {
   const t = useTranslations('settings');
@@ -118,13 +114,13 @@ export default async function SettingsPage({
   const account = await requireOnboarded();
   const links = await linkedProviders();
   const lichessUnlinked = await showLichessUnlinked(account.id, links);
-  const params = await searchParams;
+  const query = readSettingsQuery(await searchParams);
   const fresh = await hasFreshSession();
   const myCoaches = await myCoachesData(account.id, new Date());
   const training = await trainingSettings(getDb(), account.id);
   return (
     <main className={SETTINGS_COLUMN}>
-      <Header from={first(params['from'])} isCoach={isCoach(account)} />
+      <Header from={query.from} isCoach={isCoach(account)} />
       <TrainingForm settings={training} />
       <MyCoaches coaches={myCoaches.coaches} today={myCoaches.today} />
       <AccountSection displayName={account.displayName}>
@@ -132,7 +128,7 @@ export default async function SettingsPage({
           links={links}
           googleEnabled={googleConfigured(readWebEnv())}
           email={account.email}
-          error={first(params['error'])}
+          error={query.error}
         >
           {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
         </Providers>

@@ -10,7 +10,7 @@ import {
   type TodayAssigned,
   type TodayForkOffer,
 } from './assignment-pages';
-import { LINKED_PARAMS } from '../lib/routes';
+import type { LinkedQuery } from '../lib/routes';
 import { getDb } from './db';
 import {
   todayList,
@@ -41,29 +41,17 @@ export interface TodayPage {
   readonly linked: LinkedFact | null;
 }
 
-/** Today's search params: the ids accepting an invite lands with (R-234). */
-export type TodayParams = Readonly<
-  Partial<
-    Record<
-      (typeof LINKED_PARAMS)[keyof typeof LINKED_PARAMS],
-      string | string[] | undefined
-    >
-  >
->;
-
 /**
- * The linked notice's fact: the coach of `params.linked` among the
- * player's own coaches, and the group of `params.group` among the player's
- * groups of that coach. Names come from the links, never from the URL, so
- * a coach the player is not linked with names no one.
+ * The linked notice's fact: the coach of the query's `coachId` among the
+ * player's own coaches, and the group of its `groupId` among the player's
+ * groups of that coach (readLinkedQuery). Names come from the links, never
+ * from the URL, so a coach the player is not linked with names no one.
  */
 async function linkedFact(
   playerId: string,
-  params: TodayParams,
+  { coachId, groupId }: LinkedQuery,
 ): Promise<LinkedFact | null> {
-  const coachId = params[LINKED_PARAMS.coach];
-  const groupId = params[LINKED_PARAMS.group];
-  if (typeof coachId !== 'string') return null;
+  if (coachId === undefined) return null;
   const coaches = await playerCoaches(getDb(), playerId);
   const coach = coaches.find(({ id }) => id === coachId);
   if (coach === undefined) return null;
@@ -97,13 +85,13 @@ export function pageRows(
  */
 export async function todayPage(
   account: Account,
-  params: TodayParams,
+  linkedQuery: LinkedQuery,
 ): Promise<TodayPage> {
   const [summary, list, { assigned, offers }, linked] = await Promise.all([
     todaySummary(account),
     todayList(account),
     todayAssignments(account),
-    linkedFact(account.id, params),
+    linkedFact(account.id, linkedQuery),
   ]);
   return {
     displayName: account.displayName,

@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
+import { readLinkedQuery, type SearchParams } from '../lib/routes';
 import { requireOnboarded } from '../server/session';
-import { todayPage, type TodayParams } from '../server/today-page';
+import { todayPage } from '../server/today-page';
 import { AppShell } from './shell/app-shell';
 import { TodayView } from './today/today-view';
 
@@ -9,11 +10,10 @@ import { TodayView } from './today/today-view';
 export default async function HomePage({
   searchParams,
 }: {
-  readonly searchParams: Promise<TodayParams>;
+  readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
   const account = await requireOnboarded();
-  const { linked, group } = await searchParams;
-  const page = await todayPage(account, { linked, group });
+  const page = await todayPage(account, readLinkedQuery(await searchParams));
   return (
     <AppShell>
       <TodayView {...page} />

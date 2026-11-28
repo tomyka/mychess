@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { onboardingPath, returnPath, signInPath } from './return-path';
+import {
+  onboardingPath,
+  readOnboardingQuery,
+  readSignInQuery,
+  returnPath,
+  signInPath,
+} from './return-path';
 
 const TOKEN = 'A'.repeat(42) + '_';
 
@@ -43,5 +49,45 @@ describe('signInPath / onboardingPath', () => {
   it('are the plain pages without one', () => {
     expect(signInPath(null)).toBe('/sign-in');
     expect(onboardingPath(null)).toBe('/welcome');
+  });
+});
+
+// The pages read back what the builders write (#402); returnPath stays the
+// one validator of `?next=`.
+describe('readSignInQuery / readOnboardingQuery (#402)', () => {
+  const queryOf = (link: string): Record<string, string> =>
+    Object.fromEntries(new URL(link, 'http://x').searchParams);
+  const INVITE = `/invite/${TOKEN}`;
+
+  it('read back a kept invite path, and nothing else as next', () => {
+    expect(readSignInQuery(queryOf(signInPath(INVITE))).next).toBe(INVITE);
+    expect(readOnboardingQuery(queryOf(onboardingPath(INVITE)))).toEqual({
+      next: INVITE,
+    });
+    expect(readSignInQuery({ next: 'https://evil.example' }).next).toBeNull();
+    expect(readOnboardingQuery({})).toEqual({ next: null });
+    // The first of a repeated one, as before.
+    expect(readOnboardingQuery({ next: [INVITE, '/x'] })).toEqual({
+      next: INVITE,
+    });
+  });
+
+  it('read sign-in’s error and the deleted notice', () => {
+    expect(readSignInQuery({ error: 'link_expired', deleted: '1' })).toEqual({
+      next: null,
+      error: 'link_expired',
+      deleted: true,
+    });
+    expect(readSignInQuery({ deleted: ['1', '0'] })).toEqual({
+      next: null,
+      error: undefined,
+      deleted: true,
+    });
+    expect(readSignInQuery({ deleted: 'yes' }).deleted).toBe(false);
+    expect(readSignInQuery({})).toEqual({
+      next: null,
+      error: undefined,
+      deleted: false,
+    });
   });
 });

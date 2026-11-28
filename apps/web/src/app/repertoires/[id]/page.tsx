@@ -1,10 +1,7 @@
 import type { JSX } from 'react';
-import { CHAPTER_PARAM } from '../../../lib/routes';
-import { chapterIdSchema } from '../../../server/repertoire-edit';
+import { readRepertoireQuery, type SearchParams } from '../../../lib/routes';
 import { repertoirePageData } from '../../../server/repertoires';
 import { RepertoireScreen } from './repertoire-screen';
-
-type SearchParams = Record<string, string | string[] | undefined>;
 
 // One repertoire (docs/design/repertoire-screen.md, section 2). Anything the
 // account may not view, a malformed id included, is 404 (decision 12). The
@@ -21,10 +18,7 @@ export default async function RepertoirePage({
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
   const { id } = await params;
-  // A chapter id from the query; anything else opens the first chapter.
-  const chapter = chapterIdSchema.safeParse(
-    (await searchParams)[CHAPTER_PARAM],
-  );
+  const { chapterId } = readRepertoireQuery(await searchParams);
   const { repertoire, graph, notes, names, coachNotes, forkNotes, training } =
     await repertoirePageData(id);
   return (
@@ -34,7 +28,7 @@ export default async function RepertoirePage({
       graph={graph}
       notes={notes}
       names={names}
-      chapterId={chapter.success ? chapter.data : null}
+      chapterId={chapterId}
       coachNotes={coachNotes}
       forkNotes={forkNotes}
       training={training}

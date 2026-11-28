@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { JSX } from 'react';
+import { readTrainingQuery, type SearchParams } from '../../lib/routes';
 import { requireOnboarded } from '../../server/session';
-import { loadTraining, parseTrainingSearch } from '../../server/training';
+import { loadTraining } from '../../server/training';
 import { TrainingScreen } from './training-screen';
-
-type SearchParams = Record<string, string | string[] | undefined>;
 
 // The training page (S6): `?mode=review|learn`, `&r=` to train one
 // repertoire (R-142), and with learn `&chapter=` and `&line=` to learn one
@@ -19,7 +18,7 @@ export default async function TrainingPage({
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
   const account = await requireOnboarded();
-  const { mode, scope, focus } = parseTrainingSearch(await searchParams);
+  const { mode, scope, focus } = readTrainingQuery(await searchParams);
   const data = await loadTraining(account, mode, scope, focus);
   if (data === undefined) notFound();
   return (

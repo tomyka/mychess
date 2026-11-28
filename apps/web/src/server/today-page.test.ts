@@ -1,6 +1,7 @@
 import type { LinkedAccount } from '@mychess/db';
 import type { Account, BadgeSet, RepertoireKind } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readLinkedQuery } from '../lib/routes';
 import type { TodayAssigned, TodayAssignments } from './assignment-pages';
 import { pageRows, todayPage } from './today-page';
 import type { TodayListRow, TodaySummary } from './training';
@@ -117,7 +118,7 @@ describe('todayPage', () => {
       assigned: [assigned('a')],
       offers: [OFFER],
     });
-    expect(await todayPage(ROKAS, {})).toEqual({
+    expect(await todayPage(ROKAS, readLinkedQuery({}))).toEqual({
       displayName: 'Rokas',
       summary: SUMMARY,
       rows: [
@@ -150,10 +151,12 @@ describe('todayPage', () => {
       groups: [{ id: 'g2', name: 'Ona group' }],
     };
 
+    /** The notice for Today's query, read as the page reads it. */
     const linkedOf = async (params: {
       linked?: string | string[];
       group?: string | string[];
-    }): Promise<unknown> => (await todayPage(ROKAS, params)).linked;
+    }): Promise<unknown> =>
+      (await todayPage(ROKAS, readLinkedQuery(params))).linked;
 
     it("names the coach and the group from the session account's own links", async () => {
       server.coaches.mockResolvedValue([ONA, RIMANTAS]);

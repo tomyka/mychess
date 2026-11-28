@@ -1,14 +1,16 @@
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { ROUTES } from '../../../lib/routes';
+import {
+  readImportQuery,
+  ROUTES,
+  type SearchParams,
+} from '../../../lib/routes';
 import { lichessUsername } from '../../../server/provider-links';
 import { importTargets } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 import { PageHeader } from '../../shell/page-header';
 import { CONTENT } from '../../surfaces';
 import { ImportFlow } from './import-flow';
-
-type SearchParams = Record<string, string | string[] | undefined>;
 
 function Header(): JSX.Element {
   const t = useTranslations();
@@ -45,8 +47,8 @@ export default async function ImportPage({
 }): Promise<JSX.Element> {
   const options = await importTargets();
   const names = await ownNames();
-  const { i } = await searchParams;
-  const opened = options.find((option) => option.id === i) ?? null;
+  const { into } = readImportQuery(await searchParams);
+  const opened = options.find((option) => option.id === into) ?? null;
   return (
     <main className={`${CONTENT} gap-8`}>
       <Header />

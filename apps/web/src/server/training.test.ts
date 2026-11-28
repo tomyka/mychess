@@ -6,7 +6,6 @@ import { graphOf, LONDON, TAIMANOV } from '../../test/fixtures/repertoires';
 import { chapterTitlesOf } from './chapter-names';
 import {
   loadTraining,
-  parseTrainingSearch,
   repertoireTraining,
   todayList,
   todaySummary,
@@ -122,81 +121,6 @@ beforeEach(() => {
   return () => {
     vi.useRealTimers();
   };
-});
-
-describe('parseTrainingSearch', () => {
-  it('reads the mode and the repertoire', () => {
-    expect(parseTrainingSearch({ mode: 'learn', r: ID })).toEqual({
-      mode: 'learn',
-      scope: { kind: 'repertoire', repertoireId: ID },
-      focus: null,
-    });
-  });
-
-  it('is a review of every repertoire with nothing given', () => {
-    expect(parseTrainingSearch({})).toEqual({
-      mode: 'review',
-      scope: { kind: 'all' },
-      focus: null,
-    });
-  });
-
-  it('falls back to review for an unknown or repeated mode', () => {
-    for (const mode of ['drill', '', ['learn', 'learn']])
-      expect(parseTrainingSearch({ mode }).mode).toBe('review');
-  });
-
-  it('drops a repertoire that is not one uuid', () => {
-    for (const r of ['not-a-uuid', '', [ID, OTHER]])
-      expect(parseTrainingSearch({ mode: 'learn', r })).toEqual({
-        mode: 'learn',
-        scope: { kind: 'all' },
-        focus: null,
-      });
-  });
-});
-
-describe('parseTrainingSearch with a focus (R-206)', () => {
-  it('reads a chapter, and a line of it, to learn with r=', () => {
-    expect(
-      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1', line: '2' })
-        .focus,
-    ).toEqual({ repertoireId: ID, chapterId: 'c1', lineIndex: 2 });
-    expect(
-      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1', line: '0' })
-        .focus,
-    ).toEqual({ repertoireId: ID, chapterId: 'c1', lineIndex: 0 });
-    expect(
-      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1' }).focus,
-    ).toEqual({ repertoireId: ID, chapterId: 'c1' });
-  });
-
-  it('keeps the scope to the repertoire with a focus', () => {
-    expect(
-      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1' }).scope,
-    ).toEqual({ kind: 'repertoire', repertoireId: ID });
-  });
-
-  it('drops the focus outside learn, without r=, or with a malformed chapter', () => {
-    expect(
-      parseTrainingSearch({ mode: 'review', r: ID, chapter: 'c1' }).focus,
-    ).toBeNull();
-    expect(parseTrainingSearch({ mode: 'learn', chapter: 'c1' }).focus).toBe(
-      null,
-    );
-    for (const chapter of ['', 'x'.repeat(21), ['c1', 'c2']])
-      expect(
-        parseTrainingSearch({ mode: 'learn', r: ID, chapter }).focus,
-      ).toBeNull();
-  });
-
-  it('keeps the chapter but drops a malformed line', () => {
-    for (const line of ['-1', '1.5', 'two', '', ['1', '2']])
-      expect(
-        parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1', line })
-          .focus,
-      ).toEqual({ repertoireId: ID, chapterId: 'c1' });
-  });
 });
 
 describe('loadTraining', () => {

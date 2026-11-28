@@ -19,6 +19,13 @@ import {
   repertoireRoute,
   ROUTES,
   myCoachesPath,
+  readAssignedManageQuery,
+  readImportQuery,
+  readLinkedQuery,
+  readRepertoireQuery,
+  readRepertoiresQuery,
+  readSettingsQuery,
+  readTrainingQuery,
   settingsPath,
   trainingPath,
   trainingResultsRoute,
@@ -224,5 +231,164 @@ describe('the Repertoire screens (R-226)', () => {
 describe('trainingResultsRoute', () => {
   it('is the results endpoint', () => {
     expect(trainingResultsRoute).toBe('/api/training/results');
+  });
+});
+
+// Each route that takes a query reads it beside its link builder (#402):
+// what the builder writes, the reader reads back; anything else is absent.
+describe('query readers (#402)', () => {
+  /** A link's query as Next hands it to the page. */
+  const queryOf = (link: string): Record<string, string> =>
+    Object.fromEntries(new URL(link, 'http://x').searchParams);
+
+  it('reads back who an accepted invite linked with, a single value each', () => {
+    expect(readLinkedQuery(queryOf(acceptedInvitePath('c1', 'g1')))).toEqual({
+      coachId: 'c1',
+      groupId: 'g1',
+    });
+    expect(readLinkedQuery(queryOf(acceptedInvitePath('c1', null)))).toEqual({
+      coachId: 'c1',
+      groupId: undefined,
+    });
+    // A repeated param names no one (the address is not to be trusted).
+    expect(readLinkedQuery({ linked: ['c1', 'c2'], group: ['g1'] })).toEqual({
+      coachId: undefined,
+      groupId: undefined,
+    });
+    expect(readLinkedQuery({})).toEqual({
+      coachId: undefined,
+      groupId: undefined,
+    });
+  });
+
+  it('reads Settings’ tab and provider error, the first of a repeated one', () => {
+    expect(readSettingsQuery(queryOf(settingsPath('coach')))).toEqual({
+      from: 'coach',
+      error: undefined,
+    });
+    expect(
+      readSettingsQuery({ from: ['opponents', 'coach'], error: 'link_failed' }),
+    ).toEqual({ from: 'opponents', error: 'link_failed' });
+    expect(readSettingsQuery({})).toEqual({
+      from: undefined,
+      error: undefined,
+    });
+  });
+
+  it('reads My repertoires’ deleted notice only from deleted=1', () => {
+    expect(readRepertoiresQuery(queryOf(repertoireDeletedRoute))).toEqual({
+      deleted: true,
+    });
+    expect(readRepertoiresQuery({ deleted: '0' })).toEqual({ deleted: false });
+    expect(readRepertoiresQuery({ deleted: ['1'] })).toEqual({
+      deleted: false,
+    });
+    expect(readRepertoiresQuery({})).toEqual({ deleted: false });
+  });
+
+  it('opens the fork question only from fork=1', () => {
+    expect(readAssignedManageQuery(queryOf(assignedForkRoute('a1')))).toEqual({
+      forkOpen: true,
+    });
+    expect(readAssignedManageQuery({ fork: 'yes' })).toEqual({
+      forkOpen: false,
+    });
+    expect(readAssignedManageQuery({})).toEqual({ forkOpen: false });
+  });
+
+  it('reads the chapter a repertoire opens on, a well-formed id only', () => {
+    expect(
+      readRepertoireQuery(queryOf(repertoireChapterRoute('r1', 'c-2'))),
+    ).toEqual({ chapterId: 'c-2' });
+    expect(readRepertoireQuery({ chapter: '' })).toEqual({ chapterId: null });
+    expect(readRepertoireQuery({ chapter: 'x'.repeat(21) })).toEqual({
+      chapterId: null,
+    });
+    expect(readRepertoireQuery({ chapter: ['c-2'] })).toEqual({
+      chapterId: null,
+    });
+    expect(readRepertoireQuery({})).toEqual({ chapterId: null });
+  });
+
+  describe('readTrainingQuery (R-142, R-206)', () => {
+    const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
+    const OTHER = '0b6c2a4e-1f3d-4e5a-8b7c-9d0e1f2a3b4c';
+
+    it('reads back what trainingPath and learnPath write', () => {
+      expect(readTrainingQuery(queryOf(trainingPath('learn', ID)))).toEqual({
+        mode: 'learn',
+        scope: { kind: 'repertoire', repertoireId: ID },
+        focus: null,
+      });
+      expect(
+        readTrainingQuery(
+          queryOf(learnPath(ID, { chapterId: 'c1', lineIndex: 2 })),
+        ).focus,
+      ).toEqual({ repertoireId: ID, chapterId: 'c1', lineIndex: 2 });
+    });
+
+    it('is a review of every repertoire with nothing given', () => {
+      expect(readTrainingQuery({})).toEqual({
+        mode: 'review',
+        scope: { kind: 'all' },
+        focus: null,
+      });
+    });
+
+    it('falls back to review for an unknown or repeated mode', () => {
+      for (const mode of ['drill', '', ['learn', 'learn']])
+        expect(readTrainingQuery({ mode }).mode).toBe('review');
+    });
+
+    it('drops a repertoire that is not one uuid', () => {
+      for (const r of ['not-a-uuid', '', [ID, OTHER]])
+        expect(readTrainingQuery({ mode: 'learn', r })).toEqual({
+          mode: 'learn',
+          scope: { kind: 'all' },
+          focus: null,
+        });
+    });
+
+    it('reads a chapter, and a line of it, to learn with r=', () => {
+      expect(
+        readTrainingQuery({ mode: 'learn', r: ID, chapter: 'c1', line: '0' })
+          .focus,
+      ).toEqual({ repertoireId: ID, chapterId: 'c1', lineIndex: 0 });
+      expect(
+        readTrainingQuery({ mode: 'learn', r: ID, chapter: 'c1' }).focus,
+      ).toEqual({ repertoireId: ID, chapterId: 'c1' });
+      expect(
+        readTrainingQuery({ mode: 'learn', r: ID, chapter: 'c1' }).scope,
+      ).toEqual({ kind: 'repertoire', repertoireId: ID });
+    });
+
+    it('drops the focus outside learn, without r=, or with a malformed chapter', () => {
+      expect(
+        readTrainingQuery({ mode: 'review', r: ID, chapter: 'c1' }).focus,
+      ).toBeNull();
+      expect(readTrainingQuery({ mode: 'learn', chapter: 'c1' }).focus).toBe(
+        null,
+      );
+      for (const chapter of ['', 'x'.repeat(21), ['c1', 'c2']])
+        expect(
+          readTrainingQuery({ mode: 'learn', r: ID, chapter }).focus,
+        ).toBeNull();
+    });
+
+    it('keeps the chapter but drops a malformed line', () => {
+      for (const line of ['-1', '1.5', 'two', '', ['1', '2']])
+        expect(
+          readTrainingQuery({ mode: 'learn', r: ID, chapter: 'c1', line })
+            .focus,
+        ).toEqual({ repertoireId: ID, chapterId: 'c1' });
+    });
+  });
+
+  it('reads the repertoire an import was opened from', () => {
+    expect(readImportQuery(queryOf(importIntoRoute('r 1')))).toEqual({
+      into: 'r 1',
+    });
+    expect(readImportQuery({ i: ['r1'] })).toEqual({ into: undefined });
+    expect(readImportQuery({})).toEqual({ into: undefined });
   });
 });
