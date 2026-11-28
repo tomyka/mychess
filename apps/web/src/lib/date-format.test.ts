@@ -6,6 +6,7 @@ import {
   LONG_DATE,
   MEDIUM_DATE,
   shortDateFormat,
+  shortDateTimeFormat,
 } from './date-format';
 
 /** 16:18 in Vilnius on 16 October 2026 (summer time, UTC+3). */
@@ -73,6 +74,26 @@ describe('the shared date formats (#330 decision 6)', () => {
         shortDateFormat(lastYear, NOW),
       ),
     ).toBe('Sep 2, 2025');
+  });
+
+  it('gives a short date with its clock time, in Vilnius time', () => {
+    const lateEvening = new Date('2026-10-16T21:30:00Z');
+    expect(
+      createFormatter({ locale: 'en' }).dateTime(
+        lateEvening,
+        shortDateTimeFormat(lateEvening, NOW),
+      ),
+    ).toBe('Oct 17, 00:30');
+  });
+
+  it('adds the year to a short date with its time in another year', () => {
+    const lastYear = new Date('2025-09-02T09:00:00Z');
+    expect(
+      createFormatter({ locale: 'en' }).dateTime(
+        lastYear,
+        shortDateTimeFormat(lastYear, NOW),
+      ),
+    ).toBe('Sep 2, 2025, 12:00');
   });
 
   it.each([

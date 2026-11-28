@@ -4,11 +4,11 @@ import { useTranslations } from 'next-intl';
 import { useActionState, useId, useRef, useState, type JSX } from 'react';
 import type { PersonalInvite } from '../../server/coach-pages';
 import { PRIMARY_BUTTON, QUIET_ACTION, SECONDARY_BUTTON } from '../buttons';
-import { ConfirmedAction } from '../confirmed-action';
+import { ConfirmedAction, type Asking } from '../confirmed-action';
 import { PendingButton } from '../pending-button';
 import { Sheet } from '../sheet';
 import { StatusLine } from '../status-line';
-import { useShortInstant } from '../use-deadline';
+import { useShortInstant, useShortInstantTime } from '../use-deadline';
 import {
   createInviteAction,
   revokeInviteAction,
@@ -79,24 +79,31 @@ function CreateLink({ today }: { readonly today: string }): JSX.Element {
   );
 }
 
-/** One open personal invite: its dates, never its link, and Revoke. */
+/**
+ * One open personal invite: when it was made, to the minute, so two made
+ * the same day read apart; when it expires; never its link; and Revoke,
+ * whose question the list holds.
+ */
 function InviteRow({
   invite,
   revoke,
   today,
+  asking,
 }: {
   readonly invite: PersonalInvite;
   readonly revoke: (form: FormData) => void;
   readonly today: string;
+  readonly asking: Asking;
 }): JSX.Element {
   const t = useTranslations('coach');
   const date = useShortInstant(today);
+  const time = useShortInstantTime(today);
   const datesId = useId();
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
       <p id={datesId} className="text-fg-muted">
         {t('inviteSheet.dates', {
-          made: date(invite.createdAt),
+          made: time(invite.createdAt),
           expires: date(invite.expiresAt),
         })}
       </p>
@@ -109,6 +116,7 @@ function InviteRow({
         cancel={t('inviteSheet.cancel')}
         describedBy={datesId}
         look="danger"
+        asking={asking}
       />
     </li>
   );
@@ -117,7 +125,8 @@ function InviteRow({
 /**
  * The coach's open personal invites (R-232); the group's are on its page.
  * A refused Revoke means the invite was used, expired or revoked since the
- * list was shown.
+ * list was shown. One Revoke question is open at a time: asking about
+ * another invite closes it, and so does the revoke's outcome.
  */
 function OpenInvites({
   invites,
@@ -129,6 +138,18 @@ function OpenInvites({
   const t = useTranslations('coach');
   const titleId = useId();
   const [state, revoke] = useActionState(revokeInviteAction, NOT_REVOKED);
+  // The invite asked about, and the revoke outcome it was asked under: a
+  // new outcome (done, or refused) closes the question.
+  const [asked, setAsked] = useState<{
+    readonly id: string;
+    readonly under: RevokeInviteState;
+  } | null>(null);
+  const askingAbout = (id: string): Asking => ({
+    open: asked?.id === id && asked.under === state,
+    set: (open) => {
+      setAsked(open ? { id, under: state } : null);
+    },
+  });
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-3">
       <h3 id={titleId} className="font-semibold">
@@ -148,6 +169,7 @@ function OpenInvites({
               invite={invite}
               revoke={revoke}
               today={today}
+              asking={askingAbout(invite.id)}
             />
           ))}
         </ul>

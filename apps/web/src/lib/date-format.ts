@@ -53,3 +53,15 @@ export const shortDateFormat = (
   day: 'numeric',
   ...yearUnlessThis(when, now),
 });
+
+/**
+ * A day with the month short and its clock time ("Nov 28, 14:05"), seen
+ * at `now`: the year only when it differs.
+ */
+export const shortDateTimeFormat = (
+  when: Date,
+  now: Date,
+): DateTimeFormatOptions => ({
+  ...CLOCK,
+  ...shortDateFormat(when, now),
+});

@@ -1,5 +1,9 @@
 import { useFormatter, type DateTimeFormatOptions } from 'next-intl';
-import { LONG_DATE, shortDateFormat } from '../lib/date-format';
+import {
+  LONG_DATE,
+  shortDateFormat,
+  shortDateTimeFormat,
+} from '../lib/date-format';
 
 /**
  * A `YYYY-MM-DD` calendar day at noon UTC, which is the same day in
@@ -23,15 +27,34 @@ export function useDeadline(
 }
 
 /**
- * Writes an instant (an invite's expiry) as its day with the month short
- * ("Dec 4"), in the display time zone, its year only when it is not the
- * year of `today` (`YYYY-MM-DD`, read on the server so the server and the
- * browser agree).
+ * Writes an instant in the shape `shapeOf` gives it, seen at noon of
+ * `today` (`YYYY-MM-DD`, read on the server so the server and the browser
+ * agree on which year is this year).
  */
-export function useShortInstant(today: string): (when: Date) => string {
+function useInstantSeenToday(
+  today: string,
+  shapeOf: (when: Date, now: Date) => DateTimeFormatOptions,
+): (when: Date) => string {
   const format = useFormatter();
   const now = noonOf(today);
-  return (when) => format.dateTime(when, shortDateFormat(when, now));
+  return (when) => format.dateTime(when, shapeOf(when, now));
+}
+
+/**
+ * Writes an instant (an invite's expiry) as its day with the month short
+ * ("Dec 4"), in the display time zone, its year only when it is not the
+ * year of `today`.
+ */
+export function useShortInstant(today: string): (when: Date) => string {
+  return useInstantSeenToday(today, shortDateFormat);
+}
+
+/**
+ * Writes an instant with its minute ("Nov 28, 14:05"), by the same rule as
+ * `useShortInstant`: two invites made the same day still read apart.
+ */
+export function useShortInstantTime(today: string): (when: Date) => string {
+  return useInstantSeenToday(today, shortDateTimeFormat);
 }
 
 /**

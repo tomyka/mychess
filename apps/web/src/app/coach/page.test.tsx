@@ -148,7 +148,7 @@ describe('the coach dashboard (R-229)', () => {
     fireEvent.click(invite);
     const sheet = screen.getByRole('dialog', { name: c.inviteSheet.title });
     expect(
-      within(sheet).getByText('made Oct 18 · expires Oct 25'),
+      within(sheet).getByText('made Oct 18, 11:00 · expires Oct 25'),
     ).toBeDefined();
   });
 });

@@ -101,6 +101,15 @@ const escape = (sheet: HTMLElement): void => {
   fireEvent(sheet, new Event('cancel', { cancelable: true }));
 };
 
+const inviteRows = (sheet: HTMLElement): HTMLElement[] =>
+  within(within(sheet).getByRole('list', { name: s.openTitle })).getAllByRole(
+    'listitem',
+  );
+
+/** Each open invite's dates line, in list order. */
+const madeLines = (sheet: HTMLElement): (string | null)[] =>
+  inviteRows(sheet).map((row) => within(row).getByText(/^made /).textContent);
+
 const statusTexts = (): (string | null)[] =>
   screen.getAllByRole('status').map((line) => line.textContent);
 
@@ -213,16 +222,99 @@ describe('InviteSheet: open personal invites', () => {
     expect(within(sheet).getByText(i.empty)).toBeDefined();
   });
 
-  it('lists each with when it was made and when it expires, never its link', () => {
+  it('lists each with when it was made, to the minute, and when it expires, never its link', () => {
     renderSheet(INVITES);
     const { sheet } = openSheet();
-    const list = within(sheet).getByRole('list', { name: s.openTitle });
-    expect(
-      within(list)
-        .getAllByRole('listitem')
-        .map((row) => row.querySelector('p')?.textContent),
-    ).toEqual(['made Nov 20 · expires Dec 4', 'made Nov 25 · expires Dec 2']);
+    expect(madeLines(sheet)).toEqual([
+      'made Nov 20, 11:00 · expires Dec 4',
+      'made Nov 25, 11:00 · expires Dec 2',
+    ]);
     expect(sheet.textContent).not.toContain('/invite/');
+  });
+
+  it('tells apart two invites made the same day by their time in Vilnius (#381)', () => {
+    const expiresAt = new Date('2026-12-05T12:00:00Z');
+    renderSheet([
+      // 14:05 and 16:40 in Vilnius (UTC+2 in winter).
+      { id: 'i-3', createdAt: new Date('2026-11-28T12:05:00Z'), expiresAt },
+      { id: 'i-4', createdAt: new Date('2026-11-28T14:40:00Z'), expiresAt },
+    ]);
+    const { sheet } = openSheet();
+    expect(madeLines(sheet)).toEqual([
+      'made Nov 28, 14:05 · expires Dec 5',
+      'made Nov 28, 16:40 · expires Dec 5',
+    ]);
+  });
+
+  it('keeps one Revoke question open at a time: asking about a second closes the first (#381)', () => {
+    renderSheet(INVITES);
+    const { sheet } = openSheet();
+    const [first, second] = within(sheet).getAllByRole('button', {
+      name: i.revoke,
+    });
+    if (first === undefined || second === undefined)
+      throw new Error('two Revokes expected');
+    fireEvent.click(first);
+    fireEvent.click(second);
+    expect(within(sheet).getAllByText(s.revokeConfirm)).toHaveLength(1);
+    const [firstRow, secondRow] = inviteRows(sheet);
+    if (firstRow === undefined || secondRow === undefined)
+      throw new Error('two rows expected');
+    expect(
+      within(firstRow).getByRole('button', { name: i.revoke }),
+    ).toBeDefined();
+    expect(within(secondRow).getByText(s.revokeConfirm)).toBeDefined();
+  });
+
+  it('closes the question on Cancel, so no row asks', () => {
+    renderSheet(INVITES);
+    const { sheet } = openSheet();
+    const [first] = within(sheet).getAllByRole('button', { name: i.revoke });
+    if (first === undefined) throw new Error('no Revoke');
+    fireEvent.click(first);
+    fireEvent.click(within(sheet).getByRole('button', { name: s.cancel }));
+    expect(within(sheet).queryByText(s.revokeConfirm)).toBeNull();
+    expect(
+      within(sheet).getAllByRole('button', { name: i.revoke }),
+    ).toHaveLength(2);
+  });
+
+  it('closes the question once the revoke is done, so no row is left asking', async () => {
+    renderSheet(INVITES);
+    const { sheet } = openSheet();
+    const [first] = within(sheet).getAllByRole('button', { name: i.revoke });
+    if (first === undefined) throw new Error('no Revoke');
+    fireEvent.click(first);
+    fireEvent.click(
+      within(sheet).getByRole('button', { name: s.confirmRevoke }),
+    );
+    await waitFor(() => {
+      expect(within(sheet).queryByText(s.revokeConfirm)).toBeNull();
+    });
+    expect(server.revoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks again after a revoke: the next Revoke opens its question', async () => {
+    renderSheet(INVITES);
+    const { sheet } = openSheet();
+    const [first] = within(sheet).getAllByRole('button', { name: i.revoke });
+    if (first === undefined) throw new Error('no Revoke');
+    fireEvent.click(first);
+    fireEvent.click(
+      within(sheet).getByRole('button', { name: s.confirmRevoke }),
+    );
+    await waitFor(() => {
+      expect(within(sheet).queryByText(s.revokeConfirm)).toBeNull();
+    });
+    const [, second] = within(sheet).getAllByRole('button', {
+      name: i.revoke,
+    });
+    if (second === undefined) throw new Error('no second Revoke');
+    fireEvent.click(second);
+    const [, secondRow] = inviteRows(sheet);
+    if (secondRow === undefined) throw new Error('two rows expected');
+    expect(within(secondRow).getByText(s.revokeConfirm)).toBeDefined();
+    expect(within(sheet).getAllByText(s.revokeConfirm)).toHaveLength(1);
   });
 
   it('asks before revoking, then revokes that invite', async () => {
@@ -259,5 +351,7 @@ describe('InviteSheet: open personal invites', () => {
     await waitFor(() => {
       expect(statusTexts()).toContain(i.revokeInvalid);
     });
+    // The refusal is the outcome: the question closes with it.
+    expect(within(sheet).queryByText(s.revokeConfirm)).toBeNull();
   });
 });
