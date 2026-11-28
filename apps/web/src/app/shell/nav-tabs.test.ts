@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { activeTab, dueBadge, isTabRoot, navTabs } from './nav-tabs';
+import {
+  activeTab,
+  dueBadge,
+  isTabRoot,
+  navTabs,
+  phoneMenuIn,
+  settingsBack,
+} from './nav-tabs';
 
 describe('navTabs', () => {
   it('gives a player Today, Repertoires and Opponents', () => {
@@ -50,6 +57,41 @@ describe('isTabRoot', () => {
     '%s is an inner page',
     (path) => {
       expect(isTabRoot(path)).toBe(false);
+    },
+  );
+});
+
+describe('settingsBack (#400)', () => {
+  it.each([
+    ['today', false, 'today', '/'],
+    ['repertoires', false, 'repertoires', '/repertoires'],
+    ['opponents', false, 'opponents', '/fide'],
+    ['coach', true, 'coach', '/coach'],
+    // A player has no Coach tab to go back to.
+    ['coach', false, 'today', '/'],
+    [undefined, true, 'today', '/'],
+    ['toString', true, 'today', '/'],
+    [['coach'], true, 'today', '/'],
+  ] as const)(
+    'from=%j, coach %s, goes back to %s',
+    (from, isCoach, id, href) => {
+      expect(settingsBack(from, { isCoach })).toEqual({ id, href });
+    },
+  );
+});
+
+describe('phoneMenuIn (#400)', () => {
+  it.each(['/', '/repertoires', '/fide', '/coach'])(
+    'a tab’s own page carries it in the top bar (%s)',
+    (path) => {
+      expect(phoneMenuIn(path)).toBe('topBar');
+    },
+  );
+
+  it.each(['/settings', '/repertoires/import', '/no-such-page', '/coach/x'])(
+    'any other page carries it in its own header (%s), the 404 too',
+    (path) => {
+      expect(phoneMenuIn(path)).toBe('header');
     },
   );
 });

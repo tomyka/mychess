@@ -27,6 +27,7 @@ vi.mock('../../../../server/coach-assignments', () => ({
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => '/repertoires/r-1/manage',
 }));
 vi.mock('../actions', () => ({
   renameRepertoireAction: vi.fn(),

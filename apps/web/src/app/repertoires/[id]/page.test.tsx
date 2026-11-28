@@ -46,6 +46,7 @@ vi.mock('./actions', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => '/repertoires/r-1',
 }));
 
 /** Rokas's London (two chapters) as the loader gives it. */

@@ -6,7 +6,7 @@ import type { JSX } from 'react';
 import { BRAND } from '../../lib/brand';
 import { ROUTES } from '../../lib/routes';
 import { AccountMenu } from './account-menu';
-import { isTabRoot } from './nav-tabs';
+import { phoneMenuIn } from './nav-tabs';
 import { TabNav } from './tab-nav';
 
 /**
@@ -23,7 +23,7 @@ export function TopBar({
   readonly isCoach: boolean;
   readonly due: number;
 }): JSX.Element {
-  const root = isTabRoot(usePathname());
+  const root = phoneMenuIn(usePathname()) === 'topBar';
   const row = root ? 'h-tabbar' : 'h-0 md:h-tabbar';
   const end = root ? 'flex' : 'hidden md:flex';
   return (

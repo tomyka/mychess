@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { outOfOrder } from '../../../test/dom-order';
 import { MESSAGES } from '../../i18n/catalogue';
-import { AccountMenu, PhoneAccountMenu, initials } from './account-menu';
+import { AccountMenu, HeaderAccountMenu, initials } from './account-menu';
 import { ShellProvider } from './shell-context';
 
 const nav = vi.hoisted(() => ({ path: '/' }));
@@ -342,23 +342,34 @@ describe('initials', () => {
   });
 });
 
-describe('PhoneAccountMenu', () => {
-  it('carries the avatar below md only', () => {
+describe('HeaderAccountMenu (#400)', () => {
+  const inShell = () =>
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
         <ShellProvider value={{ ...ACCOUNT, displayName: 'Rokas' }}>
-          <PhoneAccountMenu />
+          <HeaderAccountMenu />
         </ShellProvider>
       </NextIntlClientProvider>,
     );
+
+  it('carries the avatar below md only, on a page that is not a tab', () => {
+    nav.path = '/coach/groups/g-1';
+    inShell();
     const avatar = screen.getByRole('button', { name: 'Account menu' });
     expect(avatar.closest('[class~="md:hidden"]')).not.toBeNull();
   });
 
+  it('carries nothing on a tab’s own page: the top bar has the avatar there', () => {
+    nav.path = '/coach';
+    const { container } = inShell();
+    expect(container.innerHTML).toBe('');
+  });
+
   it('renders nothing outside the shell', () => {
+    nav.path = '/coach/groups/g-1';
     const { container } = render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <PhoneAccountMenu />
+        <HeaderAccountMenu />
       </NextIntlClientProvider>,
     );
     expect(container.innerHTML).toBe('');

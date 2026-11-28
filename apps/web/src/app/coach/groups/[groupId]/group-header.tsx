@@ -15,7 +15,7 @@ import { ROUTES } from '../../../../lib/routes';
 import { BACK_BUTTON } from '../../../buttons';
 import { BACK_ICON, Icon } from '../../../line-icon';
 import { TEXT_LINK } from '../../../settings/styles';
-import { PhoneAccountMenu } from '../../../shell/account-menu';
+import { HeaderAccountMenu } from '../../../shell/account-menu';
 import { renameGroupAction, type RenameGroupState } from '../../actions';
 import { GroupMeta } from '../../group-meta';
 import { RenameGroupForm } from './rename-group-form';
@@ -159,7 +159,7 @@ export function GroupHeader({
         </button>
       )}
       <div className="order-3 ml-auto md:hidden">
-        <PhoneAccountMenu />
+        <HeaderAccountMenu />
       </div>
       <div aria-hidden="true" className="order-4 basis-full md:order-5" />
       <p className="order-5 mt-1 min-w-0 flex-1 md:order-6">

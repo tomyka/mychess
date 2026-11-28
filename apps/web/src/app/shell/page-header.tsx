@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
 import { BACK_BUTTON } from '../buttons';
 import { BACK_ICON, Icon } from '../line-icon';
-import { PhoneAccountMenu } from './account-menu';
+import { HeaderAccountMenu } from './account-menu';
 
 /** An inner page's parent: where its way back leads, and its name. */
 export interface BackTarget {
@@ -15,8 +15,10 @@ export interface BackTarget {
 
 /**
  * A page's title row (#381). An inner page names its parent and links to
- * it by href (a shared link still has a way up); on a phone the row also
- * carries the account menu, because the shell's top row is hidden there.
+ * it by href (a shared link still has a way up). On a phone the row also
+ * carries the account menu on any page but a tab's own (HeaderAccountMenu),
+ * as the shell's top row is collapsed there: the 404 too, which has no way
+ * back (#400).
  */
 export function PageHeader({
   back,
@@ -54,7 +56,7 @@ export function PageHeader({
           {title}
         </h1>
         {actions}
-        {back === undefined ? null : <PhoneAccountMenu />}
+        <HeaderAccountMenu />
       </div>
       {children}
     </header>

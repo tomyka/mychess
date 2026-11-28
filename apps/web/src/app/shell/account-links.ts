@@ -1,9 +1,5 @@
-import {
-  myCoachesPath,
-  settingsPath,
-  type SettingsFrom,
-} from '../../lib/routes';
-import { activeTab } from './nav-tabs';
+import { myCoachesPath, settingsPath } from '../../lib/routes';
+import { activeTab, type TabId } from './nav-tabs';
 
 /** Where the account menu's links go, opened on `path`. */
 export interface AccountLinks {
@@ -17,6 +13,6 @@ export interface AccountLinks {
  * outside the tabs (training, Settings itself) counts as Today.
  */
 export function accountLinks(path: string): AccountLinks {
-  const from: SettingsFrom = activeTab(path) ?? 'today';
+  const from: TabId = activeTab(path) ?? 'today';
   return { settings: settingsPath(from), myCoaches: myCoachesPath(from) };
 }

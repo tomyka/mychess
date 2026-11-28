@@ -62,34 +62,19 @@ export const inviteTokenOf = (path: string | null): string | null => {
   return match?.[1] ?? null;
 };
 
-/** The tabs Settings can be opened from, and where each goes back to. */
-const SETTINGS_FROM = {
-  today: ROUTES.home,
-  repertoires: ROUTES.repertoires,
-  opponents: ROUTES.fideSearch,
-  coach: ROUTES.coach,
-} as const;
-
-export type SettingsFrom = keyof typeof SETTINGS_FROM;
-
-const isSettingsFrom = (raw: unknown): raw is SettingsFrom =>
-  typeof raw === 'string' && Object.hasOwn(SETTINGS_FROM, raw);
+/**
+ * The main navigation's tabs by id. Which tabs an account has, their pages
+ * and their order are shell/nav-tabs.ts's (#400).
+ */
+export type TabId = 'today' | 'repertoires' | 'opponents' | 'coach';
 
 /** Settings, opened from the tab `from`, so its back link returns there. */
-export const settingsPath = (from: SettingsFrom): string =>
+export const settingsPath = (from: TabId): string =>
   `${ROUTES.settings}?from=${from}`;
 
 /** Settings' My coaches section, opened from the tab `from`. */
-export const myCoachesPath = (from: SettingsFrom): string =>
+export const myCoachesPath = (from: TabId): string =>
   `${settingsPath(from)}#${MY_COACHES_SECTION}`;
-
-/** The tab Settings was opened from (`?from=`), else Today. */
-export const settingsFrom = (raw: unknown): SettingsFrom =>
-  isSettingsFrom(raw) ? raw : 'today';
-
-/** Settings' parent: the tab it was opened from (`?from=`), else Today. */
-export const settingsParent = (raw: unknown): string =>
-  SETTINGS_FROM[settingsFrom(raw)];
 
 /** One linked player's page in the coach dashboard. */
 export const coachPlayerPath = (playerId: string): string =>

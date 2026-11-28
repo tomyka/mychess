@@ -78,6 +78,7 @@ vi.mock('../../lib/auth-client', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => '/settings',
 }));
 
 // The delete control as it is, keeping the account each render hands it:
@@ -229,10 +230,11 @@ describe('the settings page', () => {
   });
 
   it.each([
-    ['coach', 'Back to Coach', '/coach'],
+    ['repertoires', 'Back to Repertoires', '/repertoires'],
     ['opponents', 'Back to Opponents', '/fide'],
     [undefined, 'Back to Today', '/'],
     ['https://evil.example', 'Back to Today', '/'],
+    ['toString', 'Back to Today', '/'],
   ])(
     'goes back to the tab it was opened from (from=%s)',
     async (from, name, href) => {
@@ -242,6 +244,22 @@ describe('the settings page', () => {
       );
     },
   );
+
+  it('goes back to Coach for a coach opened from Coach', async () => {
+    server.coachSince = new Date('2026-10-17T08:00:00Z');
+    await renderPage({ from: 'coach' });
+    expect(
+      screen.getByRole('link', { name: 'Back to Coach' }).getAttribute('href'),
+    ).toBe('/coach');
+  });
+
+  it('goes back to Today for a player with ?from=coach: a player has no Coach tab (#400)', async () => {
+    await renderPage({ from: 'coach' });
+    expect(
+      screen.getByRole('link', { name: 'Back to Today' }).getAttribute('href'),
+    ).toBe('/');
+    expect(screen.queryByRole('link', { name: 'Back to Coach' })).toBeNull();
+  });
 
   it("shows the session account's training settings (R-62, R-146, R-205)", async () => {
     await renderPage();

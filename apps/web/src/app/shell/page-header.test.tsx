@@ -1,12 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
 import { BACK_BUTTON } from '../buttons';
 import { PageHeader } from './page-header';
 import { ShellProvider } from './shell-context';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const nav = vi.hoisted(() => ({ path: '/repertoires/import' }));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => nav.path,
+}));
+
+beforeEach(() => {
+  nav.path = '/repertoires/import';
+});
 
 describe('PageHeader', () => {
   it('links back to the named parent and titles the page', () => {
@@ -97,7 +106,14 @@ describe('PageHeader', () => {
       expect(screen.getByRole('button', { name: 'Account menu' })).toBeTruthy();
     });
 
-    it('has no account menu on a tab page', () => {
+    it('carries the account menu on a page with no way back that is not a tab, as the 404 (#400)', () => {
+      nav.path = '/no-such-page';
+      inShell();
+      expect(screen.getByRole('button', { name: 'Account menu' })).toBeTruthy();
+    });
+
+    it('has no account menu on a tab page: the top bar carries it', () => {
+      nav.path = '/repertoires';
       inShell();
       expect(screen.queryByRole('button', { name: 'Account menu' })).toBeNull();
     });

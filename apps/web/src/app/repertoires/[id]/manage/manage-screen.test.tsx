@@ -34,7 +34,10 @@ vi.mock('../assign-actions', () => ({
   clearDeadlineAction: vi.fn(),
 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/repertoires/r-1/manage',
+}));
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const m = MESSAGES.repertoires.manage;

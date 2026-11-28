@@ -1,19 +1,22 @@
 /**
  * The main navigation (R-218): which tabs an account has, which one a page
- * belongs to, and the Today tab's due badge. The tab components only render
- * what these decide.
+ * belongs to, where Settings goes back to, which bar carries the phone
+ * account menu, and the Today tab's due badge. The tab components only
+ * render what these decide. This is the app's one tab map (#400).
  */
-import { ROUTES } from '../../lib/routes';
+import { ROUTES, type TabId } from '../../lib/routes';
 
-export type TabId = 'today' | 'repertoires' | 'opponents' | 'coach';
+export type { TabId } from '../../lib/routes';
 
 export interface NavTab {
   readonly id: TabId;
   readonly href: string;
 }
 
+const TODAY: NavTab = { id: 'today', href: ROUTES.home };
+
 const TABS: readonly NavTab[] = [
-  { id: 'today', href: ROUTES.home },
+  TODAY,
   { id: 'repertoires', href: ROUTES.repertoires },
   { id: 'opponents', href: ROUTES.fideSearch },
   { id: 'coach', href: ROUTES.coach },
@@ -38,6 +41,27 @@ export function activeTab(path: string): TabId | null {
 /** A tab's own page, where the phone shows the wordmark row. */
 export const isTabRoot = (path: string): boolean =>
   TABS.some((t) => t.href === path);
+
+/**
+ * Where Settings goes back to: the tab it was opened from (`?from=`,
+ * untrusted), among the account's own tabs; Today for anything else, so a
+ * player sent `?from=coach` is not offered a Coach tab they lack.
+ */
+export const settingsBack = (
+  from: unknown,
+  account: { readonly isCoach: boolean },
+): NavTab => navTabs(account).find((t) => t.id === from) ?? TODAY;
+
+/**
+ * Which bar carries the account menu on a phone at `path`, for the shell
+ * pages with a PageHeader (or the group page's own header): the top bar on
+ * a tab's own page, where its wordmark row shows; the page's header on any
+ * other (an inner page, Settings, the 404), as the top row is collapsed
+ * there. Focused screens (training, the repertoire view, the invite page)
+ * draw their own header by design and are not decided here.
+ */
+export const phoneMenuIn = (path: string): 'topBar' | 'header' =>
+  isTabRoot(path) ? 'topBar' : 'header';
 
 const BADGE_MAX = 99;
 

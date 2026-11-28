@@ -25,6 +25,7 @@ vi.mock('../actions', () => ({ pauseAction: vi.fn(), forkAction: vi.fn() }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/repertoires/assigned/a-1/manage',
 }));
 
 const renderIn = (node: ReactNode) =>

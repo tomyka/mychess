@@ -6,12 +6,6 @@ import {
 } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
-import type { MessageKey } from '../../i18n/message-key';
-import {
-  settingsFrom,
-  settingsParent,
-  type SettingsFrom,
-} from '../../lib/routes';
 import { getDb } from '../../server/db';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
@@ -21,6 +15,7 @@ import { myCoachesData } from '../../server/settings-page';
 import { SECONDARY_BUTTON } from '../buttons';
 import { DeleteAccountControl } from '../delete-account-control';
 import { EXPORT_PATH, ExportNotFresh } from '../delete-account-form';
+import { settingsBack } from '../shell/nav-tabs';
 import { PageHeader } from '../shell/page-header';
 import { CoachMode } from './coach-mode';
 import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
@@ -88,24 +83,25 @@ function DataSection({
   );
 }
 
-/** Each tab Settings can be opened from, by its name in the navigation. */
-const TAB_NAME = {
-  today: 'nav.today',
-  repertoires: 'nav.repertoires',
-  opponents: 'nav.opponents',
-  coach: 'nav.coach',
-} as const satisfies Record<SettingsFrom, MessageKey>;
-
-/** "Settings", back to the tab the account menu opened it from (`?from=`). */
-function Header({ from }: { readonly from: unknown }): JSX.Element {
-  const t = useTranslations();
+/**
+ * "Settings", back to the tab the account menu opened it from (`?from=`),
+ * among the account's own tabs (settingsBack), by the tab's own name.
+ */
+function Header({
+  from,
+  isCoach,
+}: {
+  readonly from: unknown;
+  readonly isCoach: boolean;
+}): JSX.Element {
+  const t = useTranslations('settings');
+  // A tab's name is its id in nav, as the tab bar writes it.
+  const tabName = useTranslations('nav');
+  const tab = settingsBack(from, { isCoach });
   return (
     <PageHeader
-      back={{
-        href: settingsParent(from),
-        parent: t(TAB_NAME[settingsFrom(from)]),
-      }}
-      title={t('settings.title')}
+      back={{ href: tab.href, parent: tabName(tab.id) }}
+      title={t('title')}
     />
   );
 }
@@ -128,7 +124,7 @@ export default async function SettingsPage({
   const training = await trainingSettings(getDb(), account.id);
   return (
     <main className={SETTINGS_COLUMN}>
-      <Header from={first(params['from'])} />
+      <Header from={first(params['from'])} isCoach={isCoach(account)} />
       <TrainingForm settings={training} />
       <MyCoaches coaches={myCoaches.coaches} today={myCoaches.today} />
       <AccountSection displayName={account.displayName}>

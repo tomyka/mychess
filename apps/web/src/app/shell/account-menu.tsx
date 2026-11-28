@@ -17,6 +17,7 @@ import { QUIET_ACTION } from '../buttons';
 import { Sheet } from '../sheet';
 import { SignOutButton } from '../sign-out-button';
 import { accountLinks } from './account-links';
+import { phoneMenuIn } from './nav-tabs';
 import { useShellAccount, type ShellState } from './shell-context';
 import { ThemeSwitch } from './theme-switch';
 
@@ -245,11 +246,15 @@ export function AccountMenu(): JSX.Element | null {
 }
 
 /**
- * The account menu in an inner page's own header, below md only: there the
- * shell's top row (and its avatar) is hidden. Nothing outside the shell.
+ * The account menu in a page's own header, below md only, on the pages
+ * whose header carries it (phoneMenuIn): there the shell's top row (and
+ * its avatar) is collapsed. Nothing on a tab's own page, nothing outside
+ * the shell.
  */
-export function PhoneAccountMenu(): JSX.Element | null {
-  if (useShellAccount() === null) return null;
+export function HeaderAccountMenu(): JSX.Element | null {
+  const inShell = useShellAccount() !== null;
+  const path = usePathname();
+  if (!inShell || phoneMenuIn(path) !== 'header') return null;
   return (
     <div className="ml-auto md:hidden">
       <AccountMenu />
