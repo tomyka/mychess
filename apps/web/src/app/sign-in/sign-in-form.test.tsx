@@ -242,9 +242,45 @@ describe('SignInForm with a return path (R-81)', () => {
     },
   );
 
-  it('says the person signs in to accept a coach’s invite, naming no one (#329)', () => {
-    renderForm({ next: NEXT });
+  it('says the person signs in to accept a coach’s invite, naming no one for an invite that names no one (#329)', () => {
+    renderForm({ next: NEXT, teaser: null });
     expect(screen.getByText(s.forInvite)).toBeDefined();
+    expect(screen.queryByText(/invited you/u)).toBeNull();
+    expect(screen.queryByText(s.description)).toBeNull();
+  });
+
+  it('names the coach and the group of a valid invite (R-235)', () => {
+    renderForm({
+      next: NEXT,
+      teaser: { coachDisplayName: 'Rimantas V.', groupName: 'Juniors 2026' },
+    });
+    expect(
+      screen.getByText(
+        'Rimantas V. invited you to Juniors 2026. Sign in to accept.',
+      ),
+    ).toBeDefined();
+    expect(screen.queryByText(s.forInvite)).toBeNull();
+  });
+
+  it('names the coach of a valid invite with no group (R-235)', () => {
+    renderForm({
+      next: NEXT,
+      teaser: { coachDisplayName: 'Rimantas V.', groupName: null },
+    });
+    expect(
+      screen.getByText(
+        'Rimantas V. invited you to train with them. Sign in to accept.',
+      ),
+    ).toBeDefined();
+  });
+
+  it('says what MyChess is without an invite (#381 part 6)', () => {
+    renderForm({ next: null });
+    expect(
+      screen.getByText(
+        'Practise your openings, and train the repertoires your coach assigns you.',
+      ),
+    ).toBeDefined();
   });
 
   it('keeps the plain destinations with no return path', async () => {

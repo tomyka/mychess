@@ -4,7 +4,7 @@ import { LOCALE, MESSAGES } from './catalogue';
 describe('the message catalogue', () => {
   it('is English (#378)', () => {
     expect(LOCALE).toBe('en');
-    expect(MESSAGES.app.title).toBe('MyChess');
+    expect(MESSAGES.app.signOut).toBe('Sign out');
   });
 
   it('writes the brand as MyChess in every text (R-170)', () => {

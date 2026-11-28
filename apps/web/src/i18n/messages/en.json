@@ -1,6 +1,5 @@
 {
   "app": {
-    "title": "MyChess",
     "greeting": "Hello, {name}!",
     "signOut": "Sign out"
   },
@@ -8,6 +7,7 @@
     "label": "Main",
     "skip": "Skip to content",
     "today": "Today",
+    "goToday": "Go to Today",
     "todayDue": "Today, {count} due",
     "repertoires": "Repertoires",
     "opponents": "Opponents",
@@ -27,6 +27,9 @@
     "title": "Sign in",
     "intro": "Enter your email address and we will send you a sign-in link.",
     "forInvite": "Sign in to accept the coach’s invite.",
+    "invitedToGroup": "{coach} invited you to {group}. Sign in to accept.",
+    "invitedPersonal": "{coach} invited you to train with them. Sign in to accept.",
+    "description": "Practise your openings, and train the repertoires your coach assigns you.",
     "email": "Email address",
     "submit": "Send link",
     "sent": "Link sent. Check your email and open the link in it (it is valid for 15 minutes).",
@@ -47,7 +50,7 @@
     "displayName": "Display name",
     "displayNameHint": "Others will see this name. You can change it later in settings.",
     "submit": "Save and continue",
-    "deleteAccount": "Delete account"
+    "nextInvite": "Next: the invite from {coach}"
   },
   "settings": {
     "title": "Settings",
@@ -69,7 +72,8 @@
     },
     "myCoaches": {
       "title": "My coaches",
-      "empty": "You are not linked to a coach yet. A coach can send you an invite link.",
+      "empty": "No coach yet. A coach links with you by sending an invite link.",
+      "assigned": "Assigned",
       "groups": "Groups",
       "leaveGroup": "Leave group",
       "leaveGroupNamed": "Leave the group “{group}”",
@@ -303,16 +307,23 @@
     "groupRequired": "Choose a group for a group invite.",
     "groupInvalid": "Choose a group from the list.",
     "title": "Invite from a coach",
-    "fromCoach": "Coach: {coach}",
-    "toGroup": "Group: {group}",
-    "explain": "If you accept, your account is linked to the coach’s. The coach will see your display name, everything about the repertoires they assign you (your training on them included) and your imported games, and can put you in their groups. Your own repertoires stay private unless you share them. You can unlink at any time in settings, and the coach loses access at once.",
+    "titlePersonal": "{coach} invites you",
+    "titleGroup": "{coach} invites you to {group}",
+    "privacy": {
+      "sees": "The coach will see your display name, everything about the repertoires they assign you (your training on them included) and your imported games, and can put you in their groups.",
+      "private": "Your own repertoires stay private unless you share them.",
+      "unlink": "You can unlink at any time in Settings, and the coach loses access at once."
+    },
+    "comesWith": "Comes with",
+    "assignment": "{name} · {deadline}",
     "accept": "Accept invite",
     "notNow": "Not now",
-    "home": "Home",
-    "accepted": "You are linked with {coach}.",
-    "myCoaches": "My coaches",
-    "invalid": "This invite is not valid. Ask your coach for a new link.",
-    "ownInvite": "This is your own invite. Send the link to a player.",
+    "acceptedTitle": "You are linked with {coach}",
+    "invalidTitle": "This invite link is not valid",
+    "invalid": "Ask your coach for a new link.",
+    "ownInviteTitle": "This is your own invite",
+    "ownInvite": "Send the link to a player.",
+    "backToCoach": "Back to Coach",
     "coachFull": "This coach cannot link any more players. Let your coach know."
   },
   "mail": {
@@ -871,8 +882,8 @@
     "repertoires": "My repertoires",
     "review": "Review {count}",
     "learn": "Learn",
-    "linked": "You are linked with {coach}.",
-    "linkedThrough": "You are linked with {coach} through {group}.",
+    "linked": "You are linked with {coach}",
+    "linkedThrough": "You are linked with {coach} through {group}",
     "dismiss": "Dismiss"
   },
   "fide": {
@@ -913,5 +924,13 @@
     "groupSummary": "{count, plural, one {# game} other {# games}} · {win} won, {draw} drawn, {loss} lost{unknown, plural, =0 {} other { · # unfinished}}",
     "groupGlance": "{count, plural, one {# game} other {# games}} · <w>+{win}</w> <d>={draw}</d> <l>−{loss}</l>{unknown, plural, =0 {} other { · # unfinished}}",
     "credit": "Games from <broadcasts>Lichess broadcasts</broadcasts> · <licence>CC BY-SA 4.0</licence>"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This page does not exist, or its link is out of date."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "retry": "Try again"
   }
 }

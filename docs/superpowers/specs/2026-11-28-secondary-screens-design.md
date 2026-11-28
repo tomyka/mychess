@@ -234,13 +234,13 @@ layout does not jump when content opens inside it.
 
 ## Invite a player sheet (part 5 leftover)
 
-- Each open personal invite shows its made time with the minute ("made 28
-  Nov, 14:05 · expires 5 Dec"), in the user's time zone.
+- Each open personal invite shows its made time with the minute ("made Nov
+  28, 14:05 · expires Dec 5", the catalogue's date format), in the user's time zone.
 - Opening one Revoke confirmation closes any other.
 
 ## Domain and data
 
-- **Invite preview read** (`invitePreview(token)`): coach display name and,
+- **Invite teaser read** (`inviteTeaser(token)`): coach display name and,
   for a group invite, the group name, for a valid invite only; nothing for
   an invalid one. Used by sign-in, welcome and the invite page.
 - **Group invite's assignments** (R-236): the group's current assignments

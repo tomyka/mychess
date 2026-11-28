@@ -1,7 +1,8 @@
 'use client';
 
+import type { InviteTeaser } from '@mychess/db';
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, type JSX, type ReactNode } from 'react';
+import { useActionState, useId, type JSX } from 'react';
 import { PRIMARY_BUTTON } from '../buttons';
 import { NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
@@ -16,61 +17,65 @@ export interface OnboardingFormProps {
    * field; the action checks it again, as it is client input.
    */
   readonly next?: string | null;
-  /** Shown below the form: the way to delete the account instead (R-86). */
-  readonly children?: ReactNode;
+  /** The coach of the valid invite in `next` (R-235), or null. */
+  readonly teaser?: InviteTeaser | null;
 }
 
 const INITIAL: OnboardingState = {};
 
-/** The one onboarding screen: a display name (R-81). */
+/**
+ * The one onboarding screen's card: a display name (R-81), and, from a
+ * valid invite, whose invite comes next. The page puts it in the
+ * EntryFrame.
+ */
 export function OnboardingForm({
   displayName,
   next = null,
-  children,
+  teaser = null,
 }: OnboardingFormProps): JSX.Element {
-  const t = useTranslations();
+  const t = useTranslations('onboarding');
+  const errors = useTranslations();
   const statusId = useId();
   const [state, action, pending] = useActionState(
     completeOnboardingAction,
     INITIAL,
   );
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-gutter py-8 sm:px-gutter-wide">
-      <div className="flex flex-col gap-6 sm:rounded-card sm:border sm:border-card-edge sm:bg-surface sm:p-8 sm:shadow-card">
-        <header className="flex flex-col gap-2">
-          <p className="text-lg font-bold text-accent">{t('app.title')}</p>
-          <h1 className="text-2xl font-bold sm:text-3xl">
-            {t('onboarding.title')}
-          </h1>
-          <p className="text-fg-muted">{t('onboarding.intro')}</p>
-        </header>
-        <StatusLine
-          id={statusId}
-          text={state.refusal === undefined ? null : t(state.refusal)}
-          tone="error"
+    <>
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+        <p className="text-fg-muted">{t('intro')}</p>
+      </header>
+      <StatusLine
+        id={statusId}
+        text={state.refusal === undefined ? null : errors(state.refusal)}
+        tone="error"
+      />
+      {/* noValidate: the server's refusal is shown, not the browser's. */}
+      <form
+        noValidate
+        onSubmit={submitByHand(action)}
+        className="flex flex-col gap-6"
+      >
+        <NameField
+          label={t('displayName')}
+          hint={t('displayNameHint')}
+          initial={displayName}
+          invalid={state.refusal !== undefined}
+          statusId={statusId}
         />
-        {/* noValidate: the server's refusal is shown, not the browser's. */}
-        <form
-          noValidate
-          onSubmit={submitByHand(action)}
-          className="flex flex-col gap-6"
-        >
-          <NameField
-            label={t('onboarding.displayName')}
-            hint={t('onboarding.displayNameHint')}
-            initial={displayName}
-            invalid={state.refusal !== undefined}
-            statusId={statusId}
-          />
-          {next === null ? null : (
-            <input type="hidden" name="next" value={next} />
-          )}
-          <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-            {t('onboarding.submit')}
-          </button>
-        </form>
-      </div>
-      {children}
-    </main>
+        {next === null ? null : (
+          <input type="hidden" name="next" value={next} />
+        )}
+        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
+          {t('submit')}
+        </button>
+      </form>
+      {teaser === null ? null : (
+        <p className="text-fg-muted">
+          {t('nextInvite', { coach: teaser.coachDisplayName })}
+        </p>
+      )}
+    </>
   );
 }

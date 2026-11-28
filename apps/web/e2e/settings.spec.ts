@@ -139,10 +139,18 @@ test('an account that has not finished onboarding deletes itself by typing its e
   await signIn(page, request, en, email);
   await expect(page).toHaveURL(/\/welcome$/);
 
-  // The disclosure's summary (Task 8 of #381 part 6 makes it a sheet).
-  await page
-    .locator('summary', { hasText: en.onboarding.deleteAccount })
-    .click();
+  // The quiet link under the card opens the delete sheet, and the page
+  // behind it does not move (finding 23).
+  const heading = page.getByRole('heading', {
+    level: 1,
+    name: en.onboarding.title,
+  });
+  const before = await heading.boundingBox();
+  await page.getByRole('button', { name: en.settings.delete.open }).click();
+  await expect(
+    page.getByRole('dialog', { name: en.settings.delete.title }),
+  ).toBeVisible();
+  expect((await heading.boundingBox())?.y).toBe(before?.y);
   const typed = page.getByLabel(
     format(en.settings.delete.typeEmail, { email }),
     { exact: true },

@@ -59,6 +59,29 @@ describe('OnboardingForm', () => {
     expect(status().textContent).toBe('');
   });
 
+  it('says the invite from its coach comes next, under the form (R-235)', () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES}>
+        <OnboardingForm
+          displayName="Ruta"
+          next="/invite/x"
+          teaser={{ coachDisplayName: 'Rimantas V.', groupName: null }}
+        />
+      </NextIntlClientProvider>,
+    );
+    // The name's own period ends the line: the line adds none.
+    const line = screen.getByText('Next: the invite from Rimantas V.');
+    const save = screen.getByRole('button', { name: o.submit });
+    expect(
+      save.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('says nothing about an invite without a teaser', () => {
+    renderForm('Ruta', '/invite/x');
+    expect(screen.queryByText(/Next: the invite/u)).toBeNull();
+  });
+
   it('starts with an empty name when no provider gave one', () => {
     renderForm('');
     expect(nameField().value).toBe('');

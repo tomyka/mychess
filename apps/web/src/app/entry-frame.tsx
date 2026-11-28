@@ -14,9 +14,12 @@ import { ROUTES } from '../lib/routes';
 export function EntryFrame({
   children,
   below,
+  busy = false,
 }: {
   readonly children: ReactNode;
   readonly below?: ReactNode;
+  /** The page is loading (a loading.tsx): the main landmark says so. */
+  readonly busy?: boolean;
 }): JSX.Element {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 px-gutter pt-6 pb-8 sm:px-gutter-wide md:pt-[18vh]">
@@ -28,7 +31,7 @@ export function EntryFrame({
           {BRAND}
         </Link>
       </header>
-      <main className="flex flex-col gap-4">
+      <main aria-busy={busy ? true : undefined} className="flex flex-col gap-4">
         <div className="flex flex-col gap-6 rounded-card border border-card-edge bg-surface p-8 shadow-card">
           {children}
         </div>

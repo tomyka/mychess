@@ -16,17 +16,18 @@ function renderNotice(linked: LinkedFact): void {
 }
 
 describe('LinkedNotice (R-234)', () => {
+  // A display name may end with a period ("Rimantas V."): the line adds none.
   it('says whom the player is now linked with, as a status', () => {
-    renderNotice({ coachName: 'Rimantas', groupName: null });
+    renderNotice({ coachName: 'Rimantas V.', groupName: null });
     expect(screen.getByRole('status').textContent).toBe(
-      'You are linked with Rimantas.',
+      'You are linked with Rimantas V.',
     );
   });
 
   it('names the group a group invite came through', () => {
-    renderNotice({ coachName: 'Rimantas', groupName: 'Juniors 2026' });
+    renderNotice({ coachName: 'Rimantas', groupName: 'Juniors V.' });
     expect(screen.getByRole('status').textContent).toBe(
-      'You are linked with Rimantas through Juniors 2026.',
+      'You are linked with Rimantas through Juniors V.',
     );
   });
 
@@ -41,7 +42,7 @@ describe('LinkedNotice (R-234)', () => {
   it('goes away on Dismiss', () => {
     renderNotice({ coachName: 'Rimantas', groupName: null });
     fireEvent.click(screen.getByRole('button', { name: t.dismiss }));
-    expect(screen.queryByText('You are linked with Rimantas.')).toBeNull();
+    expect(screen.queryByText('You are linked with Rimantas')).toBeNull();
     expect(screen.queryByRole('button', { name: t.dismiss })).toBeNull();
   });
 });

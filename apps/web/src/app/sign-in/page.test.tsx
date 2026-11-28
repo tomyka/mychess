@@ -1,3 +1,4 @@
+import type { InviteTeaser } from '@mychess/db';
 import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
@@ -42,6 +43,12 @@ vi.mock('../../server/env', async (original) => ({
   readWebEnv: () => server.google,
 }));
 
+// What the invite in the return path may say (R-235).
+const teaser = vi.hoisted(() => ({
+  of: vi.fn<(next: string | null) => Promise<InviteTeaser | null>>(),
+}));
+vi.mock('../../server/invite-teaser', () => ({ teaserOf: teaser.of }));
+
 vi.mock('../../lib/auth-client', () => ({
   authClient: { signIn: { magicLink: vi.fn(), social: vi.fn() } },
 }));
@@ -63,6 +70,7 @@ async function renderPage(search: Search = {}): Promise<void> {
 const lt = MESSAGES;
 
 beforeEach(() => {
+  teaser.of.mockReset().mockResolvedValue(null);
   server.account = null;
   server.google = { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' };
 });
@@ -128,6 +136,34 @@ describe('the sign-in page', () => {
     ).toBeDefined();
     // One wordmark: the form no longer has its own.
     expect(screen.getAllByText('MyChess')).toHaveLength(1);
+  });
+
+  // Which tokens are looked up is teaserOf's (invite-teaser.test.ts).
+  describe('from an invite link (R-235)', () => {
+    const NEXT = `/invite/${'A'.repeat(42)}_`;
+
+    it('asks for the teaser of its return path and names the coach and group', async () => {
+      teaser.of.mockResolvedValue({
+        coachDisplayName: 'Rimantas V.',
+        groupName: 'Juniors 2026',
+      });
+      await renderPage({ next: NEXT });
+      expect(
+        screen.getByText(
+          'Rimantas V. invited you to Juniors 2026. Sign in to accept.',
+        ),
+      ).toBeDefined();
+      expect(teaser.of).toHaveBeenCalledExactlyOnceWith(NEXT);
+    });
+
+    it('names no one without a teaser, and asks with no return path', async () => {
+      await renderPage({ next: NEXT });
+      expect(screen.getByText(lt.signIn.forInvite)).toBeDefined();
+      expect(screen.queryByText(/invited you/u)).toBeNull();
+      teaser.of.mockClear();
+      await renderPage();
+      expect(teaser.of).toHaveBeenCalledExactlyOnceWith(null);
+    });
   });
 
   it('offers no Google when its secret is missing', async () => {

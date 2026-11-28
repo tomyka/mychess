@@ -3,6 +3,7 @@ import {
   INVITE_REFUSALS,
   accountStage,
   inviteTokenSchema,
+  vilniusDay,
 } from '@mychess/domain';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
@@ -35,9 +36,12 @@ export default async function InvitePage({
   const account = await getAccount();
   if (account === null) redirect(signInPath(back));
   if (accountStage(account) !== 'onboarded') redirect(onboardingPath(back));
+  const now = new Date();
   const preview =
     token === null
       ? NOT_VALID
-      : await previewInvite(getDb(), token, account.id, new Date());
-  return <InviteView token={token ?? ''} preview={preview} />;
+      : await previewInvite(getDb(), token, account.id, now);
+  return (
+    <InviteView token={token ?? ''} preview={preview} today={vilniusDay(now)} />
+  );
 }

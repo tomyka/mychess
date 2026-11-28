@@ -1,5 +1,6 @@
 'use client';
 
+import type { InviteTeaser } from '@mychess/db';
 import type { Provider } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useState, type JSX, type SubmitEvent } from 'react';
@@ -25,6 +26,8 @@ export interface SignInFormProps {
   readonly googleEnabled: boolean;
   /** Where to go back to after signing in: an invite page, or none. */
   readonly next?: string | null;
+  /** The coach and group of the valid invite in `next` (R-235), or null. */
+  readonly teaser?: InviteTeaser | null;
 }
 
 interface StatusMessage {
@@ -177,6 +180,33 @@ function ProviderButtons({
 }
 
 /**
+ * The line under the title: from a valid invite, who invited (R-235); from
+ * an invite that names no one, the generic invite line (a return path is
+ * only ever an invite: returnPath, R-81); otherwise what MyChess is.
+ */
+function LeadLine({
+  next,
+  teaser,
+}: {
+  readonly next: string | null;
+  readonly teaser: InviteTeaser | null;
+}): JSX.Element {
+  const t = useTranslations('signIn');
+  if (teaser !== null) {
+    const coach = teaser.coachDisplayName;
+    return (
+      <p className="font-medium">
+        {teaser.groupName === null
+          ? t('invitedPersonal', { coach })
+          : t('invitedToGroup', { coach, group: teaser.groupName })}
+      </p>
+    );
+  }
+  if (next !== null) return <p className="font-medium">{t('forInvite')}</p>;
+  return <p>{t('description')}</p>;
+}
+
+/**
  * The sign-in screen's card: a magic link by email, or Google or Lichess.
  * The page puts it in the EntryFrame. After a deletion it also removes the
  * training results queued in this browser.
@@ -186,6 +216,7 @@ export function SignInForm({
   deleted,
   googleEnabled,
   next = null,
+  teaser = null,
 }: SignInFormProps): JSX.Element {
   const t = useTranslations();
   const urls = callbackUrls(next);
@@ -207,10 +238,7 @@ export function SignInForm({
     <>
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold sm:text-3xl">{t('signIn.title')}</h1>
-        {next === null ? null : (
-          // A return path is only ever an invite (returnPath, R-81).
-          <p className="font-medium">{t('signIn.forInvite')}</p>
-        )}
+        <LeadLine next={next} teaser={teaser} />
         <p className="text-fg-muted">{t('signIn.intro')}</p>
       </header>
       <StatusLine

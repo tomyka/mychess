@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { returnPath } from '../../lib/return-path';
 import { ROUTES } from '../../lib/routes';
 import { googleConfigured, readWebEnv } from '../../server/env';
+import { teaserOf } from '../../server/invite-teaser';
 import { getAccount } from '../../server/session';
 import { EntryFrame } from '../entry-frame';
 import { SignInForm } from './sign-in-form';
@@ -14,7 +15,8 @@ const first = (value: string | string[] | undefined): string | undefined =>
 
 // Signed-in accounts go home, or on to the invite in `?next=` (R-81);
 // Better Auth sends failed sign-ins back here with `?error=`, and account
-// deletion with `?deleted=1`.
+// deletion with `?deleted=1`. From a valid invite it names the coach and
+// group (R-235).
 export default async function SignInPage({
   searchParams,
 }: {
@@ -30,6 +32,7 @@ export default async function SignInPage({
         deleted={first(params['deleted']) === '1'}
         googleEnabled={googleConfigured(readWebEnv())}
         next={next}
+        teaser={await teaserOf(next)}
       />
     </EntryFrame>
   );

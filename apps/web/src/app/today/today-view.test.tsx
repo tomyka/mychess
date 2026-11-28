@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
+import { BRAND } from '../../lib/brand';
 import type { TodayForkOffer } from '../../server/assignment-pages';
 import type { TodayPage, TodayPageRow } from '../../server/today-page';
 import { TodayView } from './today-view';
@@ -72,7 +73,7 @@ describe('TodayView (#381 part 2)', () => {
     const greeting = screen.getByText('Hello, Rūta!');
     expect(greeting.tagName).toBe('P');
     // The wordmark lives in the shell's top bar (#381).
-    expect(screen.queryByText(MESSAGES.app.title)).toBeNull();
+    expect(screen.queryByText(BRAND)).toBeNull();
   });
 
   // #381: the ways to the other areas and sign-out moved to the shell.
@@ -128,7 +129,7 @@ describe('TodayView (#381 part 2)', () => {
   });
 
   describe('the linked notice (R-234)', () => {
-    const NOTICE = 'You are linked with Rimantas.';
+    const NOTICE = 'You are linked with Rimantas';
 
     it('comes first in the column, before the greeting and the hero', () => {
       renderView(page({ linked: { coachName: 'Rimantas', groupName: null } }));

@@ -135,17 +135,18 @@ export async function acceptInvite(
   await expect(page).toHaveURL(/\/$/u);
 }
 
-/** The confirm screen names the coach and, for a group invite, the group. */
+/** The confirm screen's heading names the coach and, for a group invite, the group. */
 export async function expectInviteFrom(
   page: Page,
   messages: Messages,
   { coach, group }: { coach: string; group?: string },
 ): Promise<void> {
   const t = messages.invite;
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(t.title);
-  await expect(page.getByText(format(t.fromCoach, { coach }))).toBeVisible();
-  if (group !== undefined)
-    await expect(page.getByText(format(t.toGroup, { group }))).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    group === undefined
+      ? format(t.titlePersonal, { coach })
+      : format(t.titleGroup, { coach, group }),
+  );
 }
 
 /**

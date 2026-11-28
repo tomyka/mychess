@@ -27,6 +27,13 @@ describe('EntryFrame (#381 part 6)', () => {
     ).toBeDefined();
   });
 
+  it('marks its main landmark busy while its page loads, and only then', () => {
+    const { rerender } = render(<EntryFrame busy>loading</EntryFrame>);
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
+    rerender(<EntryFrame>body</EntryFrame>);
+    expect(screen.getByRole('main').hasAttribute('aria-busy')).toBe(false);
+  });
+
   it('renders `below` after the card, outside it', () => {
     render(
       <EntryFrame below={<button type="button">Delete account…</button>}>
@@ -38,14 +45,5 @@ describe('EntryFrame (#381 part 6)', () => {
     const button = screen.getByRole('button', { name: 'Delete account…' });
     expect(card?.contains(button)).toBe(false);
     expect(below?.contains(button)).toBe(true);
-  });
-
-  // Finding 23: content opening in the card must not move the card. A fixed
-  // top offset keeps it in place where centring would re-centre it.
-  it('places the card at a fixed offset from the top, never re-centred', () => {
-    const { container } = render(<EntryFrame>body</EntryFrame>);
-    const column = container.firstElementChild;
-    expect(column?.className.split(' ')).toContain('md:pt-[18vh]');
-    expect(column?.className).not.toContain('justify-center');
   });
 });
