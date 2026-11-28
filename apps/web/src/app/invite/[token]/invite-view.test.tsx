@@ -22,6 +22,7 @@ const GROUP_INVITE: InvitePreviewResult = {
     coachDisplayName: 'Jonas',
     groupName: 'Šeštadienio grupė',
     kind: 'group',
+    assignments: [],
   },
 };
 
@@ -70,6 +71,7 @@ describe('InviteView', () => {
         coachDisplayName: 'Jonas',
         groupName: null,
         kind: 'personal',
+        assignments: [],
       },
     });
     expect(screen.getByText('Coach: Jonas')).toBeDefined();

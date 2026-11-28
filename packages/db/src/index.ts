@@ -164,15 +164,20 @@ export {
   coachInvites,
   createInvite,
   openGroupInvite,
-  previewInvite,
   revokeInvite,
   type AcceptedInvite,
   type CoachInvite,
   type CreatedInvite,
-  type InvitePreview,
   type InviteRequest,
   type OpenGroupInvite,
 } from './invites';
+export {
+  inviteTeaser,
+  previewInvite,
+  type InviteAssignment,
+  type InvitePreview,
+  type InviteTeaser,
+} from './invite-page';
 
 export {
   listPersonalNotes,

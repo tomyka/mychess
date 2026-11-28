@@ -12,6 +12,7 @@ import {
   coachGroupPage,
   coachInvites,
   createInvite,
+  inviteTeaser,
   leaveGroup,
   openGroupInvite,
   previewInvite,
@@ -37,6 +38,7 @@ import {
   someoneWaitsForALock,
   T0,
 } from './support/coaching';
+import { graphOf, newRepertoire } from './support/repertoires';
 import { countStatements } from './support/statements';
 
 const { db, client } = useTestDatabase();
@@ -727,6 +729,7 @@ describe('previewInvite', () => {
         coachDisplayName: 'Name c',
         groupName: 'Šeštadienio grupė',
         kind: 'group',
+        assignments: [],
       },
     });
     expect(await linksOf('c')).toBe(0);
@@ -743,7 +746,88 @@ describe('previewInvite', () => {
         coachDisplayName: 'Name c',
         groupName: null,
         kind: 'personal',
+        assignments: [],
       },
+    });
+  });
+
+  describe("a group invite's assignments (R-236) - SECURITY", () => {
+    /** A repertoire of `c` named `name`, assigned to `target`. */
+    async function assign(
+      name: string,
+      target: { groupId: string } | { playerId: string },
+      deadline?: string,
+    ): Promise<void> {
+      const repertoireId = await newRepertoire(db, {
+        ownerId: 'c',
+        side: 'white',
+        name,
+        graph: graphOf('1. e4 c6 *'),
+        now: T0,
+      });
+      await seedAssignment(db, {
+        coachId: 'c',
+        repertoireId,
+        target,
+        now: T0,
+        ...(deadline === undefined ? {} : { deadline }),
+      });
+    }
+
+    it("lists only that group's assignments, by name, with deadlines", async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      await seedPlayer(db, 'p2', 'p2@example.lt');
+      await seedLink(db, 'c', 'p2');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      const other = await seedGroup(db, 'c', 'Kita');
+      await assign('Caro-Kann basics', { groupId }, '2026-12-20');
+      await assign('Alapin', { groupId });
+      await assign('Elsewhere', { groupId: other });
+      await assign('Personal', { playerId: 'p2' });
+      const { token } = await invite('group', groupId);
+      expect(await previewInvite(db, token, 'p1', NOW)).toEqual({
+        ok: true,
+        value: {
+          state: 'active',
+          coachDisplayName: 'Name c',
+          groupName: 'Mano',
+          kind: 'group',
+          assignments: [
+            // Name and deadline only: no repertoire id (R-236).
+            { repertoireName: 'Alapin', deadline: null },
+            { repertoireName: 'Caro-Kann basics', deadline: '2026-12-20' },
+          ],
+        },
+      });
+    });
+
+    it('lists the assignments of the group a personal invite names, as accepting joins it (R-110)', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      await assign('Alapin', { groupId });
+      const { token } = await invite('personal', groupId);
+      expect(await previewInvite(db, token, 'p1', NOW)).toMatchObject({
+        ok: true,
+        value: {
+          state: 'active',
+          kind: 'personal',
+          assignments: [{ repertoireName: 'Alapin', deadline: null }],
+        },
+      });
+    });
+
+    it('lists nothing for an invalid group invite: the refusal only', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      await assign('Alapin', { groupId });
+      const { token, inviteId } = await invite('group', groupId);
+      await revokeInvite(db, 'c', inviteId, NOW);
+      expect(await previewInvite(db, token, 'p1', NOW)).toEqual(
+        refused(INVITE_REFUSALS.invalid),
+      );
     });
   });
 
@@ -887,6 +971,110 @@ describe('previewInvite', () => {
     expect(await previewInvite(db, token, 'c-p-1', NOW)).toMatchObject({
       ok: true,
     });
+  });
+});
+
+describe('inviteTeaser (R-235) - SECURITY', () => {
+  it('names the coach of a valid personal invite, with no group', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const { token } = await invite();
+    expect(await inviteTeaser(db, token, NOW)).toStrictEqual({
+      coachDisplayName: 'Name c',
+      groupName: null,
+    });
+  });
+
+  it('names the coach and the group of a valid group invite, and nothing else', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedLinks(db, 'c', 2);
+    const groupId = await seedGroup(db, 'c', 'Šeštadienio grupė');
+    const { token, hash } = await invite('group', groupId);
+    const teaser = await inviteTeaser(db, token, NOW);
+    expect(teaser).toStrictEqual({
+      coachDisplayName: 'Name c',
+      groupName: 'Šeštadienio grupė',
+    });
+    const text = JSON.stringify(teaser);
+    for (const secret of [token, hash, 'coach@example.lt', 'c-p-1'])
+      expect(text).not.toContain(secret);
+  });
+
+  it('names the group a valid personal invite names, as accepting joins it (R-110, R-236 reading)', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    const { token } = await invite('personal', groupId);
+    expect(await inviteTeaser(db, token, NOW)).toStrictEqual({
+      coachDisplayName: 'Name c',
+      groupName: 'Mano',
+    });
+  });
+
+  /** Makes a personal invite in the named state; the token, and when to ask. */
+  const closedInvites: [string, () => Promise<{ token: string; now: Date }>][] =
+    [
+      [
+        'expired',
+        async () => ({ token: (await invite()).token, now: at(WEEK) }),
+      ],
+      [
+        'used',
+        async () => {
+          const { token } = await invite();
+          await accept(token, 'p1');
+          return { token, now: NOW };
+        },
+      ],
+      [
+        'revoked',
+        async () => {
+          const { token, inviteId } = await invite();
+          await revokeInvite(db, 'c', inviteId, NOW);
+          return { token, now: NOW };
+        },
+      ],
+    ];
+
+  it.each(closedInvites)('names no one for a %s invite', async (_, made) => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    const { token, now } = await made();
+    expect(await inviteTeaser(db, token, now)).toBeUndefined();
+  });
+
+  it('names a valid invite until the moment it expires', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const { token } = await invite();
+    expect(await inviteTeaser(db, token, at(WEEK - 1))).toBeDefined();
+    expect(await inviteTeaser(db, token, at(WEEK))).toBeUndefined();
+  });
+
+  it('names no one when the coach left Coach mode or is disabled (R-108)', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedCoach(db, 'd', 'd@example.lt');
+    const left = await invite('personal', null, 'c');
+    const disabled = await invite('personal', null, 'd');
+    await client.query(`update accounts set coach_since = null where id = 'c'`);
+    await client.query(`update accounts set disabled_at = $1 where id = 'd'`, [
+      NOW,
+    ]);
+    expect(await inviteTeaser(db, left.token, NOW)).toBeUndefined();
+    expect(await inviteTeaser(db, disabled.token, NOW)).toBeUndefined();
+  });
+
+  it('names no one for an unknown token or the stored hash', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const { hash } = await invite();
+    expect(await inviteTeaser(db, 'A'.repeat(43), NOW)).toBeUndefined();
+    expect(await inviteTeaser(db, hash, NOW)).toBeUndefined();
+  });
+
+  it('refuses a malformed token without a lookup', async () => {
+    let result: unknown = 'unset';
+    const sent = await countStatements(async () => {
+      result = await inviteTeaser(db, 'not-a-token', NOW);
+    });
+    expect(result).toBeUndefined();
+    expect(sent).toBe(0);
   });
 });
 

@@ -112,6 +112,11 @@ applied: R-12, R-81, R-90, R-98, R-99, R-217 to R-233.
   it only when the signed-in player holds a live link with that coach (the
   coach's name comes from that link, never from the URL), and a reload
   without the parameter drops it.
+- **R-236 reading:** "a group invite" means any invite that joins the
+  player to a group on Accept, so a personal invite naming a group (R-110)
+  lists that group's assignments too. Only name and deadline are shown.
+  The same reading applies to R-235: the sign-in page names the group of
+  any valid invite that names one.
 - **The account menu is a bottom sheet on a phone** (the part 4/5 `Sheet`),
   a dropdown on desktop.
 - **Delete account** (Settings and welcome) opens a sheet on a phone and a

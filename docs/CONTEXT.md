@@ -30,6 +30,14 @@ _Avoid_: Connection, follow, relationship, membership
 A link or code a Coach issues that, when a Player accepts it, creates a Coach link (and optionally Group membership).
 _Avoid_: Referral, join code
 
+**Invite teaser**:
+What a valid Invite's link says to a visitor who is not signed in: the Coach's display name and the Group's name, nothing else (R-235). An invalid Invite names no one.
+_Avoid_: Invite preview (that is the signed-in confirm page)
+
+**Comes with**:
+The repertoires currently assigned to the Group an Invite joins the Player to, each with its deadline, listed on the signed-in confirm page before accepting (R-236). Empty for an Invite that joins no Group.
+_Avoid_: Included repertoires, bundle
+
 **Group**:
 A Coach's named set of linked Players, used to assign to and message several Players at once. Belongs to one Coach.
 _Avoid_: Class, team, club (clubs are a separate, post-MVP concept)

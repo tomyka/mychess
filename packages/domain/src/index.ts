@@ -203,6 +203,8 @@ export {
   inviteSchema,
   inviteState,
   inviteTokenSchema,
+  isValidInvite,
+  joinedGroupOf,
   newInviteSchema,
   type Invite,
   type InviteKind,

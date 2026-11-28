@@ -12,6 +12,8 @@ import {
   inviteSchema,
   inviteState,
   inviteTokenSchema,
+  isValidInvite,
+  joinedGroupOf,
   newInviteSchema,
   type Acceptance,
   type Invite,
@@ -123,6 +125,44 @@ describe('canRevoke', () => {
     ['not revocable: a revoked invite', invite({ revokedAt: T0 }), T0, false],
   ])('%s', (_, subject, now, revocable) => {
     expect(canRevoke(subject, now)).toBe(revocable);
+  });
+});
+
+describe('isValidInvite (R-235)', () => {
+  it('is valid while active and its coach coaches', () => {
+    expect(isValidInvite(invite(), coach, BEFORE_EXPIRY)).toBe(true);
+    expect(isValidInvite(personal(), coach, T0)).toBe(true);
+  });
+
+  it.each<[string, Invite, Date]>([
+    ['expired', invite(), AT_EXPIRY],
+    ['used', personal({ usedAt: T0 }), T0],
+    ['revoked', invite({ revokedAt: T0 }), T0],
+  ])('is not valid once %s', (_, subject, now) => {
+    expect(isValidInvite(subject, coach, now)).toBe(false);
+  });
+
+  it('is not valid when its coach is disabled (R-108) or out of Coach mode', () => {
+    expect(isValidInvite(invite(), { ...coach, disabledAt: T0 }, T0)).toBe(
+      false,
+    );
+    expect(isValidInvite(invite(), { ...coach, coachSince: null }, T0)).toBe(
+      false,
+    );
+  });
+});
+
+describe('joinedGroupOf (R-98, R-110, R-236)', () => {
+  it.each<[string, Invite, string | null]>([
+    ['a group invite joins its group', invite(), GROUP],
+    [
+      'a personal invite naming a group joins it',
+      personal({ groupId: GROUP }),
+      GROUP,
+    ],
+    ['a personal invite without a group joins none', personal(), null],
+  ])('%s', (_, subject, group) => {
+    expect(joinedGroupOf(subject)).toBe(group);
   });
 });
 

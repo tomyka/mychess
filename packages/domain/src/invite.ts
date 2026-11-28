@@ -107,10 +107,24 @@ type AcceptResult = Result<undefined, InviteRefusal>;
 
 /**
  * An invite is valid while active and while its coach is neither disabled
- * (R-108) nor out of Coach mode.
+ * (R-108) nor out of Coach mode. Only a valid invite may be named to anyone
+ * (R-235).
  */
-const isValid = (invite: Invite, coach: InvitingCoach, now: Date): boolean =>
+export const isValidInvite = (
+  invite: Invite,
+  coach: InvitingCoach,
+  now: Date,
+): boolean =>
   inviteState(invite, now) === 'active' && !isDisabled(coach) && isCoach(coach);
+
+/**
+ * The group accepting `invite` joins the player to, whatever its kind: a
+ * group invite's group (R-98), or the group a personal invite names
+ * (R-110); null for none. What the invite comes with is that group's
+ * assignments (R-236).
+ */
+export const joinedGroupOf = (invite: Pick<Invite, 'groupId'>): string | null =>
+  invite.groupId;
 
 /** An already linked player needs no new link, so the limit does not apply. */
 const hasRoom = (coach: InvitingCoach, counts: AcceptCounts): boolean =>
@@ -166,7 +180,8 @@ export function canAccept(
   { playerId, coach, counts }: Acceptance,
   now: Date,
 ): AcceptResult {
-  if (!isValid(invite, coach, now)) return refuse(INVITE_REFUSALS.invalid);
+  if (!isValidInvite(invite, coach, now))
+    return refuse(INVITE_REFUSALS.invalid);
   if (playerId === invite.coachId) return refuse(INVITE_REFUSALS.ownInvite);
   return hasRoom(coach, counts) ? ok() : refuse(INVITE_REFUSALS.coachFull);
 }

@@ -1,5 +1,4 @@
 import {
-  acceptedBy,
   canAccept,
   canInvite,
   canRevoke,
@@ -7,6 +6,7 @@ import {
   INVITE_REFUSALS,
   inviteExpiry,
   inviteSchema,
+  joinedGroupOf,
   ok,
   refuse,
   type CoachRefusal,
@@ -17,20 +17,13 @@ import {
   type InvitingCoach,
   type NewInvite,
   type Result,
-  type ServedFacts,
 } from '@mychess/domain';
 import { and, desc, eq, gt, isNull, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { findAccountById, lockAccountById } from './accounts';
+import { lockAccountById } from './accounts';
 import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
-import {
-  countSchema,
-  holdGroup,
-  isLinked,
-  isMember,
-  linkCount,
-} from './coach-queries';
+import { countSchema, holdGroup, isLinked, linkCount } from './coach-queries';
 import { isUuid } from './ids';
 import {
   inviteTokenHash,
@@ -50,15 +43,20 @@ const inviteColumns = {
   createdAt: invites.createdAt,
 };
 
-const namedInviteSchema = inviteSchema.extend({
+/** An invite with its group's name; package-internal, as are its columns. */
+export const namedInviteSchema = inviteSchema.extend({
   groupName: z.string().nullable(),
 });
 /** An invite with its group's name. */
 export type NamedInvite = z.infer<typeof namedInviteSchema>;
 
-const namedInviteColumns = { ...inviteColumns, groupName: groups.name };
+export const namedInviteColumns = {
+  ...inviteColumns,
+  groupName: groups.name,
+};
 
-const INVALID = refuse(INVITE_REFUSALS.invalid);
+/** The one "not valid" refusal; package-internal. */
+export const INVALID = refuse(INVITE_REFUSALS.invalid);
 
 /** A coach's parsed request for an invite (newInviteSchema), and when. */
 export interface InviteRequest extends NewInvite {
@@ -240,8 +238,11 @@ interface Asker {
   readonly now: Date;
 }
 
-/** canAccept on the coach's links as `db` sees them now. */
-async function decide(
+/**
+ * canAccept on the coach's links as `db` sees them now. Package-internal:
+ * acceptInvite decides with it under lock, previewInvite without.
+ */
+export async function decide(
   db: Executor,
   invite: Invite,
   coach: InvitingCoach,
@@ -309,7 +310,8 @@ async function join(
   playerId: string,
   now: Date,
 ): Promise<void> {
-  const { coachId, groupId } = invite;
+  const { coachId } = invite;
+  const groupId = joinedGroupOf(invite);
   await tx
     .insert(coachLinks)
     .values({ coachId, playerId, createdAt: now })
@@ -376,92 +378,6 @@ export async function revokeInvite(
       .returning({ id: invites.id });
     return revoked.length === 1 ? ok() : INVALID;
   });
-}
-
-const previewedInviteSchema = namedInviteSchema.extend({
-  usedBy: z.string().nullable(),
-});
-/** An invite as the invite page reads it: its group's name and who used it. */
-type PreviewedInvite = z.infer<typeof previewedInviteSchema>;
-
-/** The invite with this hash, its group's name and who used it, unlocked. */
-async function findPreviewedInvite(
-  db: Executor,
-  tokenHash: string,
-): Promise<PreviewedInvite | undefined> {
-  const [row] = await db
-    .select({ ...namedInviteColumns, usedBy: invites.usedBy })
-    .from(invites)
-    .leftJoin(groups, eq(groups.id, invites.groupId))
-    .where(eq(invites.tokenHash, tokenHash))
-    .limit(1);
-  return row === undefined ? undefined : previewedInviteSchema.parse(row);
-}
-
-/**
- * What the invite page shows: an invite the player may accept now
- * (`active`), or one that already serves them (`accepted`, #329), so a
- * second visit confirms instead of offering it again.
- */
-export type InvitePreview =
-  | {
-      readonly state: 'active';
-      readonly coachDisplayName: string;
-      readonly groupName: string | null;
-      readonly kind: InviteKind;
-    }
-  | {
-      readonly state: 'accepted';
-      readonly coachDisplayName: string;
-      readonly groupName: string | null;
-    };
-
-/**
- * acceptedBy's facts for `playerId` on `invite`, both reads filtered by
- * that account: a link to its coach, and membership of its group.
- */
-async function servedFacts(
-  db: Executor,
-  invite: PreviewedInvite,
-  playerId: string,
-): Promise<ServedFacts> {
-  return {
-    usedBy: invite.usedBy,
-    linked: await isLinked(db, invite.coachId, playerId),
-    member:
-      invite.groupId !== null && (await isMember(db, invite.groupId, playerId)),
-  };
-}
-
-/**
- * What accepting would do, without locks or changes: `accepted` when the
- * invite already serves the player (acceptedBy, whatever its state now);
- * otherwise the coach and the group on success, or the refusal accepting
- * would give now, as before #329, so no one else learns anything new.
- * `token` is the raw token the link carries; a malformed one is refused
- * without a lookup. SECURITY.
- */
-export async function previewInvite(
-  db: Executor,
-  token: string,
-  playerId: string,
-  now: Date,
-): Promise<Result<InvitePreview, InviteRefusal>> {
-  const tokenHash = parsedTokenHash(token);
-  if (tokenHash === undefined) return INVALID;
-  const invite = await findPreviewedInvite(db, tokenHash);
-  if (invite === undefined) return INVALID;
-  const coach = await findAccountById(db, invite.coachId);
-  if (coach === undefined) return INVALID;
-  const shown = {
-    coachDisplayName: coach.displayName,
-    groupName: invite.groupName,
-  };
-  if (acceptedBy(invite, playerId, await servedFacts(db, invite, playerId)))
-    return ok({ state: 'accepted', ...shown });
-  const check = await decide(db, invite, coach, { playerId, now });
-  if (!check.ok) return check;
-  return ok({ state: 'active', ...shown, kind: invite.kind });
 }
 
 /** The invites `where` picks, with their groups' names, to order and limit. */
