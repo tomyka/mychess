@@ -12,6 +12,7 @@ import {
   useState,
   type JSX,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { DANGER_BUTTON } from './buttons';
 import { FIELD } from './fields';
@@ -105,14 +106,18 @@ function ConfirmLabel({
  * name, or the email before onboarding. The button waits for the same
  * domain check the server makes again. `canExport` is whether the session
  * is fresh enough to download the data first (R-95). No heading or card:
- * DeleteAccountControl's sheet holds it.
+ * DeleteAccountControl's sheet holds it, and focuses the confirmation
+ * field through `fieldRef` (#403).
  */
 export function DeleteAccountForm({
   account,
   canExport,
+  fieldRef,
 }: {
   readonly account: DeletableAccount;
   readonly canExport: boolean;
+  /** The confirmation field, for the holder to focus. */
+  readonly fieldRef?: RefObject<HTMLInputElement | null>;
 }): JSX.Element {
   const t = useTranslations();
   const fieldId = useId();
@@ -136,6 +141,7 @@ export function DeleteAccountForm({
       >
         <ConfirmLabel account={account} htmlFor={fieldId} />
         <input
+          ref={fieldRef}
           id={fieldId}
           type={byEmail ? 'email' : 'text'}
           name="confirmation"

@@ -1,23 +1,27 @@
-import type { CoachStatus } from '@mychess/db';
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { AssignmentStatusLine, DeadlineLine } from './assignment-status-line';
+import {
+  AssignmentStatusLine,
+  DeadlineLine,
+  liveStatus,
+} from './assignment-status-line';
+import type { LiveStatus } from '../../server/live-status';
 
 const TODAY = '2026-11-27';
 
-const LIVE: CoachStatus = {
+// A live assignment's facts: a fork has none, its callers leave it out.
+const LIVE: LiveStatus = {
   deadline: null,
   overdue: false,
   paused: false,
   done: false,
-  forked: false,
 };
 
 function show(
-  status: Partial<CoachStatus>,
+  status: Partial<LiveStatus>,
   wording: 'due' | 'deadline' = 'due',
 ): HTMLElement {
   const { container } = render(
@@ -133,11 +137,6 @@ describe('AssignmentStatusLine (R-231)', () => {
     show({ deadline: '2027-01-15' });
     expect(screen.getByText('Due Jan 15, 2027 · in 49 days')).toBeTruthy();
   });
-
-  it('shows nothing for an own copy: the card says so itself (R-155)', () => {
-    const container = show({ deadline: '2026-11-30', forked: true });
-    expect(container.textContent).toBe('');
-  });
 });
 
 function renderIn(children: ReactNode): HTMLElement {
@@ -177,6 +176,22 @@ describe('AssignmentStatusLine with only its pills', () => {
       />,
     );
     expect(container.innerHTML).toBe('');
+  });
+});
+
+describe('liveStatus: what of a row the status line shows (#401)', () => {
+  const ROW = { ...LIVE, deadline: '2026-11-30', paused: true };
+
+  it("gives a live assignment's facts", () => {
+    expect(liveStatus({ ...ROW, forked: false })).toStrictEqual(ROW);
+  });
+
+  it('gives none for a fork, which has no deadline or done of its own (R-155)', () => {
+    expect(liveStatus({ ...ROW, forked: true })).toBeNull();
+  });
+
+  it('gives none for a row with no status, as a shared repertoire', () => {
+    expect(liveStatus(null)).toBeNull();
   });
 });
 

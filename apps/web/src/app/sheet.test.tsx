@@ -11,12 +11,16 @@ import { Sheet } from './sheet';
 function Opener({
   mounted = true,
   withRef = false,
+  focusField = false,
 }: {
   readonly mounted?: boolean;
   readonly withRef?: boolean;
+  /** Hands the sheet the field as where focus goes first. */
+  readonly focusField?: boolean;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const close = () => {
     setOpen(false);
   };
@@ -37,9 +41,11 @@ function Opener({
           onClose={close}
           titleId="sheet-title"
           {...(withRef ? { returnFocusRef: button } : {})}
+          {...(focusField ? { initialFocusRef: field } : {})}
         >
           <h2 id="sheet-title">A sheet</h2>
-          <input aria-label="Field" />
+          <a href="/first">First link</a>
+          <input ref={field} aria-label="Field" />
           <button type="button" onClick={close}>
             Close
           </button>
@@ -116,6 +122,14 @@ describe('Sheet', () => {
     expect(document.activeElement).toBe(document.body);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(document.activeElement).toBe(opener());
+  });
+
+  it('focuses the element it is handed first, not the first focusable one (#403)', () => {
+    render(<Opener focusField />);
+    fireEvent.click(opener());
+    expect(document.activeElement).toBe(
+      screen.getByRole('textbox', { name: 'Field' }),
+    );
   });
 
   it('is a bottom sheet on a phone and a centred dialog from md, over a scrim', () => {

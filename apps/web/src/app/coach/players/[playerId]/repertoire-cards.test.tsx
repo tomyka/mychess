@@ -118,6 +118,8 @@ describe('RepertoireCards (R-231)', () => {
     show([ITALIAN]);
     const italian = card('Gabija’s own copy of Italian');
     expect(italian.getByText(c.progress.tag.fork)).toBeDefined();
+    // An own copy has no deadline of its own: no status line (R-155).
+    expect(italian.queryByText(/^Due /u)).toBeNull();
     expect(italian.getByText(COUNTS_LINE)).toBeDefined();
     expect(hrefOf(italian, c.progress.title)).toBe(
       '/coach/players/p-1/progress/f-3',

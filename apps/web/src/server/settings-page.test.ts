@@ -51,7 +51,6 @@ const ON_TIME = {
   overdue: false,
   paused: false,
   done: false,
-  forked: false,
 };
 
 describe('coachRows (R-237)', () => {
@@ -105,21 +104,10 @@ describe('coachRows (R-237)', () => {
         assignment('c1', 'Through', { deadline: '2026-12-20', done: true }),
       ],
     );
-    expect(row?.assignments.map(({ status }) => status)).toEqual([
-      {
-        deadline: '2026-11-20',
-        overdue: true,
-        paused: true,
-        done: false,
-        forked: false,
-      },
-      {
-        deadline: '2026-12-20',
-        overdue: false,
-        paused: false,
-        done: true,
-        forked: false,
-      },
+    // A player's assignment is never a fork: no forked flag (#401).
+    expect(row?.assignments.map(({ status }) => status)).toStrictEqual([
+      { deadline: '2026-11-20', overdue: true, paused: true, done: false },
+      { deadline: '2026-12-20', overdue: false, paused: false, done: true },
     ]);
   });
 

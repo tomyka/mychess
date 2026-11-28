@@ -2,6 +2,7 @@ import type { CoachStatus } from '@mychess/db';
 import { deadlineNearness } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
+import type { LiveStatus } from '../../server/live-status';
 import { Pill, type PillTone } from '../pill';
 import { useShortDeadline } from '../use-deadline';
 import {
@@ -16,6 +17,17 @@ import {
  * assignment before its done count.
  */
 type Wording = 'due' | 'deadline' | 'dueShort';
+
+/**
+ * What of a row's status the line shows: a live assignment's facts, or
+ * null for a row with no status (a share) or a fork, which has no deadline
+ * or done of its own (R-155).
+ */
+export function liveStatus(status: CoachStatus | null): LiveStatus | null {
+  if (status === null || status.forked) return null;
+  const { deadline, overdue, paused, done } = status;
+  return { deadline, overdue, paused, done };
+}
 
 /** Each status pill's tone. */
 const TONES = {
@@ -103,12 +115,13 @@ function StatusPills({
 /**
  * An assignment's status in the same words everywhere (spec, Shared
  * pieces): "Due Nov 30 · in 3 days" (amber when near and not done), "Due
- * today", "No deadline", then the Overdue, Paused and Done pills. An own
- * copy shows nothing: it has no deadline or done (R-155), and its card says
- * "own copy" itself. `today` is the page's Vilnius day from the loader, so
- * the server and the browser agree. With `parts="pills"` it leaves the
- * deadline to a row that says it already (a group's member under the
- * group's row), and is nothing with no pill on.
+ * today", "No deadline", then the Overdue, Paused and Done pills. Only a
+ * live assignment has one: an own copy has no deadline or done (R-155), so
+ * its callers leave it out and its card says "own copy" itself. `today` is
+ * the page's Vilnius day from the loader, so the server and the browser
+ * agree. With `parts="pills"` it leaves the deadline to a row that says it
+ * already (a group's member under the group's row), and is nothing with no
+ * pill on.
  */
 export function AssignmentStatusLine({
   status,
@@ -116,7 +129,7 @@ export function AssignmentStatusLine({
   wording,
   parts = 'all',
 }: {
-  readonly status: CoachStatus;
+  readonly status: LiveStatus;
   readonly today: string;
   readonly wording: Exclude<Wording, 'dueShort'>;
   readonly parts?: 'all' | 'pills';
@@ -124,7 +137,7 @@ export function AssignmentStatusLine({
   const deadline = useDeadlineText(status, today, wording);
   const pills = useStatusPills()(status);
   const text = parts === 'all' ? deadline : null;
-  if (status.forked || (text === null && pills.length === 0)) return null;
+  if (text === null && pills.length === 0) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
       {text === null ? null : <DeadlineSpan text={text} />}

@@ -1,5 +1,5 @@
 import { percentLearned, type Standing } from '@mychess/chess';
-import { assignmentBadges, daysBetween } from '@mychess/domain';
+import { assignmentBadges, deadlineNearness } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
@@ -8,7 +8,7 @@ import { AssignmentBadges } from '../assignment-badges';
 import { COMPACT_TONAL } from '../buttons';
 import { TEXT_LINK } from '../settings/styles';
 import { StandingLine } from '../standing-line';
-import { noonOf, useShortDeadline } from '../use-deadline';
+import { useShortDeadline } from '../use-deadline';
 import type { RepertoireTraining, TrainNow } from '../../server/training';
 import type { ScreenState } from './screen-state';
 
@@ -90,7 +90,9 @@ function useDueText(assignment: SummaryAssignment): string | null {
   const date = useShortDeadline(assignment.today);
   const { deadline, today, overdue } = assignment;
   if (deadline === null || overdue) return null;
-  const days = daysBetween(noonOf(today), noonOf(deadline));
+  // The days to it as the domain counts them; this strip draws no
+  // urgency colour, so `near` is not used.
+  const { days } = deadlineNearness(deadline, today);
   return days === 0
     ? t('dueToday')
     : t('dueIn', { date: date(deadline), days });

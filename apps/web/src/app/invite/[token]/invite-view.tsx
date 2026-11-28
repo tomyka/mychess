@@ -11,7 +11,7 @@ import { EntryFrame, EntryTitle } from '../../entry-frame';
 import { PendingButton } from '../../pending-button';
 import { SECTION_TITLE } from '../../surfaces';
 import { StatusLine } from '../../status-line';
-import { useShortDeadline } from '../../use-deadline';
+import { DeadlineLine } from '../../coach/assignment-status-line';
 import { acceptInviteAction, type AcceptState } from './actions';
 
 /**
@@ -116,7 +116,8 @@ function Privacy(): JSX.Element {
 
 /**
  * The repertoires the group accepting joins has assigned now, each with
- * its deadline in the coach status wording (R-236); nothing for none.
+ * its deadline on the shared DeadlineLine (R-236): "deadline Dec 20", in
+ * the due tone when near, or "No deadline". Nothing for none.
  */
 function ComesWith({
   assignments,
@@ -126,8 +127,6 @@ function ComesWith({
   readonly today: string;
 }): JSX.Element | null {
   const t = useTranslations('invite');
-  const status = useTranslations('coach.status');
-  const date = useShortDeadline(today);
   const titleId = useId();
   if (assignments.length === 0) return null;
   return (
@@ -138,14 +137,15 @@ function ComesWith({
       <ul className="flex flex-col gap-1">
         {assignments.map(({ repertoireName, deadline }, index) => (
           // Two repertoires may share a name: the place keeps keys apart.
-          <li key={`${String(index)}:${repertoireName}`}>
-            {t('assignment', {
-              name: repertoireName,
-              deadline:
-                deadline === null
-                  ? status('noDeadline')
-                  : status('deadline', { date: date(deadline) }),
-            })}
+          <li
+            key={`${String(index)}:${repertoireName}`}
+            className="flex flex-wrap items-baseline text-sm"
+          >
+            <span className="break-words">{repertoireName}</span>
+            <span className="whitespace-pre text-fg-muted">
+              {t('separator')}
+            </span>
+            <DeadlineLine deadline={deadline} today={today} />
           </li>
         ))}
       </ul>

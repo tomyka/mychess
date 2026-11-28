@@ -316,7 +316,7 @@
       "unlink": "You can unlink at any time in Settings, and the coach loses access at once."
     },
     "comesWith": "Comes with",
-    "assignment": "{name} · {deadline}",
+    "separator": " · ",
     "accept": "Accept invite",
     "notNow": "Not now",
     "acceptedTitle": "You are linked with {coach}",

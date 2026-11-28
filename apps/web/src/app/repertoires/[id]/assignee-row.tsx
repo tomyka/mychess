@@ -3,7 +3,10 @@
 import type { AssigneeStanding, CoachAssignmentPlayer } from '@mychess/db';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
-import { AssignmentStatusLine } from '../../coach/assignment-status-line';
+import {
+  AssignmentStatusLine,
+  liveStatus,
+} from '../../coach/assignment-status-line';
 import { ProgressCounts } from '../../coach/progress-counts';
 import { StateBar } from '../../coach/state-bar';
 
@@ -87,6 +90,7 @@ export function AssigneeRow({
   readonly children?: ReactNode;
 }): JSX.Element {
   const { status } = player;
+  const live = liveStatus(status);
   const groupSaysIt =
     groupDeadline !== undefined && status.deadline === groupDeadline;
   return (
@@ -96,12 +100,14 @@ export function AssigneeRow({
     >
       <RowHeader nameId={nameId} name={name} action={action} />
       <RowProgress forked={status.forked} shown={shown} />
-      <AssignmentStatusLine
-        status={status}
-        today={today}
-        wording="deadline"
-        parts={groupSaysIt ? 'pills' : 'all'}
-      />
+      {live === null ? null : (
+        <AssignmentStatusLine
+          status={live}
+          today={today}
+          wording="deadline"
+          parts={groupSaysIt ? 'pills' : 'all'}
+        />
+      )}
       {children}
     </li>
   );

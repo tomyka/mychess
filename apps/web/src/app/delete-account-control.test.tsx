@@ -90,6 +90,15 @@ describe('DeleteAccountControl (#381 part 6)', () => {
     ).toBe(true);
   });
 
+  it('focuses the confirmation field first, not the download link (#403)', () => {
+    const dialog = open(renderControl('row'));
+    expect(document.activeElement).toBe(
+      within(dialog).getByLabelText(
+        d.typeName.replace('<strong>{name}</strong>', 'Rūta Jonaitė'),
+      ),
+    );
+  });
+
   it('asks a session older than a day to sign in again first (R-95)', () => {
     const dialog = open(renderControl('link', false));
     expect(within(dialog).getByRole('note').textContent).toBe(

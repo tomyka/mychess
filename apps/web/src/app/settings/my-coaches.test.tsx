@@ -33,7 +33,6 @@ const status = (
   overdue: false,
   paused: false,
   done: false,
-  forked: false,
   ...over,
 });
 
@@ -102,6 +101,8 @@ const sent = (action: typeof server.unlink) =>
 beforeEach(() => {
   server.unlink.mockReset().mockResolvedValue(undefined);
   server.leave.mockReset().mockResolvedValue(undefined);
+  // jsdom lays nothing out, so it has no scrollIntoView of its own (#403).
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 describe('MyCoaches ("My coaches")', () => {
@@ -109,6 +110,18 @@ describe('MyCoaches ("My coaches")', () => {
     renderCoaches([JONAS]);
     const section = screen.getByRole('region', { name: m.title });
     expect(section.id).toBe('coaches');
+  });
+
+  it('scrolls itself into view on a load of /settings#coaches still at the top (#403)', () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    window.history.replaceState(null, '', '/settings#coaches');
+    renderCoaches([JONAS]);
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.contexts[0]).toBe(
+      screen.getByRole('region', { name: m.title }),
+    );
+    window.history.replaceState(null, '', '/');
   });
 
   it('says when no coach is linked, and how one links (R-237)', () => {

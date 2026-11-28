@@ -9,6 +9,7 @@ import { DANGER_ROW_FITTED } from '../buttons';
 import { AssignmentStatusLine } from '../coach/assignment-status-line';
 import { ConfirmedAction } from '../confirmed-action';
 import { PendingButton } from '../pending-button';
+import { useHashTarget } from '../use-hash-target';
 import { leaveGroupAction, unlinkCoachAction } from './coaching-actions';
 import { SECTION_TITLE, SETTINGS_CARD } from './styles';
 
@@ -153,8 +154,12 @@ export function MyCoaches({
 }): JSX.Element {
   const t = useTranslations('settings.myCoaches');
   const titleId = useId();
+  // A hard reload of /settings#coaches streams this in after the
+  // browser's hash scroll (#403).
+  const ref = useHashTarget<HTMLElement>(MY_COACHES_SECTION);
   return (
     <section
+      ref={ref}
       id={MY_COACHES_SECTION}
       aria-labelledby={titleId}
       className={`${SETTINGS_CARD} scroll-mt-4 md:scroll-mt-[calc(var(--spacing-tabbar)+1rem)]`}

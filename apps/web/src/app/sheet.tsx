@@ -24,14 +24,17 @@ const SHEET =
  * a close the browser makes by itself is reported the same way. Closing,
  * or going away while open, gives focus back to `returnFocusRef` when
  * given (Safari does not focus a clicked button), else to whatever had
- * focus when it opened. Its content is rendered only while open, so what
- * it showed (a link shown once) goes with it.
+ * focus when it opened. Opening focuses `initialFocusRef` when given (the
+ * field the sheet is for), else the browser's first focusable element.
+ * Its content is rendered only while open, so what it showed (a link shown
+ * once) goes with it.
  */
 export function Sheet({
   open,
   onClose,
   titleId,
   returnFocusRef,
+  initialFocusRef,
   children,
 }: {
   readonly open: boolean;
@@ -40,9 +43,11 @@ export function Sheet({
   readonly titleId: string;
   /** Where focus goes back on closing: the button that opens the sheet. */
   readonly returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Where focus goes on opening, past what comes before it in the sheet. */
+  readonly initialFocusRef?: RefObject<HTMLElement | null>;
   readonly children: ReactNode;
 }): JSX.Element {
-  const dialog = useModal(open, returnFocusRef);
+  const dialog = useModal(open, { returnFocusRef, initialFocusRef });
   return (
     <dialog
       ref={dialog}
@@ -66,13 +71,21 @@ function focusBack(target: Element | null): void {
   if (target instanceof HTMLElement) target.focus();
 }
 
+/** Where focus goes on opening and back on closing. */
+interface FocusRefs {
+  readonly returnFocusRef: RefObject<HTMLElement | null> | undefined;
+  readonly initialFocusRef: RefObject<HTMLElement | null> | undefined;
+}
+
 /**
- * Shows the dialog modally while `open`. On closing, and on unmounting
- * while open, focus goes back to where it was sent from.
+ * Shows the dialog modally while `open`. Opening focuses the initial
+ * element after showModal, whose own focusing would pick the first
+ * focusable one. On closing, and on unmounting while open, focus goes back
+ * to where it was sent from.
  */
 function useModal(
   open: boolean,
-  returnFocusRef: RefObject<HTMLElement | null> | undefined,
+  { returnFocusRef, initialFocusRef }: FocusRefs,
 ): RefObject<HTMLDialogElement | null> {
   const dialog = useRef<HTMLDialogElement>(null);
   const returnTo = useRef<Element | null>(null);
@@ -84,11 +97,12 @@ function useModal(
     if (open) {
       returnTo.current = returnFocusRef?.current ?? document.activeElement;
       element.showModal();
+      initialFocusRef?.current?.focus();
       return;
     }
     if (element.open) element.close();
     focusBack(returnTo.current);
-  }, [open, returnFocusRef]);
+  }, [open, returnFocusRef, initialFocusRef]);
   useEffect(
     () => () => {
       if (shown.current) focusBack(returnTo.current);

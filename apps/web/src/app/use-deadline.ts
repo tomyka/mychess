@@ -9,7 +9,7 @@ import {
  * A `YYYY-MM-DD` calendar day at noon UTC, which is the same day in
  * Vilnius, the zone it is shown in.
  */
-export const noonOf = (day: string): Date => new Date(`${day}T12:00:00Z`);
+const noonOf = (day: string): Date => new Date(`${day}T12:00:00Z`);
 
 /**
  * Writes a deadline, a `YYYY-MM-DD` calendar day (plan decision 10), as a

@@ -15,7 +15,7 @@ import type {
 import { Pill } from '../../../pill';
 import { SECTION_TITLE, TEXT_LINK } from '../../../settings/styles';
 import { CARD } from '../../../surfaces';
-import { AssignmentStatusLine } from '../../assignment-status-line';
+import { AssignmentStatusLine, liveStatus } from '../../assignment-status-line';
 import { useOwnCopyTitle } from '../../own-copy-title';
 import { ProgressCounts } from '../../progress-counts';
 import { StateBar } from '../../state-bar';
@@ -114,6 +114,7 @@ function Card({
     playerName: player.displayName,
     repertoireName: card.repertoire.name,
   });
+  const status = liveStatus(card.status);
   return (
     <li className={`${CARD} flex min-w-0 flex-col gap-2 p-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -122,12 +123,8 @@ function Card({
         </h3>
         <Pill tone="neutral">{tags(card.tag)}</Pill>
       </div>
-      {card.status === null ? null : (
-        <AssignmentStatusLine
-          status={card.status}
-          today={today}
-          wording="due"
-        />
+      {status === null ? null : (
+        <AssignmentStatusLine status={status} today={today} wording="due" />
       )}
       <CardProgress player={player} card={card} titleId={titleId} />
     </li>

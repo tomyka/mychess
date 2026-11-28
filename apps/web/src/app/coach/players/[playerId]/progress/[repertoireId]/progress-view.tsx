@@ -20,7 +20,10 @@ import { SECONDARY_BUTTON } from '../../../../../buttons';
 import { MasteredBadge } from '../../../../../mastered-badge';
 import { Pill } from '../../../../../pill';
 import { SECTION, SECTION_TITLE } from '../../../../../settings/styles';
-import { AssignmentStatusLine } from '../../../../assignment-status-line';
+import {
+  AssignmentStatusLine,
+  liveStatus,
+} from '../../../../assignment-status-line';
 import { useOwnCopyTitle } from '../../../../own-copy-title';
 import { ProgressCounts } from '../../../../progress-counts';
 import { StateBar } from '../../../../state-bar';
@@ -171,15 +174,16 @@ function OpenLink({ page }: { readonly page: ProgressPage }): JSX.Element {
 function HeaderFacts({ page }: { readonly page: ProgressPage }): JSX.Element {
   const tags = useTranslations('coach.progress.tag');
   const tag = tags(page.tag);
+  const status = liveStatus(page.status);
   return (
     <div className="flex flex-col gap-2">
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fg-muted">
         <span className="break-words">{page.player.displayName}</span>
         <Pill tone="neutral">{tag}</Pill>
       </p>
-      {page.status === null ? null : (
+      {status === null ? null : (
         <AssignmentStatusLine
-          status={page.status}
+          status={status}
           today={page.today}
           wording="due"
         />

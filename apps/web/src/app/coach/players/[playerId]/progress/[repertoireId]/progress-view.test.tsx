@@ -180,6 +180,22 @@ describe('the progress page (R-152)', () => {
     ).toBeNull();
   });
 
+  it('shows no status for a forked assignment, even when its status comes along (R-155)', () => {
+    show({
+      ...PAGE,
+      tag: 'fork',
+      status: {
+        deadline: '2026-11-30',
+        overdue: false,
+        paused: true,
+        done: false,
+        forked: true,
+      },
+    });
+    expect(within(header()).queryByText(/^Due /u)).toBeNull();
+    expect(within(header()).queryByText('Paused')).toBeNull();
+  });
+
   it('titles a fork by whose own copy it is, tags it "Own copy", opening it to add notes (R-155)', () => {
     show({ ...PAGE, tag: 'fork', status: null });
     expect(

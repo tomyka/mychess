@@ -113,6 +113,19 @@ describe('InviteView, an invite open to accept', () => {
     ).toEqual(['Caro-Kann basics · deadline Dec 20', 'Alapin · No deadline']);
   });
 
+  it('draws a near deadline in the due tone, as everywhere else (#401)', () => {
+    renderView(
+      active('Juniors 2026', [
+        { repertoireName: 'Najdorf', deadline: '2026-11-30' },
+        { repertoireName: 'Caro-Kann basics', deadline: '2026-12-20' },
+      ]),
+    );
+    expect(screen.getByText('deadline Nov 30').className).toContain('text-due');
+    expect(screen.getByText('deadline Dec 20').className).not.toContain(
+      'text-due',
+    );
+  });
+
   // Lead decisions, the R-236 reading: any invite that joins a group on
   // Accept lists that group's assignments, a personal one naming it too.
   it('heads a personal invite naming a group with the group, and lists what it comes with (R-110)', () => {

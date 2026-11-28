@@ -19,9 +19,10 @@ const LOOKS: Record<DeleteAccountVariant, string> = {
 /**
  * "Delete account…" (#381 part 6): a button that opens the delete form in
  * a sheet, a bottom sheet on a phone and a dialog from md, so the form
- * never opens in the page and moves it. Cancel or Escape closes it, focus
- * back on the button. The confirmation is the form's, unchanged (R-82,
- * R-86, R-95).
+ * never opens in the page and moves it. Opening focuses the confirmation
+ * field, past the export link before it (#403); Cancel or Escape closes
+ * it, focus back on the button. The confirmation is the form's, unchanged
+ * (R-82, R-86, R-95).
  */
 export function DeleteAccountControl({
   account,
@@ -35,6 +36,7 @@ export function DeleteAccountControl({
   const t = useTranslations('settings.delete');
   const titleId = useId();
   const button = useRef<HTMLButtonElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const close = () => {
     setOpen(false);
@@ -56,12 +58,17 @@ export function DeleteAccountControl({
         onClose={close}
         titleId={titleId}
         returnFocusRef={button}
+        initialFocusRef={field}
       >
         <div className="flex flex-col gap-4">
           <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>
             {t('title')}
           </h2>
-          <DeleteAccountForm account={account} canExport={canExport} />
+          <DeleteAccountForm
+            account={account}
+            canExport={canExport}
+            fieldRef={field}
+          />
           <button
             type="button"
             className={`${QUIET_ACTION} self-start`}

@@ -6,19 +6,19 @@ import 'server-only';
 import {
   playerAssignments,
   playerCoaches,
-  type CoachStatus,
   type GroupRef,
   type LinkedAccount,
   type PlayerAssignment,
 } from '@mychess/db';
 import { vilniusDay, type AccountRef } from '@mychess/domain';
 import { getDb } from './db';
+import type { LiveStatus } from './live-status';
 
-/** One repertoire a coach assigns the player, with its status (part 5 wording). */
+/** One repertoire a coach assigns the player, with its status. */
 interface MyCoachAssignment {
   readonly repertoireId: string;
   readonly name: string;
-  readonly status: CoachStatus;
+  readonly status: LiveStatus;
 }
 
 /** A coach the player is linked to: the groups and what the coach assigns. */
@@ -33,17 +33,13 @@ export interface MyCoachesData {
   readonly today: string;
 }
 
-/**
- * An assignment's status in the shape the shared status line takes, from
- * the player's own facts: a live assignment is never forked (a fork is an
- * own repertoire).
- */
-const statusOf = (assignment: PlayerAssignment): CoachStatus => ({
+/** An assignment's status from the player's own facts. */
+// A player's assignment is never a fork (a fork is an own repertoire).
+const statusOf = (assignment: PlayerAssignment): LiveStatus => ({
   deadline: assignment.deadline,
   overdue: assignment.badges.overdue,
   paused: assignment.paused,
   done: assignment.done,
-  forked: false,
 });
 
 const byName = (a: MyCoachAssignment, b: MyCoachAssignment): number =>
