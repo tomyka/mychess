@@ -39,6 +39,7 @@ const page = (over: Partial<TodayPage> = {}): TodayPage => ({
   summary: { due: 3, toLearn: 0, minutes: 1, nextDue: null },
   rows: [ROW],
   offers: [],
+  linked: null,
   ...over,
 });
 
@@ -124,5 +125,30 @@ describe('TodayView (#381 part 2)', () => {
         .getByRole('link', { name: MESSAGES.training.today.start })
         .getAttribute('href'),
     ).toBe('/training?mode=review');
+  });
+
+  describe('the linked notice (R-234)', () => {
+    const NOTICE = 'You are linked with Rimantas.';
+
+    it('comes first in the column, before the greeting and the hero', () => {
+      renderView(page({ linked: { coachName: 'Rimantas', groupName: null } }));
+      const notice = screen.getByText(NOTICE);
+      const greeting = screen.getByText('Hello, Rūta!');
+      expect(
+        notice.compareDocumentPosition(greeting) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      // After the screen-reader h1, the first thing in the column.
+      const [, first] = Array.from(screen.getByRole('main').children);
+      expect(first?.contains(notice)).toBe(true);
+    });
+
+    it('is absent without a link just made', () => {
+      renderView(page());
+      expect(screen.queryByText(NOTICE)).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: MESSAGES.today.dismiss }),
+      ).toBeNull();
+    });
   });
 });

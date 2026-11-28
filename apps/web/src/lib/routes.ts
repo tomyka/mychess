@@ -30,12 +30,48 @@ export const invitePath = (token: string): string =>
   `/invite/${encodeURIComponent(token)}`;
 
 /**
- * "My coaches" after accepting an invite: it names the coach just
- * linked, by id, so the section can say so (#329). The page shows the name
- * only for a coach the session account is linked to.
+ * Today after accepting an invite, with whom (R-234): the coach and, for a
+ * group invite, the group, by id. Today names them only for a coach the
+ * session account is linked to, never from the URL.
  */
-export const acceptedInvitePath = (coachId: string): string =>
-  `${ROUTES.settings}?coach=${encodeURIComponent(coachId)}#coaches`;
+export const acceptedInvitePath = (
+  coachId: string,
+  groupId: string | null,
+): string => {
+  const query = new URLSearchParams({ linked: coachId });
+  if (groupId !== null) query.set('group', groupId);
+  return `${ROUTES.home}?${query.toString()}`;
+};
+
+/**
+ * The invite token of a return path to an invite, or null. The raw segment:
+ * the caller parses it with `inviteTokenSchema`.
+ */
+export const inviteTokenOf = (path: string | null): string | null => {
+  const match = /^\/invite\/([^/?#]+)$/u.exec(path ?? '');
+  return match?.[1] ?? null;
+};
+
+/** The tabs Settings can be opened from, and where each goes back to. */
+const SETTINGS_FROM = {
+  today: ROUTES.home,
+  repertoires: ROUTES.repertoires,
+  opponents: ROUTES.fideSearch,
+  coach: ROUTES.coach,
+} as const;
+
+export type SettingsFrom = keyof typeof SETTINGS_FROM;
+
+const isSettingsFrom = (raw: unknown): raw is SettingsFrom =>
+  typeof raw === 'string' && Object.hasOwn(SETTINGS_FROM, raw);
+
+/** Settings, opened from the tab `from`, so its back link returns there. */
+export const settingsPath = (from: SettingsFrom): string =>
+  `${ROUTES.settings}?from=${from}`;
+
+/** Settings' parent: the tab it was opened from (`?from=`), else Today. */
+export const settingsParent = (raw: unknown): string =>
+  isSettingsFrom(raw) ? SETTINGS_FROM[raw] : ROUTES.home;
 
 /** One linked player's page in the coach dashboard. */
 export const coachPlayerPath = (playerId: string): string =>

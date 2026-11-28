@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -113,6 +113,21 @@ describe('the sign-in page', () => {
       screen.getByRole('button', { name: lt.signIn.google }),
     ).toBeDefined();
     expect(screen.getByRole('status').textContent).toBe('');
+  });
+
+  it('shows the form in the entry frame, under the wordmark (#381 part 6)', async () => {
+    await renderPage();
+    expect(
+      screen.getByRole('link', { name: 'MyChess' }).getAttribute('href'),
+    ).toBe('/');
+    expect(
+      within(screen.getByRole('main')).getByRole('heading', {
+        level: 1,
+        name: lt.signIn.title,
+      }),
+    ).toBeDefined();
+    // One wordmark: the form no longer has its own.
+    expect(screen.getAllByText('MyChess')).toHaveLength(1);
   });
 
   it('offers no Google when its secret is missing', async () => {

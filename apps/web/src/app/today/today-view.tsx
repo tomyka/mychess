@@ -4,11 +4,13 @@ import type { TodayPage } from '../../server/today-page';
 import { ForkOffers } from '../fork-offers';
 import { CARD, CONTENT } from '../surfaces';
 import { heroState } from './hero-state';
+import { LinkedNotice } from './linked-notice';
 import { RepertoireRows } from './repertoire-rows';
 import { TodayHero } from './today-hero';
 
 /**
- * Today (#381 part 2): the greeting, the hero, the list of every trained
+ * Today (#381 part 2): after accepting an invite the linked notice
+ * (R-234), then the greeting, the hero, the list of every trained
  * repertoire and the copies left to keep. One column on a phone (hero,
  * list, offers); from md two columns, the hero and offers on the left, the
  * list on the right. The first row is the hero's height (the list spans
@@ -21,6 +23,7 @@ export function TodayView({
   summary,
   rows,
   offers,
+  linked,
 }: TodayPage): JSX.Element {
   const t = useTranslations();
   const state = heroState({
@@ -31,6 +34,7 @@ export function TodayView({
   return (
     <main className={`${CONTENT} gap-4`}>
       <h1 className="sr-only">{t('today.title')}</h1>
+      {linked === null ? null : <LinkedNotice linked={linked} />}
       <p className="text-fg-muted">
         {t('app.greeting', { name: displayName })}
       </p>

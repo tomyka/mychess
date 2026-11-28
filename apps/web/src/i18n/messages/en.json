@@ -70,7 +70,6 @@
     "myCoaches": {
       "title": "My coaches",
       "empty": "You are not linked to a coach yet. A coach can send you an invite link.",
-      "accepted": "Invite accepted: you are now linked with {name}.",
       "groups": "Groups",
       "leaveGroup": "Leave group",
       "leaveGroupNamed": "Leave the group “{group}”",
@@ -104,6 +103,8 @@
     },
     "delete": {
       "title": "Delete account",
+      "open": "Delete account…",
+      "cancel": "Cancel",
       "whatGoes": "This permanently deletes:",
       "items": {
         "account": "your account, display name and email address;",
@@ -869,7 +870,10 @@
     "import": "Import a PGN",
     "repertoires": "My repertoires",
     "review": "Review {count}",
-    "learn": "Learn"
+    "learn": "Learn",
+    "linked": "You are linked with {coach}.",
+    "linkedThrough": "You are linked with {coach} through {group}.",
+    "dismiss": "Dismiss"
   },
   "fide": {
     "title": "Opponent's games",

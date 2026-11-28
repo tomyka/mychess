@@ -20,8 +20,7 @@ export interface AcceptState {
  * Accepts the invite as the session account, never an id the form carries
  * (checklist 4), and only on a POST (plan decision 8). The token is
  * checked for its format before it is looked up (plan decision 6). On
- * success the player lands on "My coaches" (plan decision 12), which
- * says they are now linked with the coach (#329).
+ * success the player lands on Today with the linked notice (R-234).
  */
 export async function acceptInviteAction(
   _previous: AcceptState,
@@ -37,5 +36,5 @@ export async function acceptInviteAction(
     new Date(),
   );
   if (!accepted.ok) return { refusal: accepted.refusal.reason };
-  redirect(acceptedInvitePath(accepted.value.coachId));
+  redirect(acceptedInvitePath(accepted.value.coachId, accepted.value.groupId));
 }

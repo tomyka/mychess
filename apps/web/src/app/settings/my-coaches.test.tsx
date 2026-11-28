@@ -35,45 +35,20 @@ const ONA: MyCoach = { id: 'c-2', displayName: 'Ona', groups: [] };
 const leave = (group: string): string =>
   m.leaveGroupNamed.replace('{group}', group);
 
-function renderCoaches(
-  coaches: readonly MyCoach[],
-  acceptedCoachId: string | null = null,
-): void {
+function renderCoaches(coaches: readonly MyCoach[]): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <MyCoaches coaches={coaches} acceptedCoachId={acceptedCoachId} />
+      <MyCoaches coaches={coaches} />
     </NextIntlClientProvider>,
   );
 }
 
-describe('MyCoaches after an invite is accepted (#329)', () => {
-  it('drops ?coach= from the address once it shows, so a reload does not say it again', () => {
+describe('MyCoaches after an invite is accepted (R-234)', () => {
+  it('has no "linked with" line: Today says it now', () => {
     window.history.replaceState(null, '', '/settings?coach=c-2#coaches');
-    renderCoaches([JONAS, ONA], ONA.id);
-    expect(screen.getByRole('status').textContent).toBe(
-      m.accepted.replace('{name}', 'Ona'),
-    );
-    expect(window.location.pathname).toBe('/settings');
-    expect(window.location.search).toBe('');
-    expect(window.location.hash).toBe('#coaches');
-  });
-
-  it('leaves the address alone without an accepted invite', () => {
-    window.history.replaceState(null, '', '/settings?tab=x');
-    renderCoaches([JONAS]);
-    expect(window.location.search).toBe('?tab=x');
-  });
-
-  it('says the player is now linked with the coach the invite was from', () => {
-    renderCoaches([JONAS, ONA], ONA.id);
-    expect(screen.getByRole('status').textContent).toBe(
-      m.accepted.replace('{name}', 'Ona'),
-    );
-  });
-
-  it('says nothing for a coach the player is not linked to, or none', () => {
-    renderCoaches([JONAS], 'someone-else');
-    expect(screen.getByRole('status').textContent).toBe('');
+    renderCoaches([JONAS, ONA]);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(window.location.search).toBe('?coach=c-2');
   });
 });
 

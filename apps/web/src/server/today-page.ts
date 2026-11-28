@@ -1,6 +1,8 @@
 import 'server-only';
 // Today's page (#381 part 2): the summary, the list's rows with each
-// assignment's facts (R-222), and the open fork offers.
+// assignment's facts (R-222), the open fork offers, and the linked notice
+// after accepting an invite (R-234).
+import { playerCoaches } from '@mychess/db';
 import type { Account } from '@mychess/domain';
 import {
   todayAssignments,
@@ -8,6 +10,7 @@ import {
   type TodayAssigned,
   type TodayForkOffer,
 } from './assignment-pages';
+import { getDb } from './db';
 import {
   todayList,
   todaySummary,
@@ -21,11 +24,45 @@ export interface TodayPageRow extends TodayListRow {
   readonly assignment: AssignedFacts | null;
 }
 
+/** Whom an invite just accepted linked the player with (R-234). */
+export interface LinkedFact {
+  readonly coachName: string;
+  /** The group the invite came through, when the player is in it. */
+  readonly groupName: string | null;
+}
+
 export interface TodayPage {
   readonly displayName: string;
   readonly summary: TodaySummary;
   readonly rows: readonly TodayPageRow[];
   readonly offers: readonly TodayForkOffer[];
+  /** The linked notice after accepting an invite, or null. */
+  readonly linked: LinkedFact | null;
+}
+
+/** Today's search params: the ids accepting an invite lands with (R-234). */
+export interface TodayParams {
+  readonly linked?: string | string[] | undefined;
+  readonly group?: string | string[] | undefined;
+}
+
+/**
+ * The linked notice's fact: the coach of `params.linked` among the
+ * player's own coaches, and the group of `params.group` among the player's
+ * groups of that coach. Names come from the links, never from the URL, so
+ * a coach the player is not linked with names no one.
+ */
+async function linkedFact(
+  playerId: string,
+  params: TodayParams,
+): Promise<LinkedFact | null> {
+  const { linked: coachId, group: groupId } = params;
+  if (typeof coachId !== 'string') return null;
+  const coaches = await playerCoaches(getDb(), playerId);
+  const coach = coaches.find(({ id }) => id === coachId);
+  if (coach === undefined) return null;
+  const group = coach.groups.find(({ id }) => id === groupId);
+  return { coachName: coach.displayName, groupName: group?.name ?? null };
 }
 
 /**
@@ -49,19 +86,24 @@ export function pageRows(
 
 /**
  * The session account's Today page. The summary and the list share one
- * request-cached snapshot read; the assignments are read for `account`, the
- * session account the page already holds.
+ * request-cached snapshot read; the assignments and the linked notice are
+ * read for `account`, the session account the page already holds.
  */
-export async function todayPage(account: Account): Promise<TodayPage> {
-  const [summary, list, { assigned, offers }] = await Promise.all([
+export async function todayPage(
+  account: Account,
+  params: TodayParams,
+): Promise<TodayPage> {
+  const [summary, list, { assigned, offers }, linked] = await Promise.all([
     todaySummary(account),
     todayList(account),
     todayAssignments(account),
+    linkedFact(account.id, params),
   ]);
   return {
     displayName: account.displayName,
     summary,
     rows: pageRows(list, assigned),
     offers,
+    linked,
   };
 }

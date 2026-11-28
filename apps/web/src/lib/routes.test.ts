@@ -10,6 +10,7 @@ import {
   coachSharedRepertoirePath,
   importIntoRoute,
   invitePath,
+  inviteTokenOf,
   learnPath,
   repertoireDeletedRoute,
   repertoireChapterRoute,
@@ -17,6 +18,8 @@ import {
   repertoireManageRoute,
   repertoireRoute,
   ROUTES,
+  settingsParent,
+  settingsPath,
   trainingPath,
   trainingResultsRoute,
 } from './routes';
@@ -47,10 +50,47 @@ describe('invitePath', () => {
   });
 });
 
-describe('acceptedInvitePath', () => {
-  it('is "My coaches", naming the coach just linked, the id encoded', () => {
-    expect(acceptedInvitePath('c1')).toBe('/settings?coach=c1#coaches');
-    expect(acceptedInvitePath('a&b')).toBe('/settings?coach=a%26b#coaches');
+describe('acceptedInvitePath (R-234)', () => {
+  it('lands on Today with the coach, and the group when there is one', () => {
+    expect(acceptedInvitePath('c1', null)).toBe('/?linked=c1');
+    expect(acceptedInvitePath('c1', 'g1')).toBe('/?linked=c1&group=g1');
+  });
+
+  it('encodes the ids', () => {
+    expect(acceptedInvitePath('a&b', 'c d')).toBe('/?linked=a%26b&group=c+d');
+  });
+});
+
+describe('inviteTokenOf', () => {
+  it('gives the token of an invite return path, else null', () => {
+    const token = `${'A'.repeat(42)}_`;
+    expect(inviteTokenOf(`/invite/${token}`)).toBe(token);
+    expect(inviteTokenOf('/settings')).toBeNull();
+    expect(inviteTokenOf(null)).toBeNull();
+  });
+
+  it('takes only a whole invite path, not one with more after the token', () => {
+    expect(inviteTokenOf('/invite/abc/more')).toBeNull();
+    expect(inviteTokenOf('/invite/abc?x=1')).toBeNull();
+    expect(inviteTokenOf('/x/invite/abc')).toBeNull();
+    expect(inviteTokenOf('/invite/')).toBeNull();
+  });
+});
+
+describe('settings from a tab', () => {
+  it('carries a known tab and goes back to it', () => {
+    expect(settingsPath('coach')).toBe('/settings?from=coach');
+    expect(settingsParent('today')).toBe('/');
+    expect(settingsParent('repertoires')).toBe('/repertoires');
+    expect(settingsParent('coach')).toBe('/coach');
+    expect(settingsParent('opponents')).toBe('/fide');
+  });
+
+  it('goes back to Today for anything else', () => {
+    expect(settingsParent(undefined)).toBe('/');
+    expect(settingsParent('https://evil.example')).toBe('/');
+    expect(settingsParent('toString')).toBe('/');
+    expect(settingsParent(['coach'])).toBe('/');
   });
 });
 

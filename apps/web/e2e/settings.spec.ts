@@ -97,6 +97,10 @@ test('deleting needs the exact display name, mails a confirmation, and frees the
 }) => {
   const email = await newOnboardedAccount(page, request, 'Rokas P');
   await openSettings(page);
+  await page.getByRole('button', { name: en.settings.delete.open }).click();
+  await expect(
+    page.getByRole('dialog', { name: en.settings.delete.title }),
+  ).toBeVisible();
   const typed = page.getByLabel(
     format(en.settings.delete.typeName, { name: 'Rokas P' }),
     { exact: true },
@@ -135,8 +139,7 @@ test('an account that has not finished onboarding deletes itself by typing its e
   await signIn(page, request, en, email);
   await expect(page).toHaveURL(/\/welcome$/);
 
-  // The disclosure's summary: in English the section heading inside it
-  // reads the same.
+  // The disclosure's summary (Task 8 of #381 part 6 makes it a sheet).
   await page
     .locator('summary', { hasText: en.onboarding.deleteAccount })
     .click();

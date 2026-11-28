@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -75,19 +75,21 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-// The delete section as it is, keeping the account each render hands it:
+// The delete control as it is, keeping the account each render hands it:
 // a client component, so whatever it is given reaches the browser.
 const handed = vi.hoisted(() => {
   const state: { accounts: unknown[] } = { accounts: [] };
   return state;
 });
-vi.mock('./delete-section', async (original) => {
-  const actual = await original<typeof import('./delete-section')>();
+vi.mock('../delete-account-control', async (original) => {
+  const actual = await original<typeof import('../delete-account-control')>();
   return {
     ...actual,
-    DeleteSection: (props: Parameters<typeof actual.DeleteSection>[0]) => {
+    DeleteAccountControl: (
+      props: Parameters<typeof actual.DeleteAccountControl>[0],
+    ) => {
       handed.accounts.push(props.account);
-      return actual.DeleteSection(props);
+      return actual.DeleteAccountControl(props);
     },
   };
 });
@@ -144,6 +146,12 @@ const s = MESSAGES.settings;
 const provider = (template: string, name: string) =>
   template.replace('{provider}', name);
 
+/** Presses Delete account…; the delete sheet it opens. */
+const openDelete = (): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: s.delete.open }));
+  return screen.getByRole('dialog', { name: s.delete.title });
+};
+
 beforeEach(() => {
   server.google = { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' };
   server.links = [];
@@ -172,7 +180,6 @@ describe('the settings page', () => {
       s.myCoaches.title,
       s.providers.title,
       s.export.title,
-      s.delete.title,
     ]);
     expect(
       screen.getByRole('link', { name: 'Back to Today' }).getAttribute('href'),
@@ -243,7 +250,7 @@ describe('the settings page', () => {
     );
   });
 
-  it('hands the delete section only what deciding a deletion needs', async () => {
+  it('hands the delete control only what deciding a deletion needs', async () => {
     handed.accounts = [];
     await renderPage();
     const [account] = handed.accounts;
@@ -266,19 +273,30 @@ describe('the settings page', () => {
       within(data).queryByRole('link', { name: s.export.download }),
     ).toBeNull();
     expect(within(data).getByRole('note').textContent).toBe(s.export.notFresh);
-    const deletion = screen.getByRole('region', { name: s.delete.title });
+    const deletion = openDelete();
     expect(within(deletion).queryByRole('link')).toBeNull();
     expect(within(deletion).getByRole('note').textContent).toBe(
       s.export.notFresh,
     );
   });
 
-  it('links the export from the delete section for a fresh session', async () => {
+  it('links the export from the delete sheet for a fresh session', async () => {
     await renderPage();
-    const deletion = screen.getByRole('region', { name: s.delete.title });
+    const deletion = openDelete();
     expect(within(deletion).getByRole('link').getAttribute('href')).toBe(
       '/api/account/export',
     );
+  });
+
+  it('offers Delete account… in Your data, opening the delete sheet (#381 part 6)', async () => {
+    await renderPage();
+    const data = screen.getByRole('region', { name: s.export.title });
+    expect(within(data).getByRole('button', { name: s.delete.open })).toBe(
+      screen.getByRole('button', { name: s.delete.open }),
+    );
+    expect(
+      within(openDelete()).getByRole('button', { name: s.delete.confirm }),
+    ).toBeDefined();
   });
 
   it('shows Coach mode as off for an account that has not switched it on', async () => {
@@ -319,15 +337,13 @@ describe('the settings page', () => {
     expect(within(coaches).getByText('Šeštadienio grupė')).toBeDefined();
   });
 
-  it('says the invite of `?coach=` was accepted, naming that linked coach (#329)', async () => {
+  it('no longer says an invite was accepted: Today does (R-234)', async () => {
     server.coaches = [
       { id: 'c-1', displayName: 'Jonas', linkedAt: new Date(), groups: [] },
     ];
     await renderPage({ coach: 'c-1' });
     const coaches = screen.getByRole('region', { name: s.myCoaches.title });
-    expect(within(coaches).getByRole('status').textContent).toBe(
-      s.myCoaches.accepted.replace('{name}', 'Jonas'),
-    );
+    expect(within(coaches).queryByRole('status')).toBeNull();
   });
 
   it('says nothing about Lichess otherwise', async () => {

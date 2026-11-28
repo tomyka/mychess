@@ -92,7 +92,8 @@ async function threePlayersAccept(
   });
   await expectInviteFrom(rokas, en, { coach: COACH, group: GROUP });
   await acceptInvite(rokas, en);
-  // In the coach list, not the "linked with" line above it (#329).
+  // My coaches lists the coach (R-234 moved the "linked with" line to Today).
+  await rokas.goto('/settings#coaches');
   await expect(
     rokas.getByRole('heading', { level: 3, name: COACH, exact: true }),
   ).toBeVisible();

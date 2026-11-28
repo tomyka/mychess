@@ -144,7 +144,7 @@ describe('the onboarding page', () => {
     });
     expect(disclosure.closest('details')?.open).toBe(false);
     expect(
-      screen.getByRole('heading', { level: 2, hidden: true, name: d.title }),
+      screen.getByText(d.whatGoes, { selector: 'details p' }),
     ).toBeDefined();
     expect(
       screen.getByText('ruta@example.lt', { selector: 'label strong' }),

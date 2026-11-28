@@ -48,6 +48,13 @@ export const DANGER_BUTTON = `${FADING_BUTTON} bg-error text-on-state`;
 export const DANGER_OUTLINE_BUTTON = `${FADING_BUTTON} ${UNAVAILABLE} border border-error bg-surface text-error`;
 
 /**
+ * A destructive action as a full-width row of a card (Settings' Delete
+ * account…): error-tone text, tinted on hover, a 44px touch target.
+ */
+export const DANGER_ROW =
+  'flex min-h-touch w-full items-center rounded-control px-3 text-start font-medium text-error hover:bg-error-subtle';
+
+/**
  * An action that belongs to the content (Today's rows, the drill's Hint and
  * Type): tinted with the accent, not outlined. Unavailable, it fades to
  * half and says so to the pointer (aria-disabled).

@@ -1,10 +1,10 @@
 import type { DeletableAccount } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { DeleteSection } from '../settings/delete-section';
+import { DeleteAccountForm } from '../delete-account-form';
 
 /**
- * A way out before onboarding (R-86): the delete section, folded away
+ * A way out before onboarding (R-86): the delete form, folded away
  * under a quiet link so it does not compete with the form above it.
  * `canExport` is whether the session may download the data first (R-95).
  */
@@ -21,7 +21,7 @@ export function DeleteDisclosure({
       <summary className="inline-flex min-h-touch cursor-pointer items-center self-start text-fg-muted underline">
         {t('deleteAccount')}
       </summary>
-      <DeleteSection account={account} canExport={canExport} />
+      <DeleteAccountForm account={account} canExport={canExport} />
     </details>
   );
 }

@@ -13,12 +13,11 @@ import {
   type JSX,
   type ReactNode,
 } from 'react';
-import { DANGER_BUTTON } from '../buttons';
-import { FIELD } from '../fields';
-import { StatusLine } from '../status-line';
-import { submitByHand } from '../submit-by-hand';
-import { deleteAccountAction, type DeleteState } from './actions';
-import { DANGER_SECTION, SECTION_TITLE } from './styles';
+import { DANGER_BUTTON } from './buttons';
+import { FIELD } from './fields';
+import { deleteAccountAction, type DeleteState } from './settings/actions';
+import { StatusLine } from './status-line';
+import { submitByHand } from './submit-by-hand';
 
 export const EXPORT_PATH = '/api/account/export';
 
@@ -105,9 +104,10 @@ function ConfirmLabel({
  * Deleting the account (R-40, R-82, R-86): confirmed by typing the display
  * name, or the email before onboarding. The button waits for the same
  * domain check the server makes again. `canExport` is whether the session
- * is fresh enough to download the data first (R-95).
+ * is fresh enough to download the data first (R-95). No heading or card:
+ * DeleteAccountControl's sheet holds it.
  */
-export function DeleteSection({
+export function DeleteAccountForm({
   account,
   canExport,
 }: {
@@ -115,7 +115,6 @@ export function DeleteSection({
   readonly canExport: boolean;
 }): JSX.Element {
   const t = useTranslations();
-  const titleId = useId();
   const fieldId = useId();
   const statusId = useId();
   const [typed, setTyped] = useState('');
@@ -123,10 +122,7 @@ export function DeleteSection({
   const refused = state.refusal !== undefined;
   const byEmail = deleteConfirmation(account) === 'email';
   return (
-    <section aria-labelledby={titleId} className={DANGER_SECTION}>
-      <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>
-        {t('settings.delete.title')}
-      </h2>
+    <div className="flex flex-col gap-4">
       <WhatGoes canExport={canExport} />
       <StatusLine
         id={statusId}
@@ -162,6 +158,6 @@ export function DeleteSection({
           {t('settings.delete.confirm')}
         </button>
       </form>
-    </section>
+    </div>
   );
 }

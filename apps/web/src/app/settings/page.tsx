@@ -1,5 +1,9 @@
 import { playerCoaches, trainingSettings } from '@mychess/db';
-import { deletableAccount, isCoach } from '@mychess/domain';
+import {
+  deletableAccount,
+  isCoach,
+  type DeletableAccount,
+} from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
@@ -8,7 +12,8 @@ import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
 import { linkedProviders } from '../../server/provider-links';
 import { hasFreshSession, requireOnboarded } from '../../server/session';
-import { DeleteSection, EXPORT_PATH, ExportNotFresh } from './delete-section';
+import { DeleteAccountControl } from '../delete-account-control';
+import { EXPORT_PATH, ExportNotFresh } from '../delete-account-form';
 import { CoachMode } from './coach-mode';
 import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
 import { MyCoaches } from './my-coaches';
@@ -26,10 +31,17 @@ const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
 /**
- * The data export: a plain download link (R-40), or, for a session signed
- * in more than a day ago, a note to sign in again first (R-95).
+ * Your data: the export, a plain download link (R-40), or, for a session
+ * signed in more than a day ago, a note to sign in again first (R-95); and
+ * Delete account…, opening the delete sheet.
  */
-function ExportSection({ fresh }: { readonly fresh: boolean }): JSX.Element {
+function DataSection({
+  account,
+  fresh,
+}: {
+  readonly account: DeletableAccount;
+  readonly fresh: boolean;
+}): JSX.Element {
   const t = useTranslations('settings.export');
   return (
     <section aria-labelledby="settings-export" className={SECTION}>
@@ -46,6 +58,7 @@ function ExportSection({ fresh }: { readonly fresh: boolean }): JSX.Element {
       ) : (
         <ExportNotFresh />
       )}
+      <DeleteAccountControl account={account} canExport={fresh} variant="row" />
     </section>
   );
 }
@@ -87,7 +100,6 @@ export default async function SettingsPage({
           displayName,
           groups,
         }))}
-        acceptedCoachId={first(params['coach']) ?? null}
       />
       <Providers
         links={links}
@@ -97,8 +109,7 @@ export default async function SettingsPage({
       >
         {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
       </Providers>
-      <ExportSection fresh={fresh} />
-      <DeleteSection account={deletableAccount(account)} canExport={fresh} />
+      <DataSection account={deletableAccount(account)} fresh={fresh} />
     </main>
   );
 }

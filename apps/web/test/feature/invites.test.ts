@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { acceptInviteAction } from '../../src/app/invite/[token]/actions';
 import InvitePage from '../../src/app/invite/[token]/page';
+import HomePage from '../../src/app/page';
 import {
   createInviteAction,
   revokeInviteAction,
@@ -54,6 +55,12 @@ afterEach(() => {
 const LINK = /^http:\/\/localhost:3000\/invite\/([A-Za-z0-9_-]{43})$/u;
 
 const linkState = z.object({ link: z.string().regex(LINK) });
+
+/** Today, naming the coach (and group) whose invite was accepted (R-234). */
+const TODAY_LINKED = (coachId: string, groupId?: string): string =>
+  groupId === undefined
+    ? `/?linked=${coachId}`
+    : `/?linked=${coachId}&group=${groupId}`;
 
 /** The token in a link the action answered with. */
 function tokenOf(state: unknown): string {
@@ -270,7 +277,7 @@ describe('revokeInviteAction (R-98)', () => {
         acceptInviteAction({}, formOf({ token: made.value.token })),
       ),
     ).toEqual({
-      redirectedTo: `/settings?coach=${encodeURIComponent(jonas.id)}#coaches`,
+      redirectedTo: TODAY_LINKED(jonas.id),
     });
     actAs(jonas);
     expect(
@@ -331,9 +338,22 @@ const memberships = (): Promise<unknown[]> =>
       order by 1, 2`,
   );
 
-/** "My coaches", naming the coach whose invite was accepted (#329). */
-const MY_COACHES = (coachId: string): string =>
-  `/settings?coach=${encodeURIComponent(coachId)}#coaches`;
+/** The linked notice's fact Today hands its view for these params (R-234). */
+async function linkedOnToday(
+  params: Readonly<Record<string, string>>,
+): Promise<unknown> {
+  const page = await outcomeOf(
+    HomePage({ searchParams: Promise.resolve(params) }),
+  );
+  return z
+    .object({
+      props: z.object({
+        children: z.object({ props: z.object({ linked: z.unknown() }) }),
+      }),
+    })
+    .parse(page).props.children.props.linked;
+}
+
 const WELL_FORMED = 'B'.repeat(43);
 
 describe('the invite page /invite/[token] (R-81, plan decision 8)', () => {
@@ -376,6 +396,7 @@ describe('the invite page /invite/[token] (R-81, plan decision 8)', () => {
         coachDisplayName: 'Jonas',
         groupName: 'Šeštadienio grupė',
         kind: 'group',
+        assignments: [],
       },
     });
     expect(await sql.count('coach_links')).toBe(0);
@@ -425,18 +446,60 @@ describe('the invite page /invite/[token] (R-81, plan decision 8)', () => {
 });
 
 describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
-  it('links the player into the group and lands on "My coaches"', async () => {
+  it('links the player into the group and lands on Today with the linked notice (R-234)', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
     const token = await inviteOf(jonas.id, 'group', groupId);
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     expect(await accept({ token })).toEqual({
-      redirectedTo: MY_COACHES(jonas.id),
+      redirectedTo: TODAY_LINKED(jonas.id, groupId),
     });
     expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
     expect(await memberships()).toEqual([
       { group: 'Šeštadienio grupė', player: 'Rokas' },
     ]);
+  });
+
+  it('lands a personal invite naming a group on Today with that group, as accepting joins it (R-110, R-234)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const token = await inviteOf(jonas.id, 'personal', groupId);
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    expect(await accept({ token })).toEqual({
+      redirectedTo: TODAY_LINKED(jonas.id, groupId),
+    });
+    expect(await memberships()).toEqual([
+      { group: 'Šeštadienio grupė', player: 'Rokas' },
+    ]);
+  });
+
+  it("Today names the coach and group it lands with only from the player's own links (R-234)", async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const onaGroup = await groupOf(ona.id, 'Onos grupė');
+    const token = await inviteOf(jonas.id, 'group', groupId);
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    actAs(rokas);
+    await accept({ token });
+    expect(await linkedOnToday({ linked: jonas.id, group: groupId })).toEqual({
+      coachName: 'Jonas',
+      groupName: 'Šeštadienio grupė',
+    });
+    // Another coach's group, or a coach the player is not linked with.
+    expect(await linkedOnToday({ linked: jonas.id, group: onaGroup })).toEqual({
+      coachName: 'Jonas',
+      groupName: null,
+    });
+    expect(await linkedOnToday({ linked: ona.id, group: onaGroup })).toBeNull();
+    // A group the player has left is named no more.
+    await sql.rows('delete from group_members where player_id = $1', [
+      rokas.id,
+    ]);
+    expect(await linkedOnToday({ linked: jonas.id, group: groupId })).toEqual({
+      coachName: 'Jonas',
+      groupName: null,
+    });
   });
 
   it('refuses a group link revoked from the group page, and one New link replaced (R-233)', async () => {
@@ -483,7 +546,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     const used = await inviteOf(jonas.id, 'personal');
     actAs(await person(sql, 'gabija@example.lt', 'Gabija'));
     expect(await accept({ token: used })).toEqual({
-      redirectedTo: MY_COACHES(jonas.id),
+      redirectedTo: TODAY_LINKED(jonas.id),
     });
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     const invalid = { refusal: 'invite.invalid' };
@@ -522,7 +585,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     const token = await inviteOf(jonas.id, 'personal');
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     expect(await accept({ token, playerId: gabija.id })).toEqual({
-      redirectedTo: MY_COACHES(jonas.id),
+      redirectedTo: TODAY_LINKED(jonas.id),
     });
     expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
   });
@@ -553,7 +616,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     await onboard(built(), testDb(), cookie, { displayName: 'Gabija' });
     request.cookie = cookie;
     expect(await accept({ token })).toEqual({
-      redirectedTo: MY_COACHES(jonas.id),
+      redirectedTo: TODAY_LINKED(jonas.id, groupId),
     });
     expect(await sql.count(`accounts where email = 'gabija@example.lt'`)).toBe(
       1,

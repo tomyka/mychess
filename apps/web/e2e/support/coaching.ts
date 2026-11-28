@@ -119,23 +119,20 @@ export async function newGroupLink(
 }
 
 /**
- * On the invite's confirm screen: Accept, landing on "My coaches",
- * which says the invite was accepted (#329). Once said, `?coach=`
- * leaves the address, so a reload does not say it again.
+ * On the invite's confirm screen: Accept, landing on Today, which says
+ * whom the player is now linked with (R-234). Once said, `?linked=` and
+ * `?group=` leave the address, so a reload does not say it again.
  */
 export async function acceptInvite(
   page: Page,
   messages: Messages,
 ): Promise<void> {
   await page.getByRole('button', { name: messages.invite.accept }).click();
-  await expect(
-    page.getByRole('heading', { name: messages.settings.myCoaches.title }),
-  ).toBeVisible();
-  const [before] = messages.settings.myCoaches.accepted.split('{name}');
+  const [before] = messages.today.linked.split('{coach}');
   await expect(
     page.getByRole('status').filter({ hasText: before ?? '' }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/settings#coaches$/);
+  await expect(page).toHaveURL(/\/$/u);
 }
 
 /** The confirm screen names the coach and, for a group invite, the group. */

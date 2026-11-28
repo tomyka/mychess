@@ -177,8 +177,9 @@ function ProviderButtons({
 }
 
 /**
- * The sign-in screen: a magic link by email, or Google or Lichess. After a
- * deletion it also removes the training results queued in this browser.
+ * The sign-in screen's card: a magic link by email, or Google or Lichess.
+ * The page puts it in the EntryFrame. After a deletion it also removes the
+ * training results queued in this browser.
  */
 export function SignInForm({
   error,
@@ -203,31 +204,26 @@ export function SignInForm({
     });
   };
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-gutter py-8 sm:px-gutter-wide">
-      <div className="flex flex-col gap-6 sm:rounded-card sm:border sm:border-card-edge sm:bg-surface sm:p-8 sm:shadow-card">
-        <header className="flex flex-col gap-2">
-          <p className="text-lg font-bold text-accent">{t('app.title')}</p>
-          <h1 className="text-2xl font-bold sm:text-3xl">
-            {t('signIn.title')}
-          </h1>
-          {next === null ? null : (
-            // A return path is only ever an invite (returnPath, R-81).
-            <p className="font-medium">{t('signIn.forInvite')}</p>
-          )}
-          <p className="text-fg-muted">{t('signIn.intro')}</p>
-        </header>
-        <StatusLine
-          text={message === null ? null : t(message.key)}
-          tone={message?.tone ?? 'info'}
-        />
-        <EmailForm busy={busy} run={run} urls={urls} />
-        <ProviderButtons
-          busy={busy}
-          run={run}
-          urls={urls}
-          googleEnabled={googleEnabled}
-        />
-      </div>
-    </main>
+    <>
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold sm:text-3xl">{t('signIn.title')}</h1>
+        {next === null ? null : (
+          // A return path is only ever an invite (returnPath, R-81).
+          <p className="font-medium">{t('signIn.forInvite')}</p>
+        )}
+        <p className="text-fg-muted">{t('signIn.intro')}</p>
+      </header>
+      <StatusLine
+        text={message === null ? null : t(message.key)}
+        tone={message?.tone ?? 'info'}
+      />
+      <EmailForm busy={busy} run={run} urls={urls} />
+      <ProviderButtons
+        busy={busy}
+        run={run}
+        urls={urls}
+        googleEnabled={googleEnabled}
+      />
+    </>
   );
 }

@@ -2,16 +2,18 @@ import type { DeletableAccount } from '@mychess/domain';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/catalogue';
-import type { DeleteState } from './actions';
-import { DeleteSection } from './delete-section';
+import { MESSAGES } from '../i18n/catalogue';
+import { DeleteAccountForm } from './delete-account-form';
+import type { DeleteState } from './settings/actions';
 
 const server = vi.hoisted(() => ({
   action:
     vi.fn<(previous: DeleteState, form: FormData) => Promise<DeleteState>>(),
 }));
 
-vi.mock('./actions', () => ({ deleteAccountAction: server.action }));
+vi.mock('./settings/actions', () => ({
+  deleteAccountAction: server.action,
+}));
 
 const d = MESSAGES.settings.delete;
 
@@ -34,7 +36,7 @@ function renderSection(
 ): void {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <DeleteSection account={account} canExport={canExport} />
+      <DeleteAccountForm account={account} canExport={canExport} />
     </NextIntlClientProvider>,
   );
 }
@@ -57,12 +59,11 @@ beforeEach(() => {
   server.action.mockReset().mockResolvedValue({});
 });
 
-describe('DeleteSection (R-82)', () => {
+describe('DeleteAccountForm (R-82)', () => {
   it('says what will be deleted and offers the export first', () => {
     renderSection();
-    expect(
-      screen.getByRole('heading', { level: 2, name: d.title }),
-    ).toBeDefined();
+    // The heading is its holder's: the sheet names itself (#381 part 6).
+    expect(screen.queryByRole('heading')).toBeNull();
     expect(screen.getByText(d.whatGoes)).toBeDefined();
     const items = screen.getAllByRole('listitem').map((i) => i.textContent);
     expect(items).toEqual([
@@ -160,7 +161,7 @@ describe('DeleteSection (R-82)', () => {
   });
 });
 
-describe('DeleteSection for an account not yet onboarded (R-86)', () => {
+describe('DeleteAccountForm for an account not yet onboarded (R-86)', () => {
   it('asks for the email address, shown in bold, not the prefilled name', () => {
     renderSection(FRESH);
     expect(
