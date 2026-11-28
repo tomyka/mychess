@@ -1,9 +1,12 @@
+import { assign } from '@mychess/db';
+import type { AssignmentTarget } from '@mychess/domain';
 import { describe, expect, it, vi } from 'vitest';
 import {
   leaveGroupAction,
   unlinkCoachAction,
 } from '../../src/app/settings/coaching-actions';
 import { coachPlayerData } from '../../src/server/coach-pages';
+import { myCoachesData } from '../../src/server/settings-page';
 import {
   actAs,
   coachPerson,
@@ -13,7 +16,8 @@ import {
   person,
 } from './support/coaching';
 import { useRequestHarness } from './support/harness';
-import { outcomeOf, request } from './support/request';
+import { outcomeOf, request, testDb } from './support/request';
+import { LONDON, seedRepertoire, TAIMANOV } from './support/repertoires';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -150,6 +154,73 @@ describe('leaveGroupAction (R-45)', () => {
     await outcomeOf(leaveGroupAction(formOf({ groupId, playerId: gabija.id })));
     expect(await memberships()).toEqual([
       { group: 'Šeštadienio grupė', player: 'Gabija' },
+    ]);
+  });
+});
+
+/** Assigns `repertoireId` of `coachId` to `target`, with no deadline. */
+async function assignTo(
+  coachId: string,
+  repertoireId: string,
+  target: AssignmentTarget,
+): Promise<void> {
+  const done = await assign(
+    testDb(),
+    { coachId, repertoireId, target, deadline: null },
+    new Date(),
+  );
+  if (!done.ok) throw new Error(`not assigned: ${done.refusal.reason}`);
+}
+
+/** Each coach of the player's My coaches: name, groups and assigned names. */
+async function myCoachesOf(playerId: string): Promise<unknown> {
+  const { coaches } = await myCoachesData(playerId, new Date());
+  return coaches.map(({ displayName, groups, assignments }) => ({
+    coach: displayName,
+    groups: groups.map(({ name }) => name),
+    assigned: assignments.map(({ name }) => name),
+  }));
+}
+
+describe('My coaches in Settings (R-237)', () => {
+  it("lists each of the player's coaches with what that coach assigns them, directly or through a group, and nothing of another player's", async () => {
+    const rimantas = await coachPerson(sql, 'rimantas@example.lt', 'Rimantas');
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    const group = await groupOf(rimantas.id, 'Šeštadienio grupė');
+    await link(rimantas.id, rokas.id, group);
+    await link(rimantas.id, gabija.id);
+    await link(ona.id, gabija.id);
+    const london = await seedRepertoire(testDb(), 'rimantas@example.lt', {
+      pgn: LONDON,
+      side: 'white',
+      name: 'Londono sistema',
+    });
+    const taimanov = await seedRepertoire(testDb(), 'rimantas@example.lt', {
+      pgn: TAIMANOV,
+      side: 'black',
+      name: 'Taimanovas',
+    });
+    const onas = await seedRepertoire(testDb(), 'ona@example.lt', {
+      pgn: LONDON,
+      side: 'white',
+      name: 'Onos Londonas',
+    });
+    await assignTo(rimantas.id, london, { kind: 'player', playerId: rokas.id });
+    await assignTo(rimantas.id, taimanov, { kind: 'group', groupId: group });
+    await assignTo(ona.id, onas, { kind: 'player', playerId: gabija.id });
+
+    expect(await myCoachesOf(rokas.id)).toEqual([
+      {
+        coach: 'Rimantas',
+        groups: ['Šeštadienio grupė'],
+        assigned: ['Londono sistema', 'Taimanovas'],
+      },
+    ]);
+    expect(await myCoachesOf(gabija.id)).toEqual([
+      { coach: 'Ona', groups: [], assigned: ['Onos Londonas'] },
+      { coach: 'Rimantas', groups: [], assigned: [] },
     ]);
   });
 });

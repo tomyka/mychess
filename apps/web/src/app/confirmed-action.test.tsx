@@ -111,6 +111,20 @@ describe('ConfirmedAction', () => {
     expect(button(LABELS.label).className).not.toContain('text-error');
   });
 
+  it('can ask from an error-tone row, full on a phone and fitted from sm (Unlink)', () => {
+    render(
+      <ConfirmedAction
+        action={vi.fn(() => Promise.resolve())}
+        fields={{}}
+        look="dangerRow"
+        {...LABELS}
+      />,
+    );
+    expect(button(LABELS.label).className.split(' ')).toEqual(
+      expect.arrayContaining(['text-error', 'w-full', 'sm:w-auto']),
+    );
+  });
+
   it('asks when the page opens it, and tells the page when cancelled', () => {
     const set = vi.fn();
     const action = vi.fn(() => Promise.resolve());

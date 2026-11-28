@@ -12,6 +12,8 @@ import { todaySummary } from './training';
 export interface ShellData {
   readonly accountId: string;
   readonly displayName: string;
+  /** The sign-in email, for the account menu. */
+  readonly email: string;
   readonly isCoach: boolean;
   /** Due moves for the Today badge; 0 when the count failed. */
   readonly due: number;
@@ -41,6 +43,7 @@ export async function shellData(): Promise<ShellData> {
   return {
     accountId: account.id,
     displayName: account.displayName,
+    email: account.email,
     isCoach: isCoach(account),
     due,
     theme,

@@ -5,6 +5,7 @@ import { useActionState, useId, type JSX } from 'react';
 import type { FideSearchState } from '../../server/fide-search';
 import { PRIMARY_BUTTON } from '../buttons';
 import { FIELD } from '../fields';
+import { CARD } from '../surfaces';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { startFideSearchAction } from './actions';
@@ -49,49 +50,57 @@ export function FideSearch({
         onSubmit={submitByHand(action)}
         className="flex flex-col gap-2"
       >
-        <IdField
-          invalid={refused !== undefined}
-          pending={pending}
-          statusId={statusId}
-        />
+        <IdField error={text} pending={pending} statusId={statusId} />
       </form>
-      <StatusLine id={statusId} text={text} tone="error" />
       {state.kind === 'started' ? (
         <SearchResult
           key={state.search.token}
           search={state.search}
           truncatedLimit={truncatedLimit}
         />
-      ) : null}
+      ) : (
+        <EmptyState />
+      )}
     </>
   );
 }
 
+/** Until a search has found something: what a search shows (#381). */
+function EmptyState(): JSX.Element {
+  const t = useTranslations('fide');
+  return <p className={`${CARD} p-6 text-fg-muted`}>{t('emptyState')}</p>;
+}
+
 /**
  * The ID field with its search button beside it on a wide screen, under
- * it and its hint on a phone; a numeric keyboard on touch devices.
+ * it and its hint on a phone; a numeric keyboard on touch devices. A
+ * refusal shows right under the field, before the hint (#381).
  */
 function IdField({
-  invalid,
+  error,
   pending,
   statusId,
 }: {
-  /** Marks the field and points it at the status line's refusal. */
-  readonly invalid: boolean;
+  /** The refusal's text, or null: it marks the field and describes it. */
+  readonly error: string | null;
   readonly pending: boolean;
   readonly statusId: string;
 }): JSX.Element {
   const t = useTranslations('fide');
   const inputId = useId();
   const hintId = useId();
+  const invalid = error !== null;
   return (
     <>
       <label htmlFor={inputId} className="font-medium">
         {t('idLabel')}
       </label>
-      {/* In source order field, hint, button: stacked so on a phone; on a
-          wide screen the button moves up beside the field, and the row
-          stops at max-w-lg: an eight-digit ID needs no wide field. */}
+      {/* In source order field, error, hint, button: stacked so on a
+          phone; on a wide screen the button moves up beside the field, and
+          the row stops at max-w-lg: an eight-digit ID needs no wide field.
+          The error line is always there (a live region); while empty it is
+          visually hidden and its box is `contents`, so it takes no row and
+          no gap. The hint is placed after it by the grid. */}
       <div className="grid gap-x-3 gap-y-2 sm:max-w-lg sm:grid-cols-[1fr_auto]">
         <input
           id={inputId}
@@ -100,13 +109,13 @@ function IdField({
           inputMode="numeric"
           autoComplete="off"
           aria-invalid={invalid ? true : undefined}
-          aria-describedby={invalid ? `${hintId} ${statusId}` : hintId}
+          aria-describedby={invalid ? `${statusId} ${hintId}` : hintId}
           className={`${FIELD} sm:col-start-1 sm:row-start-1`}
         />
-        <p
-          id={hintId}
-          className="text-sm text-fg-muted sm:col-span-2 sm:row-start-2"
-        >
+        <div className={invalid ? 'sm:col-span-2 sm:row-start-2' : 'contents'}>
+          <StatusLine id={statusId} text={error} tone="error" />
+        </div>
+        <p id={hintId} className="text-sm text-fg-muted sm:col-span-2">
           {t('idHint')}
         </p>
         <button

@@ -14,6 +14,8 @@ import type { Theme } from '../../lib/theme';
 export interface ShellAccount {
   readonly accountId: string;
   readonly displayName: string;
+  /** The sign-in email, shown under the name in the account menu. */
+  readonly email: string;
   readonly theme: Theme;
 }
 

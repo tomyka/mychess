@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
@@ -37,7 +43,19 @@ const arrowsBox = () =>
   screen.getByRole<HTMLInputElement>('checkbox', {
     name: t.learnArrowsLabel,
   });
-const status = () => screen.getByRole('status');
+const saveButton = () => screen.getByRole('button', { name: t.submit });
+/** The line a refusal shows in, above the form: not the note beside Save. */
+const status = (): HTMLElement => {
+  const row = saveButton().parentElement;
+  const [line] = screen
+    .getAllByRole('status')
+    .filter((element) => row?.contains(element) !== true);
+  if (line === undefined) throw new Error('no refusal line');
+  return line;
+};
+/** The "Saved" note beside Save. */
+const saved = () =>
+  within(saveButton().parentElement ?? document.body).getByRole('status');
 
 function save(sessionSize: string, newPerDay: string): void {
   fireEvent.change(sessionField(), { target: { value: sessionSize } });
@@ -76,8 +94,11 @@ describe('TrainingForm (R-62, R-146)', () => {
     renderForm();
     save('40', '0');
     await waitFor(() => {
-      expect(status().textContent).toBe(t.saved);
+      expect(saved().textContent).toBe('Saved');
     });
+    expect(status().textContent).toBe('');
+    expect(saveButton().className).toContain('border-border-strong');
+    expect(saveButton().className).not.toContain('bg-accent');
     expect(submitted()).toEqual({
       sessionSize: '40',
       newPerDay: '0',
@@ -109,7 +130,7 @@ describe('TrainingForm (R-62, R-146)', () => {
     fireEvent.click(arrowsBox());
     save('20', '10');
     await waitFor(() => {
-      expect(status().textContent).toBe(t.saved);
+      expect(saved().textContent).toBe('Saved');
     });
     expect(submitted()).toEqual({ sessionSize: '20', newPerDay: '10' });
   });
@@ -124,6 +145,7 @@ describe('TrainingForm (R-62, R-146)', () => {
       expect(status().textContent).toBe(t.sessionSize);
     });
     expect(sessionField().value).toBe('9');
+    expect(saved().textContent).toBe('');
     expect(sessionField().getAttribute('aria-invalid')).toBe('true');
     expect(sessionField().getAttribute('aria-describedby')).toContain(
       status().id,

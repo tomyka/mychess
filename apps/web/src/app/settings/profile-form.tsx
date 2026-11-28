@@ -6,8 +6,8 @@ import { NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { updateProfileAction, type ProfileState } from './actions';
-import { PRIMARY_BUTTON } from '../buttons';
-import { SECTION, SECTION_TITLE } from './styles';
+import { SaveRow } from './save-row';
+import { SETTINGS_FIELD } from './styles';
 
 export interface ProfileFormProps {
   readonly displayName: string;
@@ -15,44 +15,43 @@ export interface ProfileFormProps {
 
 const INITIAL: ProfileState = {};
 
-/** The display name, changed at any time (settings). */
+/**
+ * The display name, changed at any time: a block of Settings' Account
+ * card, under its heading. A refusal shows above the field, "Saved" beside
+ * Save.
+ */
 export function ProfileForm({ displayName }: ProfileFormProps): JSX.Element {
   const t = useTranslations();
   const statusId = useId();
-  const titleId = useId();
   const [state, action, pending] = useActionState(updateProfileAction, INITIAL);
-  const text =
-    state.refusal === undefined
-      ? state.saved === true
-        ? t('settings.profile.saved')
-        : null
-      : t(state.refusal);
+  const refused = state.refusal !== undefined;
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
-      <h2 id={titleId} className={SECTION_TITLE}>
-        {t('settings.profile.title')}
-      </h2>
+    <div className="flex flex-col gap-4">
       <StatusLine
         id={statusId}
-        text={text}
-        tone={state.refusal === undefined ? 'success' : 'error'}
+        text={state.refusal === undefined ? null : t(state.refusal)}
+        tone="error"
       />
       {/* noValidate: the server's refusal is shown, not the browser's. */}
       <form
         noValidate
         onSubmit={submitByHand(action)}
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4"
       >
-        <NameField
-          label={t('settings.profile.displayName')}
-          initial={displayName}
-          invalid={state.refusal !== undefined}
-          statusId={statusId}
+        <div className={SETTINGS_FIELD}>
+          <NameField
+            label={t('settings.profile.displayName')}
+            initial={displayName}
+            invalid={refused}
+            statusId={statusId}
+          />
+        </div>
+        <SaveRow
+          label={t('settings.profile.submit')}
+          pending={pending}
+          saved={!refused && state.saved === true}
         />
-        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-          {t('settings.profile.submit')}
-        </button>
       </form>
-    </section>
+    </div>
   );
 }

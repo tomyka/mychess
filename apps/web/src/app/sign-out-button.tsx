@@ -16,8 +16,11 @@ import { postBatch } from './training/use-result-sync';
  */
 export function SignOutButton({
   accountId,
+  className = SECONDARY_BUTTON,
 }: {
   readonly accountId: string;
+  /** Its look: a secondary button unless said (the account menu's row). */
+  readonly className?: string;
 }): JSX.Element {
   const t = useTranslations('app');
   const router = useRouter();
@@ -27,11 +30,7 @@ export function SignOutButton({
     router.push(ROUTES.signIn);
   };
   return (
-    <button
-      type="button"
-      className={SECONDARY_BUTTON}
-      onClick={() => void signOut()}
-    >
+    <button type="button" className={className} onClick={() => void signOut()}>
       {t('signOut')}
     </button>
   );

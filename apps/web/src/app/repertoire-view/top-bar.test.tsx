@@ -20,6 +20,7 @@ function renderBar(extra: {
         value={{
           accountId: 'a1',
           displayName: 'Gabija Navickaitė',
+          email: 'gabija@example.test',
           theme: 'system',
         }}
       >

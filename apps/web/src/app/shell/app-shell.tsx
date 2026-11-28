@@ -32,6 +32,7 @@ export async function AppShell({
       value={{
         accountId: data.accountId,
         displayName: data.displayName,
+        email: data.email,
         theme: data.theme,
       }}
     >

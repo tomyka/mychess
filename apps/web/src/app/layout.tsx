@@ -1,21 +1,12 @@
 import type { JSX, ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale } from 'next-intl/server';
 import { BRAND } from '../lib/brand';
 import { themeAttribute } from '../lib/theme';
 import { readThemeCookie } from '../server/theme-cookie';
+import { inter } from './fonts';
 import './globals.css';
-
-// Inter (R-219), downloaded at build time and served from this site: no
-// request to Google at runtime. tokens.css puts --font-inter first in
-// --font-sans, with the system stack behind it.
-const inter = Inter({
-  subsets: ['latin', 'latin-ext'],
-  display: 'swap',
-  variable: '--font-inter',
-});
 
 // The brand is one name in every language (R-170). The manifest
 // (manifest.ts) and the icons beside this file are linked by Next itself.

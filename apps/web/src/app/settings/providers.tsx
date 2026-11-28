@@ -11,7 +11,6 @@ import { linkErrorKey, type LinkErrorKey } from '../../lib/sign-in-errors';
 import type { ProviderLink } from '../../server/provider-links';
 import { StatusLine } from '../status-line';
 import { SECONDARY_BUTTON } from '../buttons';
-import { SECTION, SECTION_TITLE } from './styles';
 
 export interface ProvidersProps {
   /** The account's Google and Lichess links. */
@@ -99,7 +98,10 @@ function ProviderRow({
   );
 }
 
-/** Google and Lichess: link each from here, or unlink it. */
+/**
+ * Google and Lichess: link each from here, or unlink it. A block of
+ * Settings' Account card, under its heading.
+ */
 export function Providers({
   links,
   googleEnabled,
@@ -125,10 +127,10 @@ export function Providers({
   };
   const providers = offeredProviders(googleEnabled);
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
-      <h2 id={titleId} className={SECTION_TITLE}>
+    <section aria-labelledby={titleId} className="flex flex-col gap-4">
+      <h3 id={titleId} className="text-lg font-semibold">
         {t('settings.providers.title')}
-      </h2>
+      </h3>
       <p className="text-fg-muted">
         {t('settings.providers.intro', { email })}
       </p>

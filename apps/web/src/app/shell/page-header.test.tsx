@@ -80,7 +80,12 @@ describe('PageHeader', () => {
       render(
         <NextIntlClientProvider locale="en" messages={MESSAGES}>
           <ShellProvider
-            value={{ accountId: 'a1', displayName: 'Rokas', theme: 'system' }}
+            value={{
+              accountId: 'a1',
+              displayName: 'Rokas',
+              email: 'rokas@example.test',
+              theme: 'system',
+            }}
           >
             <PageHeader {...(back ? { back } : {})} title="Import PGN" />
           </ShellProvider>

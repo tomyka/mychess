@@ -53,10 +53,11 @@ beforeEach(() => {
 });
 
 describe('shellData', () => {
-  it("shows the session player's name, due count and the system theme", async () => {
+  it("shows the session player's name, sign-in email, due count and the system theme", async () => {
     await expect(shellData()).resolves.toEqual({
       accountId: 'rokas',
       displayName: 'Rokas',
+      email: 'rokas@example.test',
       isCoach: false,
       due: 7,
       theme: 'system',

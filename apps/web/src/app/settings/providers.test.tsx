@@ -57,7 +57,8 @@ describe('Providers', () => {
   it('says the email link always works, to the account’s address (decision 6)', () => {
     renderProviders();
     expect(
-      screen.getByRole('heading', { level: 2, name: p.title }),
+      // A block of the Account card, under its h2 (#381 part 6).
+      screen.getByRole('heading', { level: 3, name: p.title }),
     ).toBeDefined();
     expect(
       screen.getByText(p.intro.replace('{email}', 'ruta@example.lt')),

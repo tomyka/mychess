@@ -18,6 +18,8 @@ import {
   repertoireManageRoute,
   repertoireRoute,
   ROUTES,
+  myCoachesPath,
+  settingsFrom,
   settingsParent,
   settingsPath,
   trainingPath,
@@ -80,10 +82,23 @@ describe('inviteTokenOf', () => {
 describe('settings from a tab', () => {
   it('carries a known tab and goes back to it', () => {
     expect(settingsPath('coach')).toBe('/settings?from=coach');
+    expect(myCoachesPath('repertoires')).toBe(
+      '/settings?from=repertoires#coaches',
+    );
+    // The same section ROUTES.myCoaches opens.
+    expect(myCoachesPath('today')).toBe('/settings?from=today#coaches');
+    expect(ROUTES.myCoaches).toBe('/settings#coaches');
     expect(settingsParent('today')).toBe('/');
     expect(settingsParent('repertoires')).toBe('/repertoires');
     expect(settingsParent('coach')).toBe('/coach');
     expect(settingsParent('opponents')).toBe('/fide');
+  });
+
+  it('names the tab it was opened from, Today for anything else', () => {
+    expect(settingsFrom('opponents')).toBe('opponents');
+    expect(settingsFrom('coach')).toBe('coach');
+    expect(settingsFrom(undefined)).toBe('today');
+    expect(settingsFrom('constructor')).toBe('today');
   });
 
   it('goes back to Today for anything else', () => {

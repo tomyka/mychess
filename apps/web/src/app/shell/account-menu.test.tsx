@@ -1,32 +1,92 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { outOfOrder } from '../../../test/dom-order';
 import { MESSAGES } from '../../i18n/catalogue';
 import { AccountMenu, PhoneAccountMenu, initials } from './account-menu';
 import { ShellProvider } from './shell-context';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const nav = vi.hoisted(() => ({ path: '/' }));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => nav.path,
+}));
 vi.mock('../../lib/auth-client', () => ({
   authClient: { signOut: vi.fn() },
 }));
 
+const ACCOUNT = {
+  accountId: 'a1',
+  displayName: 'Gabija Navickaitė',
+  email: 'gabija@example.test',
+  theme: 'system',
+} as const;
+
 const show = () =>
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <ShellProvider
-        value={{
-          accountId: 'a1',
-          displayName: 'Gabija Navickaitė',
-          theme: 'system',
-        }}
-      >
+      <ShellProvider value={ACCOUNT}>
         <AccountMenu />
         <button type="button">outside</button>
       </ShellProvider>
     </NextIntlClientProvider>,
   );
 
+interface FakeScreen {
+  /** Every media query asked, in order. */
+  readonly asked: string[];
+  /** The screen turns (or is resized) across md: listeners hear it. */
+  readonly cross: (wide: boolean) => void;
+}
+
+/** The screen is md wide or wider (`wide`), as matchMedia answers it. */
+function screenIsWide(wide: boolean): FakeScreen {
+  const asked: string[] = [];
+  const listeners = new Set<(event: { matches: boolean }) => void>();
+  let matches = wide;
+  vi.stubGlobal('matchMedia', (query: string) => {
+    asked.push(query);
+    return {
+      get matches() {
+        return matches;
+      },
+      media: query,
+      addEventListener: (
+        _: 'change',
+        listener: (event: { matches: boolean }) => void,
+      ) => {
+        listeners.add(listener);
+      },
+      removeEventListener: (
+        _: 'change',
+        listener: (event: { matches: boolean }) => void,
+      ) => {
+        listeners.delete(listener);
+      },
+    };
+  });
+  return {
+    asked,
+    cross: (now) => {
+      matches = now;
+      act(() => {
+        for (const listener of listeners) listener({ matches: now });
+      });
+    },
+  };
+}
+
 const opener = () => screen.getByRole('button', { name: 'Account menu' });
+
+beforeEach(() => {
+  nav.path = '/';
+  screenIsWide(true);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('AccountMenu', () => {
   it('shows the initials and keeps the menu closed at first', () => {
@@ -36,20 +96,70 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
-  it('opens on the avatar with the name, the links, the theme and sign out', () => {
+  it('opens on the avatar with the name and email, the links, the theme and sign out, in that order and divided (#381)', () => {
     show();
     fireEvent.click(opener());
     expect(opener().getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('Gabija Navickaitė')).toBeTruthy();
+    const [before, after] = screen.getAllByRole('separator');
+    if (before === undefined || after === undefined)
+      throw new Error('two separators expected');
     expect(
-      screen.getByRole('link', { name: 'Settings' }).getAttribute('href'),
-    ).toBe('/settings');
-    expect(
-      screen.getByRole('link', { name: 'My coaches' }).getAttribute('href'),
-    ).toBe('/settings#coaches');
-    expect(screen.getByRole('radio', { name: 'System' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+      outOfOrder([
+        screen.getByText(ACCOUNT.displayName),
+        screen.getByText(ACCOUNT.email),
+        before,
+        screen.getByRole('link', { name: 'Settings' }),
+        screen.getByRole('link', { name: 'My coaches' }),
+        screen.getByRole('radio', { name: 'System' }),
+        after,
+        screen.getByRole('button', { name: 'Sign out' }),
+      ]),
+    ).toEqual([]);
+    expect(screen.getAllByRole('separator')).toHaveLength(2);
   });
+
+  it('shows Sign out as a plain row, not an outlined button (#381)', () => {
+    show();
+    fireEvent.click(opener());
+    const signOut = screen.getByRole('button', { name: 'Sign out' });
+    expect(signOut.className.split(' ')).not.toContain('border');
+  });
+
+  it('writes the email muted, under the name (#381)', () => {
+    show();
+    fireEvent.click(opener());
+    expect(screen.getByText(ACCOUNT.email).className.split(' ')).toContain(
+      'text-fg-muted',
+    );
+  });
+
+  it('is the dropdown where the browser has no matchMedia', () => {
+    vi.stubGlobal('matchMedia', undefined);
+    show();
+    fireEvent.click(opener());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeDefined();
+  });
+
+  it.each([
+    ['/', 'today'],
+    ['/repertoires/r-1', 'repertoires'],
+    ['/fide', 'opponents'],
+    ['/coach/groups/g-1', 'coach'],
+  ])(
+    'opened on %s, sends Settings and My coaches back to the %s tab (#381)',
+    (path, from) => {
+      nav.path = path;
+      show();
+      fireEvent.click(opener());
+      expect(
+        screen.getByRole('link', { name: 'Settings' }).getAttribute('href'),
+      ).toBe(`/settings?from=${from}`);
+      expect(
+        screen.getByRole('link', { name: 'My coaches' }).getAttribute('href'),
+      ).toBe(`/settings?from=${from}#coaches`);
+    },
+  );
 
   it('closes on Escape and gives focus back to the avatar', () => {
     show();
@@ -115,9 +225,10 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
-  it('is a disclosure, not a menu role', () => {
+  it('is a disclosure, not a menu role, on a wide screen', () => {
     show();
     fireEvent.click(opener());
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(opener().getAttribute('aria-haspopup')).toBeNull();
     const id = opener().getAttribute('aria-controls');
     expect(id).not.toBeNull();
@@ -134,12 +245,98 @@ describe('AccountMenu', () => {
   });
 });
 
+describe('AccountMenu on a phone (#381 part 6)', () => {
+  it('asks the md breakpoint when the avatar is pressed, not before', () => {
+    const { asked } = screenIsWide(false);
+    show();
+    expect(asked).toEqual([]);
+    fireEvent.click(opener());
+    expect(asked.length).toBeGreaterThan(0);
+    expect(new Set(asked)).toEqual(new Set(['(min-width: 48rem)']));
+  });
+
+  it('closes the sheet when the screen turns or grows to md or wider, rather than leave a phone sheet on a desktop', () => {
+    const fake = screenIsWide(false);
+    show();
+    fireEvent.click(opener());
+    expect(screen.getByRole('dialog')).toBeDefined();
+    fake.cross(true);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(opener().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('heads the sheet with the display name', () => {
+    screenIsWide(false);
+    show();
+    fireEvent.click(opener());
+    const sheet = screen.getByRole('dialog', { name: ACCOUNT.displayName });
+    expect(
+      within(sheet).getByRole('heading', {
+        level: 2,
+        name: ACCOUNT.displayName,
+      }),
+    ).toBeDefined();
+  });
+
+  it('opens a sheet named by the display name, with the same contents', () => {
+    screenIsWide(false);
+    show();
+    fireEvent.click(opener());
+    const sheet = screen.getByRole('dialog', { name: ACCOUNT.displayName });
+    expect(within(sheet).getByText(ACCOUNT.email)).toBeDefined();
+    expect(
+      within(sheet)
+        .getByRole('link', { name: 'Settings' })
+        .getAttribute('href'),
+    ).toBe('/settings?from=today');
+    expect(
+      within(sheet).getByRole('link', { name: 'My coaches' }),
+    ).toBeDefined();
+    expect(within(sheet).getByRole('radio', { name: 'System' })).toBeDefined();
+    expect(within(sheet).getAllByRole('separator')).toHaveLength(2);
+    expect(
+      within(sheet).getByRole('button', { name: 'Sign out' }),
+    ).toBeDefined();
+  });
+
+  it('closes from its Close button, giving focus back to the avatar', () => {
+    screenIsWide(false);
+    show();
+    fireEvent.click(opener());
+    const sheet = screen.getByRole('dialog', { name: ACCOUNT.displayName });
+    fireEvent.click(
+      within(sheet).getByRole('button', {
+        name: MESSAGES.nav.account.close,
+      }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener());
+  });
+
+  it('closes on Escape, as the browser turns it into the dialog cancel', () => {
+    screenIsWide(false);
+    show();
+    fireEvent.click(opener());
+    const sheet = screen.getByRole('dialog', { name: ACCOUNT.displayName });
+    fireEvent(sheet, new Event('cancel', { cancelable: true }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('closes when a link in it is followed', () => {
+    screenIsWide(false);
+    show();
+    fireEvent.click(opener());
+    fireEvent.click(screen.getByRole('link', { name: 'My coaches' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
 describe('initials', () => {
   it.each([
     ['Gabija Navickaitė', 'GN'],
     ['Rokas', 'R'],
     ['  ąžuolas  jonas ', 'ĄJ'],
-    ['ąžuolas Jonas', 'ĄJ'],
+    ['ąžuolas Jonas', 'ĄJ'],
   ])('of %j are %s', (name, expected) => {
     expect(initials(name)).toBe(expected);
   });
@@ -149,9 +346,7 @@ describe('PhoneAccountMenu', () => {
   it('carries the avatar below md only', () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES}>
-        <ShellProvider
-          value={{ accountId: 'a1', displayName: 'Rokas', theme: 'system' }}
-        >
+        <ShellProvider value={{ ...ACCOUNT, displayName: 'Rokas' }}>
           <PhoneAccountMenu />
         </ShellProvider>
       </NextIntlClientProvider>,

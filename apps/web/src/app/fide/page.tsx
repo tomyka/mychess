@@ -1,19 +1,9 @@
 import { FOUND_GAMES_LIMIT } from '@mychess/db';
-import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { requireOnboarded } from '../../server/session';
-import { PageHeader } from '../shell/page-header';
 import { CONTENT } from '../surfaces';
+import { FideHeader } from './fide-header';
 import { FideSearch } from './fide-search';
-
-function Header(): JSX.Element {
-  const t = useTranslations('fide');
-  return (
-    <PageHeader title={t('title')}>
-      <p className="text-fg-muted">{t('intro')}</p>
-    </PageHeader>
-  );
-}
 
 /**
  * The FIDE ID search (#316): any signed-in account (R-186) lists a
@@ -24,7 +14,7 @@ export default async function FidePage(): Promise<JSX.Element> {
   await requireOnboarded();
   return (
     <main className={`${CONTENT} gap-6`}>
-      <Header />
+      <FideHeader />
       <FideSearch truncatedLimit={FOUND_GAMES_LIMIT} />
     </main>
   );

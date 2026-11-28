@@ -10,6 +10,7 @@ import type {
   SearchSnapshot,
   StartedSearch,
 } from '../../server/fide-search';
+import { outOfOrder } from '../../../test/dom-order';
 import { FideSearch } from './fide-search';
 import { POLL_MS } from './use-search-progress';
 
@@ -126,6 +127,24 @@ describe('the FIDE ID search form', () => {
     ).toBeTruthy();
   });
 
+  it('shows a refusal right under the field, before the hint, and describes the field with it (#381)', async () => {
+    server.start.mockResolvedValue({
+      kind: 'refused',
+      refusal: 'fide.idInvalid',
+    });
+    renderPage();
+    await search('12a');
+    const error = screen.getByRole('status');
+    const hint = screen.getByText(en.idHint);
+    const button = screen.getByRole('button', { name: en.submit });
+    expect(outOfOrder([field(), error, hint, button])).toEqual([]);
+    const described = (field().getAttribute('aria-describedby') ?? '').split(
+      ' ',
+    );
+    expect(described[0]).toBe(error.id);
+    expect(described).toContain(hint.id);
+  });
+
   it('says it is searching, and is busy, while the search runs', async () => {
     let answer: (state: FideSearchState) => void = () => undefined;
     server.start.mockReturnValue(
@@ -205,6 +224,30 @@ describe('the FIDE ID search form', () => {
     expect(screen.getByRole('status').textContent).toBe(
       'Too many searches: at most 10 a minute. Wait a minute and try again.',
     );
+  });
+});
+
+describe('before a search (#381)', () => {
+  it('explains, under the form, what a search shows', () => {
+    renderPage();
+    const explained = screen.getByText(en.emptyState);
+    expect(outOfOrder([field(), explained])).toEqual([]);
+  });
+
+  it('still explains it after a refusal, as nothing was found yet', async () => {
+    server.start.mockResolvedValue({
+      kind: 'refused',
+      refusal: 'fide.idInvalid',
+    });
+    renderPage();
+    await search('12a');
+    expect(screen.getByText(en.emptyState)).toBeDefined();
+  });
+
+  it('gives way to the result once a search starts', async () => {
+    renderPage();
+    await search('13400002');
+    expect(screen.queryByText(en.emptyState)).toBeNull();
   });
 });
 

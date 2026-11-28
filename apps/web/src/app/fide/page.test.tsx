@@ -32,7 +32,8 @@ describe('the FIDE ID search page', () => {
     );
     expect(server.account).toHaveBeenCalledOnce();
     expect(
-      screen.getByRole('heading', { level: 1, name: en.title }),
+      // The tab's name (#381).
+      screen.getByRole('heading', { level: 1, name: MESSAGES.nav.opponents }),
     ).toBeDefined();
     expect(screen.getByText(en.intro)).toBeDefined();
     expect(screen.getByLabelText(en.idLabel)).toBeDefined();

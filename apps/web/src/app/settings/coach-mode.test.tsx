@@ -36,9 +36,13 @@ describe('CoachMode (R-11, R-100)', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: c.title }),
     ).toBeDefined();
-    expect(screen.getByText(c.off)).toBeDefined();
+    // One line saying what it does, then the switch (#381 part 6).
+    expect(screen.getByText(c.intro)).toBeDefined();
     expect(screen.queryByText(c.offNote)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: c.switchOn }));
+    const on = screen.getByRole('button', { name: c.switchOn });
+    expect(on.className).toContain('border-border-strong');
+    expect(on.className).not.toContain('bg-accent');
+    fireEvent.click(on);
     await waitFor(() => {
       expect(server.start).toHaveBeenCalledTimes(1);
     });
@@ -47,7 +51,7 @@ describe('CoachMode (R-11, R-100)', () => {
 
   it('offers to switch it off when it is on, saying what that does (R-109)', async () => {
     renderSwitch(true);
-    expect(screen.getByText(c.on)).toBeDefined();
+    expect(screen.getByText(c.intro)).toBeDefined();
     expect(screen.getByText(c.offNote)).toBeDefined();
     expect(screen.queryByRole('button', { name: c.switchOn })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: c.switchOff }));

@@ -4,14 +4,14 @@ import type { TrainingSettings } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { TRAINING_SETTINGS_SECTION } from '../../lib/routes';
-import { PRIMARY_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import {
   updateTrainingSettingsAction,
   type TrainingSettingsState,
 } from './actions';
-import { SECTION, SECTION_TITLE } from './styles';
+import { SaveRow } from './save-row';
+import { SECTION_TITLE, SETTINGS_CARD } from './styles';
 
 const INITIAL: TrainingSettingsState = {};
 
@@ -142,23 +142,22 @@ export function TrainingForm({
     updateTrainingSettingsAction,
     INITIAL,
   );
-  const saved = state.saved === true ? t('training.settings.saved') : null;
-  const text = state.refusal === undefined ? saved : t(state.refusal);
+  const refused = state.refusal !== undefined;
   const invalid = (field: LimitName) =>
     state.refusal === `training.settings.${field}`;
   return (
     <section
       id={TRAINING_SETTINGS_SECTION}
       aria-labelledby={titleId}
-      className={SECTION}
+      className={SETTINGS_CARD}
     >
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('training.settings.title')}
       </h2>
       <StatusLine
         id={statusId}
-        text={text}
-        tone={state.refusal === undefined ? 'success' : 'error'}
+        text={state.refusal === undefined ? null : t(state.refusal)}
+        tone="error"
       />
       {/* noValidate: the server's refusal is shown in the page's language,
           not the browser's. */}
@@ -173,9 +172,11 @@ export function TrainingForm({
           statusId={statusId}
         />
         <ArrowsField initial={settings.learnArrows} />
-        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-          {t('training.settings.submit')}
-        </button>
+        <SaveRow
+          label={t('training.settings.submit')}
+          pending={pending}
+          saved={!refused && state.saved === true}
+        />
       </form>
     </section>
   );

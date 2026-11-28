@@ -84,7 +84,7 @@ describe('the loading pages (#381 part 6)', () => {
     expect(
       within(main).getByRole('heading', {
         level: 1,
-        name: MESSAGES.fide.title,
+        name: MESSAGES.nav.opponents,
       }),
     ).toBeDefined();
     expect(within(main).getByText(MESSAGES.fide.intro)).toBeDefined();

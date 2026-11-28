@@ -7,6 +7,9 @@ import type { LearnFocus, TrainingMode } from '@mychess/chess';
 /** The id of settings' training section, which ROUTES.trainingSettings opens. */
 export const TRAINING_SETTINGS_SECTION = 'training';
 
+/** The id of settings' My coaches section, which ROUTES.myCoaches opens. */
+const MY_COACHES_SECTION = 'coaches';
+
 export const ROUTES = {
   home: '/',
   signIn: '/sign-in',
@@ -20,7 +23,7 @@ export const ROUTES = {
   /** The FIDE ID search (#316); the ID is posted, never in the URL. */
   fideSearch: '/fide',
   /** The "My coaches" section of settings (plan decision 12). */
-  myCoaches: '/settings#coaches',
+  myCoaches: `/settings#${MY_COACHES_SECTION}`,
   /** The training section of settings: the limits and the arrows (R-205). */
   trainingSettings: `/settings#${TRAINING_SETTINGS_SECTION}`,
 } as const;
@@ -69,9 +72,17 @@ const isSettingsFrom = (raw: unknown): raw is SettingsFrom =>
 export const settingsPath = (from: SettingsFrom): string =>
   `${ROUTES.settings}?from=${from}`;
 
+/** Settings' My coaches section, opened from the tab `from`. */
+export const myCoachesPath = (from: SettingsFrom): string =>
+  `${settingsPath(from)}#${MY_COACHES_SECTION}`;
+
+/** The tab Settings was opened from (`?from=`), else Today. */
+export const settingsFrom = (raw: unknown): SettingsFrom =>
+  isSettingsFrom(raw) ? raw : 'today';
+
 /** Settings' parent: the tab it was opened from (`?from=`), else Today. */
 export const settingsParent = (raw: unknown): string =>
-  isSettingsFrom(raw) ? SETTINGS_FROM[raw] : ROUTES.home;
+  SETTINGS_FROM[settingsFrom(raw)];
 
 /** One linked player's page in the coach dashboard. */
 export const coachPlayerPath = (playerId: string): string =>

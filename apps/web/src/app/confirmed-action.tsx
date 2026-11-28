@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from 'react';
 import {
   DANGER_BUTTON,
   DANGER_OUTLINE_BUTTON,
+  DANGER_ROW_FITTED,
   PRIMARY_BUTTON,
   QUIET_BUTTON,
   SECONDARY_BUTTON,
@@ -33,7 +34,8 @@ export interface ConfirmedActionProps {
    * The first button's look: `secondary` (the default); `quiet` text, for
    * an action kept out of the way; `tonal`, for one that belongs to the
    * content (Train here's Mark known); `danger`, outlined in the error
-   * tone, for one that takes away (Revoke).
+   * tone, for one that takes away (Revoke); `dangerRow`, error-tone text
+   * as a full row on a phone and fitted to its label from sm (Unlink).
    */
   readonly look?: keyof typeof FIRST_BUTTON;
   /**
@@ -56,6 +58,7 @@ const FIRST_BUTTON = {
   quiet: QUIET_BUTTON,
   tonal: TONAL_BUTTON,
   danger: DANGER_OUTLINE_BUTTON,
+  dangerRow: DANGER_ROW_FITTED,
 };
 
 /**

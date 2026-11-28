@@ -20,7 +20,12 @@ const show = (at: string) => {
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ShellProvider
-        value={{ accountId: 'a1', displayName: 'Rokas', theme: 'system' }}
+        value={{
+          accountId: 'a1',
+          displayName: 'Rokas',
+          email: 'rokas@example.test',
+          theme: 'system',
+        }}
       >
         <TopBar isCoach={false} due={0} />
       </ShellProvider>

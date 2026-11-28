@@ -8,7 +8,8 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
-import { MyCoaches, type MyCoach } from './my-coaches';
+import type { MyCoach } from '../../server/settings-page';
+import { MyCoaches } from './my-coaches';
 
 const server = vi.hoisted(() => ({
   unlink: vi.fn<(form: FormData) => Promise<void>>(),
@@ -22,6 +23,20 @@ vi.mock('./coaching-actions', () => ({
 
 const m = MESSAGES.settings.myCoaches;
 
+const TODAY = '2026-11-28';
+
+/** A status on time, not paused, not done, unless said. */
+const status = (
+  over: Partial<MyCoach['assignments'][number]['status']> = {},
+) => ({
+  deadline: null,
+  overdue: false,
+  paused: false,
+  done: false,
+  forked: false,
+  ...over,
+});
+
 const JONAS: MyCoach = {
   id: 'c-1',
   displayName: 'Jonas',
@@ -29,16 +44,39 @@ const JONAS: MyCoach = {
     { id: 'g-1', name: 'Sekmadienio grupė' },
     { id: 'g-2', name: 'Šeštadienio grupė' },
   ],
+  assignments: [
+    {
+      repertoireId: 'r-1',
+      name: 'Caro-Kann basics',
+      status: status({ deadline: '2026-12-20' }),
+    },
+    {
+      repertoireId: 'r-2',
+      name: 'Najdorf',
+      status: status({ deadline: '2026-11-20', overdue: true, paused: true }),
+    },
+    { repertoireId: 'r-3', name: 'London', status: status({ done: true }) },
+    { repertoireId: 'r-4', name: 'Alapin', status: status() },
+  ],
 };
-const ONA: MyCoach = { id: 'c-2', displayName: 'Ona', groups: [] };
+const ONA: MyCoach = {
+  id: 'c-2',
+  displayName: 'Ona',
+  groups: [],
+  assignments: [],
+};
 
 const leave = (group: string): string =>
   m.leaveGroupNamed.replace('{group}', group);
 
 function renderCoaches(coaches: readonly MyCoach[]): void {
   render(
-    <NextIntlClientProvider locale="en" messages={MESSAGES}>
-      <MyCoaches coaches={coaches} />
+    <NextIntlClientProvider
+      locale="en"
+      messages={MESSAGES}
+      timeZone="Europe/Vilnius"
+    >
+      <MyCoaches coaches={coaches} today={TODAY} />
     </NextIntlClientProvider>,
   );
 }
@@ -73,10 +111,50 @@ describe('MyCoaches ("My coaches")', () => {
     expect(section.id).toBe('coaches');
   });
 
-  it('says when no coach is linked', () => {
+  it('says when no coach is linked, and how one links (R-237)', () => {
     renderCoaches([]);
-    expect(screen.getByText(m.empty)).toBeDefined();
+    expect(
+      screen.getByText(
+        'No coach yet. A coach links with you by sending an invite link.',
+      ),
+    ).toBeDefined();
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it("lists each of a coach's assignments with its status line (R-237)", () => {
+    renderCoaches([JONAS]);
+    const jonas = coachItem('Jonas');
+    const assigned = jonas.getByRole('list', { name: m.assigned });
+    expect(
+      within(assigned)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      'Caro-Kann basicsdeadline Dec 20',
+      'Najdorfdeadline Nov 20OverduePaused',
+      // Done with no deadline: the shared line says only Done.
+      'LondonDone',
+      'AlapinNo deadline',
+    ]);
+  });
+
+  it('lists no assignments for a coach who assigns none', () => {
+    renderCoaches([ONA]);
+    expect(
+      coachItem('Ona').queryByRole('list', { name: m.assigned }),
+    ).toBeNull();
+  });
+
+  it('draws Unlink and Leave group in the error tone', () => {
+    renderCoaches([JONAS]);
+    const jonas = coachItem('Jonas');
+    // The error tone is the behaviour: they take something away.
+    expect(jonas.getByRole('button', { name: m.unlink }).className).toContain(
+      'text-error',
+    );
+    expect(
+      jonas.getByRole('button', { name: leave('Sekmadienio grupė') }).className,
+    ).toContain('text-error');
   });
 
   it('lists each coach with the groups the player is in', () => {

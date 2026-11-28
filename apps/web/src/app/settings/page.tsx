@@ -1,34 +1,54 @@
-import { playerCoaches, trainingSettings } from '@mychess/db';
+import { trainingSettings } from '@mychess/db';
 import {
   deletableAccount,
   isCoach,
   type DeletableAccount,
 } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import type { JSX } from 'react';
-import { ROUTES } from '../../lib/routes';
+import type { JSX, ReactNode } from 'react';
+import { settingsFrom, settingsParent } from '../../lib/routes';
 import { getDb } from '../../server/db';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
 import { linkedProviders } from '../../server/provider-links';
 import { hasFreshSession, requireOnboarded } from '../../server/session';
+import { myCoachesData } from '../../server/settings-page';
+import { SECONDARY_BUTTON } from '../buttons';
 import { DeleteAccountControl } from '../delete-account-control';
 import { EXPORT_PATH, ExportNotFresh } from '../delete-account-form';
+import { PageHeader } from '../shell/page-header';
 import { CoachMode } from './coach-mode';
 import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
 import { MyCoaches } from './my-coaches';
 import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
+import { SECTION_TITLE, SETTINGS_CARD, SETTINGS_COLUMN } from './styles';
 import { TrainingForm } from './training-form';
-import { SECONDARY_BUTTON } from '../buttons';
-import { PageHeader } from '../shell/page-header';
-import { CONTENT } from '../surfaces';
-import { SECTION, SECTION_TITLE } from './styles';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
+
+/** Account: the display name, then the sign-in methods, in one card. */
+function AccountSection({
+  displayName,
+  children,
+}: {
+  readonly displayName: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const t = useTranslations('settings.account');
+  return (
+    <section aria-labelledby="settings-account" className={SETTINGS_CARD}>
+      <h2 id="settings-account" className={SECTION_TITLE}>
+        {t('title')}
+      </h2>
+      <ProfileForm displayName={displayName} />
+      <div className="border-t border-border pt-4">{children}</div>
+    </section>
+  );
+}
 
 /**
  * Your data: the export, a plain download link (R-40), or, for a session
@@ -44,7 +64,7 @@ function DataSection({
 }): JSX.Element {
   const t = useTranslations('settings.export');
   return (
-    <section aria-labelledby="settings-export" className={SECTION}>
+    <section aria-labelledby="settings-export" className={SETTINGS_CARD}>
       <h2 id="settings-export" className={SECTION_TITLE}>
         {t('title')}
       </h2>
@@ -63,11 +83,15 @@ function DataSection({
   );
 }
 
-function Header(): JSX.Element {
+/** "Settings", back to the tab the account menu opened it from (`?from=`). */
+function Header({ from }: { readonly from: unknown }): JSX.Element {
   const t = useTranslations();
   return (
     <PageHeader
-      back={{ href: ROUTES.home, parent: t('nav.today') }}
+      back={{
+        href: settingsParent(from),
+        parent: t(`nav.${settingsFrom(from)}`),
+      }}
       title={t('settings.title')}
     />
   );
@@ -75,7 +99,8 @@ function Header(): JSX.Element {
 
 // Signed-out visitors go to sign-in, new accounts to onboarding first;
 // a failed provider link comes back here with `?error=`. Settings says
-// why Lichess is gone when proving the email ended its link (R-90).
+// why Lichess is gone when proving the email ended its link (R-90). One
+// page of soft cards, most used first (#381 part 6).
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -86,29 +111,24 @@ export default async function SettingsPage({
   const lichessUnlinked = await showLichessUnlinked(account.id, links);
   const params = await searchParams;
   const fresh = await hasFreshSession();
-  const coaches = await playerCoaches(getDb(), account.id);
+  const myCoaches = await myCoachesData(account.id, new Date());
   const training = await trainingSettings(getDb(), account.id);
   return (
-    <main className={`${CONTENT} gap-8`}>
-      <Header />
-      <ProfileForm displayName={account.displayName} />
+    <main className={SETTINGS_COLUMN}>
+      <Header from={first(params['from'])} />
       <TrainingForm settings={training} />
+      <MyCoaches coaches={myCoaches.coaches} today={myCoaches.today} />
+      <AccountSection displayName={account.displayName}>
+        <Providers
+          links={links}
+          googleEnabled={googleConfigured(readWebEnv())}
+          email={account.email}
+          error={first(params['error'])}
+        >
+          {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
+        </Providers>
+      </AccountSection>
       <CoachMode isCoach={isCoach(account)} />
-      <MyCoaches
-        coaches={coaches.map(({ id, displayName, groups }) => ({
-          id,
-          displayName,
-          groups,
-        }))}
-      />
-      <Providers
-        links={links}
-        googleEnabled={googleConfigured(readWebEnv())}
-        email={account.email}
-        error={first(params['error'])}
-      >
-        {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
-      </Providers>
       <DataSection account={deletableAccount(account)} fresh={fresh} />
     </main>
   );

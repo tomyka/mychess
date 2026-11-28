@@ -1,3 +1,4 @@
+import type { PlayerAssignment } from '@mychess/db';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
@@ -21,6 +22,8 @@ const server = vi.hoisted(() => {
       groups: { id: string; name: string }[];
     }[];
     coachesOf: string[];
+    assignments: PlayerAssignment[];
+    assignmentsOf: string[];
     trainingOf: string[];
   } = {
     google: { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' },
@@ -30,6 +33,8 @@ const server = vi.hoisted(() => {
     coachSince: null,
     coaches: [],
     coachesOf: [],
+    assignments: [],
+    assignmentsOf: [],
     trainingOf: [],
   };
   return state;
@@ -103,6 +108,11 @@ vi.mock('@mychess/db', async (original) => ({
     server.coachesOf.push(playerId);
     return Promise.resolve(server.coaches);
   },
+  // The player's live assignments, as the repository lists them (R-237).
+  playerAssignments: (_db: unknown, playerId: string) => {
+    server.assignmentsOf.push(playerId);
+    return Promise.resolve(server.assignments);
+  },
   // The account's training limits, as the repository reads them.
   trainingSettings: (_db: unknown, playerId: string) => {
     server.trainingOf.push(playerId);
@@ -160,11 +170,13 @@ beforeEach(() => {
   server.coachSince = null;
   server.coaches = [];
   server.coachesOf = [];
+  server.assignments = [];
+  server.assignmentsOf = [];
   server.trainingOf = [];
 });
 
 describe('the settings page', () => {
-  it('has the profile, training, Coach mode, coaches, sign-in methods, data and delete sections, and a way back to Today', async () => {
+  it('has its cards most used first: Training, My coaches, Account, Coach mode, Your data (#381 part 6)', async () => {
     await renderPage();
     expect(
       screen.getByRole('heading', { level: 1, name: s.title }),
@@ -174,25 +186,62 @@ describe('the settings page', () => {
         .getAllByRole('heading', { level: 2 })
         .map((heading) => heading.textContent),
     ).toEqual([
-      s.profile.title,
       MESSAGES.training.settings.title,
-      s.coachMode.title,
       s.myCoaches.title,
-      s.providers.title,
+      s.account.title,
+      s.coachMode.title,
       s.export.title,
     ]);
+  });
+
+  it('holds the display name and the sign-in methods in Account', async () => {
+    await renderPage();
+    const account = screen.getByRole('region', { name: s.account.title });
     expect(
-      screen.getByRole('link', { name: 'Back to Today' }).getAttribute('href'),
-    ).toBe('/');
+      within(account).getByLabelText<HTMLInputElement>(s.profile.displayName)
+        .value,
+    ).toBe('Rūta Jonaitė');
     expect(
-      screen
+      within(account).getByRole('heading', {
+        level: 3,
+        name: s.providers.title,
+      }),
+    ).toBeDefined();
+  });
+
+  it('holds Download my data and Delete account… in Your data', async () => {
+    await renderPage();
+    const data = screen.getByRole('region', { name: s.export.title });
+    expect(
+      within(data)
         .getByRole('link', { name: s.export.download })
         .getAttribute('href'),
     ).toBe('/api/account/export');
     expect(
-      screen.getByLabelText<HTMLInputElement>(s.profile.displayName).value,
-    ).toBe('Rūta Jonaitė');
+      within(data).getByRole('button', { name: s.delete.open }),
+    ).toBeDefined();
   });
+
+  it('has no primary button: every Save is secondary', async () => {
+    await renderPage();
+    for (const button of screen.getAllByRole('button'))
+      expect(button.className.split(' ')).not.toContain('bg-accent');
+  });
+
+  it.each([
+    ['coach', 'Back to Coach', '/coach'],
+    ['opponents', 'Back to Opponents', '/fide'],
+    [undefined, 'Back to Today', '/'],
+    ['https://evil.example', 'Back to Today', '/'],
+  ])(
+    'goes back to the tab it was opened from (from=%s)',
+    async (from, name, href) => {
+      await renderPage(from === undefined ? {} : { from });
+      expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(
+        href,
+      );
+    },
+  );
 
   it("shows the session account's training settings (R-62, R-146, R-205)", async () => {
     await renderPage();
@@ -299,26 +348,25 @@ describe('the settings page', () => {
     ).toBeDefined();
   });
 
-  it('shows Coach mode as off for an account that has not switched it on', async () => {
+  it('offers to switch Coach mode on for an account that has not', async () => {
     await renderPage();
     const coachMode = screen.getByRole('region', { name: s.coachMode.title });
-    expect(within(coachMode).getByText(s.coachMode.off)).toBeDefined();
+    expect(within(coachMode).getByText(s.coachMode.intro)).toBeDefined();
     expect(
       within(coachMode).getByRole('button', { name: s.coachMode.switchOn }),
     ).toBeDefined();
   });
 
-  it('shows Coach mode as on for a coach (R-11)', async () => {
+  it('offers to switch Coach mode off for a coach (R-11)', async () => {
     server.coachSince = new Date('2026-10-17T08:00:00Z');
     await renderPage();
     const coachMode = screen.getByRole('region', { name: s.coachMode.title });
-    expect(within(coachMode).getByText(s.coachMode.on)).toBeDefined();
     expect(
       within(coachMode).getByRole('button', { name: s.coachMode.switchOff }),
     ).toBeDefined();
   });
 
-  it('lists the session account’s own coaches with their groups', async () => {
+  it("lists the session account's own coaches with what each assigns and the groups (R-237)", async () => {
     server.coaches = [
       {
         id: 'c-1',
@@ -327,13 +375,31 @@ describe('the settings page', () => {
         groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
       },
     ];
+    server.assignments = [
+      {
+        repertoireId: 'r-1',
+        name: 'Caro-Kann basics',
+        side: 'black',
+        chapters: 1,
+        moves: 12,
+        coachId: 'c-1',
+        coachName: 'Jonas',
+        deadline: null,
+        paused: false,
+        done: false,
+        badges: { overdue: false, paused: false, updated: false },
+      },
+    ];
     await renderPage();
     expect(server.coachesOf).toEqual(['a1']);
+    expect(server.assignmentsOf).toEqual(['a1']);
     const coaches = screen.getByRole('region', { name: s.myCoaches.title });
     expect(coaches.id).toBe('coaches');
     expect(
       within(coaches).getByRole('heading', { level: 3, name: 'Jonas' }),
     ).toBeDefined();
+    expect(within(coaches).getByText('Caro-Kann basics')).toBeDefined();
+    expect(within(coaches).getByText('No deadline')).toBeDefined();
     expect(within(coaches).getByText('Šeštadienio grupė')).toBeDefined();
   });
 

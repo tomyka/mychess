@@ -15,6 +15,7 @@
     "back": "Back to {parent}",
     "account": {
       "open": "Account menu",
+      "close": "Close",
       "settings": "Settings",
       "myCoaches": "My coaches",
       "theme": "Theme",
@@ -54,17 +55,17 @@
   },
   "settings": {
     "title": "Settings",
+    "saved": "Saved",
+    "account": {
+      "title": "Account"
+    },
     "profile": {
-      "title": "Profile",
       "displayName": "Display name",
-      "submit": "Save",
-      "saved": "Saved."
+      "submit": "Save"
     },
     "coachMode": {
       "title": "Coach mode",
       "intro": "With Coach mode on you can invite players and keep them in groups.",
-      "on": "Coach mode is on.",
-      "off": "Coach mode is off.",
       "switchOn": "Switch Coach mode on",
       "switchOff": "Switch Coach mode off",
       "offNote": "Switching Coach mode off revokes your open invites and keeps your groups.",
@@ -857,7 +858,6 @@
       "learnArrowsLabel": "Show arrows when learning new moves",
       "learnArrowsHint": "Off, a new move is asked without its arrow; a wrong move shows it.",
       "submit": "Save",
-      "saved": "Saved.",
       "sessionSize": "Reviews per session must be a whole number from 10 to 100.",
       "newPerDay": "New moves a day must be a whole number from 0 to 50.",
       "learnArrows": "Choose whether to show arrows."
@@ -887,8 +887,8 @@
     "dismiss": "Dismiss"
   },
   "fide": {
-    "title": "Opponent's games",
     "intro": "Enter a player's FIDE ID to list their over-the-board games broadcast on Lichess in the last 12 months.",
+    "emptyState": "A search shows the player's games grouped by the colour they played and by opening, with their score in each, and a link to every game on Lichess.",
     "idLabel": "FIDE ID",
     "idHint": "Digits only, as on the player's FIDE profile.",
     "submit": "Search",

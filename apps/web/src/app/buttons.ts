@@ -55,6 +55,12 @@ export const DANGER_ROW =
   'flex min-h-touch w-full items-center rounded-control px-3 text-start font-medium text-error hover:bg-error-subtle';
 
 /**
+ * The danger row as a full row on a phone and fitted to its label from sm,
+ * for an action at the end of a row (My coaches' Unlink and Leave group).
+ */
+export const DANGER_ROW_FITTED = `${DANGER_ROW} sm:w-auto`;
+
+/**
  * An action that belongs to the content (Today's rows, the drill's Hint and
  * Type): tinted with the accent, not outlined. Unavailable, it fades to
  * half and says so to the pointer (aria-disabled).

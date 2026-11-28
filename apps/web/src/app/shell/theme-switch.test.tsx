@@ -9,7 +9,12 @@ const show = (initial: 'system' | 'light' | 'dark') =>
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES}>
       <ShellProvider
-        value={{ accountId: 'a1', displayName: 'Rokas', theme: initial }}
+        value={{
+          accountId: 'a1',
+          displayName: 'Rokas',
+          email: 'rokas@example.test',
+          theme: initial,
+        }}
       >
         <ThemeSwitch />
       </ShellProvider>
@@ -27,6 +32,27 @@ describe('ThemeSwitch', () => {
     expect(
       screen.getByRole<HTMLInputElement>('radio', { name: 'Dark' }).checked,
     ).toBe(true);
+  });
+
+  it('rings the chosen theme in the accent, and only that one (#381)', () => {
+    show('dark');
+    const ringed = (name: string): boolean =>
+      screen
+        .getByRole('radio', { name })
+        .closest('label')
+        ?.className.split(' ')
+        .includes('ring-accent') ?? false;
+    expect([ringed('System'), ringed('Light'), ringed('Dark')]).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
+    expect([ringed('System'), ringed('Light'), ringed('Dark')]).toEqual([
+      false,
+      true,
+      false,
+    ]);
   });
 
   it('applies a chosen theme to the page and remembers it', () => {

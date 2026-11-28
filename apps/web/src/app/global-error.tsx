@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { LOCALE, MESSAGES } from '../i18n/catalogue';
 import { ErrorView } from './error-view';
+import { inter } from './fonts';
 import './globals.css';
 
 /**
@@ -19,7 +20,7 @@ export default function GlobalError({
   readonly reset: () => void;
 }): JSX.Element {
   return (
-    <html lang={LOCALE}>
+    <html lang={LOCALE} className={inter.variable}>
       <body className="min-h-screen antialiased">
         <NextIntlClientProvider
           locale={LOCALE}

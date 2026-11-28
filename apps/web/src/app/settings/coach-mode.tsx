@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
 import { coachPlayerPath } from '../../lib/routes';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { SECONDARY_BUTTON } from '../buttons';
 import { PendingButton } from '../pending-button';
 import { StatusLine } from '../status-line';
 import {
@@ -13,7 +13,7 @@ import {
   stopCoachingAction,
   type StopCoachingState,
 } from './coaching-actions';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
+import { SECTION_TITLE, SETTINGS_CARD, TEXT_LINK } from './styles';
 
 const INITIAL: StopCoachingState = {};
 
@@ -64,8 +64,9 @@ function SwitchOff(): JSX.Element {
 }
 
 /**
- * The Coach mode switch in settings (R-11, R-13): anyone may switch it on;
- * switching it off is refused while players are linked (R-100).
+ * The Coach mode switch in settings (R-11, R-13): one line saying what it
+ * does, then the switch, whose label says the state. Anyone may switch it
+ * on; switching it off is refused while players are linked (R-100).
  */
 export function CoachMode({
   isCoach,
@@ -75,17 +76,16 @@ export function CoachMode({
   const t = useTranslations('settings.coachMode');
   const titleId = useId();
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
+    <section aria-labelledby={titleId} className={SETTINGS_CARD}>
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('title')}
       </h2>
       <p className="text-fg-muted">{t('intro')}</p>
-      <p className="font-medium">{isCoach ? t('on') : t('off')}</p>
       {isCoach ? (
         <SwitchOff />
       ) : (
         <form action={startCoachingAction}>
-          <PendingButton className={PRIMARY_BUTTON}>
+          <PendingButton className={SECONDARY_BUTTON}>
             {t('switchOn')}
           </PendingButton>
         </form>

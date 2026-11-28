@@ -17,6 +17,15 @@ const LABEL = {
   dark: 'themeDark',
 } as const;
 
+const OPTION =
+  'flex min-h-touch flex-1 cursor-pointer items-center justify-center rounded-control px-2 text-sm has-focus-visible:ring-2 has-focus-visible:ring-focus';
+
+/**
+ * The chosen theme: the accent-subtle fill with an accent ring, as the
+ * radio cards have it, so it reads in dark too (#381 part 6, finding 13).
+ */
+const CHOSEN = 'bg-accent-subtle font-semibold text-accent ring-2 ring-accent';
+
 /** Applies a theme now and keeps it for the next visit (lead decision 4). */
 function apply(theme: Theme): void {
   const attribute = themeAttribute(theme);
@@ -40,7 +49,7 @@ export function ThemeSwitch(): JSX.Element | null {
         {THEMES.map((value) => (
           <label
             key={value}
-            className="flex min-h-touch flex-1 cursor-pointer items-center justify-center rounded-control px-2 text-sm has-checked:bg-accent-subtle has-checked:font-semibold has-checked:text-accent has-focus-visible:ring-2 has-focus-visible:ring-focus"
+            className={`${OPTION} ${theme === value ? CHOSEN : ''}`}
           >
             <input
               type="radio"

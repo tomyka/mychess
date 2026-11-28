@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/catalogue';
@@ -23,9 +29,21 @@ function renderForm(): void {
 }
 
 const nameField = () => screen.getByLabelText<HTMLInputElement>(p.displayName);
-const status = () => screen.getByRole('status');
+const saveButton = () => screen.getByRole('button', { name: p.submit });
+/** The line a refusal shows in, above the form: not the note beside Save. */
+const status = (): HTMLElement => {
+  const row = saveButton().parentElement;
+  const [line] = screen
+    .getAllByRole('status')
+    .filter((element) => row?.contains(element) !== true);
+  if (line === undefined) throw new Error('no refusal line');
+  return line;
+};
+/** The "Saved" note beside Save. */
+const saved = () =>
+  within(saveButton().parentElement ?? document.body).getByRole('status');
 const save = () => {
-  fireEvent.click(screen.getByRole('button', { name: p.submit }));
+  fireEvent.click(saveButton());
 };
 
 function submitted(): Record<string, FormDataEntryValue> {
@@ -39,22 +57,26 @@ beforeEach(() => {
 });
 
 describe('ProfileForm', () => {
-  it('shows the current name', () => {
+  it('shows the current name, as a block of the Account card (no heading of its own)', () => {
     renderForm();
-    expect(
-      screen.getByRole('heading', { level: 2, name: p.title }),
-    ).toBeDefined();
+    expect(screen.queryByRole('heading')).toBeNull();
     expect(nameField().value).toBe('Rūta Jonaitė');
     expect(screen.queryByRole('radio')).toBeNull();
-    expect(status().textContent).toBe('');
+    expect(saved().textContent).toBe('');
   });
 
-  it('sends the changed name, then says it saved', async () => {
+  it('saves with a secondary button, the only kind on the page (#381 part 6)', () => {
+    renderForm();
+    expect(saveButton().className).toContain('border-border-strong');
+    expect(saveButton().className).not.toContain('bg-accent');
+  });
+
+  it('sends the changed name, then says Saved beside Save', async () => {
     renderForm();
     fireEvent.change(nameField(), { target: { value: 'Rūta' } });
     save();
     await waitFor(() => {
-      expect(status().textContent).toBe(p.saved);
+      expect(saved().textContent).toBe('Saved');
     });
     expect(submitted()).toEqual({ displayName: 'Rūta' });
     expect(server.action).toHaveBeenCalledTimes(1);
@@ -70,6 +92,7 @@ describe('ProfileForm', () => {
       expect(status().textContent).toBe(MESSAGES.displayName.blank);
     });
     expect(nameField().value).toBe('  ');
+    expect(saved().textContent).toBe('');
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
     expect(nameField().getAttribute('aria-describedby')).toBe(status().id);
   });
