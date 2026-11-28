@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   COMPACT_TONAL,
   DANGER_OUTLINE_BUTTON,
+  DANGER_ROW,
+  DANGER_ROW_FITTED,
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
   TONAL_BUTTON,
@@ -10,6 +12,17 @@ import {
 const classes = (button: string): readonly string[] => button.split(' ');
 
 describe('button classes', () => {
+  it('pulls a danger row out by its padding, so its text lines up with the card’s headings (#381)', () => {
+    for (const row of [DANGER_ROW, DANGER_ROW_FITTED])
+      expect(classes(row)).toEqual(
+        expect.arrayContaining(['-mx-3', 'px-3', 'w-[calc(100%+1.5rem)]']),
+      );
+    // Fitted from sm, at a row's end: still pulled out, so its text ends
+    // at the content edge.
+    expect(classes(DANGER_ROW_FITTED)).toContain('sm:w-auto');
+    expect(classes(DANGER_ROW)).not.toContain('w-full');
+  });
+
   it('mutes a disabled primary button: sunken, muted text, not faded', () => {
     expect(classes(PRIMARY_BUTTON)).toEqual(
       expect.arrayContaining([

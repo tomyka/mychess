@@ -148,7 +148,7 @@ describe('DeleteAccountControl (#381 part 6)', () => {
   // quiet link under welcome's card.
   it('is an error-tone full row in Settings', () => {
     const row = renderControl('row').className.split(' ');
-    expect(row).toEqual(expect.arrayContaining(['w-full', 'text-error']));
+    expect(row).toEqual(expect.arrayContaining(['-mx-3', 'text-error']));
   });
 
   it('is a quiet underlined link under welcome', () => {

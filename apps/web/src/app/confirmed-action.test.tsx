@@ -121,7 +121,7 @@ describe('ConfirmedAction', () => {
       />,
     );
     expect(button(LABELS.label).className.split(' ')).toEqual(
-      expect.arrayContaining(['text-error', 'w-full', 'sm:w-auto']),
+      expect.arrayContaining(['text-error', '-mx-3', 'sm:w-auto']),
     );
   });
 

@@ -285,3 +285,63 @@ scrimmed page (see Contrast; a `border-t border-card-edge` on `Sheet` in
 takes four lines at 390 on its progress page; the Change panel's
 date label reads "Dec 20, 2026" (the app's `MEDIUM_DATE`) beside the
 native field, which follows the browser's locale.
+
+### Secondary screens (#381 part 6), 2026-11-28
+
+Dev server on bcd755c4 with `FIDE_DUMP_FIXTURE_DIR` (the E2E broadcast
+fixture), persona seeds (Gabija with two coaches, the coach Rimantas) and
+three throwaway accounts (deleted afterwards); 390x844, 375x667, 1280x800
+and 1440x900, light and dark, plus 640x400 (1280 at 200%). Spec
+`docs/superpowers/specs/2026-11-28-secondary-screens-design.md`.
+
+**Signed off.** All 32 findings in scope pass (17 and 31 are out of scope
+or kept). Fixes 1 to 3 below were found at sign-off, applied, and
+rechecked the same day.
+
+Measured: Settings 2,206px tall on a phone and 2,118 on desktop (2,530
+before), My coaches heading at y = 611 at 390 (1,116 before), Training Save
+at y = 509 at 390x844, above the tab bar; one secondary Save per card, 72px
+wide, "Saved" beside it; desktop text field 360px, number fields 128px;
+Unlink and Leave group in the error tone (#B3261E light, #FF8A80 dark),
+right-aligned on desktop, full rows on a phone; `#coaches` reached from the
+account menu lands 16px under the top bar (72 at 1280, bar 56). The back
+link follows `?from=` (Today, Repertoires, Opponents, Coach). The Opponents
+field error sits 8px under the field (y = 296 under 244 + 44 at 390). The
+welcome card does not move when the delete sheet opens (h1 at 107 / 227 /
+245 before and after). Two open invites read 15:08 and 15:09, and only one
+Revoke confirmation is ever open. The linked notice's Dismiss is 93x44. No
+sideways scroll at 200%. Focus is visible on every control (2px outline);
+the delete dialog keeps focus inside and gives it back to "Delete account…"
+on Escape.
+
+Fixes (component code, `web-dev`), applied and rechecked at 390 and 1280,
+light and dark:
+
+1. **Opponents results, the Drew label** had no fill, where Won and Lost are
+   tinted pills. Now the neutral pill (`bg-sunken`, `text-fg-muted`). It
+   reads in dark as a darker well: fill against the card 1.15:1 (Won 1.19,
+   Lost 1.06), text 7.66:1; light: fill 1.18:1 (Won 1.16), text 5.34:1.
+2. **Quiet full-row actions** (Unlink and Leave group on a phone, "Delete
+   account…" at every width) started their text 12px in from the card's
+   content edge. Now pulled out by their padding (`-mx-3`, width
+   `calc(100% + 1.5rem)`; the right-aligned desktop variant ends at the
+   content edge): text at x = 33 at 390, as the headings, with a 44px tall
+   hit area from 21 to 369; at 1280 "Delete account…" starts at 377, as the
+   headings, and Unlink and Leave group end at 903, the content edge, as
+   Connect Lichess does. No sideways scroll.
+3. **Loading skeletons** (read from code; the dev server does not show
+   them): Settings drew four blocks of 192/160/128/128px for five cards of
+   about 470/varies/400/170/220px, Opponents one 144px card for an uncarded
+   form and a 100px empty-state card. Now five Settings blocks (about
+   `h-[29rem]`, `h-40`, `h-96`, `h-44`, `h-56`) and, on Opponents, a
+   field-sized block and an `h-24` card; checked against the change
+   summary, not on screen.
+
+Not failing, noted: reloading `/settings#coaches` scrolls to the section
+only some of the time on desktop (the streamed page arrives after the
+browser's anchor jump; the menu link always works); the phone 404 has no
+top bar, so no account menu (the tabs and Go to Today remain); the delete
+dialog's first focus is the "download your data" link rather than the name
+field; the desktop entry frame sits about 18vh from the top rather than
+centred, so the group invite card reaches the bottom edge at 1280x800
+(Accept stays in view).

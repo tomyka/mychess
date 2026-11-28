@@ -330,7 +330,10 @@ describe('a search result', () => {
     const [drawn, unfinished, lost] = screen
       .getAllByRole('listitem')
       .map((li) => within(li));
-    expect(drawn?.getByText(en.draw)).toBeDefined();
+    // A draw is a neutral pill, filled as Won and Lost are tinted (#381).
+    expect(drawn?.getByText(en.draw).className.split(' ')).toEqual(
+      expect.arrayContaining(['rounded-pill', 'bg-sunken', 'text-fg-muted']),
+    );
     expect(
       drawn?.getByText(`${en.dateUnknown} · Synthetic Open 2026`),
     ).toBeDefined();

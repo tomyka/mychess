@@ -55,12 +55,13 @@ const DATE_FORMAT = {
 } as const;
 
 /**
- * A game's result. The neutral ones are outlined (border-strong, 3:1): a
- * sunken fill all but vanished on the dark theme's card (#347).
+ * A game's result. A draw is a neutral pill, filled as Won and Lost are
+ * tinted (ux-designer, #381 part 6 sign-off). An unknown result stays
+ * outlined and dashed: it is not a result.
  */
 const OUTCOME_BADGE: Record<FoundGame['outcome'], string> = {
   win: `${BADGE} bg-success-subtle text-success`,
-  draw: `${BADGE} border-border-strong text-fg`,
+  draw: `${BADGE} bg-sunken text-fg-muted`,
   loss: `${BADGE} bg-error-subtle text-error`,
   unknown: `${BADGE} border-dashed border-border-strong text-fg-muted`,
 };

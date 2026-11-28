@@ -14,7 +14,8 @@ export default function SettingsLoading(): JSX.Element {
         back={{ href: ROUTES.home, parent: t('nav.today') }}
         title={t('settings.title')}
       />
-      <CardSkeletons sizes={['h-48', 'h-40', 'h-32', 'h-32']} />
+      {/* About each card's height, in the page's order (ux-designer). */}
+      <CardSkeletons sizes={['h-[29rem]', 'h-40', 'h-96', 'h-44', 'h-56']} />
     </main>
   );
 }

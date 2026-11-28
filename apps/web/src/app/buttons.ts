@@ -49,10 +49,12 @@ export const DANGER_OUTLINE_BUTTON = `${FADING_BUTTON} ${UNAVAILABLE} border bor
 
 /**
  * A destructive action as a full-width row of a card (Settings' Delete
- * account…): error-tone text, tinted on hover, a 44px touch target.
+ * account…): error-tone text, tinted on hover, a 44px touch target. The
+ * row is pulled out by its own padding (-mx-3, 1.5rem wider), so its text
+ * lines up with the card's headings and its tint reaches past them.
  */
 export const DANGER_ROW =
-  'flex min-h-touch w-full items-center rounded-control px-3 text-start font-medium text-error hover:bg-error-subtle';
+  'flex min-h-touch -mx-3 w-[calc(100%+1.5rem)] items-center rounded-control px-3 text-start font-medium text-error hover:bg-error-subtle';
 
 /**
  * The danger row as a full row on a phone and fitted to its label from sm,
