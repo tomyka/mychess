@@ -142,6 +142,20 @@ Three to five teammates at a time; each one costs tokens.
   other's hook. The lead names, in each brief, which functions of a shared
   file (a loader, `en.json` keys) each teammate may touch, and teammates
   re-read the file right before every edit.
+- **Before committing a shared file, read its staged diff hunk by hunk
+  (#381 part 6).** A commit by named paths still carries every hunk of a
+  shared file such as `en.json`: 40f753e6 shipped two keys of a task still
+  in progress, and the push waited for that task. If a hunk belongs to
+  unfinished work, commit later or leave the file out.
+- **A server action that changes what the shell shows revalidates the
+  layout** (`revalidatePath(ROUTES.home, 'layout')`), not `refresh()`: in
+  #381 part 6 a new `loading.tsx` under Settings left the Coach tab stale
+  after a prefetched navigation, and only E2E caught it (079a8ba2). Adding
+  a loading boundary under a layout runs the E2E journeys through that
+  route before the commit.
+- **A decision sent while a teammate is mid-report can cross its report**
+  (#381 part 6, twice). The lead restates the decision in one message and
+  checks the next report against it before reviewing.
 - **A loader or read whose shape changes runs the web feature suite**
   (`cd apps/web && npx vitest run --config vitest.feature.config.ts`), not
   only its own unit tests: in #381 part 5 CI found two feature files with
